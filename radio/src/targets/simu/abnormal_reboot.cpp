@@ -25,3 +25,27 @@ uint32_t abnormalRebootGetCause()
 {
   return ARC_None;
 }
+
+void abnormalRebootRequestDfu()
+{
+  // The simulator has no bootloader to hand the request to.
+}
+
+void abnormalRebootRequestRomDfu()
+{
+  // The simulator has no ROM bootloader to hand the request to.
+}
+
+void abnormalRebootEnterRomDfu()
+{
+  // The simulator has no ROM bootloader to hand the request to.
+}
+
+void abnormalRebootRequestResume()
+{
+}
+
+bool abnormalRebootTakeResumeRequest()
+{
+  return false;
+}

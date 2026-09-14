@@ -1,6 +1,12 @@
 
-/* Highest address of the user mode stack */
-STACK_ADDRESS = 0x10010000; /* end of 64K CCM */
+/* Highest address of the user mode stack.
+ *
+ * Kept 16 bytes below the end of CCM so it cannot reach .reboot_buffer, which
+ * common_sections.ld places in the last word of REGION_DATA. With the stack
+ * starting at the very end of the region, the first push after a reset landed
+ * on that word and destroyed any reboot command before the bootloader could
+ * read it. */
+STACK_ADDRESS = 0x1000FFF0; /* end of 64K CCM, less the reboot buffer */
 
 /* Required amount of stack for interrupt stack (Main stack) */
 MAIN_STACK_SIZE = 8192;

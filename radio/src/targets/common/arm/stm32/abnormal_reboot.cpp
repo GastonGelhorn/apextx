@@ -77,6 +77,90 @@ void abnormalRebootRequestSoftReset()
   _reboot_cmd = _SOFTRESET_REQUEST;
 }
 
+void abnormalRebootRequestDfu()
+{
+  _reboot_cmd = REBOOT_CMD_DFU;
+}
+
+void abnormalRebootRequestRomDfu()
+{
+  _reboot_cmd = REBOOT_CMD_ROM_DFU;
+}
+
+void abnormalRebootRequestResume()
+{
+  _reboot_cmd = REBOOT_CMD_RESUME;
+}
+
+bool abnormalRebootTakeResumeRequest()
+{
+  if (_reboot_cmd != REBOOT_CMD_RESUME) return false;
+  _reboot_cmd = 0;
+  return true;
+}
+
+// System memory base of the STM32F4 ROM bootloader (AN2606).
+#define _ROM_DFU_BASE 0x1FFF0000u
+
+void abnormalRebootEnterRomDfu()
+{
+  // The request must not survive into the ROM, or leaving DFU would come
+  // straight back here instead of starting the firmware.
+  _reboot_cmd = 0;
+
+  __disable_irq();
+
+  SysTick->CTRL = 0;
+  SysTick->LOAD = 0;
+  SysTick->VAL = 0;
+
+  for (unsigned i = 0; i < 8; i += 1) {
+    NVIC->ICER[i] = 0xFFFFFFFFu;
+    NVIC->ICPR[i] = 0xFFFFFFFFu;
+  }
+
+  // Return the clock tree to its reset state. Entering the ROM through BOOT0
+  // gives it pristine clocks, and its USB setup depends on that: jumping in
+  // with the application PLL still running leaves the ROM unable to enumerate
+  // as a DFU device. GPIO is deliberately left alone, because resetting it
+  // would open the power latch.
+  RCC->CR |= RCC_CR_HSION;
+  while (!(RCC->CR & RCC_CR_HSIRDY)) {
+  }
+  RCC->CFGR = 0;
+  while (RCC->CFGR & RCC_CFGR_SWS) {
+  }
+  RCC->CR &= ~(RCC_CR_HSEON | RCC_CR_HSEBYP | RCC_CR_CSSON | RCC_CR_PLLON |
+               RCC_CR_PLLI2SON);
+  RCC->PLLCFGR = 0x24003010;  // reset value
+  RCC->CIR = 0;
+
+  // Map system memory at zero so the ROM finds its own vector table.
+  RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+  SYSCFG->MEMRMP = 0x01;
+  __DSB();
+  __ISB();
+
+  // The ROM is written to run from reset, and a reset leaves VTOR at zero and
+  // interrupts enabled. Neither holds after the jump unless done here: VTOR
+  // still names this bootloader's table, so any ROM interrupt would land in
+  // bootloader code, and PRIMASK is still set from above, so the ROM's USB
+  // interrupt would never fire. Both leave the ROM running but unable to
+  // enumerate. Nothing can fire in the window before the jump because every
+  // NVIC line was disabled and cleared above.
+  SCB->VTOR = _ROM_DFU_BASE;
+  __set_CONTROL(0);
+  __ISB();
+
+  const uint32_t* vectors = (const uint32_t*)_ROM_DFU_BASE;
+  __set_MSP(vectors[0]);
+  __enable_irq();
+  ((void (*)(void))vectors[1])();
+
+  while (true) {
+  }
+}
+
 
 uint32_t abnormalRebootGetCause()
 {
