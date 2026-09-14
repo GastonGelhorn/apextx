@@ -288,7 +288,7 @@ class Discovery(unittest.TestCase):
 class Reporting(unittest.TestCase):
     """What the user is told when the update does not go to plan."""
 
-    def drive(self, states, fail_at=None, mismatch=None, selections=None):
+    def drive(self, states, fail_at=None, mismatch=None, selections=None, finder=None):
         package = image_format.update_package(fixture())
         size, crc = struct.unpack_from('<II', package, 16)
         reports = []
@@ -313,7 +313,8 @@ class Reporting(unittest.TestCase):
                 if fail_at == 'restart' and command == b'APXRESET':
                     raise RuntimeError('[Errno 19] No such device')
             def close(self): pass
-        finder = iter(selections if selections is not None else [object(), None])
+        queued = iter(selections if selections is not None else [object(), None])
+        look = finder if finder else (lambda _: next(queued))
         clock = [0.0]
         def monotonic():
             clock[0] += 2.0  # Expire the real waits in a handful of iterations.
@@ -321,7 +322,7 @@ class Reporting(unittest.TestCase):
         with patch.object(usb_update.time, 'sleep', lambda _: None), \
                 patch.object(usb_update.time, 'monotonic', monotonic):
             usb_update.run_update(fixture(), lambda message, percent: reports.append((percent, message)),
-                                  transport_factory=Fake, finder=lambda _: next(finder))
+                                  transport_factory=Fake, finder=look)
         return reports
 
     def test_installation_progress_is_reported_while_the_radio_writes(self):
@@ -351,6 +352,19 @@ class Reporting(unittest.TestCase):
             with self.subTest(field), self.assertRaises(usb_update.UpdateError) as caught:
                 self.drive([(1, 0)], mismatch=field)
             self.assertIn('does not match', str(caught.exception))
+
+    def test_a_radio_detaching_after_a_verified_install_is_not_an_error(self):
+        # The radio stops answering descriptor reads while it detaches, which
+        # is what discovery reports as an unreadable device.
+        def finder(_):
+            if finder.calls:
+                raise usb_update.UpdateError('A USB device was found but could not be read.')
+            finder.calls = 1
+            return (object(),)
+        finder.calls = 0
+        reports = self.drive([(3, 100)], selections=None, finder=finder)
+        self.assertEqual(reports[-1][0], 100)
+        self.assertNotIn('could not be read', reports[-1][1])
 
     def test_a_radio_that_stays_in_update_mode_is_not_reported_as_a_failure(self):
         class Util:

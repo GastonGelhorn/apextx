@@ -242,7 +242,14 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
         transport.close()
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
-        selection = finder(serial)
+        try:
+            selection = finder(serial)
+        except UpdateError:
+            # The radio is detaching, and a device being torn down stops
+            # answering descriptor reads. A radio still sitting in update mode
+            # answers them, as it did throughout the transfer, so a read that
+            # fails here means it left rather than that anything is wrong.
+            selection = None
         if selection is None:
             progress('Firmware verified. Confirm that the radio has returned to the home screen.', 100)
             return
