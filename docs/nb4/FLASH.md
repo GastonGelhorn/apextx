@@ -122,7 +122,7 @@ until the screen and LEDs are off.
 
 ## 3. Enter STM32 ROM DFU and identify the radio
 
-With the radio off, hold the hidden left grip button while turning the radio on.
+With the radio off, hold the recessed left grip button while turning the radio on.
 Keep it held while connecting USB and checking for the STM32 DFU device from the
 terminal; release it once the device appears:
 
@@ -360,8 +360,8 @@ compatible recovery image or SPI programmer. STM32 ROM DFU and
 `tools/nb4-flash.sh` cannot write that SPI NOR.
 
 Do not write saved option bytes as a routine rollback step. Never try to write
-OTP; it is one-time-programmable memory. Those captures are diagnostic evidence
-for a targeted hardware recovery.
+OTP; it is one-time-programmable memory. Those backups exist only for a
+targeted hardware recovery.
 
 ### Storage does not mount
 

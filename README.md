@@ -75,10 +75,9 @@ Read this before flashing anything:
   installation is recovered through the STM32 ROM DFU, which means opening the
   case to reach an internal button. Back up the original contents first, as
   [FLASH.md](docs/nb4/FLASH.md) describes.
-- **The AFHDS3 route was worked out experimentally.** FlySky publishes no
-  specification for the NB4's internal module, so the port, pins, timing and
-  framing were determined by testing. It works on the radios it has been tried
-  on. It has not been through any formal qualification.
+- **The RF setup carries no vendor qualification.** The AFHDS3 settings this
+  firmware uses are not covered by any FlySky specification or approval. They
+  work on the radios ApexTX has run on, and that is the extent of the claim.
 - **Nobody certifies the release binaries.** The archives attached to a release
   are built by GitHub Actions from the tagged source and nothing more. There is
   a hardware checklist in the documentation, but no automated step enforces it,

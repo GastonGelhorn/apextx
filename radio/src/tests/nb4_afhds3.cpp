@@ -309,9 +309,9 @@ class Nb4Afhds3Bind : public ::testing::Test {
 TEST_F(Nb4Afhds3Bind, ReceiverHomeUsesBuiltInSensorInstancesWithoutDiscovery) {
   bindCommit(); learned();
   allowNewSensors = false;
-  // This is the record layout captured from a bound NB4 and AFHDS3 receiver.
-  // Supply is centivolts; quality is a percentage. RSSI and noise are separate
-  // quarter-dB values with their sign reversed on the wire.
+  // The telemetry record this firmware parses: supply in centivolts, quality
+  // as a percentage, and RSSI and noise as separate quarter-dB values whose
+  // sign is inverted on the wire.
   receive(TELEMETRY_DATA, {0x22, 5, 0, 0x80, 0x5c, 3, 4, 0xfe, 0x81, 100, 0},
           90, REQUEST_SET_NO_RESP);
   auto home = nb4ReadCarState();

@@ -32,3 +32,6 @@ imgui.ini
 # Storage test output (sdcard_yaml, nb4_compat), created by gtests-radio
 /radio/src/tests/MODELS/
 /radio/src/tests/RADIO/
+
+# Local hardware-checklist notes stay on the machine that recorded them.
+docs/nb4/rf/bench-acceptance-*.json

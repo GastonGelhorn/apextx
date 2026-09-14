@@ -10,26 +10,26 @@ target named by its release.
 | --- | --- | --- | --- |
 | Noble NB4 | `PCB=PL18`, `PCBREV=NB4` | Supported and tested on hardware | Continue release validation on the original NB4 |
 | Noble NB4+ | `PCB=PL18`, `PCBREV=NB4P` | Compiles; experimental port candidate | Factory backups and complete testing on a real NB4+ |
-| Noble NB4 Pro | None | Research only | New board target, hardware map, drivers, and device validation |
-| Noble NB4 Pro+ | None | Research only | New board target, hardware map, drivers, charge-controller handling, and device validation |
+| Noble NB4 Pro | None | Not supported | New board target, hardware map, drivers, and device validation |
+| Noble NB4 Pro+ | None | Not supported | New board target, hardware map, drivers, charge-controller handling, and device validation |
 
 `NB4P` is the EdgeTX target name for the Noble NB4+. Upstream EdgeTX lists the
 radio in its target catalogue and nightly build matrix, and a full release ARM
-build also completes in this repository. This is useful evidence that much of
-the common PL18 and car interface code can be reused, but it is not evidence
-that this fork's generated image is safe to flash.
+build also completes in this repository. That indicates much of the common
+PL18 and car interface code can be reused, but it says nothing about whether
+this fork's generated image is safe to flash.
 
 Never install an NB4 image on an NB4+, Pro, or Pro+, or install one model's
 official updater on another model.
 
-The compile-only NB4+ audit used on 2026-09-13 was:
+The compile-only NB4+ check used on 2026-09-13 was:
 
 ```sh
-cmake -S . -B build/nb4plus-audit \
+cmake -S . -B build/nb4plus-check \
   -DPCB=PL18 -DPCBREV=NB4P -DCMAKE_BUILD_TYPE=Release \
   -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
   -DTRANSLATIONS=EN -DDISABLE_COMPANION=ON
-cmake --build build/nb4plus-audit --target firmware-size -j8
+cmake --build build/nb4plus-check --target firmware-size -j8
 ```
 
 This command is maintained as a build check. Its output is not an installable
