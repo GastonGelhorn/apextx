@@ -195,8 +195,8 @@ class DateTimeWindow : public Window
 #if defined(AUDIO)
 #if defined(RADIO_NB4)
 #if defined(ALL_LANGS)
-static const char* nb4AudioPlaybackTitle_FN() { return nb4Text("Reproducción", "Playback"); }
-static const char* nb4AudioTestTitle_FN() { return nb4Text("Prueba", "Test"); }
+static const char* nb4AudioPlaybackTitle_FN() { return STR_NB4_PLAYBACK; }
+static const char* nb4AudioTestTitle_FN() { return STR_NB4_TEST; }
 #else
 static const char* nb4AudioPlaybackTitle = "Playback";
 static const char* nb4AudioTestTitle = "Test";
@@ -214,15 +214,15 @@ static SetupLineDef soundPageSetupLines[] = {
             SET_DIRTY();
           });
       choice->setTextHandler([](int value) {
-        return std::string(value ? nb4Text("Solo pitidos", "Tones only")
-                                 : nb4Text("Voces y pitidos", "Voice + tones"));
+        return std::string(value ? STR_NB4_TONES_ONLY
+                                 : STR_NB4_VOICE_TONES);
       });
     }
   },
   {
     STR_DEF(nb4AudioTestTitle),
     [](Window* parent, coord_t x, coord_t y) {
-      new TextButton(parent, {x, y, 0, 0}, nb4Text("Probar audio", "Test audio"), []() {
+      new TextButton(parent, {x, y, 0, 0}, STR_NB4_TEST_AUDIO, []() {
         audioQueue.stopAll();
         audioEvent(AU_TELEMETRY_CONNECTED);
         return 0;
@@ -454,7 +454,10 @@ static SetupLineDef alarmsPageSetupLines[] = {
 class BacklightPage : public SubPage
 {
  public:
-  BacklightPage() : SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, STR_BACKLIGHT_LABEL, true)
+  BacklightPage() : BacklightPage(STR_BACKLIGHT_LABEL) {}
+
+  explicit BacklightPage(const char* subtitle) :
+      SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle, true)
   {
     body->setFlexLayout();
 
@@ -812,7 +815,7 @@ static const SetupLineDef pwrAutoOffLineDef = {
 };
 #endif
 
-static SetupLineDef setupLines[] = {
+static SetupLineDef generalSetupLines[] = {
   {
     // Have only one log per day
     STR_DEF(STR_ONE_LOG_PER_DAY),
@@ -840,12 +843,6 @@ static SetupLineDef setupLines[] = {
       new ToggleSwitch(parent, {x, y, 0, 0}, GET_SET_INVERTED(g_eeGeneral.dontPlayHello));
     }
   },
-#if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
-  pwrOffDelayLineDef,
-#endif
-#if defined(PWR_BUTTON_PRESS)
-  pwrAutoOffLineDef,
-#endif
 #if defined(HAPTIC)
   {
     // Power on/off haptic alarm
@@ -957,18 +954,11 @@ static SetupLineDef setupLines[] = {
                 GET_SET_DEFAULT(g_eeGeneral.ppmunit));
     }
   },
-  {
-    // Switches delay
-    STR_DEF(STR_SWITCHES_DELAY),
-    [](Window* parent, coord_t x, coord_t y) {
-      auto edit =
-          new NumberEdit(parent, {x, y, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, 0}, 0, 100,
-                        GET_SET_VALUE_WITH_OFFSET(g_eeGeneral.switchesDelay, 15));
-      edit->setDisplayHandler([](int32_t value) {
-        return formatNumberAsString(value * 10, 0, 0, nullptr, STR_MS);
-      });
-    }
-  },
+};
+
+// Split from the single upstream list so the NB4 menu can open each group
+// on its own page. The generic radio settings page still shows all three.
+static SetupLineDef usbSetupLines[] = {
   {
     // USB mode
     STR_DEF(STR_USBMODE),
@@ -994,6 +984,21 @@ static SetupLineDef setupLines[] = {
     }
   },
 #endif
+};
+
+static SetupLineDef controlsSetupLines[] = {
+  {
+    // Switches delay
+    STR_DEF(STR_SWITCHES_DELAY),
+    [](Window* parent, coord_t x, coord_t y) {
+      auto edit =
+          new NumberEdit(parent, {x, y, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, 0}, 0, 100,
+                        GET_SET_VALUE_WITH_OFFSET(g_eeGeneral.switchesDelay, 15));
+      edit->setDisplayHandler([](int32_t value) {
+        return formatNumberAsString(value * 10, 0, 0, nullptr, STR_MS);
+      });
+    }
+  },
 #if defined(ROTARY_ENCODER_NAVIGATION) && !defined(USE_HATS_AS_KEYS)
   {
     STR_DEF(STR_ROTARY_ENC_MODE),
@@ -1038,6 +1043,9 @@ static SetupLineDef setupLines[] = {
     }
   },
 #endif
+#if !defined(RADIO_NB4_FAMILY)
+  // Stick modes describe two aircraft sticks. The NB4 has a wheel and a
+  // trigger on fixed inputs and never reads this setting.
   {
     // Stick mode
     STR_DEF(STR_MODE),
@@ -1059,6 +1067,7 @@ static SetupLineDef setupLines[] = {
       });
     }
   },
+#endif
 };
 
 #if defined(RADIO_NB4_FAMILY)
@@ -1070,9 +1079,38 @@ static SetupLineDef powerPageSetupLines[] = {
 #if defined(PWR_BUTTON_PRESS)
   pwrAutoOffLineDef,
 #endif
+#if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
+  pwrOffDelayLineDef,
+#endif
+#if defined(PWR_BUTTON_PRESS)
+  pwrAutoOffLineDef,
+#endif
   batteryWarningLineDef,
   inactivityAlarmLineDef,
 };
+
+void openRadioSetupGeneralPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              generalSetupLines, DIM(generalSetupLines));
+}
+
+void openRadioSetupUsbPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              usbSetupLines, DIM(usbSetupLines));
+}
+
+void openRadioSetupControlsPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              controlsSetupLines, DIM(controlsSetupLines));
+}
+
+void openRadioSetupBacklightPage(const char* subtitle)
+{
+  new BacklightPage(subtitle);
+}
 
 void openRadioSetupSoundPage(const char* subtitle)
 {
@@ -1176,5 +1214,7 @@ void RadioSetupPage::build(Window* window)
   y = addKeyLockLine(window, y, SubPage::EDT_X, padding);
 #endif
 
-  SetupLine::showLines(window, y, SubPage::EDT_X, padding, setupLines, DIM(setupLines));
+  y = SetupLine::showLines(window, y, SubPage::EDT_X, padding, generalSetupLines, DIM(generalSetupLines));
+  y = SetupLine::showLines(window, y, SubPage::EDT_X, padding, usbSetupLines, DIM(usbSetupLines));
+  SetupLine::showLines(window, y, SubPage::EDT_X, padding, controlsSetupLines, DIM(controlsSetupLines));
 }

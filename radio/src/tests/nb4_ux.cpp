@@ -1254,10 +1254,10 @@ std::vector<std::string> labelsOfPage(MainWindow* root, QMPage page,
 const char* const* steeringTabs(unsigned* count)
 {
   static const char* tabs[4];
-  tabs[0] = nb4Text("Recorrido", "Travel");
-  tabs[1] = nb4Text("Curva", "Curve");
-  tabs[2] = nb4Text("Centro", "Centre");
-  tabs[3] = nb4Text("Velocidad", "Speed");
+  tabs[0] = STR_NB4_TRAVEL;
+  tabs[1] = STR_NB4_CURVE;
+  tabs[2] = STR_NB4_CENTRE;
+  tabs[3] = STR_NB4_SPEED;
   if (count) *count = 4;
   return tabs;
 }
@@ -1265,10 +1265,10 @@ const char* const* steeringTabs(unsigned* count)
 const char* const* throttleTabs(unsigned* count)
 {
   static const char* tabs[4];
-  tabs[0] = nb4Text("Recorrido", "Travel");
-  tabs[1] = nb4Text("Curva", "Curve");
-  tabs[2] = nb4Text("Freno", "Brake");
-  tabs[3] = nb4Text("Motor", "Engine");
+  tabs[0] = STR_NB4_TRAVEL;
+  tabs[1] = STR_NB4_CURVE;
+  tabs[2] = STR_NB4_BRAKE_30D6;
+  tabs[3] = STR_NB4_ENGINE;
   if (count) *count = 4;
   return tabs;
 }
@@ -1303,7 +1303,7 @@ TEST(Nb4Ux, AxisTabsFillTheRowWithSymmetricPaddingAndUncutLabels)
             if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return;
             if (lv_obj_check_type(o, &lv_label_class)) {
               const char* chartZone = page == QM_MODEL_NB4_STEERING
-                  ? nb4Text("Izquierda", "Left") : nb4Text("Gas", "Throttle");
+                  ? STR_NB4_LEFT : STR_NB4_THROTTLE;
               if (strcmp(lv_label_get_text(o), chartZone) == 0)
                 chartCaption = o;
               for (unsigned i = 0; i < count; ++i)
@@ -1323,7 +1323,7 @@ TEST(Nb4Ux, AxisTabsFillTheRowWithSymmetricPaddingAndUncutLabels)
           EXPECT_LT(chartArea.x2, lv_disp_get_hor_res(nullptr));
           EXPECT_LT(chartArea.y2, lv_disp_get_ver_res(nullptr));
           if (page == QM_MODEL_NB4_STEERING && picked == 0) {
-            auto endpoint = numberEditInRowOf(lv_scr_act(), nb4Text("Izquierda (%)", "Left (%)"));
+            auto endpoint = numberEditInRowOf(lv_scr_act(), (std::string(STR_NB4_LEFT) + " " + STR_NB4_PERCENT_UNIT).c_str());
             ASSERT_NE(endpoint, nullptr);
             lv_area_t controlArea;
             lv_obj_get_coords(endpoint->getLvObj(), &controlArea);
@@ -1445,7 +1445,7 @@ TEST(Nb4Ux, TheExpoEditorWritesAnEncodedNumberAndNotARawNegative)
   auto base = Layer::back();
   QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Curva", "Curve")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_CURVE));
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
 
   NumberEdit* expo = numberEditShowing(lv_scr_act(), "25%");
@@ -1565,7 +1565,7 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
     auto before = Layer::back();
     QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
-    pickTab(lv_scr_act(), nb4Text("Motor", "Engine"));
+    pickTab(lv_scr_act(), STR_NB4_ENGINE);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
     std::vector<std::string> out;
     collectLabels(lv_scr_act(), out);
@@ -1597,7 +1597,7 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
     auto before = Layer::back();
     QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
-    pickTab(lv_scr_act(), nb4Text("Freno", "Brake"));
+    pickTab(lv_scr_act(), STR_NB4_BRAKE_30D6);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
     std::vector<std::string> brake;
     collectLabels(lv_scr_act(), brake);
@@ -1614,7 +1614,7 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
   g_model.nb4Racing.vehicleType = NB4_VEHICLE_UNSET;
 
   const auto racing = labelsOfPage(scene.root, QM_MODEL_NB4_RACING);
-  EXPECT_TRUE(has(racing, nb4Text("Tipo de coche", "Vehicle type")));
+  EXPECT_TRUE(has(racing, STR_NB4_VEHICLE_TYPE));
 
   auto base = Layer::back();
   QuickMenu::openPage(QM_MODEL_NB4_RACING);
@@ -1623,7 +1623,7 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
   std::function<void(lv_obj_t*)> findRow = [&](lv_obj_t* o) {
     if (!row && lv_obj_check_type(o, &lv_label_class)) {
       const char* t = lv_label_get_text(o);
-      if (t && std::string(t) == nb4Text("Tipo de coche", "Vehicle type"))
+      if (t && std::string(t) == STR_NB4_VEHICLE_TYPE)
         row = lv_obj_get_parent(o);
     }
     for (uint32_t c = 0; c < lv_obj_get_child_cnt(o); ++c)
@@ -1681,7 +1681,7 @@ TEST(Nb4Ux, AudioPageSelectsPlaybackModeAndOffersAPreview)
     for (const char* language : {"es", "en"}) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
       currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
-      openRadioSetupSoundPage(nb4Text("Audio", "Audio"));
+      openRadioSetupSoundPage(STR_NB4_SOUND);
       for (unsigned f = 0; f < 3; ++f) render(scene.root);
       std::vector<Choice*> choices;
       std::function<void(lv_obj_t*)> collect = [&](lv_obj_t* obj) {
@@ -1698,7 +1698,7 @@ TEST(Nb4Ux, AudioPageSelectsPlaybackModeAndOffersAPreview)
       choices[0]->setValue(1);
       EXPECT_EQ(g_eeGeneral.nb4TonesOnly, 1);
       EXPECT_FALSE(audioQueue.isPlaying(42));
-      EXPECT_TRUE(clickLabel(page->getLvObj(), nb4Text("Probar audio", "Test audio")));
+      EXPECT_TRUE(clickLabel(page->getLvObj(), STR_NB4_TEST_AUDIO));
       choices[0]->setValue(0);
       EXPECT_EQ(g_eeGeneral.nb4TonesOnly, 0);
       for (unsigned f = 0; f < 3; ++f) render(scene.root);
@@ -1797,7 +1797,7 @@ TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
       respond(15);
       ASSERT_EQ(getBindPhase(0), BindPhase::Searching);
     };
-    ASSERT_TRUE(clickLabel(page->getLvObj(), nb4Text("Enlazar", "Bind")));
+    ASSERT_TRUE(clickLabel(page->getLvObj(), STR_NB4_BIND));
     capture("preparing", 0);
     search(); capture("searching", 1);
     std::vector<uint8_t> receiver(169);
@@ -1811,7 +1811,7 @@ TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
     EXPECT_EQ(Layer::back(), page);
     EXPECT_EQ(getModuleMode(0), MODULE_MODE_NORMAL);
     ProtoDriver.sendPulses(ctx, nullptr, nullptr, 0);
-    ASSERT_TRUE(clickLabel(page->getLvObj(), nb4Text("Enlazar", "Bind")));
+    ASSERT_TRUE(clickLabel(page->getLvObj(), STR_NB4_BIND));
     search(); capture("retry-searching", 1);
     g_tmr10ms += 3001;
     ProtoDriver.sendPulses(ctx, nullptr, nullptr, 0);
@@ -1935,12 +1935,11 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
         strcmp(routes[i].path, "settings/system/help") == 0)
       pending = &routes[i];
   ASSERT_NE(pending, nullptr);
-  ASSERT_NE(pending->reasonEs, nullptr);
-  ASSERT_NE(pending->reasonEn, nullptr);
+  ASSERT_NE(pending->reason, nullptr);
 
   nb4OpenSettingsModal();
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
-  ASSERT_TRUE(clickLabel(lv_scr_act(), nb4Text("Sistema", "System")));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_SYSTEM));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   lv_obj_t* helpTile = nullptr;
@@ -1948,7 +1947,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
     std::function<lv_obj_t*(lv_obj_t*)> findTile = [&](lv_obj_t* o) -> lv_obj_t* {
       if (lv_obj_check_type(o, &lv_label_class)) {
         const char* t = lv_label_get_text(o);
-        if (t && std::string(t) == std::string(nb4Text("Ayuda", "Help"))) {
+        if (t && std::string(t) == std::string(STR_NB4_HELP)) {
           lv_obj_t* up = lv_obj_get_parent(o);
           for (unsigned d = 0; up && d < 4; ++d) {
             if (lv_obj_has_class(up, &lv_btn_class)) return up;
@@ -1972,7 +1971,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   }
 
   const auto before = Layer::back();
-  ASSERT_TRUE(clickLabel(lv_scr_act(), nb4Text("Ayuda", "Help")));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_HELP));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   EXPECT_NE(Layer::back(), before);
@@ -2015,7 +2014,7 @@ TEST(Nb4Ux, NoTabEverComesUpBlankWithoutSayingWhy)
   const char* const* tabs = steeringTabs(&count);
   for (unsigned t = 0; t < count; t += 1) {
 
-    if (strcmp(tabs[t], nb4Text("Velocidad", "Speed")) == 0) continue;
+    if (strcmp(tabs[t], STR_NB4_SPEED) == 0) continue;
     auto before = Layer::back();
     QuickMenu::openPage(QM_MODEL_NB4_STEERING);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
@@ -2065,7 +2064,7 @@ TEST(Nb4Ux, TheSettingsGridFitsWithoutScrolling)
   unsigned sectionCount = 0;
   const Nb4Section2* sections = nb4Sections(&sectionCount);
   for (unsigned i = 0; i < sectionCount; i += 1) {
-    const char* name = nb4Text(sections[i].labelEs, sections[i].labelEn);
+    const char* name = sections[i].label();
     EXPECT_NE(std::find(labels.begin(), labels.end(), std::string(name)),
               labels.end());
   }
@@ -2101,10 +2100,10 @@ TEST(Nb4Ux, TheAbsShortcutOpensTheBrakeTab)
     return std::find(v.begin(), v.end(), std::string(what)) != v.end();
   };
 
-  const auto abs = labelsAfterOpening("settings/throttle_brake/abs");
+  const auto abs = labelsAfterOpening("settings/throttle_brake/brake");
   EXPECT_TRUE(has(abs, "Punto ABS"));
 
-  const auto travel = labelsAfterOpening("settings/throttle_brake/throttle");
+  const auto travel = labelsAfterOpening("settings/throttle_brake/travel");
   EXPECT_FALSE(has(travel, "Punto ABS"));
 
   const auto section = labelsAfterOpening("settings/throttle_brake");
@@ -2428,7 +2427,7 @@ TEST(Nb4Ux, TheChartSurvivesEveryTabChange)
 
   unsigned count = 0;
   const char* const* tabs = steeringTabs(&count);
-  const char* title = nb4Text("Curva de dirección", "Steering curve");
+  const char* title = STR_NB4_STEERING_CURVE;
 
   auto base = Layer::back();
   QuickMenu::openPage(QM_MODEL_NB4_STEERING);
@@ -2686,7 +2685,7 @@ TEST(Nb4Ux, SteeringEditsBothLinesWhenThereAreTwoAndOneWhenThereIsOne)
     auto base = Layer::back();
     QuickMenu::openPage(QM_MODEL_NB4_STEERING);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
-    EXPECT_TRUE(pickTab(lv_scr_act(), nb4Text("Curva", "Curve")));
+    EXPECT_TRUE(pickTab(lv_scr_act(), STR_NB4_CURVE));
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
     std::vector<std::string> out;
     collectLabels(lv_scr_act(), out);
@@ -2699,8 +2698,8 @@ TEST(Nb4Ux, SteeringEditsBothLinesWhenThereAreTwoAndOneWhenThereIsOne)
 
   ASSERT_EQ(nb4ResolveAxis(Nb4AxisRole::Steering).status, Nb4AxisStatus::Shared);
   const auto one = responseTab();
-  EXPECT_TRUE(has(one, nb4Text("Dual rate", "Dual rate")));
-  EXPECT_FALSE(has(one, nb4Text("Dual rate izquierda", "Left dual rate")));
+  EXPECT_TRUE(has(one, STR_NB4_DUAL_RATE));
+  EXPECT_FALSE(has(one, STR_NB4_LEFT_DUAL_RATE));
 
   {
     ExpoData* a = expoAddress(0);
@@ -2718,11 +2717,11 @@ TEST(Nb4Ux, SteeringEditsBothLinesWhenThereAreTwoAndOneWhenThereIsOne)
 
   const auto two = responseTab();
 
-  EXPECT_TRUE(has(two, nb4Text("Dual rate izq.", "Left dual rate")));
-  EXPECT_TRUE(has(two, nb4Text("Dual rate der.", "Right dual rate")));
-  EXPECT_TRUE(has(two, nb4Text("Expo izquierda", "Left expo")));
-  EXPECT_TRUE(has(two, nb4Text("Expo derecha", "Right expo")));
-  EXPECT_FALSE(has(two, nb4Text("Dual rate", "Dual rate")));
+  EXPECT_TRUE(has(two, STR_NB4_LEFT_DUAL_RATE));
+  EXPECT_TRUE(has(two, STR_NB4_RIGHT_DUAL_RATE));
+  EXPECT_TRUE(has(two, STR_NB4_LEFT_EXPO));
+  EXPECT_TRUE(has(two, STR_NB4_RIGHT_EXPO));
+  EXPECT_FALSE(has(two, STR_NB4_DUAL_RATE));
 
   nb4ParamRegistryReset();
   responseTab();
@@ -2750,15 +2749,15 @@ TEST(Nb4Ux, TheAxisTrimIsEditableAndWritesWhereTheButtonsWrite)
   auto base = Layer::back();
   QuickMenu::openPage(QM_MODEL_NB4_STEERING);
   for (unsigned f = 0; f < 3; ++f) render(scene.root);
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Centro", "Centre")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_CENTRE));
   for (unsigned f = 0; f < 3; ++f) render(scene.root);
 
   std::vector<std::string> steering;
   collectLabels(lv_scr_act(), steering);
 
-  ASSERT_TRUE(has(steering, nb4Text("Trim", "Trim")));
+  ASSERT_TRUE(has(steering, STR_NB4_TRIM));
 
-  NumberEdit* trim = numberEditInRowOf(lv_scr_act(), nb4Text("Trim", "Trim"));
+  NumberEdit* trim = numberEditInRowOf(lv_scr_act(), STR_NB4_TRIM);
   ASSERT_NE(trim, nullptr);
 
   trim->setValue(37);
@@ -2779,7 +2778,7 @@ TEST(Nb4Ux, TheAxisTrimIsEditableAndWritesWhereTheButtonsWrite)
     std::vector<std::string> throttle;
     collectLabels(lv_scr_act(), throttle);
 
-    EXPECT_TRUE(has(throttle, nb4Text("Trim", "Trim")));
+    EXPECT_TRUE(has(throttle, STR_NB4_TRIM));
     for (unsigned d = 0; d < 16 && Layer::back() != b2; ++d) {
       auto pg = Layer::back(); pg->onCancel(); scene.root->run();
       if (Layer::back() == pg) break;
@@ -2818,7 +2817,7 @@ TEST(Nb4Ux, ReversingTheTriggerPreservesTheGasCurveOnItsNewPhysicalSide)
   QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
 
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Curva", "Curve")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_CURVE));
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
 
   std::vector<std::string> shown;
@@ -2829,7 +2828,7 @@ TEST(Nb4Ux, ReversingTheTriggerPreservesTheGasCurveOnItsNewPhysicalSide)
   ASSERT_EQ(brakeCurveBefore, getCurveString(5));
   ASSERT_FALSE(throttleCurveBefore.empty());
 
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Recorrido", "Travel")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_TRAVEL));
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
   lv_obj_t* sw = switchNextTo(lv_scr_act(), "Invertir el gatillo");
   ASSERT_NE(sw, nullptr);
@@ -2839,7 +2838,7 @@ TEST(Nb4Ux, ReversingTheTriggerPreservesTheGasCurveOnItsNewPhysicalSide)
 
   ASSERT_EQ(g_model.throttleReversed, 1);
 
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Curva", "Curve")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_CURVE));
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
 
   std::vector<std::string> after;
@@ -2850,7 +2849,7 @@ TEST(Nb4Ux, ReversingTheTriggerPreservesTheGasCurveOnItsNewPhysicalSide)
   EXPECT_EQ(throttleCurveAfter, throttleCurveBefore);
   EXPECT_EQ(brakeCurveAfter, brakeCurveBefore);
 
-  ASSERT_TRUE(pickTab(lv_scr_act(), nb4Text("Recorrido", "Travel")));
+  ASSERT_TRUE(pickTab(lv_scr_act(), STR_NB4_TRAVEL));
   for (unsigned i = 0; i < 3; ++i) { lv_obj_update_layout(scene.root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); scene.root->run(); }
   std::vector<std::string> travel;
   collectLabels(lv_scr_act(), travel);
@@ -2892,7 +2891,7 @@ TEST(Nb4Ux, SharingOneCurveBetweenBothSidesIsSaidOnScreen)
     auto base = Layer::back();
     QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
-    EXPECT_TRUE(pickTab(lv_scr_act(), nb4Text("Curva", "Curve")));
+    EXPECT_TRUE(pickTab(lv_scr_act(), STR_NB4_CURVE));
     for (unsigned f = 0; f < 3; ++f) render(scene.root);
     std::vector<std::string> out;
     collectLabels(lv_scr_act(), out);
@@ -2921,10 +2920,10 @@ TEST(Nb4Ux, SharingOneCurveBetweenBothSidesIsSaidOnScreen)
   snprintf(button, sizeof(button), "Editar los puntos de %s", getCurveString(2));
   EXPECT_TRUE(has(sharedPage, button));
 
-  EXPECT_TRUE(has(sharedPage, nb4Text("Expo de gas", "Throttle expo")) ||
-              has(sharedPage, nb4Text("Expo lado +", "Expo, + side")));
-  EXPECT_TRUE(has(sharedPage, nb4Text("Expo de freno", "Brake expo")) ||
-              has(sharedPage, nb4Text("Expo lado -", "Expo, - side")));
+  EXPECT_TRUE(has(sharedPage, STR_NB4_THROTTLE_EXPO) ||
+              has(sharedPage, STR_NB4_EXPO_SIDE));
+  EXPECT_TRUE(has(sharedPage, STR_NB4_BRAKE_EXPO) ||
+              has(sharedPage, STR_NB4_EXPO_SIDE_F0FC));
 }
 
 namespace {
@@ -3304,25 +3303,21 @@ const RouteDestination kDestinations[] = {
     {"settings/car/general", "Nombre modelo"},
     {"settings/car/safety", "Seguridad al encender"},
     {"settings/car/presets", "Punto de partida"},
-    {"settings/steering/general", "Centro"},
+    {"settings/receiver_rf/module", "RF interna"},
     {"settings/steering/travel", "Centro"},
-    {"settings/steering/response", "Centro"},
-    {"settings/throttle_brake/general", "Curva de gas y freno"},
-    {"settings/throttle_brake/throttle", "Curva de gas y freno"},
+    {"settings/steering/curve", "Centro"},
+    {"settings/steering/centre", "Centro"},
+    {"settings/steering/speed", "Centro"},
+    {"settings/throttle_brake/travel", "Curva de gas y freno"},
+    {"settings/throttle_brake/curve", "Curva de gas y freno"},
     {"settings/throttle_brake/brake", "Curva de gas y freno"},
-    {"settings/throttle_brake/abs", "Curva de gas y freno"},
-    {"settings/throttle_brake/trims", "Curva de gas y freno"},
-    {"settings/throttle_brake/nitro_engine", "Curva de gas y freno"},
-    {"settings/throttle_brake/advanced_mixing", "Curva de gas y freno"},
-    {"settings/receiver_rf/rf", "RF interna"},
-    {"settings/receiver_rf/receiver", "RF interna"},
-    {"settings/receiver_rf/failsafe", "RF interna"},
+    {"settings/throttle_brake/engine", "Curva de gas y freno"},
 
     {"settings/controls/assignments", "Asignar pulsando"},
 
     {"settings/controls/channels", "Canales"},
     {"settings/controls/trims", "Paso trim"},
-    {"settings/controls/general", "Modo USB"},
+    {"settings/controls/general", "Atraso switches"},
     {"settings/controls/shortcuts", "Asignar pulsando"},
     {"settings/controls/monitor", "MONITOR CANALES 1/8"},
     {"settings/telemetry/sensors", "Sensores"},
@@ -3335,7 +3330,7 @@ const RouteDestination kDestinations[] = {
     {"settings/race/pit", "DEPÓSITO / PACK"},
     {"settings/race/history", "Registro de mangas"},
     {"settings/models/management", "Modelos"},
-    {"settings/display/interface", "Config. widgets"},
+    {"settings/display/top_bar", "Config. widgets"},
     {"settings/display/screens", "PALETA"},
     {"settings/display/theme", "TEMAS"},
 
@@ -3346,14 +3341,15 @@ const RouteDestination kDestinations[] = {
     {"settings/sound_alerts/haptic", "Modo"},
     {"settings/sound_alerts/lights", "Luces"},
     {"settings/connectivity/usb", "Modo USB"},
-    {"settings/connectivity/serial_port", "Calibración batería"},
-    {"settings/system/general", "Modo USB"},
+    {"settings/system/general", "Unidades"},
 
     {"settings/system/power", "Atraso apagado"},
     {"settings/system/hardware", "Calibración batería"},
     {"settings/system/calibration", "CALIBRACIÓN"},
     {"settings/system/storage", "TARJETA SD"},
     {"settings/system/backup_restore", "Copias y restauración"},
+    {"settings/system/update", "Actualizar"},
+    {"settings/display/brightness", "Brillo"},
 
     {"settings/system/date_time_location", "Zona horaria"},
     {"settings/system/diagnostics", "Tmix máx"},
@@ -3535,10 +3531,10 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
       new ChannelsViewMenu(); capture("channel-monitor");
       new RadioCalibrationPage(); capture("calibration");
       QuickMenu::openPage(QM_MANAGE_MODELS); capture("models");
-      auto keyboardPage = new SubPage(ICON_MODEL_SETUP, nb4Text("Nombre del coche", "Car name"), "");
+      auto keyboardPage = new SubPage(ICON_MODEL_SETUP, "Car name", "");
       auto text = new ModelTextEdit(keyboardPage, {8, 60, lv_disp_get_hor_res(nullptr) - 16, 44}, g_model.header.name, LEN_MODEL_NAME);
       text->onPress(); capture("keyboard");
-      new FullScreenDialog(WARNING_TYPE_ALERT, nb4Text("Batería baja", "Low battery"), nb4Text("Comprueba la alimentación de la emisora.", "Check transmitter power."), STR_OK); capture("warning");
+      new FullScreenDialog(WARNING_TYPE_ALERT, "Low battery", "Check transmitter power.", STR_OK); capture("warning");
       new ModulePage(INTERNAL_MODULE);
 
       capture("receiver");
@@ -3546,8 +3542,8 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
       render(scene.root);
       EXPECT_TRUE(openHelpSheet(lv_scr_act()));
       capture("receiver-help");
-      new ConfirmDialog(nb4Text("Finalizar manga", "Finish run"), nb4Text("Conservar el resultado de esta manga.", "Keep the result of this run."), [] {}); capture("dialog");
-      auto menu = new Menu(); menu->addLine("AFHDS3", [] {}); menu->addLine(nb4Text("Canales y failsafe", "Channels & failsafe"), [] {}); capture("selector");
+      new ConfirmDialog("Finish run", "Keep the result of this run.", [] {}); capture("dialog");
+      auto menu = new Menu(); menu->addLine("AFHDS3", [] {}); menu->addLine("Channels & failsafe", [] {}); capture("selector");
       EXPECT_EQ(channelOutputs[0], outputs[0]); EXPECT_EQ(channelOutputs[1], outputs[1]);
     }
   }
@@ -3726,7 +3722,7 @@ TEST(Nb4Ux, AssignmentsAreReadableAndSaveOnlyWhenRequested)
       }
       close();
       nb4OpenAssignments(); verify(("assign-function-" + suffix).c_str());
-      ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), nb4Text("Asignar pulsando", "Assign by pressing")));
+      ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_ASSIGN_BY_PRESSING));
       verify(("learn-control-" + suffix).c_str());
       EXPECT_TRUE(nb4ControlsLearning());
       close(); EXPECT_FALSE(nb4ControlsLearning());
@@ -3948,7 +3944,7 @@ TEST(Nb4Performance, RemappedGripKeysNavigateSelectAndReturnThroughLvgl)
   nb4OpenAssignments();
   for (unsigned i = 0; i < 3; ++i) cycle();
   auto picker = Layer::back();
-  ASSERT_TRUE(clickLabel(picker->getLvObj(), nb4Text("Asignar pulsando", "Assign by pressing")));
+  ASSERT_TRUE(clickLabel(picker->getLvObj(), STR_NB4_ASSIGN_BY_PRESSING));
   for (unsigned i = 0; i < 3; ++i) cycle();
   EXPECT_TRUE(nb4ControlsLearning());
   press(KEY_EXIT); // Learn SW1-L, which was Back. Must not dismiss the picker.
@@ -3966,7 +3962,7 @@ TEST(Nb4Performance, RemappedGripKeysNavigateSelectAndReturnThroughLvgl)
   EXPECT_EQ(nb4RacePhase(), Nb4RacePhase::Running);
 
   const auto saved = nb4ControlBinding(0);
-  ASSERT_TRUE(clickLabel(picker->getLvObj(), nb4Text("Asignar pulsando", "Assign by pressing")));
+  ASSERT_TRUE(clickLabel(picker->getLvObj(), STR_NB4_ASSIGN_BY_PRESSING));
   auto clockBefore = g_tmr10ms;
   g_tmr10ms += 1500;
   cycle();

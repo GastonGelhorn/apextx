@@ -194,7 +194,7 @@ void nb4BuildAppearance(Window* parent)
   lv_obj_update_layout(parent->getLvObj());
   coord_t y = 0, w = lv_obj_get_content_width(parent->getLvObj());
   label(parent, {8, y, w - 16, 28}, "ApexTX", FONT(L)); y += 36;
-  label(parent, {8, y, w - 16, 22}, nb4Text("PALETA", "PALETTE"), FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
+  label(parent, {8, y, w - 16, 22}, STR_NB4_PALETTE, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
   for (unsigned i = 0; i < nb4PaletteCount(); ++i) {
     const auto& palette = nb4Palette(i);
     const std::string name = palette.name;
@@ -203,7 +203,7 @@ void nb4BuildAppearance(Window* parent)
       [name] { return name == g_eeGeneral.selectedTheme; });
     y += 50;
   }
-  label(parent, {8, y, w - 16, 22}, nb4Text("ACENTO", "ACCENT"), FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
+  label(parent, {8, y, w - 16, 22}, STR_NB4_ACCENT, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
   auto choice = new Choice(parent, {0, y, w, 44}, 0, nb4AccentCount() - 1,
     [] { return int(g_eeGeneral.nb4Accent); }, [](int value) {
       g_eeGeneral.nb4Accent = value; storageDirty(EE_GENERAL);
@@ -211,10 +211,10 @@ void nb4BuildAppearance(Window* parent)
     });
   choice->setTextHandler([](int value) { return std::string(nb4AccentName(value)); });
   y += 54;
-  action(parent, {0, y, w, 44}, nb4Text("Temas externos", "External themes"), [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
-  label(parent, {8, y, w - 16, 22}, nb4Text("ORIENTACIÓN", "ORIENTATION"), FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  selectedAction(parent, {0, y, w, 44}, nb4Text("Vertical", "Portrait"), [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
-  selectedAction(parent, {0, y, w, 44}, nb4Text("Horizontal", "Landscape"), [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
+  action(parent, {0, y, w, 44}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
+  label(parent, {8, y, w - 16, 22}, STR_NB4_ORIENTATION, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
+  selectedAction(parent, {0, y, w, 44}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
+  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
 }
 
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
@@ -276,15 +276,16 @@ void Nb4HomeScreen::build()
 
   if (nb4HealthRecovery()) {
 
-    label(this, {4, 58, (coord_t)(w - 8), 20},
-          nb4Text("RECUPERACIÓN " LV_SYMBOL_BULLET " Lua apagado",
-                  "RECOVERY " LV_SYMBOL_BULLET " Lua disabled"),
-          FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
+    char banner[64];
+    snprintf(banner, sizeof(banner), "%s " LV_SYMBOL_BULLET " %s",
+             STR_NB4_RECOVERY, STR_NB4_LUA_DISABLED);
+    label(this, {4, 58, (coord_t)(w - 8), 20}, banner, FONT(XS),
+          COLOR_THEME_PRIMARY3_INDEX);
     label(this, {4, 84, (coord_t)(w - 8), 32}, "ApexTX", FONT(L));
-    auto note = label(this, {4, 124, (coord_t)(w - 8), 70}, nb4Text("Interfaz mínima integrada. La configuración del coche se conserva.", "Built-in minimal interface. Car configuration is preserved."));
+    auto note = label(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
     lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
-    action(this, {4, 208, (coord_t)(w - 8), 44}, nb4Text("Sistema y diagnóstico", "System & diagnostics"), [] { ViewMain::instance()->openMenu(); });
-    action(this, {4, 260, (coord_t)(w - 8), 44}, nb4Text("Coche", "Car"), [] { QuickMenu::openPage(QM_MODEL_SETUP); });
+    action(this, {4, 208, (coord_t)(w - 8), 44}, STR_NB4_SYSTEM_DIAGNOSTICS, [] { ViewMain::instance()->openMenu(); });
+    action(this, {4, 260, (coord_t)(w - 8), 44}, STR_NB4_CAR, [] { QuickMenu::openPage(QM_MODEL_SETUP); });
     name->setText(state.model);
     return;
   }
@@ -350,10 +351,10 @@ void Nb4HomeScreen::build()
 
   if (blockedModel) {
     auto warning = card(this, {4, 108, (coord_t)(w - 8), (coord_t)(height() - 166)});
-    label(warning, {12, 12, warning->width() - 24, 28}, nb4Text("RF BLOQUEADO", "RF DISABLED"), FONT(BOLD), COLOR_THEME_WARNING_INDEX);
-    auto detail = label(warning, {12, 48, warning->width() - 24, 100}, nb4Text("Modelo incompatible. El archivo original está conservado. Selecciona un modelo de coche.", "Unsupported model. The original file is preserved. Select a car model."));
+    label(warning, {12, 12, warning->width() - 24, 28}, STR_NB4_RF_DISABLED, FONT(BOLD), COLOR_THEME_WARNING_INDEX);
+    auto detail = label(warning, {12, 48, warning->width() - 24, 100}, STR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS);
     lv_label_set_long_mode(detail->getLvObj(), LV_LABEL_LONG_WRAP);
-    action(warning, {12, warning->height() - 56, warning->width() - 24, 44}, nb4Text("Modelos", "Models"), [] { QuickMenu::openPage(QM_MANAGE_MODELS); });
+    action(warning, {12, warning->height() - 56, warning->width() - 24, 44}, STR_NB4_MODELS, [] { QuickMenu::openPage(QM_MANAGE_MODELS); });
   }
   refresh(state);
 }

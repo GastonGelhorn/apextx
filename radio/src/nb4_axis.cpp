@@ -9,7 +9,6 @@
 
 #include "nb4_axis.h"
 #include "mixes.h"
-#include "nb4_car_state.h"  // nb4Text
 #include "nb4_racing.h"
 
 namespace {
@@ -53,36 +52,29 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
                               ? g_model.nb4Racing.steeringChannel
                               : g_model.nb4Racing.throttleChannel;
   if (channel >= MAX_OUTPUT_CHANNELS)
-    return fail(nb4Text("el canal declarado está fuera de rango",
-                "the declared channel is out of range"), Nb4Blocker::Mix);
+    return fail(STR_NB4_THE_DECLARED_CHANNEL_IS_OUT_OF, Nb4Blocker::Mix);
 
   int8_t mixIdx = -1;
   for (uint8_t i = 0; i < MAX_MIXERS; i += 1) {
     const MixData* mix = mixAddress(i);
     if (!mix->srcRaw) continue;
     if (mix->destCh != channel) continue;
-    if (mixIdx >= 0) return fail(nb4Text("el canal lo alimentan varias mezclas",
-                             "several mixes feed this channel"), Nb4Blocker::Mix);
+    if (mixIdx >= 0) return fail(STR_NB4_SEVERAL_MIXES_FEED_THIS_CHANNEL, Nb4Blocker::Mix);
     mixIdx = (int8_t)i;
   }
-  if (mixIdx < 0) return fail(nb4Text("el canal no tiene ninguna mezcla",
-                              "the channel has no mix at all"), Nb4Blocker::Mix);
+  if (mixIdx < 0) return fail(STR_NB4_THE_CHANNEL_HAS_NO_MIX_AT, Nb4Blocker::Mix);
 
   const MixData* mix = mixAddress(mixIdx);
-  if (mix->swtch) return fail(nb4Text("la mezcla depende de un interruptor",
-                                  "the mix depends on a switch"), Nb4Blocker::Mix);
+  if (mix->swtch) return fail(STR_NB4_THE_MIX_DEPENDS_ON_A_SWITCH, Nb4Blocker::Mix);
   if (mix->srcRaw < MIXSRC_FIRST_INPUT || mix->srcRaw > MIXSRC_LAST_INPUT)
-    return fail(nb4Text("la mezcla no pasa por una entrada, así que el expo no se aplica",
-                 "the mix does not go through an input, so expo is not applied"),
+    return fail(STR_NB4_THE_MIX_DOES_NOT_GO_THROUGH,
                 Nb4Blocker::Mix);
   if (isReference(mix->weight))
-    return fail(nb4Text("el peso de la mezcla es una referencia",
-                 "the mix weight is a reference"), Nb4Blocker::Mix,
+    return fail(STR_NB4_THE_MIX_WEIGHT_IS_A_REFERENCE, Nb4Blocker::Mix,
                 Nb4AxisStatus::Dynamic);
 
   const int16_t mixWeight = literalOf(mix->weight);
-  if (mixWeight == 0) return fail(nb4Text("el peso de la mezcla es cero",
-                                 "the mix weight is zero"), Nb4Blocker::Mix);
+  if (mixWeight == 0) return fail(STR_NB4_THE_MIX_WEIGHT_IS_ZERO, Nb4Blocker::Mix);
 
   Nb4AxisView v{};
   v.status = Nb4AxisStatus::Ready;
@@ -108,21 +100,18 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
     if (!ed->srcRaw) continue;
     if (ed->chn != v.inputChannel) continue;
     lines += 1;
-    if (ed->swtch) return fail(nb4Text("una línea de la entrada depende de un interruptor",
-                                 "an input line depends on a switch"),
+    if (ed->swtch) return fail(STR_NB4_AN_INPUT_LINE_DEPENDS_ON_A,
                                 Nb4Blocker::Input);
 
     const mixsrc_t src = ed->srcRaw < 0 ? (mixsrc_t)-ed->srcRaw : (mixsrc_t)ed->srcRaw;
     if (src < MIXSRC_FIRST_STICK || src > MIXSRC_LAST_STICK)
-      return fail(nb4Text("la entrada no viene de un mando de la emisora",
-                   "the input does not come from a stick"), Nb4Blocker::Input);
+      return fail(STR_NB4_THE_INPUT_DOES_NOT_COME_FROM, Nb4Blocker::Input);
 
     if (lines == 1) {
       firstSrcRaw = ed->srcRaw;
       if (ed->srcRaw < 0) v.inputSign = -1;
     } else if (ed->srcRaw != firstSrcRaw) {
-      return fail(nb4Text("las dos líneas no son el mismo mando con el mismo signo",
-                   "the two lines are not the same stick with the same sign"),
+      return fail(STR_NB4_THE_TWO_LINES_ARE_NOT_THE,
                   Nb4Blocker::Input);
     }
 
@@ -131,14 +120,12 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
     int8_t weightSign = 1;
     if (!isReference(ed->weight)) {
       const int16_t w = literalOf(ed->weight);
-      if (w == 0) return fail(nb4Text("una de las líneas tiene el peso a cero",
-                              "one of the lines has zero weight"), Nb4Blocker::Input);
+      if (w == 0) return fail(STR_NB4_ONE_OF_THE_LINES_HAS_ZERO, Nb4Blocker::Input);
       weightSign = w < 0 ? -1 : 1;
     }
 
     if (ed->mode & 2) {  // v >= 0
-      if (v.lineForPositive >= 0) return fail(nb4Text("dos líneas se pelean por el lado positivo",
-                              "two lines fight over the positive side"),
+      if (v.lineForPositive >= 0) return fail(STR_NB4_TWO_LINES_FIGHT_OVER_THE_POSITIVE,
                                               Nb4Blocker::Input);
       v.lineForPositive = (int8_t)i;
       v.curveTypePositive = (int8_t)ed->curve.type;
@@ -146,8 +133,7 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
       v.weightSignPositive = weightSign;
     }
     if (ed->mode & 1) {  // v < 0
-      if (v.lineForNegative >= 0) return fail(nb4Text("dos líneas se pelean por el lado negativo",
-                              "two lines fight over the negative side"),
+      if (v.lineForNegative >= 0) return fail(STR_NB4_TWO_LINES_FIGHT_OVER_THE_NEGATIVE,
                                               Nb4Blocker::Input);
       v.lineForNegative = (int8_t)i;
       v.curveTypeNegative = (int8_t)ed->curve.type;
@@ -156,22 +142,18 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
     }
   }
 
-  if (!lines) return fail(nb4Text("la entrada no tiene ninguna línea",
-                            "the input has no line at all"), Nb4Blocker::Input);
-  if (lines > 2) return fail(nb4Text("la entrada tiene más de dos líneas",
-                                "the input has more than two lines"), Nb4Blocker::Input);
+  if (!lines) return fail(STR_NB4_THE_INPUT_HAS_NO_LINE_AT, Nb4Blocker::Input);
+  if (lines > 2) return fail(STR_NB4_THE_INPUT_HAS_MORE_THAN_TWO, Nb4Blocker::Input);
 
   if (v.lineForPositive < 0 || v.lineForNegative < 0)
-    return fail(nb4Text("un lado del mando se queda sin línea, y ese lado queda muerto",
-                 "one side of the stick has no line, and that side is dead"),
+    return fail(STR_NB4_ONE_SIDE_OF_THE_STICK_HAS,
                 Nb4Blocker::Input);
 
   v.chainSign = (int8_t)(v.inputSign * v.mixSign * (v.outputReversed ? -1 : 1));
 
   if (dynamic) {
     v.status = Nb4AxisStatus::Dynamic;
-    v.reason = nb4Text("algún peso o valor de curva es una referencia a fuente",
-                       "some weight or curve value is a source reference");
+    v.reason = STR_NB4_SOME_WEIGHT_OR_CURVE_VALUE_IS;
 
     v.blocker = Nb4Blocker::Input;
     return v;
@@ -179,8 +161,7 @@ Nb4AxisView nb4ResolveAxis(Nb4AxisRole role)
 
   if (v.lineForPositive == v.lineForNegative) {
     v.status = Nb4AxisStatus::Shared;
-    v.reason = nb4Text("una sola línea atiende los dos lados",
-                       "a single line serves both sides");
+    v.reason = STR_NB4_A_SINGLE_LINE_SERVES_BOTH_SIDES;
 
     v.blocker = Nb4Blocker::Input;
     return v;
@@ -361,27 +342,15 @@ const char* nb4RacingSignGateReason(const Nb4AxisView& throttleView,
                                     const Nb4ThrottleSides& sides)
 {
   if (!sides.known)
-    return nb4Text(
-        "No se sabe qué mitad del gatillo frena, así que tampoco se sabe si el "
-        "tope de freno y el ABS actuarían sobre el freno o sobre el gas.",
-        "Which half of the trigger brakes is unknown, so whether brake limit and "
-        "ABS would act on the brake or on the throttle is unknown too.");
+    return STR_NB4_WHICH_HALF_OF_THE_TRIGGER_BRAKES;
 
   switch (nb4RacingConventionFor(throttleView, sides.brakeSign)) {
     case Nb4RacingConvention::Holds:
       return nullptr;
     case Nb4RacingConvention::Inverted:
-      return nb4Text(
-          "En este canal el freno llega con el signo del gas. El tope de freno y "
-          "el ABS actuarían sobre el gas, y el ralentí alto sobre el freno.",
-          "On this channel the brake arrives with the throttle's sign. Brake "
-          "limit and ABS would act on the throttle, and idle-up on the brake.");
+      return STR_NB4_ON_THIS_CHANNEL_THE_BRAKE_ARRIVES;
     default:
-      return nb4Text(
-          "No se puede seguir el signo del gatillo hasta la salida, así que no "
-          "hay manera de saber sobre qué mitad actuarían el freno y el ABS.",
-          "The trigger's sign cannot be followed to the output, so there is no "
-          "way to know which half brake and ABS would act on.");
+      return STR_NB4_THE_TRIGGER_S_SIGN_CANNOT_BE;
   }
 }
 

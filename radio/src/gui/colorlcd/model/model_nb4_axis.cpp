@@ -51,16 +51,13 @@ void statusBanner(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   const char* headline = nullptr;
   switch (view.status) {
     case Nb4AxisStatus::Shared:
-      headline = nb4Text("Los dos lados comparten un mismo ajuste",
-                         "Both sides share one setting");
+      headline = STR_NB4_BOTH_SIDES_SHARE_ONE_SETTING;
       break;
     case Nb4AxisStatus::Dynamic:
-      headline = nb4Text("Un valor viene de otra fuente, no de un número",
-                         "A value comes from another source, not a number");
+      headline = STR_NB4_A_VALUE_COMES_FROM_ANOTHER_SOURCE;
       break;
     default:
-      headline = nb4Text("Esta configuración no se puede editar aquí",
-                         "This setup cannot be edited here");
+      headline = STR_NB4_THIS_SETUP_CANNOT_BE_EDITED_HERE;
       break;
   }
 
@@ -78,9 +75,9 @@ void statusBanner(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
 
   const Nb4Blocker blocker = view.blocker;
   const char* openLabel =
-      blocker == Nb4Blocker::Input  ? nb4Text("Abrir Entradas", "Open Inputs")
-      : blocker == Nb4Blocker::Mix  ? nb4Text("Abrir Mezclas", "Open Mixes")
-                                    : nb4Text("Abrir Salidas", "Open Outputs");
+      blocker == Nb4Blocker::Input  ? STR_NB4_OPEN_INPUTS
+      : blocker == Nb4Blocker::Mix  ? STR_NB4_OPEN_MIXES
+                                    : STR_NB4_OPEN_OUTPUTS;
 
   line = form->newLine(grid);
   auto open = new TextButton(line, {0, 0, LV_PCT(100), 0}, openLabel,
@@ -109,8 +106,7 @@ void signGateNotice(Window* form, FlexGridLayout& grid, const char* reason)
 
   line = form->newLine(grid);
   auto off = new TextButton(line, {0, 0, LV_PCT(100), 0},
-                            nb4Text("Desactivar estas funciones",
-                                    "Turn these functions off"),
+                            STR_NB4_TURN_THESE_FUNCTIONS_OFF,
                             []() {
                               nb4RacingNeutraliseSignDependent();
                               SET_DIRTY();
@@ -136,17 +132,11 @@ void sharedCurveRow(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   char msg[128];
   if (others > 0)
     snprintf(msg, sizeof(msg),
-             nb4Text("Los dos lados usan la curva %s, y %d ajuste%s más del modelo "
-                     "también. Mover sus puntos los mueve todos.",
-                     "Both sides use curve %s, and %d more setting%s in the model "
-                     "does too. Moving its points moves them all."),
+             STR_NB4_BOTH_SIDES_USE_CURVE_S_AND,
              getCurveString(curveNumber), (int)others, others == 1 ? "" : "s");
   else
     snprintf(msg, sizeof(msg),
-             nb4Text("Los dos lados usan la curva %s. Mover sus puntos cambia el "
-                     "gas y el freno a la vez; cambiar el selector de un lado, no.",
-                     "Both sides use curve %s. Moving its points changes throttle "
-                     "and brake together; changing one side's selector does not."),
+             STR_NB4_BOTH_SIDES_USE_CURVE_S_MOVING,
              getCurveString(curveNumber));
 
   auto line = form->newLine(grid);
@@ -156,7 +146,7 @@ void sharedCurveRow(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
 
   char label[64];
   snprintf(label, sizeof(label),
-           nb4Text("Editar los puntos de %s", "Edit the points of %s"),
+           STR_NB4_EDIT_THE_POINTS_OF_S,
            getCurveString(curveNumber));
 
   line = form->newLine(grid);
@@ -167,15 +157,12 @@ void sharedCurveRow(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
         if (others > 0)
           snprintf(ask, sizeof(ask),
 
-                   nb4Text("Afecta al gas, al freno y a %d ajuste%s más. Seguir?",
-                           "This affects throttle, brake and %d more setting%s. "
-                           "Continue?"),
+                   STR_NB4_THIS_AFFECTS_THROTTLE_BRAKE_AND_D,
                    (int)others, others == 1 ? "" : "s");
         else
 
           snprintf(ask, sizeof(ask), "%s",
-                   nb4Text("Afecta al gas y al freno a la vez. Seguir?",
-                           "This affects throttle and brake at once. Continue?"));
+                   STR_NB4_THIS_AFFECTS_THROTTLE_AND_BRAKE_AT);
         new ConfirmDialog(getCurveString(curveNumber), ask,
                           [curveNumber, source, refreshView]() {
                             ModelCurvesPage::pushEditCurve(curveNumber - 1,
@@ -197,12 +184,7 @@ void responseGraph(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   if (!nb4AxisMapIsDrawable(view)) {
     auto why = new StaticText(
         form->newLine(grid), rect_t{},
-        nb4Text("La mezcla de este canal lleva un desplazamiento o una curva, y el "
-                "dibujo no los incluye: se deja de dibujar antes que enseñar un "
-                "mapa que no es.",
-                "This channel's mix carries an offset or a curve that the drawing "
-                "does not include, so it is not drawn: better none than a map that "
-                "lies."),
+        STR_NB4_THIS_CHANNEL_S_MIX_CARRIES_AN,
         COLOR_THEME_PRIMARY3_INDEX);
     lv_label_set_long_mode(why->getLvObj(), LV_LABEL_LONG_WRAP);
     lv_obj_set_style_grid_cell_column_span(why->getLvObj(), 2, LV_PART_MAIN);
@@ -219,9 +201,9 @@ void responseGraph(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   const coord_t innerWidth = width - 2;
   const coord_t chartH = Nb4ResponseChart::heightFor(innerWidth);
   const coord_t headerH = EdgeTxStyles::STD_FONT_HEIGHT + PAD_TINY;
-  const char* leftZone = isThrottle ? nb4Text("Freno", "Brake") : nb4Text("Izquierda", "Left");
-  const char* middleZone = isThrottle ? nb4Text("Neutro", "Neutral") : nb4Text("Centro", "Centre");
-  const char* rightZone = isThrottle ? nb4Text("Gas", "Throttle") : nb4Text("Derecha", "Right");
+  const char* leftZone = isThrottle ? STR_NB4_BRAKE_30D6 : STR_NB4_LEFT;
+  const char* middleZone = isThrottle ? STR_NB4_NEUTRAL : STR_NB4_CENTRE;
+  const char* rightZone = isThrottle ? STR_NB4_THROTTLE : STR_NB4_RIGHT;
 
   auto row = form->newLine(grid);
   auto card = new Window(row, rect_t{0, 0, width, (coord_t)(chartH + headerH + PAD_MEDIUM)});
@@ -237,8 +219,8 @@ void responseGraph(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   const coord_t readoutWidth = 96;
   const coord_t titleWidth = innerWidth - readoutWidth - PAD_MEDIUM * 2;
   new StaticText(card, rect_t{PAD_MEDIUM, PAD_TINY, titleWidth, headerH},
-                 isThrottle ? nb4Text("Curva de gas y freno", "Throttle and brake curve")
-                            : nb4Text("Curva de dirección", "Steering curve"),
+                 isThrottle ? STR_NB4_THROTTLE_AND_BRAKE_CURVE
+                            : STR_NB4_STEERING_CURVE,
                  COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));
 
   auto readout = new StaticText(
@@ -324,10 +306,7 @@ void tabIsEmptyBecause(Window* form, FlexGridLayout& grid, const char* reason)
   auto why = new StaticText(
       line, rect_t{},
       reason ? reason
-             : nb4Text("Este ajuste no se puede editar mientras no se pueda "
-                       "interpretar la cadena de mezclas de este canal.",
-                       "This setting cannot be edited while this channel's mixer "
-                       "chain cannot be interpreted."),
+             : STR_NB4_THIS_SETTING_CANNOT_BE_EDITED_WHILE,
       COLOR_THEME_PRIMARY3_INDEX);
   lv_label_set_long_mode(why->getLvObj(), LV_LABEL_LONG_WRAP);
   lv_obj_set_style_grid_cell_column_span(why->getLvObj(), 2, LV_PART_MAIN);
@@ -402,8 +381,8 @@ void ModelNb4SteeringPage::build(Window* window)
   statusBanner(window, grid, view, view.outputChannel, /*sharedIsNormal=*/true);
 
   const char* const tabs[] = {
-      nb4Text("Recorrido", "Travel"), nb4Text("Curva", "Curve"),
-      nb4Text("Centro", "Centre"), nb4Text("Velocidad", "Speed")};
+      STR_NB4_TRAVEL, STR_NB4_CURVE,
+      STR_NB4_CENTRE, STR_NB4_SPEED};
   if (tab >= 4) tab = 0;
 
   body = window;
@@ -429,19 +408,19 @@ void ModelNb4SteeringPage::build(Window* window)
     // Convert the displayed left/right direction to the physical wheel sign,
     // exactly as the home and response graph do. Left is positive on NB4.
     endpointPair(window, grid, view,
-                 nb4Text("Izquierda", "Left"), nb4EndpointForStickSide(view, nb4AxisVisual(false, -1)),
-                 nb4Text("Derecha", "Right"), nb4EndpointForStickSide(view, nb4AxisVisual(false, +1)));
+                 STR_NB4_LEFT, nb4EndpointForStickSide(view, nb4AxisVisual(false, -1)),
+                 STR_NB4_RIGHT, nb4EndpointForStickSide(view, nb4AxisVisual(false, +1)));
 
     nb4ParamRow(window, grid, Nb4Param::ChannelReverse, {view.outputChannel},
-                nb4Text("Invertir el canal", "Reverse channel"));
+                STR_NB4_REVERSE_CHANNEL);
     return;
   }
 
   if (tab == 2) {
 
     nb4ParamPair(window, grid, Nb4Param::ChannelSubtrim, {view.outputChannel},
-                 nb4Text("Centro", "Centre"), Nb4Param::SteeringTrim, {},
-                 nb4Text("Trim", "Trim"));
+                 STR_NB4_CENTRE, Nb4Param::SteeringTrim, {},
+                 STR_NB4_TRIM);
     return;
   }
 
@@ -449,9 +428,9 @@ void ModelNb4SteeringPage::build(Window* window)
     if (view.lineForPositive >= 0)
       nb4ParamPair(window, grid,
                    Nb4Param::InputDualRate, {Nb4ParamCtx::NONE, view.lineForPositive},
-                   nb4Text("Dual rate", "Dual rate"),
+                   STR_NB4_DUAL_RATE,
                    Nb4Param::InputResponse, {Nb4ParamCtx::NONE, view.lineForPositive},
-                   nb4Text("Exponencial", "Exponential"));
+                   STR_NB4_EXPONENTIAL);
     return;
   }
 
@@ -460,14 +439,14 @@ void ModelNb4SteeringPage::build(Window* window)
   if (leftLine >= 0 && rightLine >= 0) {
     nb4ParamPair(window, grid,
                  Nb4Param::InputDualRate, {Nb4ParamCtx::NONE, leftLine},
-                 nb4Text("Dual rate izq.", "Left dual rate"),
+                 STR_NB4_LEFT_DUAL_RATE,
                  Nb4Param::InputDualRate, {Nb4ParamCtx::NONE, rightLine},
-                 nb4Text("Dual rate der.", "Right dual rate"));
+                 STR_NB4_RIGHT_DUAL_RATE);
     nb4ParamPair(window, grid,
                  Nb4Param::InputResponse, {Nb4ParamCtx::NONE, leftLine},
-                 nb4Text("Expo izquierda", "Left expo"),
+                 STR_NB4_LEFT_EXPO,
                  Nb4Param::InputResponse, {Nb4ParamCtx::NONE, rightLine},
-                 nb4Text("Expo derecha", "Right expo"));
+                 STR_NB4_RIGHT_EXPO);
   }
 
   if (const uint8_t sharedCurve = nb4AxisSharedCurveResource(view))
@@ -485,12 +464,10 @@ class Nb4ThrottleTraceDialog : public BaseDialog
 {
  public:
   Nb4ThrottleTraceDialog() :
-      BaseDialog(nb4Text("Seguimiento del gas", "Throttle tracking"), true)
+      BaseDialog(STR_NB4_THROTTLE_TRACKING, true)
   {
     new StaticText(form, {0, 0, LV_PCT(100), 0},
-                   nb4Text("Qué canal sigue el cronómetro para contar el tiempo "
-                           "de motor.",
-                           "Which channel the timer follows to count engine time."),
+                   STR_NB4_WHICH_CHANNEL_THE_TIMER_FOLLOWS_TO,
                    COLOR_THEME_PRIMARY3_INDEX);
     auto sc = new SourceChoice(
         form, {0, 0, LV_PCT(100), 0}, 0, MIXSRC_LAST_CH,
@@ -541,8 +518,8 @@ void ModelNb4ThrottlePage::build(Window* window)
   statusBanner(window, grid, view, view.outputChannel, /*sharedIsNormal=*/true);
 
   const char* const tabs[] = {
-      nb4Text("Recorrido", "Travel"), nb4Text("Curva", "Curve"),
-      nb4Text("Freno", "Brake"), nb4Text("Motor", "Engine")};
+      STR_NB4_TRAVEL, STR_NB4_CURVE,
+      STR_NB4_BRAKE_30D6, STR_NB4_ENGINE};
   if (tab >= 4) tab = 0;
   body = window;
   pendingTab = -1;
@@ -558,7 +535,7 @@ void ModelNb4ThrottlePage::build(Window* window)
     case 0:
       if (usable) {
         nb4ParamRow(window, grid, Nb4Param::ChannelReverse, {view.outputChannel},
-                    nb4Text("Invertir el canal", "Reverse channel"));
+                    STR_NB4_REVERSE_CHANNEL);
 
         Nb4ParamCtx trigger;
         trigger.afterChange = [this]() { pendingTab = (int8_t)tab; };
@@ -567,8 +544,8 @@ void ModelNb4ThrottlePage::build(Window* window)
         Nb4ParamCtx centre;
         centre.channel = view.outputChannel;
         nb4ParamPair(window, grid, Nb4Param::ChannelSubtrim, centre,
-                     nb4Text("Neutro", "Neutral"), Nb4Param::ThrottleTrim, {},
-                     nb4Text("Trim", "Trim"));
+                     STR_NB4_NEUTRAL, Nb4Param::ThrottleTrim, {},
+                     STR_NB4_TRIM);
       } else {
         nb4ParamRow(window, grid, Nb4Param::ThrottleTrim);
       }
@@ -578,11 +555,11 @@ void ModelNb4ThrottlePage::build(Window* window)
       if (!usable) { tabIsEmptyBecause(window, grid, view.reason); break; }
 
       endpointPair(window, grid, view,
-                   sides.known ? nb4Text("Gas", "Throttle")
-                               : nb4Text("Lado +", "+ side"),
+                   sides.known ? STR_NB4_THROTTLE
+                               : STR_NB4_SIDE,
                    nb4EndpointForStickSide(view, accelStickSide),
-                   sides.known ? nb4Text("Freno", "Brake")
-                               : nb4Text("Lado -", "- side"),
+                   sides.known ? STR_NB4_BRAKE_30D6
+                               : STR_NB4_SIDE_1C91,
                    nb4EndpointForStickSide(view, (int8_t)-accelStickSide));
       break;
 
@@ -592,7 +569,7 @@ void ModelNb4ThrottlePage::build(Window* window)
 
         if (view.lineForPositive >= 0)
           responseRow(window, grid,
-                      nb4Text("Respuesta (gas y freno)", "Response (both)"),
+                      STR_NB4_RESPONSE_BOTH,
                       view.lineForPositive);
         break;
       }
@@ -601,11 +578,11 @@ void ModelNb4ThrottlePage::build(Window* window)
       if (accelLine >= 0 && brakeLine >= 0)
         nb4ParamPair(window, grid,
                      Nb4Param::InputResponse, {Nb4ParamCtx::NONE, accelLine},
-                     sides.known ? nb4Text("Expo de gas", "Throttle expo")
-                                 : nb4Text("Expo lado +", "Expo, + side"),
+                     sides.known ? STR_NB4_THROTTLE_EXPO
+                                 : STR_NB4_EXPO_SIDE,
                      Nb4Param::InputResponse, {Nb4ParamCtx::NONE, brakeLine},
-                     sides.known ? nb4Text("Expo de freno", "Brake expo")
-                                 : nb4Text("Expo lado -", "Expo, - side"));
+                     sides.known ? STR_NB4_BRAKE_EXPO
+                                 : STR_NB4_EXPO_SIDE_F0FC);
 
       if (const uint8_t sharedCurve = nb4AxisSharedCurveResource(view))
         sharedCurveRow(window, grid, view, sharedCurve,
@@ -632,10 +609,7 @@ void ModelNb4ThrottlePage::build(Window* window)
       if (g_model.nb4Racing.vehicleType == NB4_VEHICLE_ELECTRIC) {
         auto why = new StaticText(
             window->newLine(grid), rect_t{},
-            nb4Text("Este modelo está declarado como eléctrico: no tiene ralentí "
-                    "ni corte de motor. El tipo se cambia en Competición.",
-                    "This model is declared electric: no idle-up and no engine "
-                    "cut. The type is set in Racing."),
+            STR_NB4_THIS_MODEL_IS_DECLARED_ELECTRIC_NO,
             COLOR_THEME_PRIMARY3_INDEX);
         lv_label_set_long_mode(why->getLvObj(), LV_LABEL_LONG_WRAP);
         lv_obj_set_style_grid_cell_column_span(why->getLvObj(), 2, LV_PART_MAIN);

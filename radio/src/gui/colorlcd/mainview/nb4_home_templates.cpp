@@ -24,6 +24,7 @@
 #if defined(RADIO_NB4_FAMILY)
 
 #include "nb4_home_templates.h"
+#include "nb4_i18n.h"
 #include "nb4_home.h"
 #include "nb4_model_compat.h"
 #include "nb4_pit.h"
@@ -44,64 +45,52 @@
 namespace {
 
 struct TemplateInfo {
-  const char* es;
-  const char* en;
-  const char* infoEs;
-  const char* infoEn;
+  Nb4Str name;
+  Nb4Str info;
   uint8_t slots;
   Nb4Metric defaults[NB4_TEMPLATE_SLOTS];
 };
 
 const TemplateInfo templates[NB4_HOME_COUNT] = {
 
-    {"Cluster", "Cluster", "Reloj de gas con trim, escala de dirección y crono",
-     "Throttle gauge with trim, steering scale and timer", 1, {NB4_METRIC_RACE_TIMER}},
-    {"Esencial", "Essential", "Dos escalas y el crono, nada más",
-     "Two scales and the timer, nothing else", 1, {NB4_METRIC_RACE_TIMER}},
-    {"Home anterior", "Previous home", "La pantalla clásica",
-     "The classic screen", 0, {}},
-    {"Crono", "Chrono", "Vuelta en curso, última, mejor y delta",
-     "Current lap, last, best and delta", 4,
-     {NB4_METRIC_CURRENT_LAP, NB4_METRIC_LAST_LAP, NB4_METRIC_BEST_LAP,
+    {NB4_STR(CLUSTER), NB4_STR(THROTTLE_GAUGE_WITH_TRIM_STEERING_SCALE),
+     1, {NB4_METRIC_RACE_TIMER}},
+    {NB4_STR(ESSENTIAL), NB4_STR(TWO_SCALES_AND_THE_TIMER_NOTHING_ELSE),
+     1, {NB4_METRIC_RACE_TIMER}},
+    {NB4_STR(PREVIOUS_HOME), NB4_STR(THE_CLASSIC_SCREEN),
+     0, {}},
+    {NB4_STR(CHRONO), NB4_STR(CURRENT_LAP_LAST_BEST_AND_DELTA),
+     4, {NB4_METRIC_CURRENT_LAP, NB4_METRIC_LAST_LAP, NB4_METRIC_BEST_LAP,
       NB4_METRIC_DELTA}},
-    {"Boxes", "Pit", "Depósito o pack, crono y vueltas que quedan",
-     "Fuel or pack, timer and laps left", 4,
-     {NB4_METRIC_PIT, NB4_METRIC_RACE_TIMER, NB4_METRIC_CURRENT_LAP,
+    {NB4_STR(PIT), NB4_STR(FUEL_OR_PACK_TIMER_AND_LAPS_LEFT),
+     4, {NB4_METRIC_PIT, NB4_METRIC_RACE_TIMER, NB4_METRIC_CURRENT_LAP,
       NB4_METRIC_LAPS_LEFT}},
-    {"Telemetría", "Telemetry", "Pack, señal, receptor y temperatura",
-     "Pack, signal, receiver and temperature", 4,
-     {NB4_METRIC_PACK, NB4_METRIC_RSSI, NB4_METRIC_RX_BATTERY,
+    {NB4_STR(TELEMETRY), NB4_STR(PACK_SIGNAL_RECEIVER_AND_TEMPERATURE),
+     4, {NB4_METRIC_PACK, NB4_METRIC_RSSI, NB4_METRIC_RX_BATTERY,
       NB4_METRIC_TEMPERATURE}},
-    {"Mesa", "Bench", "Los ocho canales con su salida real, para ajustar parado",
-     "All eight channels with their real output, for setting up", 0, {}},
+    {NB4_STR(BENCH), NB4_STR(ALL_EIGHT_CHANNELS_WITH_THEIR_REAL_OUTPU),
+     0, {}},
 };
 
-struct MetricInfo {
-  const char* es;
-  const char* en;
-  const char* titleEs;
-  const char* titleEn;
-};
-
-const MetricInfo metrics[NB4_METRIC_COUNT] = {
-    {"Por defecto", "Default", "", ""},
-    {"Cronómetro", "Race timer", "CRONÓMETRO", "RACE TIMER"},
-    {"Vuelta en curso", "Current lap", "VUELTA", "LAP"},
-    {"Última vuelta", "Last lap", "ÚLTIMA", "LAST"},
-    {"Mejor vuelta", "Best lap", "MEJOR", "BEST"},
-    {"Delta", "Delta", "DELTA", "DELTA"},
-    {"Vueltas", "Lap count", "VUELTAS", "LAPS"},
-    {"Boxes", "Pit countdown", "BOXES", "PIT"},
-    {"Vueltas restantes", "Laps left", "QUEDAN", "LAPS LEFT"},
-    {"Batería TX", "TX battery", "BATERÍA TX", "TX BATTERY"},
-    {"Batería RX", "RX battery", "RECEPTOR", "RECEIVER"},
-    {"Pack", "Pack voltage", "PACK", "PACK"},
-    {"Señal", "Signal", "SEÑAL", "SIGNAL"},
-    {"Temperatura", "Temperature", "TEMPERATURA", "TEMPERATURE"},
-    {"RPM", "RPM", "RPM", "RPM"},
-    {"Hora", "Clock", "HORA", "TIME"},
-    {"Trim dirección", "Steering trim", "TRIM ST", "TRIM ST"},
-    {"Trim gas", "Throttle trim", "TRIM TH", "TRIM TH"},
+const Nb4Str metrics[NB4_METRIC_COUNT] = {
+    NB4_STR(DEFAULT),
+    NB4_STR(RACE_TIMER),
+    NB4_STR(METRIC_CURRENT_LAP),
+    NB4_STR(LAST_LAP),
+    NB4_STR(BEST_LAP),
+    NB4_STR(DELTA),
+    NB4_STR(LAP_COUNT),
+    NB4_STR(PIT_COUNTDOWN),
+    NB4_STR(METRIC_LAPS_LEFT),
+    NB4_STR(TX_BATTERY),
+    NB4_STR(RX_BATTERY),
+    NB4_STR(PACK_VOLTAGE),
+    NB4_STR(SIGNAL),
+    NB4_STR(TEMPERATURE),
+    NB4_STR(RPM),
+    NB4_STR(CLOCK),
+    NB4_STR(METRIC_STEERING_TRIM),
+    NB4_STR(METRIC_THROTTLE_TRIM),
 };
 
 }  // namespace
@@ -113,13 +102,13 @@ const MetricInfo metrics[NB4_METRIC_COUNT] = {
 const char* nb4TemplateName(uint8_t design)
 {
   if (design >= NB4_HOME_COUNT) design = NB4_HOME_INSTRUMENTS;
-  return nb4Text(templates[design].es, templates[design].en);
+  return templates[design].name();
 }
 
 const char* nb4TemplateInfo(uint8_t design)
 {
   if (design >= NB4_HOME_COUNT) design = NB4_HOME_INSTRUMENTS;
-  return nb4Text(templates[design].infoEs, templates[design].infoEn);
+  return templates[design].info();
 }
 
 unsigned nb4TemplateSlots(uint8_t design)
@@ -155,7 +144,7 @@ void nb4SetSlotMetric(uint8_t design, unsigned slot, uint8_t metric)
 const char* nb4MetricName(uint8_t metric)
 {
   if (metric >= NB4_METRIC_COUNT) metric = NB4_METRIC_DEFAULT;
-  return nb4Text(metrics[metric].es, metrics[metric].en);
+  return metrics[metric]();
 }
 
 uint32_t nb4ThemeKey()

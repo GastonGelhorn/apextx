@@ -71,8 +71,8 @@
 
 #if defined(RADIO_NB4_FAMILY)
 
-static const char* nb4SteeringTitle() { return nb4Text("Dirección", "Steering"); }
-static const char* nb4ThrottleTitle() { return nb4Text("Gas y freno", "Throttle & brake"); }
+static const char* nb4SteeringTitle() { return STR_NB4_STEERING_2090; }
+static const char* nb4ThrottleTitle() { return STR_NB4_THROTTLE_BRAKE; }
 #endif
 
 #if defined(RADIO_NB4_FAMILY)
@@ -153,9 +153,9 @@ PageDef statsMenuItems[] = {
 
 #if defined(RADIO_NB4_FAMILY)
 
-static const char* nb4RaceMenuTitle() { return nb4Text("Carrera", "Race"); }
+static const char* nb4RaceMenuTitle() { return STR_NB4_RACE_5527; }
 
-static const char* nb4CalibrationTitle() { return nb4Text("Calibrar", "Calibrate"); }
+static const char* nb4CalibrationTitle() { return STR_NB4_CALIBRATE; }
 #endif
 
 QMTopDef qmTopItems[] = {
@@ -191,11 +191,11 @@ QMTopDef qmTopItems[] = {
     []() {
       QuickMenu::selected();
       Menu* raceMenu = new Menu();
-      raceMenu->addLine(nb4Text("Crono y vueltas", "Timers & laps"), []() { nb4OpenSection(Nb4Section::Chrono); });
-      raceMenu->addLine(nb4Text("Boxes", "Pit"), []() { nb4OpenSection(Nb4Section::Pit); });
-      raceMenu->addLine(nb4Text("Telemetría", "Telemetry"), []() { nb4OpenSection(Nb4Section::Telemetry); });
-      raceMenu->addLine(nb4Text("Registro de mangas", "Race history"), []() { nb4OpenSection(Nb4Section::History); });
-      raceMenu->addLine(nb4Text("Copias y restauración", "Backup & restore"), []() { nb4OpenSection(Nb4Section::Backup); });
+      raceMenu->addLine(STR_NB4_TIMERS_LAPS, []() { nb4OpenSection(Nb4Section::Chrono); });
+      raceMenu->addLine(STR_NB4_PIT, []() { nb4OpenSection(Nb4Section::Pit); });
+      raceMenu->addLine(STR_NB4_TELEMETRY, []() { nb4OpenSection(Nb4Section::Telemetry); });
+      raceMenu->addLine(STR_NB4_RACE_HISTORY, []() { nb4OpenSection(Nb4Section::History); });
+      raceMenu->addLine(STR_NB4_BACKUP_RESTORE, []() { nb4OpenSection(Nb4Section::Backup); });
     }
   },
 #endif

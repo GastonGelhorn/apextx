@@ -47,10 +47,10 @@ TEST(Nb4Routes, APendingRouteRefusesAndNeverOpensSomethingElse)
       EXPECT_NE(routes[i].open, nullptr);
 
       if (!routes[i].available)
-        EXPECT_EQ(routes[i].reasonEs, nullptr);
+        EXPECT_EQ(routes[i].reason, nullptr);
 
       if (routes[i].available)
-        EXPECT_NE(routes[i].reasonEs, nullptr);
+        EXPECT_NE(routes[i].reason, nullptr);
 
       if (routes[i].available && !routes[i].available())
         EXPECT_FALSE(nb4OpenRoute(routes[i].path));
@@ -58,13 +58,12 @@ TEST(Nb4Routes, APendingRouteRefusesAndNeverOpensSomethingElse)
       pending += 1;
 
       EXPECT_EQ(routes[i].open, nullptr);
-      EXPECT_NE(routes[i].reasonEs, nullptr);
+      EXPECT_NE(routes[i].reason, nullptr);
       EXPECT_FALSE(nb4OpenRoute(routes[i].path));
     }
-    EXPECT_NE(routes[i].labelEs, nullptr);
-    EXPECT_NE(routes[i].labelEn, nullptr);
-
-    EXPECT_EQ(routes[i].reasonEs == nullptr, routes[i].reasonEn == nullptr);
+    ASSERT_NE(routes[i].label, nullptr);
+    EXPECT_NE(routes[i].label()[0], '\0');
+    if (routes[i].reason) EXPECT_NE(routes[i].reason()[0], '\0');
   }
 
   EXPECT_GT(available, pending * 4);
@@ -101,8 +100,8 @@ TEST(Nb4Routes, EveryQuickAccessDefaultPointsAtARouteThatExists)
 
   for (unsigned i = 0; i < qcount; ++i) {
     const char* path = quick[i].path;
-    EXPECT_NE(quick[i].labelEs, nullptr);
-    EXPECT_NE(quick[i].labelEn, nullptr);
+    ASSERT_NE(quick[i].label, nullptr);
+    EXPECT_NE(quick[i].label()[0], '\0');
 
     const char* slash = strchr(path, '/');
     ASSERT_NE(slash, nullptr);
@@ -189,16 +188,14 @@ TEST(Nb4Routes, EveryAxisRouteLandsOnItsOwnTab)
 {
   struct Expected { const char* path; uint8_t tab; };
   static const Expected kTabs[] = {
-      {"settings/steering/general", 2},                 // Center
-      {"settings/steering/travel", 0},              // Travel
-      {"settings/steering/response", 1},               // Curve
-      {"settings/throttle_brake/general", 0},                 // Travel
-      {"settings/throttle_brake/throttle", 0},                     // Travel
-      {"settings/throttle_brake/brake", 2},                   // Brake
-      {"settings/throttle_brake/abs", 2},                     // Brake
-      {"settings/throttle_brake/trims", 0},                   // Travel
-      {"settings/throttle_brake/nitro_engine", 3},             // Engine
-      {"settings/throttle_brake/advanced_mixing", 0},   // Travel
+      {"settings/steering/travel", 0},         // Travel
+      {"settings/steering/curve", 1},          // Curve
+      {"settings/steering/centre", 2},         // Centre
+      {"settings/steering/speed", 3},          // Speed
+      {"settings/throttle_brake/travel", 0},   // Travel
+      {"settings/throttle_brake/curve", 1},    // Curve
+      {"settings/throttle_brake/brake", 2},    // Brake and ABS
+      {"settings/throttle_brake/engine", 3},   // Engine
   };
 
   unsigned count = 0;

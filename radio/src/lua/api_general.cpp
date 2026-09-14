@@ -3136,7 +3136,7 @@ static int luaGetCarState(lua_State* L)
   lua_pushinteger(L, 1); lua_setfield(L, -2, "version");
   lua_pushinteger(L, state.timestampMs); lua_setfield(L, -2, "timestampMs");
   lua_pushstring(L, state.model); lua_setfield(L, -2, "model");
-  lua_pushstring(L, nb4Text("es", "en")); lua_setfield(L, -2, "language");
+  lua_pushstring(L, STR_NB4_EN); lua_setfield(L, -2, "language");
   lua_pushinteger(L, lv_disp_get_hor_res(nullptr)); lua_setfield(L, -2, "width");
   lua_pushinteger(L, lv_disp_get_ver_res(nullptr)); lua_setfield(L, -2, "height");
   lua_pushinteger(L, state.steeringChannel + 1); lua_setfield(L, -2, "steeringChannel");

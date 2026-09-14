@@ -40,11 +40,6 @@ uint8_t nb4BatteryPercent(uint16_t cellMv)
   return 100;
 }
 
-const char* nb4Text(const char* es, const char* en)
-{
-  return g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's' ? es : en;
-}
-
 void nb4VisualDefaults()
 {
   g_eeGeneral.nb4UiVersion = NB4_UI_VERSION;

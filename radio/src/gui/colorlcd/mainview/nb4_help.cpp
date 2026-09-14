@@ -11,7 +11,6 @@
 #include "dialog.h"
 #include "edgetx.h"
 #include "etx_lv_theme.h"
-#include "nb4_car_state.h"
 #include "static.h"
 
 class Nb4HelpDialog : public BaseDialog
@@ -23,13 +22,13 @@ class Nb4HelpDialog : public BaseDialog
   {
     for (unsigned i = 0; i < count; i += 1) {
       auto label = new StaticText(form, {0, 0, LV_PCT(100), 0},
-                                  nb4Text(entries[i].labelEs, entries[i].labelEn),
+                                  entries[i].label(),
                                   COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));
 
       if (i) lv_obj_set_style_pad_top(label->getLvObj(), PAD_MEDIUM, LV_PART_MAIN);
 
       new StaticText(form, {0, 0, LV_PCT(100), 0},
-                     nb4Text(entries[i].bodyEs, entries[i].bodyEn),
+                     entries[i].body(),
                      COLOR_THEME_PRIMARY3_INDEX);
     }
 
@@ -37,7 +36,7 @@ class Nb4HelpDialog : public BaseDialog
     form->padRight(PAD_MEDIUM);
 
     auto done = new TextButton(form, {0, 0, LV_PCT(100), 0},
-                               nb4Text("Entendido", "Got it"),
+                               STR_NB4_GOT_IT,
                                [this]() { deleteLater(); return 0; });
     lv_obj_set_style_pad_top(done->getLvObj(), PAD_LARGE, LV_PART_MAIN);
 
@@ -58,13 +57,12 @@ class Nb4HelpDialog : public BaseDialog
   bool settled = false;
 };
 
-void nb4AddHelp(Window* form, const char* titleEs, const char* titleEn,
-                const Nb4HelpEntry* entries, unsigned count)
+void nb4AddHelp(Window* form, const char* title, const Nb4HelpEntry* entries,
+                unsigned count)
 {
-  const char* title = nb4Text(titleEs, titleEn);
   auto btn = new TextButton(
       form, {0, 0, LV_PCT(100), 0},
-      nb4Text("?  Qué hace cada ajuste", "?  What each setting does"),
+      STR_NB4_WHAT_EACH_SETTING_DOES,
       [=]() {
         new Nb4HelpDialog(title, entries, count);
         return 0;

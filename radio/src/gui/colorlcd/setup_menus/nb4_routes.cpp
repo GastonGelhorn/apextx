@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "edgetx.h"
+#include "hal/abnormal_reboot.h"
 #include "bitmaps.h"
 #include "button.h"
 #include "dialog.h"
@@ -55,22 +56,46 @@ void section(Nb4Section s) { nb4OpenSection(s); }
 void openSteering()   { page(QM_MODEL_NB4_STEERING); }
 void openThrottle()   { page(QM_MODEL_NB4_THROTTLE); }
 void openModule()     { new ModulePage(INTERNAL_MODULE); }
-void openRadioSetup() { page(QM_RADIO_SETUP); }
 
-void openPower() { openRadioSetupPowerPage(nb4Text("Energía", "Power")); }
+void openPower() { openRadioSetupPowerPage(STR_NB4_POWER); }
 
-void openSound() { openRadioSetupSoundPage(nb4Text("Sonido", "Sound")); }
-void openAlarms() { openRadioSetupAlarmsPage(nb4Text("Alertas", "Alerts")); }
-void openHaptic() { openRadioSetupHapticPage(nb4Text("Vibración", "Haptic")); }
+void openGeneralPrefs() { openRadioSetupGeneralPage(STR_NB4_GENERAL_PREFERENCES); }
+void openUsb() { openRadioSetupUsbPage(STR_NB4_USB); }
+void openControlBehaviour() { openRadioSetupControlsPage(STR_NB4_CONTROL_BEHAVIOUR); }
+void openBrightness() { openRadioSetupBacklightPage(STR_NB4_BRIGHTNESS); }
+void openSound() { openRadioSetupSoundPage(STR_NB4_SOUND); }
+void openAlarms() { openRadioSetupAlarmsPage(STR_NB4_ALERTS); }
+void openHaptic() { openRadioSetupHapticPage(STR_NB4_HAPTIC); }
 void openDateTime()
 {
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
-  openRadioSetupDateTimePage(nb4Text("Ubicación", "Location"));
+  openRadioSetupDateTimePage(STR_NB4_LOCATION);
 #else
-  openRadioSetupDateTimePage(nb4Text("Fecha y ubicación", "Date & location"));
+  openRadioSetupDateTimePage(STR_NB4_DATE_LOCATION);
 #endif
 }
 void openHardware()   { page(QM_RADIO_HARDWARE); }
+
+void nb4RequestUpdateMode()
+{
+  new ConfirmDialog(
+      STR_NB4_UPDATE,
+      STR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE,
+      [] {
+        // Keep power latched and let the ApexTX bootloader own USB and display.
+        watchdogSuspend(2000 /* 20 s */);
+        pulsesStop();
+        pwrOn();
+#if defined(RADIO_NB4)
+        abnormalRebootRequestDfu();
+#else
+        abnormalRebootRequestRomDfu();
+#endif
+#if !defined(SIMU)
+        NVIC_SystemReset();
+#endif
+      });
+}
 void openTelemetry()  { page(QM_MODEL_TELEMETRY); }
 void openScreens()
 {
@@ -88,7 +113,7 @@ class Nb4VariablesDialog : public BaseDialog
 {
  public:
   Nb4VariablesDialog() :
-      BaseDialog(nb4Text("Variables del modelo", "Model variables"), true,
+      BaseDialog(STR_NB4_MODEL_VARIABLES, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92),
                  (lv_coord_t)(lv_disp_get_ver_res(nullptr) * 0.92))
   {
@@ -98,7 +123,7 @@ class Nb4VariablesDialog : public BaseDialog
     auto line = new Window(form, {0, 0, LV_PCT(100), 0});
     line->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
     lv_obj_set_style_flex_cross_place(line->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
-    new StaticText(line, {0, 0, 0, 0}, nb4Text("Usar variables", "Use variables"),
+    new StaticText(line, {0, 0, 0, 0}, STR_NB4_USE_VARIABLES,
                    COLOR_THEME_PRIMARY1_INDEX);
     new ToggleSwitch(
         line, {0, 0, 0, 0}, []() { return (uint8_t)!g_eeGeneral.modelGVDisabled; },
@@ -110,30 +135,16 @@ class Nb4VariablesDialog : public BaseDialog
 
     editor = new TextButton(
         form, {0, 0, LV_PCT(100), 0},
-        nb4Text("Abrir el editor de variables", "Open the variable editor"),
+        STR_NB4_OPEN_THE_VARIABLE_EDITOR,
         []() { page(QM_MODEL_GVARS); return 0; });
     editor->setWrap();
     updateEditor();
 
     paragraph(form,
-              nb4Text("Una variable es un número con nombre que vive en el "
-                      "modelo. Varios ajustes pueden tomar su valor de ella en "
-                      "vez de llevar su propia cifra: cambias la variable y "
-                      "cambian todos a la vez.",
-                      "A variable is a named number stored in the model. "
-                      "Several settings can take their value from it instead of "
-                      "carrying their own figure: change the variable and they "
-                      "all change."));
+              STR_NB4_A_VARIABLE_IS_A_NAMED_NUMBER);
 
     paragraph(form,
-              nb4Text("En un coche de dos canales casi nunca hace falta, y "
-                      "encendidas ponen un botón \"GV\" junto a cada número: "
-                      "pulsarlo hace que ese ajuste deje de ser una cifra. Por "
-                      "eso vienen apagadas.",
-                      "A two-channel car rarely needs them, and switched on they "
-                      "put a \"GV\" button next to every number: pressing it "
-                      "stops that setting being a figure. That is why they ship "
-                      "switched off."));
+              STR_NB4_A_TWO_CHANNEL_CAR_RARELY_NEEDS);
   }
 
   void checkEvents() override
@@ -169,7 +180,7 @@ class Nb4LedsDialog : public BaseDialog
 {
  public:
   Nb4LedsDialog() :
-      BaseDialog(nb4Text("Luces", "Lights"), true,
+      BaseDialog(STR_NB4_LIGHTS, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92))
   {
     form->padLeft(PAD_MEDIUM);
@@ -178,7 +189,7 @@ class Nb4LedsDialog : public BaseDialog
     auto modeLine = new Window(form, {0, 0, LV_PCT(100), 0});
     modeLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
     lv_obj_set_style_flex_cross_place(modeLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
-    new StaticText(modeLine, {0, 0, 0, 0}, nb4Text("Modo", "Mode"),
+    new StaticText(modeLine, {0, 0, 0, 0}, STR_NB4_MODE_5032,
                    COLOR_THEME_PRIMARY1_INDEX);
     auto mode = new Choice(
         modeLine, {0, 0, 0, 0}, NB4_LED_OFF, NB4_LED_MODE_COUNT - 1,
@@ -190,17 +201,17 @@ class Nb4LedsDialog : public BaseDialog
         });
     mode->setTextHandler([](int v) {
       switch (v) {
-        case NB4_LED_FIXED:   return std::string(nb4Text("Color fijo", "Fixed colour"));
-        case NB4_LED_BREATHE: return std::string(nb4Text("Latido", "Breathing"));
-        case NB4_LED_BATTERY: return std::string(nb4Text("Estado de la batería", "Battery state"));
-        default:              return std::string(nb4Text("Apagado", "Off"));
+        case NB4_LED_FIXED:   return std::string(STR_NB4_FIXED_COLOUR);
+        case NB4_LED_BREATHE: return std::string(STR_NB4_BREATHING);
+        case NB4_LED_BATTERY: return std::string(STR_NB4_BATTERY_STATE);
+        default:              return std::string(STR_NB4_OFF);
       }
     });
 
     colorLine = new Window(form, {0, 0, LV_PCT(100), 0});
     colorLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
     lv_obj_set_style_flex_cross_place(colorLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
-    new StaticText(colorLine, {0, 0, 0, 0}, nb4Text("Color", "Colour"),
+    new StaticText(colorLine, {0, 0, 0, 0}, STR_NB4_COLOUR,
                    COLOR_THEME_PRIMARY1_INDEX);
     auto color = new Choice(
         colorLine, {0, 0, 0, 0}, NB4_LED_WHITE, NB4_LED_COLOR_COUNT - 1,
@@ -208,28 +219,21 @@ class Nb4LedsDialog : public BaseDialog
         [](int v) { g_eeGeneral.nb4LedColor = (uint8_t)v; storageDirty(EE_GENERAL); });
     color->setTextHandler([](int v) {
       switch (v) {
-        case NB4_LED_RED:     return std::string(nb4Text("Rojo", "Red"));
-        case NB4_LED_ORANGE:  return std::string(nb4Text("Naranja", "Orange"));
-        case NB4_LED_YELLOW:  return std::string(nb4Text("Amarillo", "Yellow"));
-        case NB4_LED_GREEN:   return std::string(nb4Text("Verde", "Green"));
-        case NB4_LED_CYAN:    return std::string(nb4Text("Cian", "Cyan"));
-        case NB4_LED_BLUE:    return std::string(nb4Text("Azul", "Blue"));
-        case NB4_LED_MAGENTA: return std::string(nb4Text("Magenta", "Magenta"));
-        default:              return std::string(nb4Text("Blanco", "White"));
+        case NB4_LED_RED:     return std::string(STR_NB4_RED);
+        case NB4_LED_ORANGE:  return std::string(STR_NB4_ORANGE);
+        case NB4_LED_YELLOW:  return std::string(STR_NB4_YELLOW);
+        case NB4_LED_GREEN:   return std::string(STR_NB4_GREEN);
+        case NB4_LED_CYAN:    return std::string(STR_NB4_CYAN);
+        case NB4_LED_BLUE:    return std::string(STR_NB4_BLUE);
+        case NB4_LED_MAGENTA: return std::string(STR_NB4_MAGENTA);
+        default:              return std::string(STR_NB4_WHITE);
       }
     });
     updateColorRow();
 
     auto note = new StaticText(
         form, {0, 0, LV_PCT(100), 0},
-        nb4Text("Mientras la emisora carga, el LED enseña la carga en verde "
-                "-latiendo mientras sube y fijo al llenarse- sea cual sea el "
-                "modo. Sólo \"Apagado\" manda sobre eso: si apagas la luz, no se "
-                "enciende sola.",
-                "While the radio is charging the LED shows the charge in green "
-                "-breathing while it fills, steady when full- whatever the mode. "
-                "Only \"Off\" overrides that: if you switch the light off, it "
-                "stays off."),
+        STR_NB4_WHILE_THE_RADIO_IS_CHARGING_THE,
         COLOR_THEME_PRIMARY3_INDEX);
     lv_obj_set_style_pad_top(note->getLvObj(), PAD_MEDIUM, LV_PART_MAIN);
   }
@@ -262,312 +266,221 @@ void resetMenu()
   m->addLine(STR_RESET_TELEMETRY, []() { telemetryReset(); });
 }
 
-#define AV(path, es, en, fn) {path, es, en, Nb4RouteState::Available, nullptr, nullptr, fn, nullptr, 0}
-
-#define AVTAB(path, es, en, fn, tab) {path, es, en, Nb4RouteState::Available, nullptr, nullptr, fn, nullptr, tab}
-
-#define AVIF(path, es, en, fn, guard) {path, es, en, Nb4RouteState::Available, nullptr, nullptr, fn, guard, 0}
-
-#define AVIFR(path, es, en, fn, guard, whyEs, whyEn) {path, es, en, Nb4RouteState::Available, whyEs, whyEn, fn, guard, 0}
-#define PEND(path, es, en, whyEs, whyEn) {path, es, en, Nb4RouteState::NotBuiltYet, whyEs, whyEn, nullptr, nullptr, 0}
+// Labels and reasons are NB4_STR(...) accessors so the catalogue follows the
+// active language at the moment a tile is drawn.
+#define AV(path, label, fn) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, 0}
+#define AVTAB(path, label, fn, tab) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, tab}
+#define AVIF(path, label, fn, guard) {path, label, Nb4RouteState::Available, nullptr, fn, guard, 0}
+#define AVIFR(path, label, fn, guard, why) {path, label, Nb4RouteState::Available, why, fn, guard, 0}
+#define PEND(path, label, why) {path, label, Nb4RouteState::NotBuiltYet, why, nullptr, nullptr, 0}
 
 const Nb4Route routes[] = {
     // --- Car
-    AV("settings/car/general", "General", "General", []() { page(QM_MODEL_SETUP); }),
+    AV("settings/car/general", NB4_STR(GENERAL), []() { page(QM_MODEL_SETUP); }),
 
-    AV("settings/car/safety", "Seguridad", "Safety",
-       []() { new PreflightChecks(); }),
-    AV("settings/car/presets", "Configuración inicial", "Starting point",
-       []() { page(QM_MODEL_NB4_RACING); }),
-    AVIFR("settings/car/notes", "Notas", "Notes", []() { page(QM_MODEL_NOTES); },
+    AV("settings/car/safety", NB4_STR(SAFETY), []() { new PreflightChecks(); }),
+    AV("settings/car/presets", NB4_STR(START_POINT), []() { page(QM_MODEL_NB4_RACING); }),
+    AVIFR("settings/car/notes",
+          NB4_STR(NOTES),
+          []() { page(QM_MODEL_NOTES); },
           modelHasNotes,
-          "Este coche todavia no tiene notas. Se leen de un fichero de "
-                  "texto con su mismo nombre dentro de la carpeta MODELS de la "
-                  "tarjeta: crealo por USB y aparecera aqui.",
-                  "This car has no notes yet. They are read from a text file "
-                  "named after it inside the card's MODELS folder: create it "
-                  "over USB and it will show up here."),
+          NB4_STR(THIS_CAR_HAS_NO_NOTES_YET_THEY_ARE_READ)),
 
     // --- Steering
-
-    AVTAB("settings/steering/general", "General", "General",
-          openSteering, 2),
-    AVTAB("settings/steering/travel", "Recorridos", "Travel",
-          openSteering, 0),
-    AVTAB("settings/steering/response", "Respuesta", "Response",
-          openSteering, 1),
+    AVTAB("settings/steering/travel", NB4_STR(TRAVEL), openSteering, 0),
+    AVTAB("settings/steering/curve", NB4_STR(CURVE), openSteering, 1),
+    AVTAB("settings/steering/centre", NB4_STR(CENTRE), openSteering, 2),
+    AVTAB("settings/steering/speed", NB4_STR(SPEED), openSteering, 3),
 
     // --- Throttle and brake
-
-    AVTAB("settings/throttle_brake/general", "General", "General",
-          openThrottle, 0),
-    AVTAB("settings/throttle_brake/throttle", "Gas", "Throttle",
-          openThrottle, 0),
-    AVTAB("settings/throttle_brake/brake", "Freno", "Brake",
-          openThrottle, 2),
-
-    AVTAB("settings/throttle_brake/abs", "ABS", "ABS",
-          openThrottle, 2),
-
-    AVTAB("settings/throttle_brake/trims", "Comportamiento del trim", "Trim behaviour",
-          openThrottle, 0),
-    AVTAB("settings/throttle_brake/nitro_engine", "Motor nitro", "Nitro engine",
-          openThrottle, 3),
-
-    AVTAB("settings/throttle_brake/advanced_mixing", "Mezcla avanzada",
-          "Advanced mixing", openThrottle, 0),
+    AVTAB("settings/throttle_brake/travel", NB4_STR(TRAVEL), openThrottle, 0),
+    AVTAB("settings/throttle_brake/curve", NB4_STR(CURVE), openThrottle, 1),
+    AVTAB("settings/throttle_brake/brake", NB4_STR(BRAKE_ABS), openThrottle, 2),
+    AVTAB("settings/throttle_brake/engine", NB4_STR(ENGINE), openThrottle, 3),
 
     // --- Receiver and RF
-    AV("settings/receiver_rf/rf", "RF", "RF",
-       openModule),
-    AV("settings/receiver_rf/receiver", "Receptor", "Receiver",
-       openModule),
-    AV("settings/receiver_rf/failsafe", "Failsafe", "Failsafe",
-       openModule),
+    // One page holds the RF module, the receiver and failsafe together, so it
+    // gets one entry rather than three labels for the same destination.
+    AV("settings/receiver_rf/module", NB4_STR(RF_MODULE_RECEIVER_FAILSAFE), openModule),
 
     // --- Channels and controls
     // Per-model actions and navigation share one physical-control editor.
     // Hardware naming remains reachable from its Other controls menu.
-    AV("settings/controls/assignments", "Asignaciones", "Assignments",
-       nb4OpenAssignments),
+    AV("settings/controls/assignments", NB4_STR(ASSIGNMENTS), nb4OpenAssignments),
 
-    AV("settings/controls/channels", "Canales", "Channels",
-       nb4OpenChannelsDialog),
-    AV("settings/controls/trims", "Trims", "Trims",
-       []() { new TrimsSetup(); }),
-    AV("settings/controls/general", "Comportamiento de los controles",
-       "Control behaviour", openRadioSetup),
-    AV("settings/controls/shortcuts", "Teclas y navegación", "Keys and navigation",
+    AV("settings/controls/channels", NB4_STR(CHANNELS), nb4OpenChannelsDialog),
+    AV("settings/controls/trims", NB4_STR(TRIMS_LABEL), []() { new TrimsSetup(); }),
+    AV("settings/controls/general", NB4_STR(CONTROL_BEHAVIOUR), openControlBehaviour),
+    AV("settings/controls/shortcuts",
+       NB4_STR(KEYS_AND_NAVIGATION),
        nb4OpenNavigationAssignments),
-    PEND("settings/controls/quick_access", "Configurar Acceso rápido",
-         "Configure quick access",
-         "Todavía no se puede elegir qué va en el Acceso rápido: las ocho "
-                 "entradas son fijas por ahora. El Acceso rápido en sí funciona, "
-                 "es la llave inglesa de la pantalla de inicio.",
-                 "Choosing what goes into Quick access is not built yet: the "
-                 "eight entries are fixed for now. Quick access itself works: "
-                 "it is the spanner on the home screen."),
-    AV("settings/controls/monitor", "Monitor", "Monitor",
-       []() { new ChannelsViewMenu(); }),
+    PEND("settings/controls/quick_access",
+         NB4_STR(CONFIGURE_QUICK_ACCESS),
+         NB4_STR(CHOOSING_WHAT_GOES_INTO_QUICK_ACCESS_IS)),
+    AV("settings/controls/monitor", NB4_STR(MONITOR), []() { new ChannelsViewMenu(); }),
 
     // --- Telemetry
-    AVIFR("settings/telemetry/sensors", "Sensores", "Sensors",
-          openTelemetry, modelTelemetryEnabled,
-          "La telemetria esta apagada para este coche. Se enciende en "
-                  "las opciones de vista de los ajustes de la emisora.",
-                  "Telemetry is switched off for this car. Turn it on in the "
-                  "radio settings' view options."),
+    AVIFR("settings/telemetry/sensors",
+          NB4_STR(SENSORS),
+          openTelemetry,
+          modelTelemetryEnabled,
+          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T)),
 
-    AVIFR("settings/telemetry/alerts", "Alertas", "Alerts",
-          openTelemetryAlarmsPage, modelTelemetryEnabled,
-          "La telemetria esta apagada para este coche. Se enciende en "
-                  "las opciones de vista de los ajustes de la emisora.",
-                  "Telemetry is switched off for this car. Turn it on in the "
-                  "radio settings' view options."),
-    AV("settings/telemetry/track_view", "Vista de pista", "Track view",
+    AVIFR("settings/telemetry/alerts",
+          NB4_STR(ALERTS),
+          openTelemetryAlarmsPage,
+          modelTelemetryEnabled,
+          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T)),
+    AV("settings/telemetry/track_view",
+       NB4_STR(TRACK_VIEW),
        []() { section(Nb4Section::Telemetry); }),
 
     // --- Race
 
-    AV("settings/race/timers", "Cronómetros", "Timers", []() {
+    AV("settings/race/timers", NB4_STR(TIMERS_85E8), []() {
       Menu* m = new Menu();
-      m->setTitle(nb4Text("Cronómetros", "Timers"));
+      m->setTitle(STR_NB4_TIMERS_85E8);
       for (uint8_t t = 0; t < MAX_TIMERS && t < 3; t += 1) {
         char label[24];
-        snprintf(label, sizeof(label), "%s %u", nb4Text("Crono", "Timer"), t + 1);
+        snprintf(label, sizeof(label), "%s %u", STR_NB4_TIMER_BF94, t + 1);
         m->addLine(label, [t]() { new TimerWindow(t); });
       }
 
-      m->addLine(nb4Text("Seguimiento del gas", "Throttle tracking"),
+      m->addLine(STR_NB4_THROTTLE_TRACKING,
                  []() { nb4OpenThrottleTraceDialog(); });
     }),
-    AV("settings/race/timer_laps", "Crono y vueltas", "Timers & laps",
-       []() { section(Nb4Section::Chrono); }),
-    AV("settings/race/statistics", "Estadísticas", "Statistics",
-       []() { page(QM_TOOLS_STATS); }),
-    AV("settings/race/pit", "Boxes", "Pit", []() { section(Nb4Section::Pit); }),
-    AV("settings/race/history", "Historial", "History",
-       []() { section(Nb4Section::History); }),
-    PEND("settings/race/race_summary", "Resumen de manga", "Run summary",
-         "El resumen de manga todavía no está. Mientras tanto, cada manga "
-                 "guardada se abre entera en Carrera > Historial.",
-                 "The run summary is not built yet. In the meantime every saved "
-                 "run opens in full under Race > History."),
-    AV("settings/race/resets", "Reinicios de sesión", "Session resets",
-       []() { resetMenu(); }),
+    AV("settings/race/timer_laps", NB4_STR(TIMERS_LAPS), []() { section(Nb4Section::Chrono); }),
+    AV("settings/race/statistics", NB4_STR(STATISTICS), []() { page(QM_TOOLS_STATS); }),
+    AV("settings/race/pit", NB4_STR(PIT), []() { section(Nb4Section::Pit); }),
+    AV("settings/race/history", NB4_STR(HISTORY), []() { section(Nb4Section::History); }),
+    PEND("settings/race/race_summary",
+         NB4_STR(RUN_SUMMARY),
+         NB4_STR(THE_RUN_SUMMARY_IS_NOT_BUILT_YET_IN_THE)),
+    AV("settings/race/resets", NB4_STR(SESSION_RESETS), []() { resetMenu(); }),
 
     // --- Models
-    AV("settings/models/management", "Gestión", "Manage",
-       []() { new ModelLabelsWindow(); }),
-    PEND("settings/models/templates", "Plantillas", "Templates",
-         "Las plantillas todavía no tienen vista propia. Se eligen al "
-                 "crear un coche nuevo, desde Modelos > Gestión.",
-                 "Templates have no page of their own yet. You pick one when "
-                 "creating a new car, from Models > Manage."),
+    AV("settings/models/management", NB4_STR(MANAGE), []() { new ModelLabelsWindow(); }),
+    PEND("settings/models/templates",
+         NB4_STR(TEMPLATES),
+         NB4_STR(TEMPLATES_HAVE_NO_PAGE_OF_THEIR_OWN_YET)),
 
     // --- Display and appearance
-    AV("settings/display/interface", "Interfaz", "Interface",
-       []() { page(QM_UI_SETUP); }),
-    AV("settings/display/screens", "Pantallas", "Screens", openScreens),
+    AV("settings/display/brightness", NB4_STR(BRIGHTNESS), openBrightness),
+    AV("settings/display/top_bar", NB4_STR(TOP_BAR), []() { page(QM_UI_SETUP); }),
+    AV("settings/display/screens", NB4_STR(SCREENS), openScreens),
 
-    PEND("settings/display/widgets", "Widgets", "Widgets",
-         "La pantalla de inicio de la NB4 no se monta con widgets, así que aquí "
-                 "no hay nada que configurar. Si quieres una "
-                 "pantalla de widgets, añádela en Pantalla > Pantallas.",
-                 "The NB4 home screen is not built from widgets, so there is "
-                 "nothing to configure here. For a widget screen, add one "
-                 "under Screen > Screens."),
-    AVIFR("settings/display/theme", "Tema", "Theme", []() { page(QM_UI_THEMES); },
+    AVIFR("settings/display/theme",
+          NB4_STR(THEME),
+          []() { page(QM_UI_THEMES); },
           radioThemesEnabled,
-          "Los temas externos estan apagados. Se encienden en las "
-                  "opciones de vista de los ajustes de la emisora. La paleta y "
-                  "el acento de la NB4 se cambian en Pantalla > Inicio, que no "
-                  "depende de esto.",
-                  "External themes are switched off. Turn them on in the radio "
-                  "settings' view options. The NB4 palette and accent live in "
-                  "Screen > Home, which does not depend on this."),
-    AV("settings/display/home", "Inicio", "Home",
-       []() { section(Nb4Section::Appearance); }),
+          NB4_STR(EXTERNAL_THEMES_ARE_SWITCHED_OFF_TURN_TH)),
+    AV("settings/display/home", NB4_STR(HOME), []() { section(Nb4Section::Appearance); }),
 
     // --- Sound and alerts
-    AV("settings/sound_alerts/alerts", "Alertas", "Alerts", openAlarms),
-    AV("settings/sound_alerts/sound", "Sonido", "Sound", openSound),
-    AV("settings/sound_alerts/haptic", "Vibración", "Haptic", openHaptic),
+    AV("settings/sound_alerts/alerts", NB4_STR(ALERTS), openAlarms),
+    AV("settings/sound_alerts/sound", NB4_STR(SOUND), openSound),
+    AV("settings/sound_alerts/haptic", NB4_STR(HAPTIC), openHaptic),
 
-    AV("settings/sound_alerts/lights", "Luces", "Lights", openLeds),
+    AV("settings/sound_alerts/lights", NB4_STR(LIGHTS), openLeds),
 
     // --- Connectivity
-    AV("settings/connectivity/usb", "USB", "USB", openRadioSetup),
+    AV("settings/connectivity/usb", NB4_STR(USB), openUsb),
 
-    AVIFR("settings/connectivity/bluetooth", "Bluetooth", "Bluetooth",
-          openHardware, hasBluetooth,
-          "Esta emisora no lleva Bluetooth. No es que falte "
-                  "configurarlo: el firmware de la NB4 se compila sin el porque "
-                  "la placa no trae el modulo.",
-                  "This radio has no Bluetooth. It is not a missing setting: "
-                  "the NB4 firmware is built without it because the board has "
-                  "no module."),
-    AV("settings/connectivity/serial_port", "Puerto serie", "Serial port",
-       openHardware),
+    AVIFR("settings/connectivity/bluetooth",
+          NB4_STR(BLUETOOTH),
+          openHardware,
+          hasBluetooth,
+          NB4_STR(THIS_RADIO_HAS_NO_BLUETOOTH_IT_IS_NOT_A)),
 
     // --- System
-    AV("settings/system/general", "Preferencias generales", "General preferences",
-       openRadioSetup),
-    AV("settings/system/power", "Energía", "Power", openPower),
-    AV("settings/system/hardware", "Hardware", "Hardware",
-       openHardware),
-    AV("settings/system/calibration", "Calibración", "Calibration",
+    AV("settings/system/general", NB4_STR(GENERAL_PREFERENCES), openGeneralPrefs),
+    AV("settings/system/power", NB4_STR(POWER), openPower),
+    AV("settings/system/hardware", NB4_STR(HARDWARE), openHardware),
+    AV("settings/system/calibration",
+       NB4_STR(CALIBRATION),
        []() { new RadioCalibrationPage(); }),
 
-    AV("settings/system/storage", "Almacenamiento", "Storage", []() {
+    AV("settings/system/storage", NB4_STR(STORAGE), []() {
       if (!nb4MountFailureIsMissingFilesystem(nb4StorageMountResult())) {
         page(QM_TOOLS_STORAGE);
         return;
       }
       Menu* m = new Menu();
-      m->setTitle(nb4Text("Almacenamiento", "Storage"));
-      m->addLine(nb4Text("Abrir el explorador", "Open browser"),
+      m->setTitle(STR_NB4_STORAGE);
+      m->addLine(STR_NB4_OPEN_BROWSER,
                  []() { page(QM_TOOLS_STORAGE); });
-      m->addLine(nb4Text("Crear sistema de archivos", "Create filesystem"), []() {
+      m->addLine(STR_NB4_CREATE_FILESYSTEM, []() {
         new ConfirmDialog(
-            nb4Text("Crear sistema de archivos", "Create filesystem"),
-            nb4Text("No se encuentra un sistema de archivos. Crear uno BORRA todo lo "
-                    "que hubiera: coches, ajustes y registros. Si crees que había "
-                    "datos, haz antes una copia por USB.",
-                    "No filesystem found. Creating one ERASES everything on it: cars, "
-                    "settings and logs. If you think there was data, back it up over "
-                    "USB first."),
+            STR_NB4_CREATE_FILESYSTEM,
+            STR_NB4_NO_FILESYSTEM_FOUND_CREATING_ONE_ERASES,
             []() { nb4RequestFilesystemCreation(); });
       });
     }),
-    AV("settings/system/backup_restore", "Copias y restauración",
-       "Backup & restore", []() { section(Nb4Section::Backup); }),
+    AV("settings/system/backup_restore",
+       NB4_STR(BACKUP_RESTORE),
+       []() { section(Nb4Section::Backup); }),
 
-    PEND("settings/system/firmware", "Firmware y bootloader", "Firmware & bootloader",
-         "La emisora no se actualiza desde aquí: el firmware se graba por "
-                 "USB en modo DFU, o desde un fichero en la tarjeta con el "
-                 "cargador de arranque. La versión que llevas puesta está en "
-                 "Sistema > Acerca de.",
-                 "The radio is not updated from here: firmware is flashed over "
-                 "USB in DFU mode, or from a file on the card using the "
-                 "bootloader. The version you are running is under System > "
-                 "About."),
+    AV("settings/system/update", NB4_STR(UPDATE), nb4RequestUpdateMode),
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
-    AV("settings/system/date_time_location", "Ubicación", "Location", openDateTime),
+    AV("settings/system/date_time_location", NB4_STR(LOCATION), openDateTime),
 #else
-    AV("settings/system/date_time_location", "Fecha, hora y ubicación",
-       "Date, time & location", openDateTime),
+    AV("settings/system/date_time_location", NB4_STR(DATE_TIME_LOCATION), openDateTime),
 #endif
-    AV("settings/system/diagnostics", "Diagnóstico", "Diagnostics",
-       []() { page(QM_TOOLS_DEBUG); }),
-    AV("settings/system/about", "Acerca de", "About",
-       []() { page(QM_RADIO_VERSION); }),
-    PEND("settings/system/help", "Ayuda", "Help",
-         "Todavía no hay un índice de ayuda. La única hoja escrita está "
-                 "dentro de Receptor > RF, en el botón \"Qué hace cada ajuste\".",
-                 "There is no help index yet. The one sheet written so far is "
-                 "inside Receiver > RF, under the \"What each setting does\" "
-                 "button."),
+    AV("settings/system/diagnostics", NB4_STR(DIAGNOSTICS), []() { page(QM_TOOLS_DEBUG); }),
+    AV("settings/system/about", NB4_STR(ABOUT), []() { page(QM_RADIO_VERSION); }),
+    PEND("settings/system/help",
+         NB4_STR(HELP),
+         NB4_STR(THERE_IS_NO_HELP_INDEX_YET_THE_ONE_SHEET)),
 
     // --- Advanced
-    AV("settings/advanced/inputs", "Entradas", "Inputs",
-       []() { page(QM_MODEL_INPUTS); }),
-    AV("settings/advanced/mixes", "Mezclas", "Mixes",
-       []() { page(QM_MODEL_MIXES); }),
-    AV("settings/advanced/outputs", "Salidas", "Outputs",
-       []() { page(QM_MODEL_OUTPUTS); }),
-    AVIFR("settings/advanced/curves", "Curvas", "Curves",
-          []() { page(QM_MODEL_CURVES); }, modelCurvesEnabled,
-          "Las curvas de puntos estan apagadas. Se encienden en las "
-                  "opciones de vista de los ajustes de la emisora. La curva de "
-                  "gas y la de direccion no dependen de esto: viven en sus "
-                  "propias paginas.",
-                  "Point curves are switched off. Turn them on in the radio "
-                  "settings' view options. The throttle and steering curves do "
-                  "not depend on this: they live on their own pages."),
-    AVIFR("settings/advanced/logic", "Lógica", "Logic", []() { page(QM_MODEL_LS); },
+    AV("settings/advanced/inputs", NB4_STR(INPUTS), []() { page(QM_MODEL_INPUTS); }),
+    AV("settings/advanced/mixes", NB4_STR(MIXES_60C8), []() { page(QM_MODEL_MIXES); }),
+    AV("settings/advanced/outputs", NB4_STR(OUTPUTS), []() { page(QM_MODEL_OUTPUTS); }),
+    AVIFR("settings/advanced/curves",
+          NB4_STR(CURVES),
+          []() { page(QM_MODEL_CURVES); },
+          modelCurvesEnabled,
+          NB4_STR(POINT_CURVES_ARE_SWITCHED_OFF_TURN_THEM)),
+    AVIFR("settings/advanced/logic",
+          NB4_STR(LOGIC),
+          []() { page(QM_MODEL_LS); },
           modelLSEnabled,
-          "Los interruptores logicos estan apagados. Se encienden en las "
-                  "opciones de vista de los ajustes de la emisora.",
-                  "Logical switches are switched off. Turn them on in the radio "
-                  "settings' view options."),
+          NB4_STR(LOGICAL_SWITCHES_ARE_SWITCHED_OFF_TURN_T)),
 
-    AVIFR("settings/advanced/automation", "Funciones especiales del modelo",
-          "Model special functions", []() { page(QM_MODEL_SF); }, modelSFEnabled,
-          "Las funciones especiales estan apagadas. Se encienden en las "
-                  "opciones de vista de los ajustes de la emisora.",
-                  "Special functions are switched off. Turn them on in the "
-                  "radio settings' view options."),
+    AVIFR("settings/advanced/automation",
+          NB4_STR(MODEL_SPECIAL_FUNCTIONS),
+          []() { page(QM_MODEL_SF); },
+          modelSFEnabled,
+          NB4_STR(SPECIAL_FUNCTIONS_ARE_SWITCHED_OFF_TURN)),
 
-    AV("settings/advanced/variables", "Variables del modelo (GVAR)",
-       "Model variables (GVAR)", openVariables),
-    AVIFR("settings/advanced/scripts", "Scripts", "Scripts",
-          []() { page(QM_MODEL_SCRIPTS); }, modelCustomScriptsEnabled,
-          "Los scripts estan apagados. Se encienden en las opciones de "
-                  "vista de los ajustes de la emisora.",
-                  "Scripts are switched off. Turn them on in the radio "
-                  "settings' view options."),
+    AV("settings/advanced/variables", NB4_STR(MODEL_VARIABLES_GVAR), openVariables),
+    AVIFR("settings/advanced/scripts",
+          NB4_STR(SCRIPTS),
+          []() { page(QM_MODEL_SCRIPTS); },
+          modelCustomScriptsEnabled,
+          NB4_STR(SCRIPTS_ARE_SWITCHED_OFF_TURN_THEM_ON_IN)),
 };
 
 #undef AV
 #undef AVTAB
 #undef AVIF
+#undef AVIFR
 #undef PEND
 
 const Nb4Section2 sections[] = {
-    {"car", "Coche", "Car", ICON_NB4_MODEL_SETUP},
-    {"steering", "Dirección", "Steering", ICON_NB4_STEERING},
-    {"throttle_brake", "Gas / Freno", "Throttle / Brake", ICON_NB4_THROTTLE},
-    {"receiver_rf", "Receptor", "Receiver", ICON_RADIO},
-    {"controls", "Controles", "Controls", ICON_NB4_OUTPUTS},
-    {"telemetry", "Telemetría", "Telemetry", ICON_MODEL_TELEMETRY},
-    {"race", "Carrera", "Race", ICON_STATS_TIMERS},
-    {"models", "Modelos", "Models", ICON_MODEL_SELECT},
-    {"display", "Pantalla", "Screen", ICON_THEME},
-    {"sound_alerts", "Sonido", "Sound", ICON_RADIO_SETUP},
-    {"connectivity", "Conexión", "Connection", ICON_MODEL_USB},
-    {"system", "Sistema", "System", ICON_RADIO_HARDWARE},
-    {"advanced", "Avanzado", "Advanced", ICON_MODEL_MIXER},
+    {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP},
+    {"steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
+    {"throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
+    {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
+    {"controls", NB4_STR(CONTROLS), ICON_NB4_OUTPUTS},
+    {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
+    {"race", NB4_STR(RACE_5527), ICON_STATS_TIMERS},
+    {"models", NB4_STR(MODELS), ICON_MODEL_SELECT},
+    {"display", NB4_STR(DISPLAY), ICON_THEME},
+    {"sound_alerts", NB4_STR(SOUND), ICON_RADIO_SETUP},
+    {"connectivity", NB4_STR(CONNECTION), ICON_MODEL_USB},
+    {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
+    {"advanced", NB4_STR(ADVANCED), ICON_MODEL_MIXER},
 };
 
 }  // namespace
@@ -611,10 +524,7 @@ class Nb4GridModal : public BaseDialog
                 label,
                 reason && *reason
                     ? reason
-                    : nb4Text("No está disponible con la configuración actual de "
-                              "la emisora o de este coche.",
-                              "Not available with the current radio or car "
-                              "settings."));
+                    : STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
           }
           return 0;
         },
@@ -692,15 +602,15 @@ bool pathIsOpenable(const char* path)
 }  // namespace
 
 static const Nb4QuickEntry quickDefaults[] = {
-    {"settings/steering", "Dirección", "Steering", ICON_NB4_STEERING},
-    {"settings/throttle_brake", "Gas / Freno", "Throttle / Brake", ICON_NB4_THROTTLE},
+    {"settings/steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
+    {"settings/throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
 
-    {"settings/throttle_brake/abs", "ABS", "ABS", ICON_MODEL_CURVES},
-    {"settings/controls/trims", "Trims", "Trims", ICON_NB4_OUTPUTS},
-    {"settings/race/timer_laps", "Vueltas", "Laps", ICON_STATS_TIMERS},
-    {"settings/telemetry/track_view", "Telemetría", "Telemetry", ICON_MODEL_TELEMETRY},
-    {"settings/receiver_rf", "Receptor", "Receiver", ICON_RADIO},
-    {"settings/controls/monitor", "Monitor", "Monitor", ICON_MONITOR},
+    {"settings/throttle_brake/brake", NB4_STR(ABS), ICON_MODEL_CURVES},
+    {"settings/controls/trims", NB4_STR(TRIMS_LABEL), ICON_NB4_OUTPUTS},
+    {"settings/race/timer_laps", NB4_STR(LAPS), ICON_STATS_TIMERS},
+    {"settings/telemetry/track_view", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
+    {"settings/receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
+    {"settings/controls/monitor", NB4_STR(MONITOR), ICON_MONITOR},
 };
 
 const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
@@ -713,11 +623,11 @@ void nb4OpenQuickAccessModal()
 {
   unsigned count = 0;
   const Nb4QuickEntry* entries = nb4QuickAccessDefaults(&count);
-  auto modal = new Nb4GridModal(nb4Text("Acceso rápido", "Quick access"),
+  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS,
                                 count, true);
   for (unsigned i = 0; i < count; i += 1) {
     const Nb4QuickEntry* e = &entries[i];
-    modal->tile(e->icon, nb4Text(e->labelEs, e->labelEn), pathIsOpenable(e->path),
+    modal->tile(e->icon, e->label(), pathIsOpenable(e->path),
                 [e]() { nb4OpenRoute(e->path); });
   }
 }
@@ -760,12 +670,12 @@ void nb4OpenSettingsModal()
   unsigned sectionCount = 0;
   const Nb4Section2* list = nb4Sections(&sectionCount);
 
-  auto modal = new Nb4GridModal(nb4Text("Ajustes", "Settings"),
+  auto modal = new Nb4GridModal(STR_NB4_SETTINGS,
                                 sectionCount, true);
 
   for (unsigned i = 0; i < sectionCount; i += 1) {
     const Nb4Section2* sec = &list[i];
-    modal->tile(sec->icon, nb4Text(sec->labelEs, sec->labelEn),
+    modal->tile(sec->icon, sec->label(),
                 sectionHasSomethingOpenable(sec->id), [sec]() {
 
                   if (auto only = nb4SingleDestinationOf(sec->id)) {
@@ -775,14 +685,13 @@ void nb4OpenSettingsModal()
                   }
                   const Nb4Route* views[32];
                   const unsigned n = nb4RoutesOfSection(sec->id, views, 32);
-                  auto sub = new Nb4GridModal(
-                      nb4Text(sec->labelEs, sec->labelEn), n);
+                  auto sub = new Nb4GridModal(sec->label(), n);
                   for (unsigned v = 0; v < n && v < 32; v += 1) {
                     const Nb4Route* route = views[v];
-                    sub->tile(sec->icon, nb4Text(route->labelEs, route->labelEn),
+                    sub->tile(sec->icon, route->label(),
                               nb4RouteIsOpenable(*route),
                               [route]() { nb4OpenRoute(route->path); },
-                              nb4Text(route->reasonEs, route->reasonEn));
+                              nb4StrOrNull(route->reason));
                   }
                 });
   }
@@ -814,9 +723,8 @@ Nb4RouteAccess nb4RouteAccessOf(const char* path)
       "settings/sound_alerts/haptic",
       "settings/connectivity/usb",
       "settings/connectivity/bluetooth",
-      "settings/connectivity/serial_port",
       "settings/controls/general",
-      "settings/display/interface",
+      "settings/display/top_bar",
       "settings/display/theme",
       "settings/display/home",
   };

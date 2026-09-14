@@ -10,17 +10,18 @@ documentation in English.
 
 ## User-facing text
 
-NB4 interface strings currently use `nb4Text("es", "en")`, which selects a
-literal at runtime from the configured interface language. Follow that pattern
-in NB4 code so the whole target stays consistent, and keep the English literal
-idiomatic because it is the fallback for every language that is not Spanish.
+NB4 interface strings live in the shared translation tables, like the rest of
+EdgeTX: add a `TR_NB4_*` define to `radio/src/translations/i18n/en.h` and
+`es.h` (and the English text to the other language files, which are not
+compiled for the NB4 but keep the table complete), list it in
+`string_list.h` and `sim_string_list.h`, and use `STR_NB4_*` in code. The
+firmware compiles English and Spanish together and switches at runtime.
 
-This is deliberate for the initial targets and is not the long-term plan: it
-holds both literals in flash and it diverges from the upstream `TR_`
-localization tables, which remain in use for inherited screens. Migrating NB4
-strings onto the upstream translation system is planned for the first release
-that needs a third interface language. Do not introduce a third literal
-argument; add the language through the translation tables instead.
+Static data tables (the route catalogue, help entries, home templates,
+palettes) cannot hold `STR_NB4_*` directly because it reads the active
+language table at run time. They store an `Nb4Str` accessor from
+`radio/src/nb4_i18n.h` instead, written `NB4_STR(NAME)`, and call it when the
+text is shown. There is no other language-selection mechanism in the NB4 code.
 
 Build the original NB4 target and run the maintained checks before opening a
 pull request:

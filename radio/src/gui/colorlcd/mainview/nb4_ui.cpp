@@ -137,6 +137,9 @@ void button(lv_obj_t* o, bool primary)
   if (lv_obj_get_child_cnt(o))
     etx_txt_color(lv_obj_get_child(o, 0), primary ? COLOR_THEME_PRIMARY2_INDEX : COLOR_THEME_PRIMARY1_INDEX);
   if (primary) {
+    // The generic focus shade makes the accent translucent over a dark page,
+    // but this button's ink is chosen for the solid accent colour.
+    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_STATE_FOCUSED);
     auto ink = lv_color_brightness(color(COLOR_THEME_FOCUS_INDEX)) > 140 ? lv_color_hex(0x071015) : lv_color_hex(0xFFFFFF);
     lv_obj_set_style_text_color(o, ink, 0);
     if (lv_obj_get_child_cnt(o)) lv_obj_set_style_text_color(lv_obj_get_child(o, 0), ink, 0);
@@ -175,9 +178,9 @@ void inkIfChanged(StaticText* label, LcdColorIndex& last, LcdColorIndex want)
 const char* phaseText()
 {
   switch (nb4RacePhase()) {
-    case Nb4RacePhase::Running: return nb4RaceIsPaused() ? nb4Text("En pausa", "Paused") : nb4Text("En marcha", "Running");
-    case Nb4RacePhase::Finished: return nb4Text("Finalizada", "Finished");
-    default: return nb4Text("Preparada", "Ready");
+    case Nb4RacePhase::Running: return nb4RaceIsPaused() ? STR_NB4_PAUSED : STR_NB4_RUNNING;
+    case Nb4RacePhase::Finished: return STR_NB4_FINISHED;
+    default: return STR_NB4_READY;
   }
 }
 
@@ -342,11 +345,11 @@ StaticText* trimChip(Window* parent, rect_t r, lv_color_t accent)
 const char* stateName(uint8_t index)
 {
   switch (index) {
-    case 1: return nb4Text("En marcha", "Running");
-    case 2: return nb4Text("Finalizado", "Finished");
-    case 3: return nb4Text("Desactivado", "Disabled");
-    case 4: return nb4Text("En pausa", "Paused");
-    default: return nb4Text("Preparado", "Ready");
+    case 1: return STR_NB4_RUNNING;
+    case 2: return STR_NB4_FINISHED_7B5C;
+    case 3: return STR_NB4_DISABLED;
+    case 4: return STR_NB4_PAUSED;
+    default: return STR_NB4_READY_84E2;
   }
 }
 
@@ -380,10 +383,10 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   digitsTop = wellTop - numberHeight - 2;
 
   auto title = nb4Label(this, landscape ? rect_t{10, 4, 100, 20} : rect_t{8, 6, 86, 20},
-                        nb4Text("DIRECCIÓN", "STEERING"), FONT(BOLD));
+                        STR_NB4_STEERING, FONT(BOLD));
   lv_obj_set_style_text_color(title->getLvObj(), accent, 0);
   if (!landscape)
-    caption(this, {8, 28, 120, 12}, nb4Text("ÁNGULO DE GIRO", "STEERING ANGLE"));
+    caption(this, {8, 28, 120, 12}, STR_NB4_STEERING_ANGLE);
   chipVal = trimChip(this, {(coord_t)(width() - 76), 4, 68, 22}, accent);
 
   for (unsigned pass = 0; pass < 3; ++pass) {
@@ -584,9 +587,9 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
   digitsCx = rightX + rightW / 2;
   digitsTop = axisY - 14;
 
-  auto t1 = nb4Label(this, {8, 6, 34, 20}, nb4Text("GAS", "THR"), FONT(BOLD));
+  auto t1 = nb4Label(this, {8, 6, 34, 20}, STR_NB4_THR, FONT(BOLD));
   lv_obj_set_style_text_color(t1->getLvObj(), gasInk, 0);
-  nb4Label(this, {44, 6, 62, 20}, nb4Text("/ FRENO", "/ BRAKE"), FONT(BOLD));
+  nb4Label(this, {44, 6, 62, 20}, STR_NB4_BRAKE, FONT(BOLD));
   chipVal = trimChip(this, {(coord_t)(width() - 72), landscape ? (coord_t)5 : (coord_t)28,
                            68, 22}, gasInk);
 
@@ -635,14 +638,14 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
                    triX, (coord_t)(trimAxisY - 4), gasInk);
 
   auto gasLabel = nb4Label(this, {rightX, landscape ? (coord_t)38 : (coord_t)56, rightW, 20},
-                           nb4Text("GAS", "THR"), FONT(BOLD) | CENTERED);
+                           STR_NB4_THR, FONT(BOLD) | CENTERED);
   lv_obj_set_style_text_color(gasLabel->getLvObj(), gasInk, 0);
   auto brakeLabel = nb4Label(this, {rightX, landscape ? (coord_t)158 : (coord_t)192, rightW, 20},
-                             nb4Text("FRENO", "BRAKE"), FONT(BOLD) | CENTERED);
+                             STR_NB4_BRAKE_B80D, FONT(BOLD) | CENTERED);
   lv_obj_set_style_text_color(brakeLabel->getLvObj(), brakeInk, 0);
   if (landscape) {
-    caption(this, {rightX, 60, rightW, 12}, nb4Text("ADELANTE", "FORWARD"), CENTERED);
-    caption(this, {rightX, 180, rightW, 12}, nb4Text("MARCHA ATRÁS", "REVERSE"), CENTERED);
+    caption(this, {rightX, 60, rightW, 12}, STR_NB4_FORWARD, CENTERED);
+    caption(this, {rightX, 180, rightW, 12}, STR_NB4_REVERSE, CENTERED);
   }
 
   digits = nb4Label(this, {0, digitsTop, (coord_t)(digitsCx + 20), 29}, "+0", FONT(L) | RIGHT);
@@ -947,17 +950,17 @@ Nb4Chrono::Nb4Chrono(Window* parent, rect_t r, const Nb4CarState& state, bool la
   const unsigned index = state.homeTimerIndex < MAX_TIMERS ? state.homeTimerIndex : 0;
   char heading[LEN_TIMER_NAME + 12];
   if (raceMode) {
-    strAppend(heading, nb4Text("VUELTA", "LAP"), sizeof(heading) - 1);
+    strAppend(heading, STR_NB4_LAP, sizeof(heading) - 1);
   } else if (state.homeTimerIndex < MAX_TIMERS && g_model.timers[index].name[0]) {
     snprintf(heading, sizeof(heading), "%.*s", (int)LEN_TIMER_NAME, g_model.timers[index].name);
   } else if (state.homeTimerVisible) {
-    snprintf(heading, sizeof(heading), "%s %u", nb4Text("CRONO", "TIMER"), index + 1);
+    snprintf(heading, sizeof(heading), "%s %u", STR_NB4_TIMER, index + 1);
   } else {
-    strAppend(heading, nb4Text("CRONO", "TIMER"), sizeof(heading) - 1);
+    strAppend(heading, STR_NB4_TIMER, sizeof(heading) - 1);
   }
-  const char* subtitle = raceMode ? nb4Text("VUELTA EN CURSO", "CURRENT LAP")
-                       : state.homeTimerCountdown ? nb4Text("CUENTA ATRÁS", "COUNTDOWN")
-                                                  : nb4Text("TRANSCURRIDO", "ELAPSED");
+  const char* subtitle = raceMode ? STR_NB4_CURRENT_LAP
+                       : state.homeTimerCountdown ? STR_NB4_COUNTDOWN
+                                                  : STR_NB4_ELAPSED;
   if (landscape) {
     lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, 0);
     nb4Label(this, {6, 6, 70, 20}, heading, FONT(BOLD));
@@ -1033,8 +1036,8 @@ Nb4Stats::Nb4Stats(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   const coord_t inset = landscape ? 2 : 4;
   const coord_t usable = width() - 2 * inset - (landscape ? 0 : 2);
   const coord_t labelY = landscape ? 10 : 8;
-  const char* names[] = {nb4Text("MEJOR", "BEST"), nb4Text("ÚLTIMA", "LAST"),
-                         nb4Text("VUELTAS", "LAPS"), nb4Text("SESIÓN", "SESSION")};
+  const char* names[] = {STR_NB4_BEST_7CAE, STR_NB4_LAST,
+                         STR_NB4_LAPS_7AA1, STR_NB4_SESSION};
   for (unsigned i = 0; i < 4; ++i) {
     const coord_t x = inset + usable * i / 4;
     const coord_t colW = usable * (i + 1) / 4 - usable * i / 4 - 2;
@@ -1084,8 +1087,8 @@ Nb4RacePanel::Nb4RacePanel(Window* parent, rect_t r, bool race) :
   setWindowFlag(OPAQUE);
   Nb4Ui::panel(lvobj);
   title = nb4Label(this, {10, 5, width() - 114, 17}, raceMode ?
-    (width() < 260 ? nb4Text("CARRERA", "RACE") : nb4Text("TIEMPO DE CARRERA", "RACE TIME")) :
-    nb4Text("CRONÓMETRO", "TIMER"), FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
+    (width() < 260 ? STR_NB4_RACE_9606 : STR_NB4_RACE_TIME) :
+    STR_NB4_TIMER_A026, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
   phase = nb4Label(this, {width() - 106, 5, 96, 17}, "", FONT(XS) | RIGHT, COLOR_THEME_EDIT_INDEX);
   timer = nb4Label(this, {8, 23, raceMode ? width() - 83 : width() - 16, 52}, raceMode ? "00:00.0" : "00:00", FONT(LXL));
   if (!raceMode) {
@@ -1099,7 +1102,7 @@ Nb4RacePanel::Nb4RacePanel(Window* parent, rect_t r, bool race) :
     timerInfo = nb4Label(this, {10, 92, width() - 20, 20}, "", FONT(XS) | CENTERED, COLOR_THEME_PRIMARY3_INDEX);
     return;
   }
-  nb4Label(this, {width() - 73, 25, 63, 16}, nb4Text("VUELTA", "LAP"), FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
+  nb4Label(this, {width() - 73, 25, 63, 16}, STR_NB4_LAP, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
   laps = nb4Label(this, {width() - 73, 43, 63, 32}, "--", FONT(L));
   progress = lv_bar_create(lvobj);
   lv_obj_set_pos(progress, 10, 74); lv_obj_set_size(progress, width() - 20, 4);
@@ -1108,11 +1111,11 @@ Nb4RacePanel::Nb4RacePanel(Window* parent, rect_t r, bool race) :
   etx_bg_color(progress, COLOR_THEME_FOCUS_INDEX, LV_PART_INDICATOR);
   lv_obj_set_style_anim_time(progress, 0, 0);
   const coord_t statsY = height() > 130 ? 102 : 79;
-  const char* names[] = {nb4Text("ÚLTIMA", "LAST"), nb4Text("MEJOR", "BEST"), "+/-"};
+  const char* names[] = {STR_NB4_LAST, STR_NB4_BEST_7CAE, "+/-"};
   StaticText** fields[] = {&last, &best, &delta};
   for (unsigned i = 0; i < 3; ++i) {
     coord_t x = 10 + i * (width() - 20) / 3, w = (width() - 20) / 3 - 4;
-    nb4Label(this, {x, statsY, w, 16}, i == 2 ? nb4Text("DIF. MEJOR", "VS BEST") : names[i], FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
+    nb4Label(this, {x, statsY, w, 16}, i == 2 ? STR_NB4_VS_BEST : names[i], FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
     *fields[i] = nb4Label(this, {x, statsY + 16, w, 28}, "--", FONT(L), i == 1 ? COLOR_THEME_EDIT_INDEX : COLOR_THEME_PRIMARY1_INDEX);
   }
 }
@@ -1129,21 +1132,21 @@ void Nb4RacePanel::refresh(const Nb4CarState& state)
     const auto& cfg = g_model.timers[index];
     if (cfg.name[0]) snprintf(heading, sizeof(heading), "%s", cfg.name);
     else snprintf(heading, sizeof(heading), "%s %u", state.homeTimerCountdown ?
-      nb4Text("CUENTA ATRÁS", "COUNTDOWN") : nb4Text("CRONÓMETRO", "TIMER"), index + 1);
+      STR_NB4_COUNTDOWN : STR_NB4_TIMER_A026, index + 1);
     title->setText(heading);
-    phase->setText(!available ? nb4Text("Desactivado", "Disabled") :
-      state.homeTimerIndex == 0 && nb4RaceIsPaused() ? nb4Text("En pausa", "Paused") :
-      state.homeTimerState == TMR_RUNNING ? nb4Text("En marcha", "Running") :
-      state.homeTimerState == TMR_STOPPED ? nb4Text("Finalizado", "Finished") :
-      nb4Text("Preparado", "Ready"));
+    phase->setText(!available ? STR_NB4_DISABLED :
+      state.homeTimerIndex == 0 && nb4RaceIsPaused() ? STR_NB4_PAUSED :
+      state.homeTimerState == TMR_RUNNING ? STR_NB4_RUNNING :
+      state.homeTimerState == TMR_STOPPED ? STR_NB4_FINISHED_7B5C :
+      STR_NB4_READY_84E2);
     unsigned percent = 0;
     if (state.homeTimerStart) {
       percent = limit<int64_t>(0, int64_t(state.homeTimer.value) * 100 /
         state.homeTimerStart, 100);
     }
     lv_bar_set_value(progress, percent, LV_ANIM_OFF);
-    timerInfo->setText(state.homeTimerCountdown ? nb4Text("Tiempo restante", "Time remaining") :
-      nb4Text("Tiempo transcurrido", "Elapsed time"));
+    timerInfo->setText(state.homeTimerCountdown ? STR_NB4_TIME_REMAINING :
+      STR_NB4_ELAPSED_TIME);
     return;
   }
   timer->setText(Nb4Ui::timeText(state.raceElapsed.value, state.raceElapsed.validity != Nb4Validity::Absent));

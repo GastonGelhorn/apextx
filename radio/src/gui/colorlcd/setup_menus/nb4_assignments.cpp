@@ -6,6 +6,7 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "edgetx.h"
 #include "nb4_controls.h"
+#include "nb4_i18n.h"
 #include "nb4_routes.h"
 #include "nb4_model_compat.h"
 #include "nb4_ui.h"
@@ -27,30 +28,34 @@ const char* names[NB4_CONTROL_COUNT] = {
 };
 const char* location(unsigned i)
 {
-  if (i < 2) return i ? nb4Text("Grip derecho", "Right grip") : nb4Text("Grip izquierdo", "Left grip");
-  if (i < 4) return i == 2 ? nb4Text("Lado izquierdo del volante", "Left of steering wheel") : nb4Text("Lado derecho del volante", "Right of steering wheel");
-  return i < 8 ? nb4Text("Trim adelante / atrás", "Forward / back trim") : nb4Text("Trim izquierda / derecha", "Left / right trim");
+  if (i < 2) return i ? STR_NB4_RIGHT_GRIP : STR_NB4_LEFT_GRIP;
+  if (i < 4) return i == 2 ? STR_NB4_LEFT_OF_STEERING_WHEEL : STR_NB4_RIGHT_OF_STEERING_WHEEL;
+  return i < 8 ? STR_NB4_FORWARD_BACK_TRIM : STR_NB4_LEFT_RIGHT_TRIM;
 }
 const char* actionName(unsigned action)
 {
-  static const char* const es[] = {"Función original", "Sin acción", "Anterior", "Siguiente", "Aceptar", "Volver", "Abrir ajustes", "Acceso rápido", "Iniciar / pausar", "Marcar vuelta", "Finalizar manga", "Reiniciar crono", "Deshacer vuelta", "Dirección -", "Dirección +", "Gas -", "Gas +"};
-  static const char* const en[] = {"Original function", "No action", "Previous", "Next", "Select", "Back", "Open settings", "Quick access", "Start / pause", "Mark lap", "Finish race", "Reset timer", "Undo lap", "Steering -", "Steering +", "Throttle -", "Throttle +"};
-  return action < NB4_CONTROL_ACTION_COUNT ? nb4Text(es[action], en[action]) : "--";
+  static const Nb4Str names[] = {NB4_STR(ORIGINAL_FUNCTION), NB4_STR(NO_ACTION),
+      NB4_STR(PREVIOUS), NB4_STR(NEXT), NB4_STR(SELECT), NB4_STR(BACK),
+      NB4_STR(OPEN_SETTINGS), NB4_STR(QUICK_ACCESS), NB4_STR(START_PAUSE),
+      NB4_STR(MARK_LAP), NB4_STR(FINISH_RACE), NB4_STR(RESET_TIMER),
+      NB4_STR(UNDO_LAP_ACTION), NB4_STR(STEERING_MINUS), NB4_STR(STEERING_PLUS),
+      NB4_STR(THROTTLE_MINUS), NB4_STR(THROTTLE_PLUS)};
+  return action < NB4_CONTROL_ACTION_COUNT ? names[action]() : "--";
 }
 std::string summary(unsigned i)
 {
   uint8_t binding = nb4ControlBinding(i);
   uint8_t action = binding & ~NB4_CONTROL_LONG;
   if (!action) {
-    if (i == 0) return nb4Text("Volver", "Back");
-    if (i == 1) return nb4Text("Aceptar / abrir ajustes", "Select / open settings");
-    if (i < 4) return nb4Text("Interruptor del modelo", "Model switch");
+    if (i == 0) return STR_NB4_BACK;
+    if (i == 1) return STR_NB4_SELECT_OPEN_SETTINGS;
+    if (i < 4) return STR_NB4_MODEL_SWITCH;
     if (i < 6) return actionName(NB4_CONTROL_ST_DOWN + i - 4);
     if (i < 8) return actionName(NB4_CONTROL_TH_DOWN + i - 6);
-    return nb4Text("Trim original", "Original trim");
+    return STR_NB4_ORIGINAL_TRIM;
   }
   std::string result = actionName(action);
-  if (binding & NB4_CONTROL_LONG) result += nb4Text(" (mantener)", " (hold)");
+  if (binding & NB4_CONTROL_LONG) result += STR_NB4_HOLD;
   return result;
 }
 int groupOf(uint8_t action)
@@ -76,19 +81,17 @@ class LearnControlDialog : public BaseDialog
 {
  public:
   LearnControlDialog(uint8_t binding, std::function<void(unsigned)> assigned) :
-      BaseDialog(nb4Text("Pulsa un mando", "Press a control"), false,
+      BaseDialog(STR_NB4_PRESS_A_CONTROL, false,
                  displayWidth() - 8, displayHeight() - 12), binding(binding),
       assigned(std::move(assigned)), started(get_tmr10ms())
   {
     useSectionHeader();
     form->padAll(PAD_LARGE);
     sectionLabel(form, actionName(binding & ~NB4_CONTROL_LONG));
-    note(form, nb4Text("Pulsa un botón o un trim de cuatro direcciones. Se asignará automáticamente.",
-                      "Press a button or a four-way trim. It will be assigned automatically."));
-    hint = note(form, nb4Text("Suelta primero los mandos que ya tengas pulsados.",
-                            "Release any controls you are already holding."));
+    note(form, STR_NB4_PRESS_A_BUTTON_OR_A_FOUR);
+    hint = note(form, STR_NB4_RELEASE_ANY_CONTROLS_YOU_ARE_ALREADY);
     remaining = note(form, "");
-    new TextButton(form, {0, 0, LV_PCT(100), 44}, nb4Text("Cancelar", "Cancel"),
+    new TextButton(form, {0, 0, LV_PCT(100), 44}, STR_NB4_CANCEL,
                    [this]() { deleteLater(); return 0; });
     nb4ControlsBeginLearn();
   }
@@ -111,15 +114,14 @@ class LearnControlDialog : public BaseDialog
       return;
     }
     if (result == 0xfe)
-      hint->setText(nb4Text("Se han pulsado varios mandos. Suéltalos y pulsa solo uno.",
-                           "Multiple controls pressed. Release them and press just one."));
+      hint->setText(STR_NB4_MULTIPLE_CONTROLS_PRESSED_RELEASE_THEM_A);
     const unsigned elapsed = (tmr10ms_t)(get_tmr10ms() - started);
     if (elapsed >= 1500) { assigned(NB4_CONTROL_COUNT); deleteLater(); return; }
     const unsigned seconds = 15 - elapsed / 100;
     if (seconds != lastSecond) {
       lastSecond = seconds;
       char text[64];
-      snprintf(text, sizeof(text), nb4Text("Esperando un mando... %u s", "Waiting for a control... %u s"), seconds);
+      snprintf(text, sizeof(text), STR_NB4_WAITING_FOR_A_CONTROL_U_S, seconds);
       remaining->setText(text);
     }
   }
@@ -135,7 +137,7 @@ class ControlEditor : public BaseDialog
 {
  public:
   explicit ControlEditor(unsigned index, uint8_t initial = NB4_CONTROL_RUN_PAUSE) :
-      BaseDialog(index < NB4_CONTROL_COUNT ? names[index] : nb4Text("Asignar función", "Assign function"),
+      BaseDialog(index < NB4_CONTROL_COUNT ? names[index] : STR_NB4_ASSIGN_FUNCTION,
                  false, displayWidth() - 8, displayHeight() - 12), index(index),
       draft(index < NB4_CONTROL_COUNT ? nb4ControlBinding(index) : initial)
   {
@@ -143,7 +145,7 @@ class ControlEditor : public BaseDialog
     form->padAll(PAD_MEDIUM);
     lv_obj_set_style_pad_row(form->getLvObj(), 8, 0);
     note(form, index < NB4_CONTROL_COUNT ? location(index) :
-        nb4Text("1. Elige la función. 2. Pulsa el mando.", "1. Choose a function. 2. Press a control."));
+        STR_NB4_1_CHOOSE_A_FUNCTION_2_PRESS);
     Window *settings = form, *info = form;
     if (wide()) {
       auto columns = new Window(form, {0, 0, LV_PCT(100), LV_SIZE_CONTENT});
@@ -155,14 +157,14 @@ class ControlEditor : public BaseDialog
       settings->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_MEDIUM, columnWidth, LV_SIZE_CONTENT);
       info->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_MEDIUM, columnWidth, LV_SIZE_CONTENT);
     }
-    sectionLabel(settings, nb4Text("Función", "Function"));
+    sectionLabel(settings, STR_NB4_FUNCTION);
     auto group = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 3,
         [this]() { return groupOf(draft & ~NB4_CONTROL_LONG); },
         [this](int v) { draft = firstAction[v]; refreshChoices(); });
     group->setTextHandler([](int v) {
-      static const char* const es[] = {"Original / desactivado", "Navegación", "Crono y vueltas", "Ajustar trims"};
-      static const char* const en[] = {"Original / disabled", "Navigation", "Timer and laps", "Adjust trims"};
-      return std::string(nb4Text(es[v], en[v]));
+      static const Nb4Str names[] = {NB4_STR(ORIGINAL_DISABLED), NB4_STR(NAVIGATION),
+          NB4_STR(TIMER_AND_LAPS), NB4_STR(ADJUST_TRIMS)};
+      return std::string(names[v]());
     });
     action = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 1,
         [this]() { return int(draft & ~NB4_CONTROL_LONG); },
@@ -171,28 +173,28 @@ class ControlEditor : public BaseDialog
     gesture = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 1,
         [this]() { return !!(draft & NB4_CONTROL_LONG); },
         [this](int v) { draft = (draft & ~NB4_CONTROL_LONG) | (v ? NB4_CONTROL_LONG : 0); if (result) result->hide(); });
-    gesture->setTextHandler([](int v) { return std::string(v ? nb4Text("Mantener 0,6 s", "Hold 0.6 s") : nb4Text("Al pulsar", "On press")); });
+    gesture->setTextHandler([](int v) { return std::string(v ? STR_NB4_HOLD_0_6_S : STR_NB4_ON_PRESS); });
     detail = note(info, "");
     if (index == 2 || index == 3) {
-      note(info, nb4Text("La señal SW sigue disponible en canales, mezclas y funciones del modelo.", "The SW signal remains available to model channels, mixes and functions."));
+      note(info, STR_NB4_THE_SW_SIGNAL_REMAINS_AVAILABLE_TO);
       std::string uses;
       auto usesSwitch = [index](int sw) {
         sw = abs(sw);
         return sw >= SWSRC_FIRST_SWITCH && sw < SWSRC_FIRST_SWITCH + 6 &&
                unsigned((sw - SWSRC_FIRST_SWITCH) / 3) == index - 2;
       };
-      if (usesSwitch(g_model.nb4Racing.engineCutSw)) uses += nb4Text("Corte de motor. ", "Engine cut. ");
-      if (usesSwitch(g_model.nb4Racing.idleUpSw)) uses += nb4Text("Ralentí alto. ", "Idle up. ");
-      if (usesSwitch(g_model.nb4Racing.lapSw)) uses += nb4Text("Vueltas. ", "Laps. ");
-      for (const auto& timer : g_model.timers) if (usesSwitch(timer.swtch)) { uses += nb4Text("Cronómetros. ", "Timers. "); break; }
-      for (const auto& mix : g_model.mixData) if (mix.srcRaw && usesSwitch(mix.swtch)) { uses += nb4Text("Mezclas. ", "Mixes. "); break; }
-      for (const auto& fn : g_model.customFn) if (usesSwitch(fn.swtch)) { uses += nb4Text("Funciones especiales. ", "Special functions. "); break; }
-      if (!uses.empty()) note(info, (std::string(nb4Text("También asignado: ", "Also assigned: ")) + uses).c_str());
+      if (usesSwitch(g_model.nb4Racing.engineCutSw)) uses += STR_NB4_ENGINE_CUT_F024;
+      if (usesSwitch(g_model.nb4Racing.idleUpSw)) uses += STR_NB4_IDLE_UP_23E4;
+      if (usesSwitch(g_model.nb4Racing.lapSw)) uses += STR_NB4_LAPS_A8F4;
+      for (const auto& timer : g_model.timers) if (usesSwitch(timer.swtch)) { uses += STR_NB4_TIMERS; break; }
+      for (const auto& mix : g_model.mixData) if (mix.srcRaw && usesSwitch(mix.swtch)) { uses += STR_NB4_MIXES; break; }
+      for (const auto& fn : g_model.customFn) if (usesSwitch(fn.swtch)) { uses += STR_NB4_SPECIAL_FUNCTIONS; break; }
+      if (!uses.empty()) note(info, (std::string(STR_NB4_ALSO_ASSIGNED) + uses).c_str());
     }
     result = note(info, "");
     result->hide();
     auto save = new TextButton(info, {0, 0, LV_PCT(100), 44},
-        index < NB4_CONTROL_COUNT ? nb4Text("Guardar asignación", "Save assignment") : nb4Text("Asignar pulsando", "Assign by pressing"), [this]() {
+        index < NB4_CONTROL_COUNT ? STR_NB4_SAVE_ASSIGNMENT : STR_NB4_ASSIGN_BY_PRESSING, [this]() {
       if (this->index < NB4_CONTROL_COUNT) {
         nb4ControlSetBinding(this->index, draft);
         deleteLater();
@@ -200,13 +202,13 @@ class ControlEditor : public BaseDialog
         new LearnControlDialog(draft, [this](unsigned detected) {
           result->show();
           if (detected >= NB4_CONTROL_COUNT) {
-            result->setText(nb4Text("No se detectó un mando. Vuelve a intentarlo.", "No control detected. Try again."));
+            result->setText(STR_NB4_NO_CONTROL_DETECTED_TRY_AGAIN);
             return;
           }
-          std::string text = nb4Text("Asignado: ", "Assigned: ");
+          std::string text = STR_NB4_ASSIGNED;
           text += names[detected]; text += " / "; text += summary(detected);
           if (detected == 2 || detected == 3)
-            text += nb4Text(". Conserva sus asignaciones de canal.", ". Its channel assignments are kept.");
+            text += STR_NB4_ITS_CHANNEL_ASSIGNMENTS_ARE_KEPT;
           result->setText(text);
         });
       }
@@ -214,7 +216,7 @@ class ControlEditor : public BaseDialog
     });
     save->check();
     if (index >= NB4_CONTROL_COUNT)
-      new TextButton(info, {0, 0, LV_PCT(100), 44}, nb4Text("Ver por mando", "View by control"),
+      new TextButton(info, {0, 0, LV_PCT(100), 44}, STR_NB4_VIEW_BY_CONTROL,
                      []() { nb4OpenAssignmentsList(); return 0; });
     firstFocus = group->getLvObj();
     refreshChoices();
@@ -246,11 +248,11 @@ class ControlEditor : public BaseDialog
     gesture->show(nb4ControlCanHold(selected));
     gesture->enable(selected != NB4_CONTROL_RESET);
     gesture->update();
-    detail->setText(group == 1 ? nb4Text("Anterior / siguiente mueve el foco. Aceptar abre el control seleccionado; Volver cierra la vista.", "Previous / next moves focus. Select opens the focused control; Back closes the view.") :
-        selected == NB4_CONTROL_RESET ? nb4Text("Mantén pulsado para poner a cero el Crono 1 y las vueltas de la manga.", "Hold to clear Timer 1 and the current race laps.") :
-        group == 2 ? nb4Text("Controla el Crono 1 y las vueltas. Pausar conserva el tiempo; volver a pulsar continúa la manga.", "Controls Timer 1 and laps. Pause keeps elapsed time; press again to continue the race.") :
-        group == 3 ? nb4Text("Usa el paso y la repetición de los trims. Sustituye la función original de esta tecla.", "Uses the native trim step and repeat. Replaces this key's original function.") :
-        nb4Text("Función original restaura el comportamiento de esta tecla.", "Original function restores this key's usual behaviour."));
+    detail->setText(group == 1 ? STR_NB4_PREVIOUS_NEXT_MOVES_FOCUS_SELECT_OPENS :
+        selected == NB4_CONTROL_RESET ? STR_NB4_HOLD_TO_CLEAR_TIMER_1_AND :
+        group == 2 ? STR_NB4_CONTROLS_TIMER_1_AND_LAPS_PAUSE :
+        group == 3 ? STR_NB4_USES_THE_NATIVE_TRIM_STEP_AND :
+        STR_NB4_ORIGINAL_FUNCTION_RESTORES_THIS_KEY_S);
   }
 };
 
@@ -258,42 +260,42 @@ class AssignmentsDialog : public BaseDialog
 {
  public:
   explicit AssignmentsDialog(bool navigation) :
-      BaseDialog(navigation ? nb4Text("Teclas y navegación", "Keys and navigation") : nb4Text("Asignaciones", "Assignments"), true, displayWidth() - 8, displayHeight() - 12)
+      BaseDialog(navigation ? STR_NB4_KEYS_AND_NAVIGATION : STR_NB4_ASSIGNMENTS, true, displayWidth() - 8, displayHeight() - 12)
   {
     useSectionHeader();
     form->padAll(PAD_MEDIUM);
     lv_obj_set_style_pad_row(form->getLvObj(), 6, 0);
-    note(form, nb4Text("Por coche. Toca un mando para cambiar su función.", "Per car. Tap a control to change its function."));
-    if (navigation) note(form, nb4Text("Puedes usar los botones del volante, grip o trims para navegar. La pantalla táctil sigue disponible.", "Use wheel, grip or trim buttons to navigate. Touch remains available."));
-    sectionLabel(form, nb4Text("PULSADORES", "BUTTONS"));
+    note(form, STR_NB4_PER_CAR_TAP_A_CONTROL_TO);
+    if (navigation) note(form, STR_NB4_USE_WHEEL_GRIP_OR_TRIM_BUTTONS);
+    sectionLabel(form, STR_NB4_BUTTONS);
     auto buttons = controlsGroup();
     for (unsigned i : {2u, 3u, 0u, 1u}) addControl(buttons, i);
     sectionLabel(form, "TRIMS");
     auto trims = controlsGroup();
     for (unsigned i = 4; i < NB4_CONTROL_COUNT; ++i) addControl(trims, i);
-    new TextButton(form, {0, 0, LV_PCT(100), 44}, nb4Text("Pareja SW2 / SW3", "SW2 / SW3 pair"), []() {
+    new TextButton(form, {0, 0, LV_PCT(100), 44}, STR_NB4_SW2_SW3_PAIR, []() {
       auto menu = new Menu();
-      menu->setTitle(nb4Text("SW2 baja / SW3 sube", "SW2 down / SW3 up"));
+      menu->setTitle(STR_NB4_SW2_DOWN_SW3_UP);
       auto pair = [menu](const char* title, uint8_t first, uint8_t second) {
         menu->addLine(title, [first, second]() { nb4ControlSetBinding(2, first); nb4ControlSetBinding(3, second); });
       };
-      pair(nb4Text("Navegación: anterior / siguiente", "Navigation: previous / next"), NB4_CONTROL_PREVIOUS, NB4_CONTROL_NEXT);
-      pair(nb4Text("Trim de dirección - / +", "Steering trim - / +"), NB4_CONTROL_ST_DOWN, NB4_CONTROL_ST_UP);
-      pair(nb4Text("Trim de gas - / +", "Throttle trim - / +"), NB4_CONTROL_TH_DOWN, NB4_CONTROL_TH_UP);
-      pair(nb4Text("Restaurar ambos", "Restore both"), NB4_CONTROL_DEFAULT, NB4_CONTROL_DEFAULT);
+      pair(STR_NB4_NAVIGATION_PREVIOUS_NEXT, NB4_CONTROL_PREVIOUS, NB4_CONTROL_NEXT);
+      pair(STR_NB4_STEERING_TRIM, NB4_CONTROL_ST_DOWN, NB4_CONTROL_ST_UP);
+      pair(STR_NB4_THROTTLE_TRIM, NB4_CONTROL_TH_DOWN, NB4_CONTROL_TH_UP);
+      pair(STR_NB4_RESTORE_BOTH, NB4_CONTROL_DEFAULT, NB4_CONTROL_DEFAULT);
       return 0;
     });
-    new TextButton(form, {0, 0, LV_PCT(100), 44}, nb4Text("Otros controles y canales", "Other controls and channels"), []() {
+    new TextButton(form, {0, 0, LV_PCT(100), 44}, STR_NB4_OTHER_CONTROLS_AND_CHANNELS, []() {
       auto menu = new Menu();
-      menu->setTitle(nb4Text("Otros controles", "Other controls"));
-      menu->addLine(nb4Text("Volante y gatillo", "Wheel and trigger"), []() { new HWInputDialog<HWSticks>(nb4Text("Volante y gatillo", "Wheel and trigger")); });
+      menu->setTitle(STR_NB4_OTHER_CONTROLS);
+      menu->addLine(STR_NB4_WHEEL_AND_TRIGGER, []() { new HWInputDialog<HWSticks>(STR_NB4_WHEEL_AND_TRIGGER); });
       menu->addLine("VR1-L / VR1-R", []() { new HWInputDialog<HWPots>("VR1-L / VR1-R", HWPots::POTS_WINDOW_WIDTH); });
-      menu->addLine(nb4Text("Canales", "Channels"), []() { nb4OpenRoute("settings/controls/channels"); });
-      menu->addLine(nb4Text("Mezclas", "Mixes"), []() { nb4OpenRoute("settings/advanced/mixes"); });
-      menu->addLine(nb4Text("Interruptores", "Switches"), []() { new HWInputDialog<HWSwitches>(nb4Text("Interruptores", "Switches"), HWSwitches::SW_WINDOW_WIDTH); });
+      menu->addLine(STR_NB4_CHANNELS, []() { nb4OpenRoute("settings/controls/channels"); });
+      menu->addLine(STR_NB4_MIXES_60C8, []() { nb4OpenRoute("settings/advanced/mixes"); });
+      menu->addLine(STR_NB4_SWITCHES, []() { new HWInputDialog<HWSwitches>(STR_NB4_SWITCHES, HWSwitches::SW_WINDOW_WIDTH); });
       return 0;
     });
-    note(form, nb4Text("Los mandos giratorios conservan su uso actual. TR4 aún no tiene lectura en este firmware.", "Rotary controls keep their current role. TR4 is not yet read by this firmware."));
+    note(form, STR_NB4_ROTARY_CONTROLS_KEEP_THEIR_CURRENT_ROLE);
   }
   void checkEvents() override
   {
@@ -330,8 +332,8 @@ class AssignmentsDialog : public BaseDialog
     etx_border_color(row->getLvObj(), COLOR_THEME_FOCUS_INDEX, LV_STATE_FOCUSED);
     lv_obj_set_style_border_width(row->getLvObj(), 2, LV_STATE_FOCUSED);
     std::string title = names[index];
-    if (index < 2) title += index ? nb4Text("  Grip der.", "  Right grip") : nb4Text("  Grip izq.", "  Left grip");
-    if (index == 2 || index == 3) title += index == 2 ? nb4Text("  Volante izq.", "  Wheel left") : nb4Text("  Volante der.", "  Wheel right");
+    if (index < 2) title += index ? STR_NB4_RIGHT_GRIP_8E97 : STR_NB4_LEFT_GRIP_23DC;
+    if (index == 2 || index == 3) title += index == 2 ? STR_NB4_WHEEL_LEFT : STR_NB4_WHEEL_RIGHT;
     namesText[index] = new StaticText(row, {10, 6, rowWidth - 44, 22}, title.c_str(), COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));
     lastBindings[index] = nb4ControlBinding(index);
     labels[index] = new StaticText(row, {10, 31, rowWidth - 44, 18}, summary(index).c_str(), COLOR_THEME_PRIMARY3_INDEX, FONT(XS));

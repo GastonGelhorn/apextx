@@ -10,7 +10,6 @@
 #include "edgetx.h"
 #include "gvar_numberedit.h"
 #include "libui/static.h"
-#include "nb4_car_state.h"  // nb4Text
 #include "numberedit.h"
 #include "source_numberedit.h"
 #include "curve_param.h"
@@ -98,15 +97,15 @@ Window* racingNumber(Window* parent, const rect_t& rect, std::function<int32_t()
 const char* nb4ParamUnit()
 {
 
-  return g_eeGeneral.ppmunit == PPM_US ? nb4Text("(us)", "(us)")
-                                       : nb4Text("(%)", "(%)");
+  return g_eeGeneral.ppmunit == PPM_US ? STR_NB4_US
+                                       : STR_NB4_PERCENT_UNIT;
 }
 
 const char* nb4ParamLabel(Nb4Param p)
 {
   switch (p) {
     case Nb4Param::ThrottleReversed:
-      return nb4Text("Invertir el gatillo", "Reverse trigger");
+      return STR_NB4_REVERSE_TRIGGER;
     case Nb4Param::ThrottleTraceSource:   return STR_TTRACE;
     case Nb4Param::ThrottleTrimIdleOnly:  return STR_TTRIM;
     case Nb4Param::ThrottleTrimSource:    return STR_TTRIM_SW;
@@ -115,11 +114,11 @@ const char* nb4ParamLabel(Nb4Param p)
     case Nb4Param::ChannelSubtrim:        return STR_LIMITS_HEADERS_SUBTRIM;
     case Nb4Param::ChannelReverse:        return STR_INVERTED;
     case Nb4Param::SteeringTrim:
-      return nb4Text("Trim del volante", "Wheel trim");
+      return STR_NB4_WHEEL_TRIM;
     case Nb4Param::ThrottleTrim:
-      return nb4Text("Trim del gatillo", "Trigger trim");
+      return STR_NB4_TRIGGER_TRIM;
     case Nb4Param::VehicleType:
-      return nb4Text("Tipo de coche", "Vehicle type");
+      return STR_NB4_VEHICLE_TYPE;
     case Nb4Param::SteerSpeedTurn:        return STR_NB4_STEER_TURN;
     case Nb4Param::SteerSpeedReturn:      return STR_NB4_STEER_RETURN;
     case Nb4Param::BrakeMax:              return STR_NB4_BRAKE_MAX;
@@ -133,8 +132,8 @@ const char* nb4ParamLabel(Nb4Param p)
     case Nb4Param::EngineCutSwitch:       return STR_NB4_ENGINE_CUT;
     case Nb4Param::EngineCutPos:          return STR_NB4_CUT_POS;
 
-    case Nb4Param::InputDualRate:         return nb4Text("Dual rate", "Dual rate");
-    case Nb4Param::InputResponse:         return nb4Text("Respuesta", "Response");
+    case Nb4Param::InputDualRate:         return STR_NB4_DUAL_RATE;
+    case Nb4Param::InputResponse:         return STR_NB4_RESPONSE;
     default:                              return "";
   }
 }
@@ -473,9 +472,9 @@ Window* buildControl(Window* parent, const rect_t& rect, Nb4Param p,
           case NB4_VEHICLE_ELECTRIC: return std::string(STR_NB4_ELECTRIC);
           case NB4_VEHICLE_NITRO:    return std::string(STR_NB4_NITRO);
           case NB4_VEHICLE_CUSTOM:
-            return std::string(nb4Text("Personalizado", "Custom"));
+            return std::string(STR_NB4_CUSTOM);
           default:
-            return std::string(nb4Text("Sin definir", "Not set"));
+            return std::string(STR_NB4_NOT_SET);
         }
       });
       return choice;
@@ -615,21 +614,10 @@ void referenceHint(Window* form, FlexGridLayout& grid, const Nb4Numeric& spec)
   const char* text = nullptr;
   if (spec.storedReference == Nb4NumericKind::Gvar) {
     text = modelGVEnabled()
-               ? nb4Text("Este ajuste toma su valor de una variable del modelo. "
-                         "El botón GV lo devuelve a una cifra.",
-                         "This setting takes its value from a model variable. "
-                         "The GV button turns it back into a figure.")
-               : nb4Text("Este ajuste toma su valor de una variable del modelo. "
-                         "Para devolverlo a una cifra, enciende las variables en "
-                         "Avanzado > Variables del modelo.",
-                         "This setting takes its value from a model variable. To "
-                         "turn it back into a figure, switch variables on under "
-                         "Advanced > Model variables.");
+               ? STR_NB4_THIS_SETTING_TAKES_ITS_VALUE_FROM
+               : STR_NB4_THIS_SETTING_TAKES_ITS_VALUE_FROM_CE79;
   } else {
-    text = nb4Text("Este ajuste toma su valor de otro mando. El botón SRC lo "
-                   "devuelve a una cifra.",
-                   "This setting takes its value from another control. The SRC "
-                   "button turns it back into a figure.");
+    text = STR_NB4_THIS_SETTING_TAKES_ITS_VALUE_FROM_98CC;
   }
 
   auto line = form->newLine(grid);

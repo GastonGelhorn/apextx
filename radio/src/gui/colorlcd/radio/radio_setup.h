@@ -37,6 +37,10 @@ class RadioSetupPage: public PageGroupItem
 
 #if defined(RADIO_NB4_FAMILY)
 
+void openRadioSetupGeneralPage(const char* subtitle);
+void openRadioSetupUsbPage(const char* subtitle);
+void openRadioSetupControlsPage(const char* subtitle);
+void openRadioSetupBacklightPage(const char* subtitle);
 void openRadioSetupSoundPage(const char* subtitle);
 void openRadioSetupAlarmsPage(const char* subtitle);
 void openRadioSetupHapticPage(const char* subtitle);

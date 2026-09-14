@@ -6,14 +6,15 @@
 
 #include <stdint.h>
 
+#include "nb4_i18n.h"
+
 #if defined(RADIO_NB4_FAMILY)
 
 #define NB4_PALETTE_COLORS 13
 
 struct Nb4Palette {
   const char* name;
-  const char* infoEs;
-  const char* infoEn;
+  Nb4Str info;
 
   bool dark;
   uint32_t colors[NB4_PALETTE_COLORS];  // 0xRRGGBB

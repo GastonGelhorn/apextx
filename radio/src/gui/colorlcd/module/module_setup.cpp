@@ -26,7 +26,6 @@
 #if defined(RADIO_NB4_FAMILY) && defined(AFHDS3)
 #include "dialog.h"
 #include "pulses/afhds3.h"
-#include "nb4_car_state.h"   // nb4Text
 #include "mainview/nb4_help.h"
 #endif
 
@@ -125,7 +124,7 @@ class Nb4BindDialog : public BaseDialog
 {
  public:
   Nb4BindDialog(uint8_t moduleIdx, std::function<void()> onDone) :
-      BaseDialog(nb4Text("Enlazar receptor", "Bind receiver"), false),
+      BaseDialog(STR_NB4_BIND_RECEIVER, false),
       moduleIdx(moduleIdx),
       onDone(std::move(onDone))
   {
@@ -135,12 +134,12 @@ class Nb4BindDialog : public BaseDialog
       using afhds3::BindPhase;
       const char* title = "";
       switch (afhds3::getBindPhase(moduleIdx)) {
-        case BindPhase::Preparing: title = nb4Text("1/3 Preparando emisora", "1/3 Preparing radio"); break;
-        case BindPhase::Searching: title = nb4Text("2/3 Buscando receptor", "2/3 Searching for receiver"); break;
-        case BindPhase::Confirming: title = nb4Text("3/3 Confirmando enlace", "3/3 Confirming connection"); break;
-        case BindPhase::ManualFinish: title = nb4Text("3/3 Finaliza el enlace", "3/3 Finish binding"); break;
-        case BindPhase::Connected: title = nb4Text("Receptor conectado", "Receiver connected"); break;
-        case BindPhase::Failed: title = nb4Text("Enlace no completado", "Binding not completed"); break;
+        case BindPhase::Preparing: title = STR_NB4_1_3_PREPARING_RADIO; break;
+        case BindPhase::Searching: title = STR_NB4_2_3_SEARCHING_FOR_RECEIVER; break;
+        case BindPhase::Confirming: title = STR_NB4_3_3_CONFIRMING_CONNECTION; break;
+        case BindPhase::ManualFinish: title = STR_NB4_3_3_FINISH_BINDING; break;
+        case BindPhase::Connected: title = STR_NB4_RECEIVER_CONNECTED; break;
+        case BindPhase::Failed: title = STR_NB4_BINDING_NOT_COMPLETED; break;
       }
       return std::string(title);
     }, COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD) | CENTERED);
@@ -159,33 +158,28 @@ class Nb4BindDialog : public BaseDialog
       const char* text = "";
       switch (afhds3::getBindPhase(moduleIdx)) {
         case BindPhase::Preparing:
-          text = nb4Text("Preparando la comunicación con el receptor.", "Preparing communication with the receiver."); break;
+          text = STR_NB4_PREPARING_COMMUNICATION_WITH_THE_RECEIVE; break;
         case BindPhase::Searching:
-          text = nb4Text("Enciende el receptor manteniendo pulsado su botón de enlace.",
-                         "Power the receiver while holding its bind button."); break;
+          text = STR_NB4_POWER_THE_RECEIVER_WHILE_HOLDING_ITS; break;
         case BindPhase::Confirming:
-          text = nb4Text("Receptor guardado. Esperando la confirmación de conexión.",
-                         "Receiver saved. Waiting for connection confirmation."); break;
+          text = STR_NB4_RECEIVER_SAVED_WAITING_FOR_CONNECTION_CO; break;
         case BindPhase::ManualFinish:
-          text = nb4Text("Una vía: pulsa Finalizar cuando el LED parpadee despacio.",
-                         "One way: press Finish when the LED flashes slowly."); break;
+          text = STR_NB4_ONE_WAY_PRESS_FINISH_WHEN_THE; break;
         case BindPhase::Connected:
-          text = nb4Text("Enlace confirmado y guardado en este modelo.",
-                         "Connection confirmed and saved in this model."); break;
+          text = STR_NB4_CONNECTION_CONFIRMED_AND_SAVED_IN_THIS; break;
         case BindPhase::Failed: {
           char msg[64] = "";
           getModuleStatusString(moduleIdx, msg);
-          return std::string(msg) + nb4Text(". Cierra y vuelve a enlazar.", ". Close and bind again.");
+          return std::string(msg) + STR_NB4_CLOSE_AND_BIND_AGAIN;
         }
       }
       return std::string(text);
     }, COLOR_THEME_PRIMARY3_INDEX, CENTERED);
 #else
     new StaticText(form, rect_t{0, 0, LV_PCT(100), 0},
-                   nb4Text("Enciende el receptor manteniendo pulsado su botón de enlace.",
-                           "Power the receiver while holding its bind button."),
+                   STR_NB4_POWER_THE_RECEIVER_WHILE_HOLDING_ITS,
                    COLOR_THEME_PRIMARY1_INDEX, CENTERED);
-    new StaticText(form, rect_t{0, 0, LV_PCT(100), 0}, nb4Text("ESTADO", "STATUS"),
+    new StaticText(form, rect_t{0, 0, LV_PCT(100), 0}, STR_NB4_STATUS,
                    COLOR_THEME_PRIMARY3_INDEX, CENTERED);
     new DynamicText(form, rect_t{0, 0, LV_PCT(100), 0}, [moduleIdx]() {
       char msg[64] = "";
@@ -194,13 +188,12 @@ class Nb4BindDialog : public BaseDialog
     }, COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD) | CENTERED);
     if (!g_model.moduleData[moduleIdx].afhds3.telemetry)
       new StaticText(form, rect_t{0, 0, LV_PCT(100), 0},
-                     nb4Text("Sin telemetría: finaliza cuando el LED parpadee despacio.",
-                             "One way: finish when the LED flashes slowly."),
+                     STR_NB4_ONE_WAY_FINISH_WHEN_THE_LED,
                      COLOR_THEME_PRIMARY3_INDEX, CENTERED);
 #endif
     new TextButton(form, rect_t{0, 0, LV_PCT(100), 0},
-                   g_model.moduleData[moduleIdx].afhds3.telemetry ? nb4Text("Cancelar", "Cancel") :
-                     nb4Text("Finalizar", "Finish"),
+                   g_model.moduleData[moduleIdx].afhds3.telemetry ? STR_NB4_CANCEL :
+                     STR_NB4_FINISH,
                    [this]() { close(false); return 0; });
   }
 
@@ -399,7 +392,7 @@ class ModuleWindow : public Window
       if (isModuleBindRangeAvailable(moduleIdx) || isModuleCrossfire(moduleIdx)) {
 #if defined(RADIO_NB4_FAMILY)
 
-        bindButton = new TextButton(box, rect_t{}, nb4Text("Enlazar", "Bind"));
+        bindButton = new TextButton(box, rect_t{}, STR_NB4_BIND);
 #else
         bindButton = new TextButton(box, rect_t{}, STR_MODULE_BIND);
 #endif
@@ -474,7 +467,7 @@ class ModuleWindow : public Window
 
         if (isModuleRangeAvailable(moduleIdx)) {
 #if defined(RADIO_NB4_FAMILY)
-          rangeButton = new TextButton(box, rect_t{}, nb4Text("Alcance", "Range"));
+          rangeButton = new TextButton(box, rect_t{}, STR_NB4_RANGE);
 #else
           rangeButton = new TextButton(box, rect_t{}, STR_MODULE_RANGE);
 #endif
@@ -923,110 +916,31 @@ class ModuleSubTypeChoice : public Choice
 #if defined(RADIO_NB4_FAMILY)
 
 static const Nb4HelpEntry _rf_help[] = {
-    {"Modo", "Mode",
-     "El idioma con el que la radio habla con el receptor. El módulo interno de "
-     "la NB4 es AFHDS3 de FlySky: es el que entienden los receptores que vienen "
-     "con la emisora. Puesto en \"Apagado\" la radio deja de emitir y el coche "
-     "no responde.",
-     "The protocol the radio uses to talk to the receiver. The NB4 internal "
-     "module is FlySky AFHDS3, which is what the bundled receivers speak. Set to "
-     "Off, the radio stops transmitting and the car will not respond."},
+    {NB4_STR(MODE_5032), NB4_STR(THE_PROTOCOL_THE_RADIO_USES_TO_TALK_TO_T)},
 
-    {"Estado módulo", "Module status",
-     "Lo que está pasando ahora mismo con el enlace. \"Conectado\": el receptor "
-     "responde. \"Desconectado\": no hay receptor encendido, o no está enlazado. "
-     "\"Vinculando\": la radio espera a que el receptor se empareje.",
-     "What the link is doing right now. \"Connected\": the receiver answers. "
-     "\"Disconnected\": no receiver powered, or not bound. \"Binding\": the "
-     "radio is waiting for the receiver to pair."},
+    {NB4_STR(MODULE_STATUS), NB4_STR(WHAT_THE_LINK_IS_DOING_RIGHT_NOW_CONNECT)},
 
-    {"Tipo", "Type",
-     "Selecciona la familia que admite tu receptor y vuelve a enlazar si la "
-     "cambias. Classic: FGr4, FGr4S, FGr4P, FTr4, FTr10 y FTr16S. Enhanced: "
-     "FGr4B, FGr8B, FGr12B, FTr8B, FTr12B, GMr y TMr. Los canales de salida "
-     "se eligen en Canales. Se conserva la configuración regional del módulo.",
-     "Choose the family supported by your receiver and bind again after "
-     "changing it. Classic: FGr4, FGr4S, FGr4P, FTr4, FTr10 and FTr16S. "
-     "Enhanced: FGr4B, FGr8B, FGr12B, FTr8B, FTr12B, GMr and TMr. Set the "
-     "output count in Channels. The module's regional configuration is preserved."},
+    {NB4_STR(TYPE), NB4_STR(CHOOSE_THE_FAMILY_SUPPORTED_BY_YOUR_RECE)},
 
-    {"Opciones módulo", "Module options",
-     "Cómo salen las señales por los pines del receptor: PWM (un servo por pin), "
-     "PPM, bus serie (SBUS, i-BUS) y la frecuencia del servo. \"Servo 50HZ\" es "
-     "para servos analógicos y \"Servo333HZ\" para digitales; poner 333 Hz a un "
-     "servo analógico lo puede quemar. Si no sabes cuál llevas, déjalo en 50HZ.",
-     "How the receiver drives its pins: PWM (one servo per pin), PPM, serial bus "
-     "(SBUS, i-BUS), and the servo frame rate. 50 Hz is for analogue servos and "
-     "333 Hz for digital ones; feeding 333 Hz to an analogue servo can burn it. "
-     "If you are not sure which you have, leave it at 50 Hz."},
+    {NB4_STR(MODULE_OPTIONS), NB4_STR(HOW_THE_RECEIVER_DRIVES_ITS_PINS_PWM_ONE)},
 
-    {"Sensores", "Sensors",
-     "Los sensores de telemetría que manda el receptor: tensión de la batería "
-     "del coche, temperatura, RPM. Lo que aparezca aquí es lo que puedes poner "
-     "en la pantalla principal y usar en las alarmas.",
-     "The telemetry the receiver sends back: pack voltage, temperature, RPM. "
-     "Whatever shows up here is what you can put on the home screen and use for "
-     "alarms."},
+    {NB4_STR(SENSORS), NB4_STR(THE_TELEMETRY_THE_RECEIVER_SENDS_BACK_PA)},
 
-    {"Canales", "Channels",
-     "Qué canales de la radio se envían al receptor. En un coche lo normal es "
-     "dejarlo tal cual: dirección y gas son los dos primeros, y los siguientes "
-     "sólo se usan si el coche lleva algo más (marchas, luces, bloqueos).",
-     "Which of the radio's channels are sent to the receiver. On a car you "
-     "normally leave this alone: steering and throttle are the first two, and "
-     "the rest only matter if the car has extras (gears, lights, lockers)."},
+    {NB4_STR(CHANNELS), NB4_STR(WHICH_OF_THE_RADIO_S_CHANNELS_ARE_SENT_T)},
 
-    {"Failsafe", "Failsafe",
-     "Qué hace el coche si se pierde la señal. \"Mantener\" deja los servos "
-     "donde estaban: si iba acelerando, sigue acelerando. \"Personalizado\" te "
-     "deja fijar la posición de cada canal, y es la única opción segura en un "
-     "coche: gas a cero, o incluso algo de freno. \"No pulsos\" corta la señal a "
-     "los servos. \"Receptor\" usa lo que el receptor tenga guardado.",
-     "What the car does when the signal is lost. \"Hold\" leaves the servos "
-     "where they were: if it was accelerating, it keeps accelerating. \"Custom\" "
-     "lets you set every channel, and is the only safe choice on a car: throttle "
-     "at zero, or even a little brake. \"No pulses\" stops driving the servos. "
-     "\"Receiver\" uses whatever the receiver has stored."},
+    {NB4_STR(FAILSAFE), NB4_STR(WHAT_THE_CAR_DOES_WHEN_THE_SIGNAL_IS_LOS)},
 
 #if defined(RADIO_NB4)
-    {"Receptor", "Receiver",
-     "Los datos del receptor se detectan durante el enlace y se guardan con este "
-     "modelo. No necesitas introducir un ID.",
-     "Receiver data is detected during binding and saved with this model. "
-     "You do not need to enter an ID."},
+    {NB4_STR(RECEIVER), NB4_STR(RECEIVER_DATA_IS_DETECTED_DURING_BINDING)},
 
-    {"Enlazar", "Bind",
-     "Empareja radio y receptor. El diálogo muestra preparación, búsqueda y "
-     "confirmación. En dos vías se cierra al confirmar la conexión; en una vía "
-     "pulsa Finalizar cuando el LED parpadee despacio. Vuelve a enlazar si cambias "
-     "Classic/Enhanced o una/dos vías.",
-     "Pairs radio and receiver. The dialog shows preparation, search and "
-     "confirmation. Two-way binding closes after connection is confirmed; "
-     "for one way, press Finish when the LED flashes slowly. Bind again after "
-     "changing Classic/Enhanced or one/two way."},
+    {NB4_STR(BIND), NB4_STR(PAIRS_RADIO_AND_RECEIVER_THE_DIALOG_SHOW)},
 #else
-    {"Receptor", "Receiver",
-     "El número identifica a ESTE coche dentro de la radio. Si dos modelos "
-     "comparten número la radio avisa, porque el receptor podría responder al "
-     "modelo equivocado.",
-     "The number identifies THIS model inside the radio. If two models share a "
-     "number the radio warns you, because the receiver could answer to the wrong "
-     "one."},
+    {NB4_STR(RECEIVER), NB4_STR(THE_NUMBER_IDENTIFIES_THIS_MODEL_INSIDE)},
 
-    {"Enlazar", "Bind",
-     "Empareja radio y receptor. Se abre un aviso con el estado del enlace: "
-     "enciende el receptor manteniendo pulsado su botón de enlace y espera a que "
-     "diga \"Conectado\". Hay que repetirlo si cambias el Tipo o la región.",
-     "Pairs radio and receiver. A dialog opens showing the link state: power the "
-     "receiver while holding its bind button and wait for \"Connected\". You "
-     "have to repeat it if you change Type or region."},
+    {NB4_STR(BIND), NB4_STR(PAIRS_RADIO_AND_RECEIVER_A_DIALOG_OPENS)},
 #endif
 
-    {"Alcance", "Range",
-     "Baja la potencia a propósito para ver a qué distancia se pierde el enlace. "
-     "Se hace antes de rodar, con el coche en el suelo y el motor desconectado.",
-     "Deliberately drops the power so you can see at what distance the link "
-     "breaks. Do it before running, car on the ground and motor disconnected."},
+    {NB4_STR(RANGE), NB4_STR(DELIBERATELY_DROPS_THE_POWER_SO_YOU_CAN)},
 };
 #endif
 
@@ -1077,7 +991,7 @@ ModulePage::ModulePage(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
 
 #if defined(RADIO_NB4_FAMILY)
 
-  nb4AddHelp(body, "RF y receptor", "RF and receiver", _rf_help,
+  nb4AddHelp(body, STR_NB4_RF_AND_RECEIVER, _rf_help,
              sizeof(_rf_help) / sizeof(_rf_help[0]) -
                  (isModuleRangeAvailable(moduleIdx) ? 0 : 1));
 #endif

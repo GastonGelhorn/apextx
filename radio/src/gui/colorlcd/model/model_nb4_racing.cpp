@@ -184,7 +184,7 @@ class Nb4ChannelsDialog : public BaseDialog
 {
  public:
   Nb4ChannelsDialog() :
-      BaseDialog(nb4Text("Canales", "Channels"), true,
+      BaseDialog(STR_NB4_CHANNELS, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92))
   {
 
@@ -193,10 +193,7 @@ class Nb4ChannelsDialog : public BaseDialog
     form->padLeft(PAD_MEDIUM);
     form->padRight(PAD_MEDIUM);
     new StaticText(form, {0, 0, LV_PCT(100), 0},
-                   nb4Text("A qué salida del receptor va cada mando, y si ese "
-                           "canal sale invertido.",
-                           "Which receiver output each control drives, and "
-                           "whether that channel comes out reversed."),
+                   STR_NB4_WHICH_RECEIVER_OUTPUT_EACH_CONTROL_DRIVE,
                    COLOR_THEME_PRIMARY3_INDEX);
 
     nb4BuildChannelAssignment(form, grid, &slots);

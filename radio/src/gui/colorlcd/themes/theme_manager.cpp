@@ -569,7 +569,7 @@ class Nb4BuiltinTheme : public ThemeFile
     builtin = true;
     setName(palette.name);
     setAuthor("ApexTX");
-    setInfo(nb4Text(palette.infoEs, palette.infoEn));
+    setInfo(palette.info());
     static_assert(NB4_PALETTE_COLORS == THEME_COLOR_COUNT - 1,
                   "the palette must cover every theme color");
     for (unsigned i = 0; i < NB4_PALETTE_COLORS; ++i) {

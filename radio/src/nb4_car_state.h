@@ -58,7 +58,6 @@ struct Nb4SensorReading {
 Nb4SensorReading nb4ReadSensor(unsigned index);
 // UI/Lua callers only. Native aligned words are read without waiting on control.
 const Nb4CarState& nb4ReadCarState();
-const char* nb4Text(const char* es, const char* en);
 
 #if defined(SIMU)
 

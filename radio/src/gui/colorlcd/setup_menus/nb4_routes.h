@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 
+#include "nb4_i18n.h"
+
 enum class Nb4RouteState : uint8_t {
   Available,
 
@@ -16,12 +18,10 @@ enum class Nb4RouteState : uint8_t {
 
 struct Nb4Route {
   const char* path;      // Exact ASCII key
-  const char* labelEs;
-  const char* labelEn;
+  Nb4Str label;
   Nb4RouteState state;
 
-  const char* reasonEs;
-  const char* reasonEn;
+  Nb4Str reason;         // nullptr when the route needs no explanation
   void (*open)();              // nullptr when NotBuiltYet
 
   bool (*available)();   // nullptr means always available
@@ -41,8 +41,7 @@ bool nb4RouteIsOpenable(const Nb4Route& route);
 
 struct Nb4Section2 {
   const char* id;
-  const char* labelEs;
-  const char* labelEn;
+  Nb4Str label;
   uint8_t icon;
 };
 
@@ -58,7 +57,7 @@ unsigned nb4RoutesOfSection(const char* sectionId, const Nb4Route** out,
 
 void nb4OpenQuickAccessModal();
 
-struct Nb4QuickEntry { const char* path; const char* labelEs; const char* labelEn; uint8_t icon; };
+struct Nb4QuickEntry { const char* path; Nb4Str label; uint8_t icon; };
 const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count);
 
 void nb4OpenSettingsModal();
