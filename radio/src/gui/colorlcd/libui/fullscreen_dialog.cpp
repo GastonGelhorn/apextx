@@ -46,8 +46,11 @@ FullScreenDialog::FullScreenDialog(
 {
   setWindowFlag(OPAQUE);
 #if defined(RADIO_NB4_FAMILY)
-  etx_solid_bg(lvobj, type == WARNING_TYPE_INFO ? COLOR_THEME_SECONDARY1_INDEX
-                                               : COLOR_THEME_PRIMARY2_INDEX);
+  // A warning fills the screen with the palette's warning colour, which is
+  // what this radio has always done; a confirmation uses the page ground.
+  etx_solid_bg(lvobj, type == WARNING_TYPE_ALERT  ? COLOR_THEME_WARNING_INDEX
+                      : type == WARNING_TYPE_INFO ? COLOR_THEME_SECONDARY1_INDEX
+                                                  : COLOR_THEME_PRIMARY2_INDEX);
 #else
   etx_solid_bg(lvobj, (type == WARNING_TYPE_ALERT) ? COLOR_THEME_WARNING_INDEX : COLOR_THEME_SECONDARY1_INDEX);
 #endif
@@ -137,103 +140,157 @@ void FullScreenDialog::build()
 }
 
 #if defined(RADIO_NB4_FAMILY)
-// NB4: a dark page with a coloured badge, the title and message, and real
-// buttons. An alert that has a setting behind it offers to open that setting;
-// the route is opened by the main loop once the alert is gone, because alerts
+namespace {
+
+const lv_color_t kWhite = lv_color_hex(0xFFFFFF);
+
+// Over the warning's red ground the text is always white, whatever the
+// palette, because every palette's warning colour is a dark red. A
+// confirmation keeps the page ground instead and takes the palette's colours.
+lv_color_t alertInk(bool alert)
+{
+  return alert ? kWhite : Nb4Ui::color(COLOR_THEME_PRIMARY1_INDEX);
+}
+
+// White reads at only 3:1 on that red, which is enough for the large type and
+// too weak for a label inside a white button, so the filled button takes a
+// deepened shade of the same red.
+lv_color_t buttonInk() { return lv_color_darken(Nb4Ui::color(COLOR_THEME_WARNING_INDEX), LV_OPA_40); }
+
+StaticText* alertText(Window* parent, const char* value, LcdFlags font,
+                      lv_color_t colour, lv_text_align_t align)
+{
+  auto label = new StaticText(parent, {0, 0, LV_PCT(100), 0}, value,
+                              COLOR_THEME_PRIMARY1_INDEX, font);
+  lv_obj_t* o = label->getLvObj();
+  lv_obj_set_style_text_color(o, colour, LV_PART_MAIN);
+  lv_label_set_long_mode(o, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_align(o, align, LV_PART_MAIN);
+  return label;
+}
+
+// A filled white button, or a transparent one outlined in white.
+TextButton* alertButton(Window* parent, rect_t rect, const char* label,
+                        std::function<void()> action, bool primary)
+{
+  auto button = new TextButton(parent, rect, label, [action]() { action(); return 0; });
+  button->setFont(FONT_BOLD_INDEX);
+  lv_obj_t* o = button->getLvObj();
+  const lv_color_t ink = primary ? buttonInk() : kWhite;
+  lv_obj_set_style_radius(o, 10, LV_PART_MAIN);
+  lv_obj_set_style_border_width(o, primary ? 0 : 2, LV_PART_MAIN);
+  lv_obj_set_style_border_color(o, kWhite, LV_PART_MAIN);
+  // The theme styles the focused and pressed states, and a themed style for a
+  // specific state beats a local one for the default state, so each state is
+  // set here explicitly. Without this the focused button took the theme's
+  // accent fill and the label stopped reading.
+  const lv_state_t states[] = {
+      LV_STATE_DEFAULT, LV_STATE_FOCUSED, LV_STATE_FOCUS_KEY, LV_STATE_PRESSED,
+      (lv_state_t)(LV_STATE_FOCUSED | LV_STATE_PRESSED),
+      (lv_state_t)(LV_STATE_FOCUS_KEY | LV_STATE_PRESSED)};
+  for (lv_state_t state : states) {
+    lv_obj_set_style_bg_color(o, kWhite, LV_PART_MAIN | state);
+    lv_obj_set_style_bg_opa(o, primary ? LV_OPA_COVER : LV_OPA_TRANSP,
+                            LV_PART_MAIN | state);
+    lv_obj_set_style_text_color(o, ink, LV_PART_MAIN | state);
+    if (lv_obj_get_child_cnt(o))
+      lv_obj_set_style_text_color(lv_obj_get_child(o, 0), ink, LV_PART_MAIN | state);
+    // The ring LVGL draws on focus is invisible against white; the fill
+    // already says which button is the default.
+    lv_obj_set_style_outline_width(o, 0, LV_PART_MAIN | state);
+  }
+  return button;
+}
+
+}  // namespace
+
+// NB4: the warning keeps the full red ground it has always had and spends it
+// on one clear hierarchy. Severity, title and the radio's own one-line message
+// in decreasing size, then, in smaller type, why it appeared and what to do,
+// then real buttons. Where a setting fixes the warning, one button opens it;
+// the route is taken by the main loop once the alert is gone, because alerts
 // run in a nested loop of their own.
 void FullScreenDialog::buildNb4()
 {
   const coord_t W = lv_disp_get_hor_res(nullptr);
   const coord_t H = lv_disp_get_ver_res(nullptr);
   const bool landscape = W > H;
-  constexpr coord_t M = 20, GAP = 10, BTN = 48, BADGE = 128, ICON = 96;
+  constexpr coord_t M = 22, GAP = 12, BTN = 48, ICON = 96;
 
   const bool alert = type == WARNING_TYPE_ALERT;
-  const bool info = type == WARNING_TYPE_INFO;
-  // The checklist opens its own window over an empty alert: keep a backdrop.
+  // The checklist opens its own window over an empty alert: leave the ground.
   if (title.empty() && message.empty() && action.empty()) return;
 
-  const LcdColorIndex tone = alert  ? COLOR_THEME_WARNING_INDEX
-                             : info ? COLOR_THEME_PRIMARY3_INDEX
-                                    : COLOR_THEME_FOCUS_INDEX;
-  const Nb4AlertLink* link =
-      alert ? nb4AlertLink(title.c_str(), message.c_str()) : nullptr;
+  const Nb4Alert* known =
+      alert ? nb4AlertFor(title.c_str(), message.c_str()) : nullptr;
+  const bool canOpen = known && nb4AlertCanOpen(*known);
+  const lv_color_t ink = alertInk(alert);
 
   // Buttons along the bottom edge; they fix how much room the text has.
-  coord_t bottom = H - M;
-  if (!info) {
-    const coord_t half = (W - 2 * M - GAP) / 2;
-    auto skip = [this]() { closeDialog(); };
-    if (type == WARNING_TYPE_CONFIRM) {
-      Nb4Ui::action(this, {M, H - M - BTN, half, BTN}, STR_CANCEL,
-                    [this]() { deleteLater(); });
-      Nb4Ui::action(this, {M + half + GAP, H - M - BTN, half, BTN}, STR_OK,
-                    skip, true);
-      bottom = H - M - BTN - GAP;
-    } else if (link) {
-      char go[64];
-      snprintf(go, sizeof(go), STR_NB4_GO_TO, link->label());
-      auto open = [this, link]() {
-        nb4DeferRoute(link->path);
-        closeDialog();
-      };
-      if (landscape) {
-        // Built before the one on its left so it takes the initial focus:
-        // in both orientations the highlighted button is the one that opens
-        // the setting, and the same key press does the same thing.
-        Nb4Ui::action(this, {M + half + GAP, H - M - BTN, half, BTN}, go, open,
-                      true);
-        Nb4Ui::action(this, {M, H - M - BTN, half, BTN}, STR_NB4_SKIP_FOR_NOW,
-                      skip);
-        bottom = H - M - BTN - GAP;
-      } else {
-        Nb4Ui::action(this, {M, H - M - 2 * BTN - GAP, W - 2 * M, BTN}, go,
-                      open, true);
-        Nb4Ui::action(this, {M, H - M - BTN, W - 2 * M, BTN},
-                      STR_NB4_SKIP_FOR_NOW, skip);
-        bottom = H - M - 2 * BTN - 2 * GAP;
-      }
+  const coord_t half = (W - 2 * M - GAP) / 2;
+  coord_t bottom = H - M - BTN - GAP;
+  auto dismiss = [this]() { closeDialog(); };
+  if (!alert) {
+    Nb4Ui::action(this, {(coord_t)(M + half + GAP), (coord_t)(H - M - BTN), half, BTN},
+                  STR_OK, dismiss, true);
+    Nb4Ui::action(this, {M, (coord_t)(H - M - BTN), half, BTN}, STR_CANCEL,
+                  [this]() { deleteLater(); });
+  } else if (canOpen) {
+    char go[64];
+    snprintf(go, sizeof(go), STR_NB4_GO_TO, known->label());
+    auto open = [this, known]() {
+      nb4DeferRoute(known->path);
+      closeDialog();
+    };
+    if (landscape) {
+      // Built before the one on its left so it takes the initial focus: in
+      // both orientations the highlighted button is the one that opens the
+      // setting, and the same key press does the same thing.
+      alertButton(this, {(coord_t)(M + half + GAP), (coord_t)(H - M - BTN), half, BTN},
+                  go, open, true);
+      alertButton(this, {M, (coord_t)(H - M - BTN), half, BTN}, STR_NB4_SKIP_FOR_NOW,
+                  dismiss, false);
     } else {
-      Nb4Ui::action(this, {M, H - M - BTN, W - 2 * M, BTN}, STR_NB4_GOT_IT,
-                    skip, true);
-      bottom = H - M - BTN - GAP;
+      alertButton(this, {M, (coord_t)(H - M - 2 * BTN - GAP), (coord_t)(W - 2 * M), BTN},
+                  go, open, true);
+      alertButton(this, {M, (coord_t)(H - M - BTN), (coord_t)(W - 2 * M), BTN},
+                  STR_NB4_SKIP_FOR_NOW, dismiss, false);
+      bottom = H - M - 2 * BTN - 2 * GAP;
     }
+  } else {
+    alertButton(this, {M, (coord_t)(H - M - BTN), (coord_t)(W - 2 * M), BTN},
+                STR_NB4_GOT_IT, dismiss, true);
   }
 
-  // Badge: a soft disc with the icon in the alert's colour.
-  const coord_t badgeX = landscape ? M : (W - BADGE) / 2;
-  const coord_t badgeY = landscape ? M + (bottom - M - BADGE) / 2 : M;
-  auto disc = new Window(this, {badgeX, badgeY, BADGE, BADGE});
-  disc->setWindowFlag(NO_FOCUS);
-  etx_solid_bg(disc->getLvObj(), COLOR_THEME_SECONDARY2_INDEX);
-  lv_obj_set_style_radius(disc->getLvObj(), LV_RADIUS_CIRCLE, 0);
-  new StaticIcon(this, badgeX + (BADGE - ICON) / 2, badgeY + (BADGE - ICON) / 2,
-                 info ? ICON_BUSY : ICON_ERROR, tone);
+  // The icon sits above the text in portrait and beside it in landscape.
+  const coord_t iconX = landscape ? M : (W - ICON) / 2;
+  const coord_t iconY = landscape ? (coord_t)(M + (bottom - M - ICON) / 2) : M;
+  auto mark = new StaticIcon(this, iconX, iconY, ICON_ERROR,
+                             COLOR_THEME_WARNING_INDEX);
+  if (alert) {
+    lv_obj_set_style_img_recolor(mark->getLvObj(), kWhite, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(mark->getLvObj(), LV_OPA_COVER, LV_PART_MAIN);
+  }
 
-  // Text block: caption, title and message stacked, centred under the badge
-  // in portrait and beside it in landscape.
-  const coord_t bodyX = landscape ? M + BADGE + 2 * GAP : M;
-  const coord_t bodyY = landscape ? M : badgeY + BADGE + GAP;
-  const rect_t bodyRect = {bodyX, bodyY, W - bodyX - M, bottom - bodyY};
+  const coord_t bodyX = landscape ? (coord_t)(M + ICON + GAP * 2) : M;
+  const coord_t bodyY = landscape ? M : (coord_t)(M + ICON + GAP);
+  const rect_t bodyRect = {bodyX, bodyY, (coord_t)(W - bodyX - M),
+                           (coord_t)(bottom - bodyY)};
   auto body = new Window(this, bodyRect);
   body->setWindowFlag(NO_FOCUS);
-  lv_obj_set_style_bg_opa(body->getLvObj(), LV_OPA_TRANSP, 0);
-  body->setFlexLayout(LV_FLEX_FLOW_COLUMN, GAP / 2, bodyRect.w, bodyRect.h);
-  lv_obj_set_flex_align(body->getLvObj(),
-                        landscape ? LV_FLEX_ALIGN_CENTER : LV_FLEX_ALIGN_START,
+  lv_obj_set_style_bg_opa(body->getLvObj(), LV_OPA_TRANSP, LV_PART_MAIN);
+  body->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_TINY, bodyRect.w, bodyRect.h);
+  lv_obj_set_flex_align(body->getLvObj(), LV_FLEX_ALIGN_CENTER,
                         landscape ? LV_FLEX_ALIGN_START : LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_START);
   const lv_text_align_t align =
       landscape ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER;
-  auto text = [&](const char* value, LcdColorIndex color, LcdFlags font) {
-    auto label = new StaticText(body, {0, 0, LV_PCT(100), 0}, value, color, font);
-    lv_label_set_long_mode(label->getLvObj(), LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(label->getLvObj(), align, 0);
-    return label;
-  };
-  if (alert) text(STR_WARNING, tone, FONT(XS));
-  if (!title.empty()) text(title.c_str(), COLOR_THEME_PRIMARY1_INDEX, FONT(L));
-  messageLabel = text(message.c_str(), COLOR_THEME_PRIMARY1_INDEX, FONT(STD));
+
+  if (alert) alertText(body, STR_WARNING, FONT(BOLD), ink, align);
+  if (!title.empty()) alertText(body, title.c_str(), FONT(XL), ink, align);
+  messageLabel = alertText(body, message.c_str(), FONT(L), ink, align);
+  // Smaller than the message it explains, and only for warnings we know.
+  if (known) alertText(body, known->advice(), FONT(STD), ink, align);
 }
 #endif
 

@@ -758,31 +758,44 @@ bool sameText(const char* a, const char* b) { return a && b && strcmp(a, b) == 0
 
 }  // namespace
 
-const Nb4AlertLink* nb4AlertLink(const char* title, const char* message)
+const Nb4Alert* nb4AlertFor(const char* title, const char* message)
 {
-  static const Nb4AlertLink receiver = {"settings/receiver_rf/module", NB4_STR(RECEIVER)};
-  static const Nb4AlertLink safety = {"settings/car/safety", NB4_STR(SAFETY)};
-  static const Nb4AlertLink sound = {"settings/sound_alerts/sound", NB4_STR(SOUND)};
-  static const Nb4AlertLink storage = {"settings/system/storage", NB4_STR(STORAGE)};
-  static const Nb4AlertLink hardware = {"settings/system/hardware", NB4_STR(HARDWARE)};
-  static const Nb4AlertLink theme = {"settings/display/theme", NB4_STR(THEME)};
+  // The radio raises each of these from a different place, and none of them
+  // carries an identifier, so they are recognised by the title they were
+  // given, and by the message where one title serves two causes.
+  static const Nb4Alert failsafe = {"settings/receiver_rf/module", NB4_STR(RECEIVER),
+                                    NB4_STR(ADVICE_FAILSAFE)};
+  static const Nb4Alert throttle = {"settings/car/safety", NB4_STR(SAFETY),
+                                    NB4_STR(ADVICE_THROTTLE)};
+  static const Nb4Alert controls = {"settings/car/safety", NB4_STR(SAFETY),
+                                    NB4_STR(ADVICE_CONTROLS)};
+  static const Nb4Alert storageFull = {"settings/system/storage", NB4_STR(STORAGE),
+                                       NB4_STR(ADVICE_STORAGE_FULL)};
+  static const Nb4Alert radioData = {"settings/system/storage", NB4_STR(STORAGE),
+                                     NB4_STR(ADVICE_RADIO_DATA)};
+  static const Nb4Alert sound = {"settings/sound_alerts/sound", NB4_STR(SOUND),
+                                 NB4_STR(ADVICE_SOUND_OFF)};
+  static const Nb4Alert theme = {"settings/display/theme", NB4_STR(THEME),
+                                 NB4_STR(ADVICE_THEME)};
+  // Nothing to open: the fix is to free the control, not to change a setting.
+  static const Nb4Alert keyStuck = {nullptr, nullptr, NB4_STR(ADVICE_KEY_STUCK)};
 
-  const Nb4AlertLink* link = nullptr;
-  if (sameText(title, STR_FAILSAFEWARN))
-    link = &receiver;
-  else if (sameText(title, STR_THROTTLE_UPPERCASE) || sameText(title, STR_SWITCHWARN))
-    link = &safety;  // Pre-flight checks own both warnings
-  else if (sameText(title, STR_ALARMSWARN))
-    link = &sound;
-  else if (sameText(title, STR_SD_CARD) || sameText(title, STR_STORAGE_WARNING))
-    link = &storage;
-  else if (sameText(title, STR_BATTERY) && sameText(message, STR_WARN_RTC_BATTERY_LOW))
-    link = &hardware;  // The RTC battery check lives on the hardware page
-  else if (sameText(title, STR_WARNING))
-    link = &theme;  // A theme file that failed to load
-  if (!link) return nullptr;
-  const Nb4Route* route = nb4RouteByPath(link->path);
-  return route && nb4RouteIsOpenable(*route) ? link : nullptr;
+  if (sameText(title, STR_FAILSAFEWARN)) return &failsafe;
+  if (sameText(title, STR_THROTTLE_UPPERCASE)) return &throttle;
+  if (sameText(title, STR_SWITCHWARN)) return &controls;
+  if (sameText(title, STR_SD_CARD)) return &storageFull;
+  if (sameText(title, STR_STORAGE_WARNING)) return &radioData;
+  if (sameText(title, STR_ALARMSWARN)) return &sound;
+  if (sameText(title, STR_KEYSTUCK)) return &keyStuck;
+  if (sameText(title, STR_WARNING)) return &theme;
+  return nullptr;
+}
+
+bool nb4AlertCanOpen(const Nb4Alert& alert)
+{
+  if (!alert.path) return false;
+  const Nb4Route* route = nb4RouteByPath(alert.path);
+  return route && nb4RouteIsOpenable(*route);
 }
 
 void nb4DeferRoute(const char* path) { pendingRoute = path; }

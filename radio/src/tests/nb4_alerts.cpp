@@ -170,7 +170,8 @@ TEST(Nb4Alerts, EveryBootWarningRendersAndOffersItsSettingWhereThereIsOne)
     const char* title;
     const char* message;
     const char* action;
-    const char* route;
+    const char* route;   // The setting it offers, nullptr when it offers none
+    bool advice;         // Whether it is a warning we can explain
   };
 
   for (bool landscape : {false, true}) {
@@ -182,23 +183,24 @@ TEST(Nb4Alerts, EveryBootWarningRendersAndOffersItsSettingWhereThereIsOne)
       // runtime, so pointers captured beforehand would keep the old language.
       const Case cases[] = {
           {"failsafe", WARNING_TYPE_ALERT, STR_FAILSAFEWARN, STR_NO_FAILSAFE,
-           STR_PRESS_ANY_KEY_TO_SKIP, "settings/receiver_rf/module"},
+           STR_PRESS_ANY_KEY_TO_SKIP, "settings/receiver_rf/module", true},
           {"throttle", WARNING_TYPE_ALERT, STR_THROTTLE_UPPERCASE,
-           STR_THROTTLE_NOT_IDLE, STR_PRESS_ANY_KEY_TO_SKIP, "settings/car/safety"},
+           STR_THROTTLE_NOT_IDLE, STR_PRESS_ANY_KEY_TO_SKIP, "settings/car/safety", true},
           {"switches", WARNING_TYPE_ALERT, STR_SWITCHWARN, "SW1 SW2", "",
-           "settings/car/safety"},
+           "settings/car/safety", true},
           {"storage", WARNING_TYPE_ALERT, STR_SD_CARD, STR_SDCARD_FULL, "",
-           "settings/system/storage"},
+           "settings/system/storage", true},
           {"radio-data", WARNING_TYPE_ALERT, STR_STORAGE_WARNING,
-           STR_RADIO_DATA_UNRECOVERABLE, "", "settings/system/storage"},
+           STR_RADIO_DATA_UNRECOVERABLE, "", "settings/system/storage", true},
           {"alarms", WARNING_TYPE_ALERT, STR_ALARMSWARN, STR_ALARMSDISABLED, "",
-           "settings/sound_alerts/sound"},
+           "settings/sound_alerts/sound", true},
+          // This radio has no clock, so the backup-battery warning is left generic.
           {"rtc-battery", WARNING_TYPE_ALERT, STR_BATTERY,
-           STR_WARN_RTC_BATTERY_LOW, "", "settings/system/hardware"},
-          {"keystuck", WARNING_TYPE_ALERT, STR_KEYSTUCK, "SW1", "", nullptr},
+           STR_WARN_RTC_BATTERY_LOW, "", nullptr, false},
+          {"keystuck", WARNING_TYPE_ALERT, STR_KEYSTUCK, "SW1", "", nullptr, true},
           {"confirm", WARNING_TYPE_CONFIRM, STR_NB4_RESET_RACE,
-           STR_NB4_RESET_RACE_ASK, "", nullptr},
-          {"info", WARNING_TYPE_INFO, STR_NB4_SAVING_RUN, STR_NB4_LOADING, "", nullptr},
+           STR_NB4_RESET_RACE_ASK, "", nullptr, false},
+          {"info", WARNING_TYPE_INFO, STR_NB4_SAVING_RUN, STR_NB4_LOADING, "", nullptr, false},
       };
       for (const auto& c : cases) {
         SCOPED_TRACE(std::string(c.id) + " " + language + " " + shape);
@@ -210,18 +212,25 @@ TEST(Nb4Alerts, EveryBootWarningRendersAndOffersItsSettingWhereThereIsOne)
         if (*c.title) EXPECT_TRUE(shows(obj, c.title)) << c.id;
         if (*c.message) EXPECT_TRUE(shows(obj, c.message)) << c.id;
 
-        const Nb4AlertLink* link = c.type == WARNING_TYPE_ALERT
-                                       ? nb4AlertLink(c.title, c.message)
-                                       : nullptr;
-        EXPECT_EQ(link != nullptr, c.route != nullptr) << c.id;
-        if (link) {
-          EXPECT_STREQ(link->path, c.route) << c.id;
+        const Nb4Alert* known = c.type == WARNING_TYPE_ALERT
+                                    ? nb4AlertFor(c.title, c.message)
+                                    : nullptr;
+        EXPECT_EQ(known != nullptr, c.advice) << c.id;
+        if (known) {
+          // Every warning we recognise explains itself, whether or not it has
+          // a setting to offer.
+          EXPECT_TRUE(shows(obj, known->advice())) << c.id;
+          EXPECT_NE(known->advice()[0], '\0') << c.id;
+        }
+        if (known && nb4AlertCanOpen(*known)) {
+          EXPECT_STREQ(known->path, c.route) << c.id;
           // The old "press any key" text is gone: the alert now names the
           // setting it can open and offers to skip.
-          EXPECT_TRUE(shows(obj, goToText(link->label()).c_str())) << c.id;
+          EXPECT_TRUE(shows(obj, goToText(known->label()).c_str())) << c.id;
           EXPECT_TRUE(shows(obj, STR_NB4_SKIP_FOR_NOW)) << c.id;
           EXPECT_FALSE(shows(obj, STR_PRESS_ANY_KEY_TO_SKIP)) << c.id;
         } else if (c.type == WARNING_TYPE_ALERT) {
+          EXPECT_EQ(c.route, nullptr) << c.id;
           EXPECT_TRUE(shows(obj, STR_NB4_GOT_IT)) << c.id;
         } else if (c.type == WARNING_TYPE_CONFIRM) {
           EXPECT_TRUE(shows(obj, STR_OK)) << c.id;
@@ -252,9 +261,10 @@ TEST(Nb4Alerts, GoToOpensTheSettingOnceTheMainLoopOwnsTheScreen)
   bench.orient(false);
   bench.language("en");
 
-  const Nb4AlertLink* link = nb4AlertLink(STR_FAILSAFEWARN, STR_NO_FAILSAFE);
-  ASSERT_NE(link, nullptr);
-  EXPECT_STREQ(link->path, "settings/receiver_rf/module");
+  const Nb4Alert* known = nb4AlertFor(STR_FAILSAFEWARN, STR_NO_FAILSAFE);
+  ASSERT_NE(known, nullptr);
+  ASSERT_TRUE(nb4AlertCanOpen(*known));
+  EXPECT_STREQ(known->path, "settings/receiver_rf/module");
 
   auto base = Layer::back();
   auto dialog = new FullScreenDialog(WARNING_TYPE_ALERT, STR_FAILSAFEWARN,
@@ -263,7 +273,7 @@ TEST(Nb4Alerts, GoToOpensTheSettingOnceTheMainLoopOwnsTheScreen)
 
   // Pressing "Go to Receiver" only closes the alert: nothing may be opened
   // from inside the alert's nested loop.
-  ASSERT_TRUE(clickLabel(dialog->getLvObj(), goToText(link->label()).c_str()));
+  ASSERT_TRUE(clickLabel(dialog->getLvObj(), goToText(known->label()).c_str()));
   for (int f = 0; f < 4; ++f) render(bench.root);
   EXPECT_EQ(Layer::back(), base);
 
