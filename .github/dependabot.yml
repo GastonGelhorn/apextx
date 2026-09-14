@@ -5,7 +5,6 @@ updates:
     directory: /
     schedule:
       interval: monthly
-  - package-ecosystem: gitsubmodule
-    directory: /
-    schedule:
-      interval: monthly
+# Vendored submodules are deliberately not tracked here. Their correct revision
+# is the one upstream EdgeTX pins, so they move when an EdgeTX release is
+# integrated, not when the submodule's own repository moves ahead.
