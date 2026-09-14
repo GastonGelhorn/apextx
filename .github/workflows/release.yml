@@ -90,7 +90,7 @@ jobs:
             "apextx-$version.zip" > SHA256SUMS
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apextx-release
           path: |
