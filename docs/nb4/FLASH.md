@@ -4,6 +4,28 @@ This procedure installs ApexTX on an **original FlySky Noble NB4** from a
 terminal. It does not apply to the NB4+, NB4 Pro, or another PL18-family radio.
 Read the backup and recovery sections before writing anything.
 
+## First installation and later updates
+
+The first installation replaces FlySky firmware with ApexTX and installs the
+ApexTX bootloader. The desktop ApexTX Updater cannot do this while the radio
+still runs the official firmware. Follow the complete procedure on this page;
+after setup, use the [ApexTX Updater](UPDATE.md) for normal application updates.
+
+| Radio mode | How to identify it | Use |
+| --- | --- | --- |
+| Official FlySky Update | Entered from the FlySky firmware; not identified as ApexTX Update | Not supported by the ApexTX Updater |
+| STM32 ROM DFU | `dfu-util -l` lists internal flash, option bytes, and OTP | First installation, bootloader replacement, or recovery using this guide |
+| ApexTX Update | Display shows **ApexTX Update**; USB product is **ApexTX NB4 Update** with a staging interface | Normal application updates using the desktop ApexTX Updater |
+
+The screen may be black in more than one mode, and ROM DFU and ApexTX Update
+share USB ID `0483:df11`. Confirm the listed interfaces before choosing a tool.
+
+The commands below use Bash and Unix utilities for macOS/Linux. The flash and
+readback workflow has been exercised on macOS. These `.sh` helpers are not native
+PowerShell commands, and a complete first-installation procedure on Windows has
+not been validated. The Windows notes in [UPDATE.md](UPDATE.md) concern the
+subsequent updater, not a Windows first-installation wizard.
+
 ## What the installation changes
 
 The firmware image replaces the complete 2 MiB STM32 internal flash, including
@@ -24,6 +46,10 @@ live outside the visible filesystem.
 The custom firmware does not depend on the FlySky calibration records; it uses
 the calibration performed in its own System > Calibration page. The factory
 records still matter if the radio may later be returned to FlySky software.
+
+For normal updates after installing an ApexTX Update-capable bootloader, use
+the menu-driven [ApexTX Updater](UPDATE.md). The ROM DFU procedure below is for
+the first complete installation, bootloader replacement, and low-level recovery.
 
 ## Requirements
 
@@ -97,15 +123,17 @@ until the screen and LEDs are off.
 ## 3. Enter STM32 ROM DFU and identify the radio
 
 With the radio off, hold the hidden left grip button while turning the radio on.
-Keep it held until the STM32 DFU device appears, then release it. Connect USB and
-verify the device from the terminal:
+Keep it held while connecting USB and checking for the STM32 DFU device from the
+terminal; release it once the device appears:
 
 ```sh
 dfu-util -l
 ```
 
 The output must contain USB ID `0483:df11` and alternate settings for internal
-flash, option bytes, and OTP. If more than one STM32 DFU device is connected,
+flash, option bytes, and OTP. An interface named `@ApexTX NB4 Update` instead
+identifies the application updater, not STM32 ROM DFU. Do not proceed with the
+complete-image flash in that mode. If more than one STM32 DFU device is connected,
 disconnect the others or record the NB4 serial and use `NB4_DFU_SERIAL` in the
 commands below.
 
@@ -190,6 +218,14 @@ shasum -a 256 build/nb4-device/arm-none-eabi/firmware.bin
 
 Use `sha256sum` in place of `shasum -a 256` on hosts that provide only the GNU
 utility.
+
+The current build produces a complete 2,097,152-byte image with the ApexTX Update
+manifest. Validate that manifest and application checksum without accessing USB:
+
+```sh
+.venv/bin/python tools/apextx-updater.py --check \
+  build/nb4-device/arm-none-eabi/firmware.bin
+```
 
 Do not flash an image built for `NB4P`, a partial `firmware.elf`, or an image whose
 build or validation failed. A wrong target can initialize power, display, touch,

@@ -31,6 +31,7 @@
 #include "usbd_core.h"
 
 #include "usbd_msc.h"
+#include "usbd_dfu.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -667,8 +668,17 @@ USBD_StatusTypeDef USBD_LL_SetTestMode(USBD_HandleTypeDef *pdev, uint8_t testmod
   */
 void *USBD_static_malloc(uint32_t size)
 {
-  static uint32_t mem[(sizeof(USBD_MSC_BOT_HandleTypeDef)/4)+1];/* On 32-bit boundary */
+#if defined(RADIO_NB4)
+  static union {
+    USBD_MSC_BOT_HandleTypeDef msc;
+    USBD_DFU_HandleTypeDef dfu;
+    uint32_t alignment;
+  } mem;
+  return size <= sizeof(mem) ? &mem : NULL;
+#else
+  static uint32_t mem[(sizeof(USBD_MSC_BOT_HandleTypeDef)/4)+1];
   return mem;
+#endif
 }
 
 /**

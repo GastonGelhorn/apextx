@@ -91,6 +91,11 @@
 /* Required for DFU media description */
 #define USBD_SUPPORT_USER_STRING_DESC 1U
 #define USBD_DFU_XFER_SIZE 4096U
+#if defined(RADIO_NB4)
+#define USBD_DFU_APP_DEFAULT_ADD 0xC0200000U
+// Manifestation does not reset: only the updater's verified restart command does.
+#define USBD_DFU_BM_ATTRIBUTES 0x0FU
+#endif
 
 #if !defined(USBJ_EX)
 #define HID_IN_PACKET              19
@@ -192,4 +197,3 @@ void ErrorHandler(void);
 #endif
 
 #endif /* __USBD_CONF__H__ */
-

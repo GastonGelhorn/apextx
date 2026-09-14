@@ -56,6 +56,14 @@ if(NOT NO_LTO)
 endif()
 
 add_executable(bootloader EXCLUDE_FROM_ALL ${BOOTLOADER_SRC})
+if(PCBREV STREQUAL NB4)
+  target_sources(bootloader PRIVATE nb4_update.cpp boot_nb4_update.cpp)
+  target_include_directories(bootloader PRIVATE
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Class/DFU/Inc
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Core/Inc
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32
+  )
+endif()
 add_dependencies(bootloader ${BITMAPS_TARGET})
 
 target_compile_definitions(stm32_drivers_w_dbg_bl PUBLIC BOOT)

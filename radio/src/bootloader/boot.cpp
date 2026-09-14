@@ -28,12 +28,14 @@
 #include "debug.h"
 
 #include "timers_driver.h"
+#if defined(RADIO_NB4) && !defined(SIMU)
+#include "nb4_update.h"
+#endif
 
 #if defined(DEBUG_SEGGER_RTT)
   #include "thirdparty/Segger/SEGGER/SEGGER_RTT.h"
 #endif
 
-#define REBOOT_CMD_DFU 0x55464442
 
 #if !defined(SIMU)
 // Bootloader marker:
@@ -76,10 +78,25 @@ void bootloaderInitApp()
 #endif
 
   pwrInit();
+
+  // Power is latched, nothing else is brought up yet: the earliest safe point
+  // to hand the radio to the ROM DFU on request. Never returns.
+  if (abnormalRebootGetCmd() == REBOOT_CMD_ROM_DFU) {
+    // Open the power latch first. With USB attached the MCU stays powered
+    // anyway, and the ROM never drives the latch, so this is the same state
+    // the documented BOOT0 procedure runs in. It also makes the hand-off fail
+    // safe: without USB the radio simply switches off here instead of
+    // starting the ROM, and if the ROM ever fails to enumerate, unplugging
+    // the cable powers the radio down rather than leaving it stuck with an
+    // inert power button.
+    pwrOff();
+    abnormalRebootEnterRomDfu();
+  }
+
   keysInit();
   delaysInit();
 
-  bool boot_dfu = abnormalRebootGetCmd() == REBOOT_CMD_DFU; 
+  bool boot_dfu = abnormalRebootGetCmd() == REBOOT_CMD_DFU;
   if (!boot_dfu) {
     bool start_firmware = true;
 
@@ -88,18 +105,27 @@ void bootloaderInitApp()
       delay_ms(10);
     }
 
-    start_firmware = !boardBLStartCondition(); 
+    start_firmware = !boardBLStartCondition();
+#if defined(RADIO_NB4)
+    start_firmware = start_firmware && nb4BootApplicationValid();
+#endif
     if (start_firmware) {
       // Start main application
       boardBLPreJump();
       jumpTo(APP_START_ADDRESS);
     }
   } else {
-#if defined(FIRMWARE_QSPI)
+#if defined(FIRMWARE_QSPI) || defined(RADIO_NB4)
     abnormalRebootResetCmd();
     setSelectedUsbMode(USB_DFU_MODE);
 #endif
   }
+
+#if defined(RADIO_NB4)
+  // Button entry and an invalid/interrupted application use the same updater.
+  abnormalRebootResetCmd();
+  setSelectedUsbMode(USB_DFU_MODE);
+#endif
 
   pwrOn();
   __enable_irq();
@@ -127,6 +153,10 @@ int  bootloaderMain()
 
   // init screen
   bootloaderInitScreen();
+
+#if defined(RADIO_NB4) && !defined(SIMU)
+  bootloaderNB4Update();
+#endif
 
 #if defined(FIRMWARE_FORMAT_UF2)
   if (getSelectedUsbMode() == USB_DFU_MODE) {

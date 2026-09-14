@@ -98,6 +98,24 @@ static void bootloaderDrawBackground()
   lcd.clear(BL_BACKGROUND);
 }
 
+#if defined(RADIO_NB4)
+void bootloaderDrawNB4Update(const char* status, unsigned progress, bool mayExit)
+{
+  bootloaderDrawBackground();
+  bootloaderDrawTitle("ApexTX Update");
+  lcd.drawText(LCD_W / 2, LCD_H / 2 - 65, "Noble NB4", CENTERED | BL_FOREGROUND);
+  lcd.drawText(LCD_W / 2, LCD_H / 2 - 30, status, CENTERED | BL_FOREGROUND);
+  lcd.drawRect(PROGRESS_X, LCD_H / 2 + 15, PROGRESS_W, 24, 2, SOLID, BL_FOREGROUND);
+  lcd.drawSolidFilledRect(PROGRESS_X + 4, LCD_H / 2 + 19,
+      (PROGRESS_W - 8) * (progress > 100 ? 100 : progress) / 100, 16,
+      COLOR2FLAGS(RGB(255, 128, 32)));
+  lcd.drawText(LCD_W / 2, LCD_H - 82, "Connect USB to your computer", CENTERED | BL_FOREGROUND);
+  lcd.drawText(LCD_W / 2, LCD_H - 48,
+      mayExit ? "Hold power to restart" : "Keep the radio powered on",
+      CENTERED | BL_FOREGROUND);
+}
+#endif
+
 bool bootloaderRadioMenu(uint32_t menuItem, event_t event)
 {
 #if defined(USB_SW_GPIO)

@@ -92,6 +92,7 @@ details, and validation:
 - [Noble model compatibility](docs/nb4/COMPATIBILITY.md)
 - [Build instructions](docs/nb4/BUILD.md)
 - [Install from the FlySky firmware](docs/nb4/FLASH.md)
+- [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
 - [Physical release acceptance](docs/nb4/rf/BENCH_ACCEPTANCE.md)

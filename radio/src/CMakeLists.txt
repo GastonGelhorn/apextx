@@ -807,6 +807,18 @@ add_custom_command(
   )
 
 if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
+  if(FIRMWARE_STRIP_BOOTLOADER)
+    message(FATAL_ERROR "NB4 update images require the complete bootloader + application binary")
+  endif()
+  target_link_options(firmware PRIVATE -Wl,--defsym=__NB4_UPDATE_SIZE__=32)
+  set_property(TARGET firmware APPEND PROPERTY LINK_DEPENDS
+    ${RADIO_DIRECTORY}/../tools/nb4_update_image.py)
+  add_custom_command(TARGET firmware POST_BUILD
+    COMMAND ${PYTHON_EXECUTABLE} ${RADIO_DIRECTORY}/../tools/nb4_update_image.py
+      firmware.bin
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    VERBATIM
+  )
   if(NB4_RF_PROFILE STREQUAL QUALIFIED)
     set(NB4_VERIFY_PROFILE "QUALIFIED_${NB4_RF_QUALIFIED_CANDIDATE}")
     set(NB4_VERIFY_FRAMING "${NB4_RF_QUALIFIED_FRAMING}")

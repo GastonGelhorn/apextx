@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ApexTX Updater</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101216;color:#f4f4f5;font:16px/1.5 system-ui,-apple-system,sans-serif}main{max-width:760px;margin:8vh auto;padding:0 24px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}.brand{font-size:24px;font-weight:800;letter-spacing:-1px}.brand span{color:#ff982e}.tag{font-size:12px;background:#252932;border:1px solid #373d47;border-radius:20px;padding:6px 12px;color:#cbd0d8}h1{font-size:42px;letter-spacing:-1.5px;line-height:1.12;margin:0 0 16px}.intro{color:#adb5c3;max-width:600px;margin-bottom:30px}.steps{display:flex;gap:12px;margin:28px 0}.step{flex:1;padding:16px;background:#1a1e25;border:1px solid #303640;border-radius:12px;font-size:14px}.step b{display:block;color:#ffad56;margin-bottom:8px;font-size:12px}.panel{border:1px solid #373d47;background:#1a1e25;padding:26px;border-radius:16px}.file{display:block;border:1px dashed #626b7a;border-radius:10px;padding:20px;cursor:pointer;background:#222731}.file strong{display:block;font-size:17px}.file span{display:block;color:#b3bccb;font-size:13px;overflow-wrap:anywhere;margin-top:4px}input{display:block;margin-top:16px;max-width:100%;color:#b3bccb}input::file-selector-button{border:1px solid #717b8b;border-radius:6px;padding:8px;background:#303844;color:#fff;margin-right:10px;cursor:pointer}button{width:100%;background:#ff982e;color:#17120b;border:0;border-radius:10px;padding:15px;font:700 16px system-ui;cursor:pointer;margin-top:18px}button:disabled{background:#303640;color:#8c95a4;cursor:default}progress{appearance:none;width:100%;height:9px;margin:24px 0 10px;display:block}progress::-webkit-progress-bar{background:#303640;border-radius:8px}progress::-webkit-progress-value{background:#ff982e;border-radius:8px}progress::-moz-progress-bar{background:#ff982e;border-radius:8px}.status-row{display:flex;gap:20px;font-size:14px;color:#c9d1dd}.status-row span:first-child{flex:1}.error{color:#ffb6b6}.good{color:#9fe4b6}.note{color:#aab3c1;font-size:13px;margin:24px 0}footer{font-size:12px;color:#818d9f;margin:32px 0}@media(max-width:620px){main{margin-top:30px}h1{font-size:34px}.steps{flex-direction:column}.step b{display:inline;margin-right:8px}.panel{padding:18px}}
+</style>
+<main>
+<header><div class="brand">APEX<span>TX</span> <span style="color:#aab3c1;font-size:16px;font-weight:400;letter-spacing:0">Updater</span></div><div class="tag">NOBLE NB4</div></header>
+<h1>Firmware update</h1>
+<p class="intro">Install ApexTX firmware on your Noble NB4. The updater verifies the transfer and installation before restarting the radio.</p>
+<div class="steps"><div class="step"><b>01 · UPDATE MODE</b>On the radio, select Settings → System → Update.</div><div class="step"><b>02 · USB CONNECTION</b>Connect the radio to this computer.</div><div class="step"><b>03 · FIRMWARE IMAGE</b>Select a compatible firmware.bin file.</div></div>
+<section class="panel">
+<label class="file"><strong>Firmware image</strong><span id="fileinfo">firmware.bin · ApexTX for the original Noble NB4</span><input id="file" type="file" accept=".bin,application/octet-stream"></label>
+<button id="start" disabled>Update firmware</button>
+<progress id="bar" max="100" value="0" aria-label="Firmware update progress"></progress>
+<div class="status-row" aria-live="polite"><span id="message">Select a firmware image to continue.</span><span id="percent">0%</span></div>
+</section>
+<p class="note">The radio must display <strong>ApexTX Update</strong>. A compatible bootloader is required. Keep the radio powered and the USB cable connected during installation.</p>
+<footer>ApexTX Updater runs locally on this computer. Firmware files are transferred directly to the radio.</footer>
+</main>
+<script>
+const token='__SESSION_TOKEN__',file=document.querySelector('#file'),start=document.querySelector('#start'),message=document.querySelector('#message'),bar=document.querySelector('#bar'),percent=document.querySelector('#percent');let running=false,submitted=false;
+const IMAGE_SIZE=2097152;
+// Check the size here too: a rejected upload closes the connection, which
+// aborts the browser's own request and loses the server's explanation.
+file.onchange=()=>{const f=file.files[0];document.querySelector('#fileinfo').textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:'firmware.bin · ApexTX for the original Noble NB4';if(f&&f.size!==IMAGE_SIZE){message.textContent='Select a 2 MiB firmware.bin image built for ApexTX Update.';message.className='error';start.disabled=true;return}message.textContent=f?'Ready to update.':'Select a firmware image to continue.';message.className='';start.disabled=!f||running;};
+start.onclick=async()=>{if(!file.files[0]||running)return;running=true;submitted=true;start.disabled=true;file.disabled=true;message.className='';message.textContent='Validating firmware image...';try{const response=await fetch('/api/update',{method:'POST',headers:{'X-ApexTX-Token':token},body:file.files[0]});const result=await response.json();if(!response.ok)throw Error(result.error);}catch(error){message.textContent=error.message;message.className='error';running=false;submitted=false;start.disabled=false;file.disabled=false;}};
+async function poll(){try{const response=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!response.ok)throw Error('The updater session has ended.');const s=await response.json();if(s.running||submitted||s.progress||s.error){running=s.running;message.textContent=s.message;message.className=s.error?'error':s.progress===100?'good':'';bar.value=s.progress;percent.textContent=`${s.progress}%`;file.disabled=running;start.disabled=running||!file.files[0];start.textContent=running?'Updating firmware...':s.error?'Retry update':'Update firmware';}}catch(error){message.textContent='The updater is unavailable. Check the terminal and radio display.';message.className='error';start.disabled=true;}setTimeout(poll,600)}poll();
+</script>
+</html>

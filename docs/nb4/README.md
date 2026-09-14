@@ -24,6 +24,8 @@ The NB4 additions are grouped around these areas:
 
 See [GALLERY.md](GALLERY.md) for simulator-rendered interface captures and
 [COMPATIBILITY.md](COMPATIBILITY.md) for the verified status of each Noble
-model. [BUILD.md](BUILD.md), [FLASH.md](FLASH.md), [HARDWARE.md](HARDWARE.md),
+model. Use [FLASH.md](FLASH.md) for the first installation from FlySky firmware
+and [UPDATE.md](UPDATE.md) for subsequent ApexTX application updates.
+[BUILD.md](BUILD.md), [HARDWARE.md](HARDWARE.md),
 and [VALIDATION.md](VALIDATION.md) contain the maintained engineering
 workflows.

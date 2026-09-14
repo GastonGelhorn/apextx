@@ -58,7 +58,7 @@ extern "C" {
 
 // TODO: configured where needed
 #define DEFAULT_USB_MODE USB_MASS_STORAGE_MODE;
-#if defined(FIRMWARE_QSPI)
+#if defined(FIRMWARE_QSPI) || defined(RADIO_NB4)
 static const USBD_DFU_MediaTypeDef* _dfu_media[USBD_DFU_MAX_ITF_NUM] = {nullptr};
 #endif
 
@@ -188,7 +188,7 @@ void usbStart()
       break;
 
 #if defined(BOOT)
-#if defined(FIRMWARE_QSPI)
+#if defined(FIRMWARE_QSPI) || defined(RADIO_NB4)
     case USB_DFU_MODE:
       USBD_RegisterClass(&hUsbDevice, &USBD_DFU);
       for (unsigned i = 0; i < USBD_DFU_MAX_ITF_NUM; i++){
@@ -271,7 +271,7 @@ bool usbHostEnumerated()
 }
 
 #if defined(BOOT)
-#if defined(FIRMWARE_QSPI)
+#if defined(FIRMWARE_QSPI) || defined(RADIO_NB4)
 int usbRegisterDFUMedia(const void* dfu_media)
 {
   for (unsigned i = 0; i < USBD_DFU_MAX_ITF_NUM; i++) {
