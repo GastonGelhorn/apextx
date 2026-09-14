@@ -52,6 +52,11 @@
 
 #define MAX_NO_OF_MODELS            20
 
+#if defined(RADIO_NB4)
+// Backoff before a failed NB4 handshake is retried, in 10 ms ticks.
+#define NB4_FAIL_RETRY_DELAY        200
+#endif
+
 extern uint16_t  sns_RFCurrentPower;
 
 //get channel value outside of afhds3 namespace
@@ -345,6 +350,7 @@ class ProtoState
     bool nb4ReceivedConfig = false;
     tmr10ms_t nb4LastPoll = 0;
     tmr10ms_t nb4BindStarted = 0;
+    tmr10ms_t nb4FailedAt = 0;
     const char* nb4Error = nullptr;
     void setupNb4Frame();
     bool parseNb4Data(const AfhdsFrame* frame, uint8_t length);
@@ -754,6 +760,7 @@ void ProtoState::nb4Fail(const char* message)
   nb4Pending = 0xff; // Send standby on the mixer task, not from the RX task.
   cfg.others.isConnected = false;
   cfg.others.lastUpdated = get_tmr10ms();
+  nb4FailedAt = get_tmr10ms();
   trsp.clear();
 }
 
@@ -800,7 +807,27 @@ void ProtoState::setupNb4Frame()
       uint8_t mode = STANDBY;
       trsp.putFrame(MODULE_MODE, REQUEST_SET_NO_RESP, &mode, 1);
       nb4Pending = 0;
-    } else trsp.skipFrame();
+      return;
+    }
+    // Retry the handshake instead of latching the failure. The internal module
+    // can take longer than the ready poll budget to boot, which happens after
+    // a firmware write in particular, and a saved receiver identity must then
+    // reconnect on its own rather than waiting for the user to open and cancel
+    // the bind dialog. Binding is excluded: a timed-out bind must stay failed
+    // so it is never silently restarted behind the user.
+    if (!nb4Binding &&
+        (tmr10ms_t)(now - nb4FailedAt) > NB4_FAIL_RETRY_DELAY) {
+      nb4Stage = Nb4Stage::Ready;
+      nb4Pending = nb4Page = nb4ReadyTries = 0;
+      nb4ReceivedConfig = false;
+      nb4Error = nullptr;
+      nb4Config.load(cfg);
+      applyConfigFromModel();
+      clearFrameData();
+      state = STATE_NOT_READY;
+      return;
+    }
+    trsp.skipFrame();
     return;
   }
 
