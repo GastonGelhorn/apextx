@@ -6,28 +6,24 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
-- Dropped the release gate that refused to build a public image without a
-  hash-bound hardware acceptance record, along with the `QUALIFIED` RF profile
-  that existed only to carry it. Releases now build the same recovered USART6
-  route the firmware ships, and the hardware checklist is documented as a
-  recommendation. Installing a build is at the installer's own risk, which the
-  README now states plainly.
-- Restored automatic exit from STM32 ROM DFU after a verified flash by using
-  the NB4-compatible zero-length DfuSe manifestation request.
-- Standardized built-in palette names in English and added transparent
-  migration from the earlier development names.
+## [0.1.0-alpha.1] - 2026-09-15
 
-## [0.1.0-alpha.1] - unreleased
+First public build for the original FlySky Noble NB4.
 
-- Added the car-focused portrait and landscape interface.
-- Added live steering, throttle, brake, trim, race timing, telemetry, and audio.
-- Added configurable physical-control assignments and navigation actions.
-- Recovered and integrated the original NB4 AFHDS3 module route.
-- Added persistent receiver binding, receiver voltage, link quality, and link
-  loss handling.
-- Added the expanded external-NOR filesystem and controlled USB transitions.
-- Added verified MCU backup and single-write DFU flashing tools.
-- Added build, validation, packaging, compatibility, and installation docs.
+- Car-focused interface in portrait and landscape, with live steering,
+  throttle, brake and trim, race timing, telemetry and audio.
+- Configurable physical-control assignments and navigation actions, and one
+  route to each setting.
+- AFHDS3 receiver support over the NB4's internal module: persistent binding,
+  receiver voltage, link quality, and link-loss handling.
+- Ten car widgets for user-built home screens.
+- Boot warnings that explain what happened and open the setting that fixes it.
+- Update mode: install a new build over USB from the radio's own menu, with a
+  desktop updater, without opening the case.
+- Expanded external-NOR filesystem, controlled USB transitions, and verified
+  MCU backup and single-write DFU flashing tools.
+- English and Spanish interface, switchable on the radio.
+- Build, validation, packaging, compatibility and installation documentation.
 
 [Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...HEAD
 [0.1.0-alpha.1]: https://github.com/GastonGelhorn/apextx/releases/tag/v0.1.0-alpha.1
