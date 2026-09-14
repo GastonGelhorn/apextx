@@ -276,9 +276,12 @@ const WidgetOption DateTimeWidget::options[] = {
     {STR_COLOR, WidgetOption::Color, COLOR2FLAGS(COLOR_THEME_PRIMARY2_INDEX)},
     {nullptr, WidgetOption::Bool}};
 
+#if !defined(RADIO_NB4_FAMILY)
+// The NB4 has no real-time clock, so this widget would only ever show dashes.
 BaseWidgetFactory<DateTimeWidget> DateTimeWidget("Date Time",
                                                  DateTimeWidget::options,
                                                  STR_DATE_TIME_WIDGET);
+#endif
 
 #if defined(INTERNAL_GPS)
 
