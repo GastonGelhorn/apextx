@@ -286,11 +286,41 @@ void boardInit()
   rgbLedInit();
 #endif
 
+#if !defined(RADIO_NB4)
   uint32_t press_start = 0;
   uint32_t press_end = 0;
+#endif
 
+#if defined(RADIO_NB4)
+  // Only a restart that explicitly asked to resume may skip the startup press.
+  // Testing for a software reset instead would also match the shutdown path,
+  // which resets rather than cutting power while externally powered, and the
+  // radio would turn itself straight back on.
+  if (UNEXPECTED_SHUTDOWN() || abnormalRebootTakeResumeRequest()) {
+#else
   if (UNEXPECTED_SHUTDOWN()) {
+#endif
     pwrOn();
+#if defined(RADIO_NB4)
+  } else {
+    // The original NB4 qualifies the startup press itself in every case,
+    // including while the charging base or USB supplies power. It has no
+    // charge screen, so routing an externally powered start into the shared
+    // charging loop below skipped this qualification entirely and left the
+    // radio to shut down again once the application armed its power checks.
+    //
+    // Latch power immediately, then qualify the press. With external power the
+    // MCU remains powered even after opening the latch, so keep it awake and
+    // wait for a new long press instead of entering an unrecoverable stop mode.
+    pwrOn();
+    while (!nb4PowerButtonHeldForStartup()) {
+      if (!nb4ExternalPowerPresent()) {
+        pwrOff();
+        while (true) {
+        }
+      }
+    }
+#else
   } else if (isChargerActive()) {
     while (true) {
       pwrOn();
@@ -317,19 +347,6 @@ void boardInit()
       }
     }
     battery_charge_end();
-#if defined(RADIO_NB4)
-  } else {
-    // Latch power immediately, then qualify the press. With USB attached the
-    // MCU remains powered even after opening the latch, so keep it awake and
-    // wait for a new long press instead of entering an unrecoverable stop mode.
-    pwrOn();
-    while (!nb4PowerButtonHeldForStartup()) {
-      if (!nb4ExternalPowerPresent()) {
-        pwrOff();
-        while (true) {
-        }
-      }
-    }
 #endif
   }
 

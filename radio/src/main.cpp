@@ -251,7 +251,10 @@ void handleUsbConnection()
     TRACE("reset selected USB mode");
     setSelectedUsbMode(USB_UNSELECTED_MODE);
 #if defined(RADIO_NB4)
+    // Restarting is how the NB4 recovers a usable screen after USB teardown,
+    // so it must come back up on its own rather than wait for a new press.
     pwrOn();
+    abnormalRebootRequestResume();
     NVIC_SystemReset();
     return;
 #endif

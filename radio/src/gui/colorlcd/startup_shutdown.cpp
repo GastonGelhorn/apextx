@@ -119,8 +119,13 @@ void waitSplash()
     inactivityCheckInputs();
     splashStartTime += SPLASH_TIMEOUT;
 
-#if defined(PWR_BUTTON_DUAL)
-    // Wait for dual power buttons to be released
+#if defined(PWR_BUTTON_DUAL) || defined(RADIO_NB4_FAMILY)
+    // Wait for the power button to be released before the main loop can arm
+    // shutdown detection. pwrCheck() starts the shutdown timer as soon as it
+    // sees the button held, so a startup press that is still held here would
+    // shut the radio down again right after the splash. The NB4 startup hold
+    // is two seconds, and an externally powered start takes longer to qualify,
+    // which makes that overlap the normal case rather than the exception.
     while (pwrPressed()) {
       WDG_RESET();
       sleep_ms(10);

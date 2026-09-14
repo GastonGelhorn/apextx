@@ -105,7 +105,9 @@ int storageIoctl(int,int command,void*){assert(command==CTRL_SYNC);++storageSync
 DiskDriver storageDriver{storageIoctl};
 const DiskDriver* storageGetDefaultDriver(){return &storageDriver;}
 void pwrOn(){++powerOns;}
-void NVIC_SystemReset(){++resets;usbConnectedWindow=nullptr;UsbSDConnected::count=0;}
+int resumeRequests = 0;
+void abnormalRebootRequestResume(){++resumeRequests;}
+void NVIC_SystemReset(){assert(resumeRequests);++resets;usbConnectedWindow=nullptr;UsbSDConnected::count=0;}
 bool usbPlugged(){return plugged;} bool usbStarted(){return started;}
 int getSelectedUsbMode(){return selected;} void setSelectedUsbMode(int value){selected=value;}
 void openUsbMenu(){} void closeUsbMenu(){} bool nb4StorageQuiesce(){return storageReady;}
