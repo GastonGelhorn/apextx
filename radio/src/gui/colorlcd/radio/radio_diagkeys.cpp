@@ -27,7 +27,7 @@
 #if defined(RADIO_PL18U)
   static const uint8_t _trimMap[MAX_TRIMS * 2] = {6, 7, 4, 5, 2, 3, 0, 1,
                                                   10, 11, 8, 9, 12, 13, 14, 15};
-#elif defined(RADIO_NB4P)
+#elif defined(RADIO_NB4_FAMILY)
   static const uint8_t _trimMap[MAX_TRIMS * 2] = {0, 1, 2, 3, 4, 5, 6, 7,
                                                   8, 9, 10, 11, 12, 13, 14, 15};
 #elif defined(PCBPL18)
@@ -82,13 +82,20 @@ class RadioKeyDiagsWindow : public Window
     form = new Window(parent, rect_t{x, PAD_MEDIUM, colWidth, colHeight});
     etx_txt_color(form->getLvObj(), COLOR_THEME_PRIMARY1_INDEX);
     addTrims(form);
+
+#if defined(RADIO_NB4) && !defined(SIMU)
+
+    nb4UsbLbl = etx_label_create(parent->getLvObj());
+
+    lv_obj_align(nb4UsbLbl, LV_ALIGN_BOTTOM_LEFT, PAD_MEDIUM, -PAD_MEDIUM);
+#endif
   }
 
   ~RadioKeyDiagsWindow()
   {
-    delete keyValues;
-    delete switchValues;
-    delete trimValues;
+    delete[] keyValues;
+    delete[] switchValues;
+    delete[] trimValues;
   }
 
   void addKeys(Window *form)
@@ -221,9 +228,29 @@ class RadioKeyDiagsWindow : public Window
     setKeyState();
     setSwitchState();
     setTrimState();
+#if defined(RADIO_NB4) && !defined(SIMU)
+    setNb4UsbState();
+#endif
   }
 
+#if defined(RADIO_NB4) && !defined(SIMU)
+  void setNb4UsbState()
+  {
+    uint8_t b = nb4UsbDiagBits();
+    char s[48];
+
+    snprintf(s, sizeof(s), "PB13 %d  PB14 %d\nD+ %d  D- %d  ON %d  USB %d",
+             (b & 0x01) ? 1 : 0, (b & 0x02) ? 1 : 0,
+             (b & 0x04) ? 1 : 0, (b & 0x08) ? 1 : 0,
+             (b & 0x10) ? 1 : 0, (b & 0x20) ? 1 : 0);
+    lv_label_set_text(nb4UsbLbl, s);
+  }
+#endif
+
  protected:
+#if defined(RADIO_NB4) && !defined(SIMU)
+  lv_obj_t *nb4UsbLbl = nullptr;
+#endif
   lv_obj_t **keyValues = nullptr;
 #if defined(ROTARY_ENCODER_NAVIGATION) && !defined(USE_HATS_AS_KEYS)
   lv_obj_t *reValue = nullptr;

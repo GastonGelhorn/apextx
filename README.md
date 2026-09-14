@@ -1,51 +1,119 @@
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Edgetx/edgetx)](https://github.com/EdgeTX/edgetx/releases/latest)
-[![GitHub all releases](https://img.shields.io/github/downloads/EdgeTX/edgetx/total)](https://github.com/EdgeTX/edgetx/releases)
-[![GitHub license](https://img.shields.io/github/license/Edgetx/edgetx)](https://github.com/EdgeTX/edgetx/blob/main/LICENSE)
-[![Commit Tests](https://github.com/EdgeTX/edgetx/actions/workflows/build_fw.yml/badge.svg)](https://github.com/EdgeTX/edgetx/actions/workflows/build_fw.yml)
-[![GitHub CodesSpaces ready-to-code](https://img.shields.io/badge/GitHub%20CodesSpaces-ready--to--code-blue?logo=github)](https://codespaces.new/EdgeTX/edgetx)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
-[![Discord](https://img.shields.io/discord/839849772864503828.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/wF9wUKnZ6H)
-[![Support us on OpenCollective](https://img.shields.io/opencollective/all/edgetx)](https://opencollective.com/edgetx)
-
+# ApexTX
 
 <p align="center">
-<a href="https://raw.githubusercontent.com/EdgeTX/edgetx.github.io/master/docs/assets/logo.png"><img src="https://raw.githubusercontent.com/EdgeTX/edgetx.github.io/master/docs/assets/logo.png" align="center" height="150" width="150" ></a>
+  <img src="docs/branding/apextx-logo.png" alt="ApexTX" width="460">
+</p>
 
-# Welcome to EdgeTX!
-**The cutting edge open-source firmware for your R/C radio!**
+[![ApexTX CI](https://github.com/GastonGelhorn/apextx/actions/workflows/ci.yml/badge.svg)](https://github.com/GastonGelhorn/apextx/actions/workflows/ci.yml)
+[![License: GPL-2.0-only](https://img.shields.io/badge/license-GPL--2.0--only-blue.svg)](LICENSE)
 
+ApexTX is independent firmware for the original FlySky Noble NB4 transmitter.
+It adds a car-focused interface, responsive steering and
+throttle controls, configurable hardware assignments, AFHDS3 receiver support,
+race timing, telemetry, audio, and an expanded on-device filesystem.
 
-### About EdgeTX
-EdgeTX is the cutting edge of OpenTX. It is the place where innovative ideas and cutting-edge features are developed and field-tested by the enthusiasts of our hobby. EdgeTX is a community project – ideas from the community, developed by the community, and enjoyed by the community! The community will always have a say in what EdgeTX is and what EdgeTX will be in the future. Without community feedback and involvement EdgeTX cannot exist.
+The current project version is **0.1.0-alpha.1**, based on EdgeTX **2.12.4**.
 
-### Community
-- [Discord](https://discord.gg/wF9wUKnZ6H)   
+## Features
 
-- [Facebook](https://www.facebook.com/groups/edgetx)
+The original Noble NB4 build includes:
 
-- [Github Discussions](https://github.com/EdgeTX/edgetx/discussions)
-  
-### Navigation Links
+- Full-color dark and light themes designed for the NB4 display.
+- Portrait and landscape layouts with the same controls and information in
+  both orientations.
+- A live racing home with steering, throttle and brake, trims, lap timing, RF
+  signal, and TX/RX battery status visible at a glance.
+- Direct car setup for steering travel, throttle and brake curves, channel
+  limits, ABS, failsafe, telemetry, and receiver binding.
+- Detect-and-assign configuration for the wheel, trigger, grip buttons,
+  switches, trims, interface navigation, and racing actions.
+- Integrated lap timing, history, pit tools, spoken alerts, USB modes, and
+  English or Spanish sound packs.
+- A maintained, testable firmware base that can absorb selected upstream
+  improvements while keeping the NB4-specific interface and AFHDS3 support.
 
-- [Community Guidelines](https://github.com/EdgeTX/edgetx.github.io/wiki/Community-Guidlines)
+## Interface preview
 
-- [Installation Guide](https://manual.edgetx.org/installing-and-updating-edgetx/update-from-opentx-to-edgetx)
+| Portrait home | Landscape home |
+| --- | --- |
+| ![ApexTX racing home in portrait orientation](docs/nb4/images/home-portrait.png) | ![ApexTX racing home in landscape orientation](docs/nb4/images/home-landscape.png) |
 
-- [Installation Video](https://www.youtube.com/watch?v=Y9OvW9XCjOs)
+| Throttle and brake curve: portrait | Throttle and brake curve: landscape |
+| --- | --- |
+| ![Throttle and brake curve in portrait orientation](docs/nb4/images/throttle.png) | ![Throttle and brake curve in landscape orientation](docs/nb4/images/throttle-landscape.png) |
 
-- [Reporting Issues / Requesting features](https://github.com/EdgeTX/edgetx/issues/new/choose)
+| Settings modal: portrait | Settings modal: landscape |
+| --- | --- |
+| ![Settings modal in portrait orientation](docs/nb4/images/settings.png) | ![Settings modal in landscape orientation](docs/nb4/images/settings-modal-landscape.png) |
 
-- [Lua Documentation Site](https://luadoc.edgetx.org/)
-  
-- Buddy: [Info](https://github.com/EdgeTX/buddy) - [Downloads](https://github.com/EdgeTX/buddy/releases) 
+See the [complete interface gallery](docs/nb4/GALLERY.md) for vehicle setup,
+race timing, telemetry, and physical-control assignments.
 
-- SD Card: [Info](https://github.com/EdgeTX/edgetx-sdcard) - [Downloads](https://github.com/EdgeTX/edgetx-sdcard/releases)
+The currently supported target is the original Noble NB4:
 
-- Sound Packs:  [Info](https://github.com/EdgeTX/edgetx-sdcard-sounds) - [Downloads](https://github.com/EdgeTX/edgetx-sdcard-sounds/releases)
+```text
+PCB=PL18
+PCBREV=NB4
+```
 
-- [Development Wiki](https://github.com/EdgeTX/edgetx/wiki) - [Docker Build Environment](https://github.com/EdgeTX/build-edgetx)
+The NB4+ target currently compiles as an experimental port candidate. It has
+not been validated on hardware. NB4 Pro and NB4 Pro+ require separate board
+ports and are not supported. See the [Noble compatibility and feature
+matrix](docs/nb4/COMPATIBILITY.md).
 
+## Project status
 
-## Acknowledgements
-Some icon assets provided by [ICONS8](https://icons8.com).</br>
-Lua Documentation site powered with the kind support of [GitBook](https://www.gitbook.com).
+The firmware is under active development and is tested on an original Noble
+NB4. The maintained configuration uses the recovered USART6 AFHDS3 route and
+English firmware strings; English and Spanish voice packs can coexist on the
+expanded storage volume.
+
+Device-specific factory images, calibration data, OTP contents, and local build
+artifacts are intentionally excluded from this repository.
+
+## Build
+
+The short form of the verified device build is:
+
+```sh
+cmake -S . -B build/nb4-device \
+  -DPCB=PL18 -DPCBREV=NB4 -DCMAKE_BUILD_TYPE=Release \
+  -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
+  -DNB4_RF_PROFILE=RECOVERED_USART6 \
+  -DTRANSLATIONS=EN -DDISABLE_COMPANION=ON
+cmake --build build/nb4-device --target firmware-size -j8
+```
+
+See the maintained NB4 documentation for environment setup, flashing, hardware
+details, and validation:
+
+- [NB4 overview](docs/nb4/README.md)
+- [Interface gallery](docs/nb4/GALLERY.md)
+- [Noble model compatibility](docs/nb4/COMPATIBILITY.md)
+- [Build instructions](docs/nb4/BUILD.md)
+- [Install from the FlySky firmware](docs/nb4/FLASH.md)
+- [Hardware notes](docs/nb4/HARDWARE.md)
+- [Validation checklist](docs/nb4/VALIDATION.md)
+- [Physical release acceptance](docs/nb4/rf/BENCH_ACCEPTANCE.md)
+- [Release process](docs/nb4/RELEASE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Changelog](CHANGELOG.md)
+
+## Upstream relationship
+
+This project retains the EdgeTX source layout so upstream releases can be
+integrated with a reviewable diff. Changes specific to the Noble NB4 are kept in
+the NB4 target, interface, protocol, tests, documentation, and tooling wherever
+possible.
+
+ApexTX is an independent community project. It is not an official FlySky
+or EdgeTX release.
+
+## License
+
+This repository is derived from [EdgeTX](https://github.com/EdgeTX/edgetx) and
+is distributed under the GNU General Public License version 2. See
+[LICENSE](LICENSE). Existing copyright and attribution notices remain with
+their respective authors.

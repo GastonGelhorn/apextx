@@ -400,7 +400,11 @@ int setupUSBJoystick()
       } else if (mode == USBJOYS_CH_AXIS && typeIx <= USBJOYS_AXIS_LAST) {
         usage = axisTypeCodes[typeIx];
         pageTarget = 0x01;  // Generic Desktop Page (0x01)
-      } else if (mode == USBJOYS_CH_SIM && typeIx <= USBJOYS_SIM_LAST) {
+      } else if (mode == USBJOYS_CH_SIM && typeIx <= USBJOYS_SIM_LAST
+#if defined(RADIO_NB4_FAMILY)
+                 && typeIx >= USBJOYS_SIM_ACCELERATOR
+#endif
+                 ) {
         usage = simTypeCodes[typeIx];
         if (usage == 0x00) {
           // it is the special dpad / hat switch
@@ -600,13 +604,13 @@ void usbClassicStateUpdate()
   _hidReport[1] = 0;
   _hidReport[2] = 0;
   for (int i = 0; i < 8; ++i) {
-    if (channelOutputs[i + 8] > 0) {
+    if (i + 8 < MAX_OUTPUT_CHANNELS && channelOutputs[i + 8] > 0) {
       _hidReport[0] |= (1 << i);
     }
-    if (channelOutputs[i + 16] > 0) {
+    if (i + 16 < MAX_OUTPUT_CHANNELS && channelOutputs[i + 16] > 0) {
       _hidReport[1] |= (1 << i);
     }
-    if (channelOutputs[i + 24] > 0) {
+    if (i + 24 < MAX_OUTPUT_CHANNELS && channelOutputs[i + 24] > 0) {
       _hidReport[2] |= (1 << i);
     }
   }

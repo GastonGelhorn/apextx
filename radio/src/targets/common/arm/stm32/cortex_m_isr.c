@@ -21,6 +21,7 @@
 
 #include "cortex_m_isr.h"
 #include "stm32_cmsis.h"
+#include "nb4_health.h"
 
 #define GET_VECTACTIVE() \
   ((SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) >> SCB_ICSR_VECTACTIVE_Pos)
@@ -73,6 +74,11 @@ typedef struct __attribute__((packed)) ContextStateFrame {
 __attribute__((optimize("O0")))
 void hard_fault_handler_c(sContextStateFrame *frame) {
   HALT_IF_DEBUGGING();
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4Fatal(NB4_FAULT_CPU, SCB->CFSR);
+#else
+  while (1) {}
+#endif
 }
 
 void HardFault_Handler(void) {

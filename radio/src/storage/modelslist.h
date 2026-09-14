@@ -212,6 +212,9 @@ class ModelsList : public ModelsVector
 
   bool load();
   const char *save(LabelsVector newOrder=LabelsVector());
+#if defined(RADIO_NB4_FAMILY)
+  std::string serialize(LabelsVector newOrder=LabelsVector());
+#endif
   void clear();
 
   void setCurrentModel(ModelCell *cell);

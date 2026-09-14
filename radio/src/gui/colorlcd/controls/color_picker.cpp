@@ -77,7 +77,7 @@ class ColorEditorPopup : public BaseDialog
                    std::function<void(uint32_t)> _setValue,
                    std::function<void(uint32_t)> _preview,
                    COLOR_EDITOR_FMT fmt) :
-      BaseDialog(STR_COLOR_PICKER, false, COLOR_EDIT_WIDTH, COLOR_EDIT_HEIGHT),
+      BaseDialog(STR_COLOR_PICKER, false, editWidth(), editHeight()),
       origColor(color), setValue(std::move(_setValue)), format(fmt)
   {
     FlexGridLayout grid(col_dsc, row_dsc);
@@ -176,6 +176,23 @@ class ColorEditorPopup : public BaseDialog
   static LAYOUT_ORIENTATION(COLOR_EDIT_WIDTH, LCD_W * 0.8, LCD_W * 0.7)
 #endif
   static LAYOUT_ORIENTATION(COLOR_EDIT_HEIGHT, LCD_H * 0.9, LV_SIZE_CONTENT)
+
+  static coord_t editWidth()
+  {
+#if defined(RADIO_NB4_FAMILY)
+    return (coord_t)(lv_disp_get_hor_res(nullptr) * 0.92);
+#else
+    return COLOR_EDIT_WIDTH;
+#endif
+  }
+  static coord_t editHeight()
+  {
+#if defined(RADIO_NB4_FAMILY)
+    return (coord_t)(lv_disp_get_ver_res(nullptr) * 0.92);
+#else
+    return COLOR_EDIT_HEIGHT;
+#endif
+  }
   static LAYOUT_VAL_SCALED(COLOR_PAD_WIDTH, 52)
   static LAYOUT_VAL_SCALED(BTN_W, 80)
   static LAYOUT_VAL_SCALED(BTN_PAD_TOP, 60)

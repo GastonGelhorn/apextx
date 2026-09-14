@@ -21,3 +21,14 @@ CMakeUserPresets.json
 output/
 *.dmg
 .devcontainer/devcontainer-lock.json
+.DS_Store
+.claude/
+/backups/
+
+# Local Python environment for the NB4 port
+.venv/
+imgui.ini
+
+# Storage test output (sdcard_yaml, nb4_compat), created by gtests-radio
+/radio/src/tests/MODELS/
+/radio/src/tests/RADIO/

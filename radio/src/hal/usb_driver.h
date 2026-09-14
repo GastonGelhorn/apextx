@@ -50,6 +50,11 @@ void usbInit();
 void usbStart();
 void usbStop();
 bool usbStarted();
+
+bool usbHostSessionAlive();
+EXTERN_C(void usbHostSofReceived());
+
+bool usbHostEnumerated();
 bool usbPluggedInStorageMode();
 bool usbPluggedInJoystickMode();
 bool usbPluggedInVCPMode();

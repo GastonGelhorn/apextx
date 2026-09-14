@@ -484,6 +484,10 @@ inline int8_t maxModuleChannels(uint8_t moduleIdx)
 
 inline int8_t minModuleChannels(uint8_t idx)
 {
+#if defined(RADIO_NB4)
+  if (isModuleAFHDS3(idx))
+    return 2;
+#endif
   if (isModuleCrossfire(idx))
     return CROSSFIRE_CHANNELS_COUNT;
   else if (isModuleGhost(idx))
@@ -498,6 +502,10 @@ inline int8_t minModuleChannels(uint8_t idx)
 
 inline int8_t defaultModuleChannels_M8(uint8_t idx)
 {
+#if defined(RADIO_NB4)
+  if (isModuleAFHDS3(idx))
+    return -6;  // two active channels
+#endif
   if (isModulePPM(idx))
     return 0;  // 8 channels
   else if (isModuleDSMP(idx))
@@ -564,8 +572,15 @@ inline bool isModuleModelIndexAvailable(uint8_t idx)
   if (isModuleCrossfire(idx))
     return true;
 
-  if (isModuleAFHDS3(idx))
+  if (isModuleAFHDS3(idx)) {
+#if defined(RADIO_NB4)
+    // NB4 learns and stores the receiver configuration per model during bind.
+    // The legacy AFHDS3 model index is not sent to its internal module.
+    return false;
+#else
     return true;
+#endif
+  }
 
   if (isModuleDSMP(idx)) 
     return true;
@@ -755,8 +770,10 @@ inline void setDefaultPpmFrameLength(uint8_t moduleIdx)
 
 inline void setDefaultPpmFrameLengthTrainer()
 {
+#if !defined(RADIO_NB4_FAMILY)
   g_model.trainerData.frameLength =
       4 * max<int>(0, g_model.trainerData.channelsCount);
+#endif
 }
 
 inline void resetAccessAuthenticationCount()

@@ -142,6 +142,14 @@ enum EdgeTxIcon {
 
   ICON_TOP_LOGO,
 
+#if defined(RADIO_NB4_FAMILY)
+
+  ICON_NB4_MODEL_SETUP,
+  ICON_NB4_OUTPUTS,
+  ICON_NB4_STEERING,
+  ICON_NB4_THROTTLE,
+#endif
+
   EDGETX_ICONS_COUNT
 };
 
@@ -152,6 +160,8 @@ struct MaskBitmap {
 };
 
 const MaskBitmap* getBuiltinIcon(EdgeTxIcon id);
+
+int etxBuiltinIconMisalignedAt();
 
 struct LZ4Bitmap {
   uint16_t width;

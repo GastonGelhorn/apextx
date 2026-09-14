@@ -153,7 +153,9 @@ static int luaLcdDrawLine(lua_State *L)
   LcdFlags flags = luaL_optinteger(L, 6, 0);
   flags = colorToRGB(flags);
 
-  if (x1 > LCD_W || y1 > LCD_H || x2 > LCD_W || y2 > LCD_H)
+  if (x1 < 0 || y1 < 0 || x2 < 0 || y2 < 0 ||
+      x1 >= luaLcdBuffer->width() || y1 >= luaLcdBuffer->height() ||
+      x2 >= luaLcdBuffer->width() || y2 >= luaLcdBuffer->height())
     return 0;
 
   if (pat == SOLID) {
@@ -512,22 +514,26 @@ static int luaOpenBitmap(lua_State *L)
   BitmapBuffer **b =
       (BitmapBuffer **)lua_newuserdata(L, sizeof(BitmapBuffer *));
 
-  if (luaExtraMemoryUsage > LUA_MEM_EXTRA_MAX) {
+  if (luaExtraMemoryUsage >= LUA_MEM_EXTRA_MAX) {
     // already allocated more than max allowed, fail
     TRACE("luaOpenBitmap: Error, using too much memory %u/%u",
           luaExtraMemoryUsage, LUA_MEM_EXTRA_MAX);
     *b = 0;
   } else {
-    *b = BitmapBuffer::loadBitmap(filename);
+    *b = BitmapBuffer::loadBitmap(filename, BMP_INVALID,
+      (LUA_MEM_EXTRA_MAX - luaExtraMemoryUsage) / sizeof(uint16_t));
     if (*b == NULL && G(L)->gcrunning) {
       luaC_fullgc(L, 1);                       /* try to free some memory... */
-      *b = BitmapBuffer::loadBitmap(filename); /* try again */
+      *b = BitmapBuffer::loadBitmap(filename, BMP_INVALID,
+        (LUA_MEM_EXTRA_MAX - luaExtraMemoryUsage) / sizeof(uint16_t));
     }
   }
 
   if (*b) {
     uint32_t size = (*b)->getDataSize();
-    luaExtraMemoryUsage += size;
+    if (size > LUA_MEM_EXTRA_MAX - luaExtraMemoryUsage) {
+      delete *b; *b = nullptr;
+    } else luaExtraMemoryUsage += size;
     TRACE("luaOpenBitmap: %p (%u)", *b, size);
   }
 
@@ -600,7 +606,8 @@ static int luaBitmapResize(lua_State * L)
 
   BitmapBuffer **n = (BitmapBuffer**)lua_newuserdata(L, sizeof(void*));
 
-  if (luaExtraMemoryUsage > LUA_MEM_EXTRA_MAX) {
+  if (w <= 0 || h <= 0 || luaExtraMemoryUsage >= LUA_MEM_EXTRA_MAX ||
+      uint64_t(w) * h * sizeof(uint16_t) > LUA_MEM_EXTRA_MAX - luaExtraMemoryUsage) {
     // already allocated more than max allowed, fail
     TRACE("luaOpenBitmap: Error, using too much memory %u/%u",
           luaExtraMemoryUsage, LUA_MEM_EXTRA_MAX);
@@ -1326,7 +1333,7 @@ static void drawHudRectangle(BitmapBuffer * dc, float pitch, float roll, coord_t
   else {
     bool inverted = (fabsf(roll) > 90.0f);
     bool fillNeeded = false;
-    coord_t ybot = (inverted) ? 0 : LCD_H;
+    coord_t ybot = (inverted) ? 0 : luaLcdBuffer->height();
 
     if (roll > 0.0f) {
       for (coord_t s = 0; s < ywidth; s++) {

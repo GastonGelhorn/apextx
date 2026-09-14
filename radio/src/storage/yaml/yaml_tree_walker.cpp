@@ -215,6 +215,7 @@ void YamlTreeWalker::reset(const YamlNode* node, uint8_t* data)
     this->data = data;
     stack_level = NODE_STACK_DEPTH;
     virt_level  = 0;
+    anon_union = 0;
 
     push();
     setNode(node);
@@ -316,8 +317,13 @@ bool YamlTreeWalker::toChild()
     }
 
     bool is_array = false;
-    if (attr->type == YDT_ARRAY
-        && attr->elmts > 1) {
+    if (attr->type == YDT_ARRAY &&
+        (attr->elmts > 1 || attr->u._array.child[0].type == YDT_IDX)) {
+        // A one-element indexed array is still an array, and it must not be
+        // walked as a plain struct.
+        //
+        // Indexed arrays must retain array traversal when a target reduces them
+        // to a single element.
         is_array = true;
     }
 
@@ -713,4 +719,3 @@ const YamlParserCalls* YamlTreeWalker::get_parser_calls()
 {
     return &YamlTreeWalkerCalls;
 }
-

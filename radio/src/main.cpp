@@ -20,12 +20,20 @@
  */
 
 #include "hal/adc_driver.h"
+#include "hal/fatfs_diskio.h"
 #include "hal/storage.h"
 #include "hal/abnormal_reboot.h"
 #include "hal/usb_driver.h"
 #include "hal/audio_driver.h"
 
 #include "edgetx.h"
+#include "nb4_history.h"
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_racing.h"
+#include "nb4_health.h"
+#include "storage/sdcard_yaml.h"
+#endif
 #include "lua/lua_states.h"
 
 #if defined(COLORLCD)
@@ -153,6 +161,15 @@ void handleUsbConnection()
     TRACE("USB unplugged");
     closeUsbMenu();
     _pluggedUsb = false;
+#if defined(RADIO_NB4_FAMILY)
+    if (!usbStarted()) {
+      setSelectedUsbMode(USB_UNSELECTED_MODE);
+      nb4StorageResume();
+#if defined(RADIO_NB4)
+      audioQueue.resumeFiles();
+#endif
+    }
+#endif
 #if defined(USB_CHARGE_CONTROL)
     usbChargerEnableCharge(true);
 #endif
@@ -180,6 +197,14 @@ void handleUsbConnection()
     // so re-evaluate the condition
     if (getSelectedUsbMode() != USB_UNSELECTED_MODE) {
       if (getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+#if defined(RADIO_NB4)
+        if (!audioQueue.pauseFiles()) return;
+#endif
+#if defined(RADIO_NB4_FAMILY)
+        // Defer the transition, keeping the UI responsive while an in-flight
+        // transaction closes. No raw USB access races an open FatFs file.
+        if (!nb4StorageQuiesce()) return;
+#endif
         edgeTxClose(false);
 #if defined(COLORLCD)
         usbConnectedWindow = new UsbSDConnected();
@@ -197,9 +222,21 @@ void handleUsbConnection()
   }
 
   if (usbStarted() && !usbPlugged()) {
+    const auto disconnectedMode = getSelectedUsbMode();
+#if defined(RADIO_NB4)
+    if (disconnectedMode == USB_MASS_STORAGE_MODE) {
+      const auto* driver = storageGetDefaultDriver();
+      if (driver && driver->ioctl) driver->ioctl(0, CTRL_SYNC, nullptr);
+    }
+#endif
     usbStop();
     TRACE("USB stopped");
-    if (getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+    if (disconnectedMode == USB_MASS_STORAGE_MODE) {
+#if defined(RADIO_NB4)
+      // A fresh boot is safer than reconstructing the complete LVGL, FatFs and
+      // audio state after ownership of the external NOR changes. Keep the power
+      // latch asserted across the software reset.
+#else
       edgeTxResume();
 #if defined(COLORLCD)
       usbConnectedWindow->deleteLater();
@@ -207,11 +244,17 @@ void handleUsbConnection()
 #else
       pushEvent(EVT_ENTRY);
 #endif
-    } else if (getSelectedUsbMode() == USB_SERIAL_MODE) {
+#endif
+    } else if (disconnectedMode == USB_SERIAL_MODE) {
       serialStop(SP_VCP);
     }
     TRACE("reset selected USB mode");
     setSelectedUsbMode(USB_UNSELECTED_MODE);
+#if defined(RADIO_NB4)
+    pwrOn();
+    NVIC_SystemReset();
+    return;
+#endif
   }
 #endif  // defined(STM32) && !defined(SIMU)
 }
@@ -312,6 +355,9 @@ void checkKeysLock()
 
 void checkStorageUpdate()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4PollSettings();
+#endif
 #if defined(RTC_BACKUP_RAM) && !defined(SIMU)
   if (TIME_TO_BACKUP_RAM()) {
     if (!UNEXPECTED_SHUTDOWN()) {
@@ -404,8 +450,15 @@ void guiMain(event_t evt)
   }
 #endif
 
+#if defined(RADIO_NB4_FAMILY)
+  // Collect the newest control positions before this frame is rendered.
+  // Rendering first adds one complete UI cycle to the instrument latency.
+  MainWindow::instance()->run();
+  LvglWrapper::instance()->run();
+#else
   LvglWrapper::instance()->run();
   MainWindow::instance()->run();
+#endif
 
   bool mainViewRequested = (mainRequestFlags & (1u << REQUEST_MAIN_VIEW));
   if (mainViewRequested) {
@@ -533,11 +586,20 @@ void initLoggingTimer();
 
 void perMain()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4RacingPerMain();
+#endif
+
   DEBUG_TIMER_START(debugTimerPerMain1);
 
   checkSpeakerVolume();
 
+#if defined(RADIO_NB4_FAMILY)
+  // Serial/HID keep the filesystem local. MSC handoff drains the worker first.
+  if (getSelectedUsbMode() != USB_MASS_STORAGE_MODE) {
+#else
   if (!usbPlugged() || (getSelectedUsbMode() == USB_UNSELECTED_MODE)) {
+#endif
     checkStorageUpdate();
     initLoggingTimer();  // initialize software timer for logging
   }
@@ -595,7 +657,11 @@ void perMain()
 #endif
   }
 
-  if (usbPlugged() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+  if (usbPlugged() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE
+#if defined(COLORLCD)
+      && usbConnectedWindow
+#endif
+  ) {
 #if defined(COLORLCD)
     LvglWrapper::instance()->run();
     usbConnectedWindow->checkEvents();

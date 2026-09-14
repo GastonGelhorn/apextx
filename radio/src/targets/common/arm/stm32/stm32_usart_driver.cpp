@@ -115,6 +115,20 @@ void stm32_usart_set_idle_irq(const stm32_usart_t* usart, uint32_t enabled)
   }
 }
 
+void stm32_usart_set_error_irq(const stm32_usart_t* usart, uint32_t enabled)
+{
+  if (enabled) {
+    // EIE covers noise, framing and overrun. Parity has a separate enable bit.
+    // Keeping the USART IRQ alive is required when RX data itself uses DMA.
+    LL_USART_EnableIT_ERROR(usart->USARTx);
+    LL_USART_EnableIT_PE(usart->USARTx);
+    _enable_usart_irq(usart);
+  } else {
+    LL_USART_DisableIT_ERROR(usart->USARTx);
+    LL_USART_DisableIT_PE(usart->USARTx);
+  }
+}
+
 static void enable_usart_clock(USART_TypeDef* USARTx)
 {
   if (USARTx == USART1) {
@@ -614,6 +628,9 @@ void stm32_usart_send_buffer(const stm32_usart_t* usart, const uint8_t * data, u
       LL_DMA_EnableIT_TC(usart->txDMA, usart->txDMA_Stream);
       LL_USART_ClearFlag_TC(usart->USARTx);
     }
+    // A previous unaligned/non-DMA buffer uses TXE interrupts and disables
+    // DMAT. Restore the request when switching back to a DMA buffer.
+    LL_USART_EnableDMAReq_TX(usart->USARTx);
     LL_DMA_EnableStream(usart->txDMA, usart->txDMA_Stream);
 #endif // !STM32H7RS
 
@@ -767,10 +784,24 @@ void stm32_usart_isr(const stm32_usart_t* usart, etx_serial_callbacks_t* cb)
   }
   
   // Receive: do it first as it is more time critical
-  if (LL_USART_IsEnabledIT_RXNE(usart->USARTx)) {
+  const bool receiveIrq = LL_USART_IsEnabledIT_RXNE(usart->USARTx);
+  const bool errorIrq = LL_USART_IsEnabledIT_ERROR(usart->USARTx) ||
+                        LL_USART_IsEnabledIT_PE(usart->USARTx);
+  if (receiveIrq || errorIrq) {
 
-    // Drain RX
-    while (status & (USART_RXNE | USART_FLAG_ERRORS)) {
+    /* Drain RX.
+     *
+     * With no error callback registered -every board but ours- `errorIrq` is
+     * false and this is EXACTLY upstream's condition: while RXNE is enabled,
+     * drain on RXNE **or on an error flag**, because reading DR is what clears
+     * those flags. Losing that half used to leave a framing or overrun flag set
+     * until the next byte arrived.
+     *
+     * The second half is ours and only reachable when someone asks for the error
+     * interrupt (stm32_serial_set_error_cb), which happens when RX data itself
+     * goes by DMA and RXNE is therefore never enabled. */
+    while ((receiveIrq && (status & (USART_RXNE | USART_FLAG_ERRORS))) ||
+           (errorIrq && (status & USART_FLAG_ERRORS))) {
 
       // This will clear the RXNE/error bits in USART_SR register
       uint8_t data = LL_USART_ReceiveData8(usart->USARTx);
@@ -783,7 +814,7 @@ void stm32_usart_isr(const stm32_usart_t* usart, etx_serial_callbacks_t* cb)
           cb->on_error();
       }
 
-      if (status & USART_RXNE) {
+      if (receiveIrq && (status & USART_RXNE)) {
         if (cb->on_receive)
           cb->on_receive(data);
       }

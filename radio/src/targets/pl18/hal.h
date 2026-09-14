@@ -171,7 +171,7 @@
       -1 /*SWF*/,  -1 /*SWG*/, 0 /*SWH*/				\
     }
 
-#elif defined(RADIO_NB4P)
+#elif defined(RADIO_NB4_FAMILY)
   // Trims
   #define TRIMS_GPIO_REG_T1L
   #define TRIMS_GPIO_PIN_T1L
@@ -185,7 +185,7 @@
   // Switches
   #define SWITCHES_A_2POS
   #define SWITCHES_B_2POS
-  
+
   // Keys
   #define KEYS_GPIO_PIN_ENTER
   #define KEYS_GPIO_REG_ENTER
@@ -207,7 +207,7 @@
   #define ADC_CHANNEL_POT1              LL_ADC_CHANNEL_12   // ADC123_IN12 -> ADC1_IN12
   #define ADC_CHANNEL_POT2              LL_ADC_CHANNEL_7    // ADC12_IN7 -> ADC1_IN7
   #define ADC_CHANNEL_RAW1              LL_ADC_CHANNEL_11   // ADC123_IN11 -> ADC1_IN11
-  #define ADC_CHANNEL_RAW2              LL_ADC_CHANNEL_10   // ADC123_IN10 -> ADC1_IN10  
+  #define ADC_CHANNEL_RAW2              LL_ADC_CHANNEL_10   // ADC123_IN10 -> ADC1_IN10
   #define ADC_CHANNEL_RAW3              LL_ADC_CHANNEL_6    // ADC12_IN6 -> ADC1_IN6
   #define ADC_CHANNEL_RAW4              LL_ADC_CHANNEL_14   // ADC12_IN14 -> ADC1_IN14
   #define ADC_CHANNEL_BATT              LL_ADC_CHANNEL_15   // ADC12_IN15  -> ADC1_IN15
@@ -216,7 +216,11 @@
   #define ADC_GPIOC_PINS                (ADC_GPIO_PIN_RAW1 | ADC_GPIO_PIN_RAW2 | ADC_GPIO_PIN_POT1 | ADC_GPIO_PIN_RAW4 | ADC_GPIO_PIN_BATT)
 
   #define ADC_MAIN                        ADC1
-  #define ADC_SAMPTIME                    LL_ADC_SAMPLINGTIME_28CYCLES
+  // ST (PA2/IN2) and TH (PA3/IN3) are converted back to back in the same scan.
+  // At 28 cycles the sample-and-hold does not settle between them, so the wheel
+  // bleeds into the trigger with the sign of the steering deflection. 144 cycles
+  // costs ~74us for the whole 10-channel scan, against a 5ms mixer period.
+  #define ADC_SAMPTIME                    LL_ADC_SAMPLINGTIME_144CYCLES
   #define ADC_DMA                         DMA2
   #define ADC_DMA_CHANNEL                 LL_DMA_CHANNEL_0
   #define ADC_DMA_STREAM                  LL_DMA_STREAM_4
@@ -233,7 +237,7 @@
       0       /* rtc_bat */    \
     }
 
-#else // !defined(RADIO_NB4P) && !defined(RADIO_NV14_FAMILY)
+#else // !defined(RADIO_NB4_FAMILY) && !defined(RADIO_NV14_FAMILY)
 
 // Keys
 #if defined(RADIO_PL18U)
@@ -646,7 +650,7 @@
 #define USB_GPIO_DP                     GPIO_PIN(GPIOA, 12) // PA.12
 #define USB_GPIO_AF                     GPIO_AF10
 
-#if defined(RADIO_NV14_FAMILY) 
+#if defined(RADIO_NV14_FAMILY)
   #define USB_GPIO_VBUS                 GPIO_PIN(GPIOA, 9)  // PA.09
   #define USB_SW_GPIO                   GPIO_PIN(GPIOI, 10) // PI.10
 #elif defined(RADIO_PL18U)
@@ -674,7 +678,7 @@
 #define SERIAL_RCC_AHB1Periph           0
 #define SERIAL_RCC_APB1Periph           0
 
-#if defined(RADIO_NB4P)
+#if defined(RADIO_NB4_FAMILY)
 // Rotary Encoder
 #define ROTARY_ENCODER_GPIO             GPIOH
 #define ROTARY_ENCODER_GPIO_PIN_A       LL_GPIO_PIN_11 // PH.11
@@ -716,6 +720,20 @@
 #endif
 
 // SPI NOR Flash
+
+#if defined(RADIO_NB4)
+  // The filesystem owns the complete external flash. A unit-specific raw NOR
+  // backup must be kept privately outside the source repository before install.
+  #define SPI_FLASH_RESERVED_BASE        0x00000000
+  #define SPI_FLASH_USABLE_SIZE          0x00800000
+  #define STORAGE_FAT_CLUSTER_SIZE       512
+#endif
+
+#if defined(RADIO_NB4)
+
+  #define FLASH_SPI_MAX_FREQ             21000000
+#endif
+
 #define FLASH_SPI                      SPI6
 #define FLASH_SPI_CS_GPIO              GPIO_PIN(GPIOG, 6)  // PG.06
 #define FLASH_SPI_SCK_GPIO             GPIO_PIN(GPIOG, 13) // PG.13
@@ -760,7 +778,7 @@
   #define AUDIO_UNMUTE_DELAY            120  // ms
   #define AUDIO_MUTE_DELAY              500  // ms
   #define INVERTED_MUTE_PIN
-#elif defined(RADIO_NB4P)
+#elif defined(RADIO_NB4_FAMILY)
   #define AUDIO_MUTE_GPIO               GPIO_PIN(GPIOH, 9) // PH.09 audio amp control pin
   #define AUDIO_UNMUTE_DELAY            120  // ms
   #define AUDIO_MUTE_DELAY              500  // ms
@@ -790,7 +808,6 @@
   #define EXTI9_5_IRQ_Priority  9
 #endif
 
-// Haptic: TIM1_CH1
 #if defined(RADIO_NB4P)
 #define HAPTIC_PWM
 #define HAPTIC_GPIO                     GPIO_PIN(GPIOB, 0) // PB.00
@@ -826,6 +843,7 @@
 #define FLYSKY_HALL_DMA_Stream_TX                LL_DMA_STREAM_4
 
 // LED Strip
+
 #if !defined(RADIO_NV14_FAMILY)
   #define LED_STRIP_LENGTH                  4
   #define BLING_LED_STRIP_START             0
@@ -873,6 +891,40 @@
   #define INTMODULE_TIMER_IRQn            TIM3_IRQn
   #define INTMODULE_TIMER_IRQHandler      TIM3_IRQHandler
   #define INTMODULE_TIMER_FREQ            (PERI1_FREQUENCY * TIMER_MULT_APB1)
+#elif defined(RADIO_NB4)
+  // Original NB4 RF: AFHDS3 runs on USART6. USART3 remains compilable only as
+  // the excluded Mini-Z route and as a CI hardcode guard.
+  #if defined(NB4_RF_TRANSPORT_USART3)
+  #define INTMODULE_TX_GPIO               GPIO_PIN(GPIOB, 10) // PB.10
+  #define INTMODULE_RX_GPIO               GPIO_PIN(GPIOB, 11) // PB.11
+  #define INTMODULE_USART                 USART3
+  #define INTMODULE_GPIO_AF               LL_GPIO_AF_7
+  #define INTMODULE_USART_IRQn            USART3_IRQn
+  #define INTMODULE_USART_IRQHandler      USART3_IRQHandler
+  #define INTMODULE_DMA                   DMA1
+  #define INTMODULE_DMA_STREAM            LL_DMA_STREAM_3
+  #define INTMODULE_DMA_STREAM_IRQ        DMA1_Stream3_IRQn
+  #define INTMODULE_DMA_FLAG_TC           DMA_FLAG_TCIF1
+  #define INTMODULE_DMA_CHANNEL           LL_DMA_CHANNEL_4
+  #define INTMODULE_RX_DMA                DMA1
+  #define INTMODULE_RX_DMA_STREAM         LL_DMA_STREAM_1
+  #define INTMODULE_RX_DMA_CHANNEL        LL_DMA_CHANNEL_4
+  #elif defined(NB4_RF_TRANSPORT_USART6)
+  #define INTMODULE_TX_GPIO               GPIO_PIN(GPIOC, 6)  // PC.06
+  #define INTMODULE_RX_GPIO               GPIO_PIN(GPIOC, 7)  // PC.07
+  #define INTMODULE_USART                 USART6
+  #define INTMODULE_GPIO_AF               LL_GPIO_AF_8
+  #define INTMODULE_USART_IRQn            USART6_IRQn
+  #define INTMODULE_USART_IRQHandler      USART6_IRQHandler
+  #define INTMODULE_DMA                   DMA2
+  #define INTMODULE_DMA_STREAM            LL_DMA_STREAM_7
+  #define INTMODULE_DMA_STREAM_IRQ        DMA2_Stream7_IRQn
+  #define INTMODULE_DMA_FLAG_TC           DMA_FLAG_TCIF7
+  #define INTMODULE_DMA_CHANNEL           LL_DMA_CHANNEL_5
+  #define INTMODULE_RX_DMA                DMA2
+  #define INTMODULE_RX_DMA_STREAM         LL_DMA_STREAM_2
+  #define INTMODULE_RX_DMA_CHANNEL        LL_DMA_CHANNEL_5
+  #endif
 #elif defined(RADIO_NB4P)
   #define INTMODULE_PWR_GPIO              GPIO_PIN(GPIOI, 8)  // PI.08
   #define INTMODULE_TX_GPIO               GPIO_PIN(GPIOB, 10) // PB.10
@@ -935,7 +987,7 @@
 #define EXTMODULE_RX_GPIO_AF_USART      GPIO_AF_USART6
 #define EXTMODULE_TIMER                 TIM8
 #define EXTMODULE_TIMER_Channel         LL_TIM_CHANNEL_CH1
-#if defined(RADIO_NB4P)
+#if defined(RADIO_NB4_FAMILY)
 #define EXTMODULE_TIMER_IRQn            TIM5_IRQn
 #define EXTMODULE_TIMER_IRQHandler      TIM5_IRQHandler
 #else
@@ -992,7 +1044,7 @@
 #define ROTARY_ENCODER_NAVIGATION
 
 // Bluetooth
-#if !defined(RADIO_NB4P)
+#if !defined(RADIO_NB4_FAMILY)
   #define BLUETOOTH_ON_GPIO               GPIO_PIN(GPIOI, 8) // PI.8
   #define BT_USART                        USART3
   #define BT_USART_IRQn                   USART3_IRQn
@@ -1022,13 +1074,20 @@
 #endif
 
 // LCD Settings
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4_LANDSCAPE)
+
+  #define LCD_W                         480
+  #define LCD_H                         320
+#elif defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
   #define LCD_W                         320
   #define LCD_H                         480
 #else
   #define LCD_W                         480
   #define LCD_H                         320
 #endif
+
+#define LCD_MAX_W                       480
+#define LCD_MAX_H                       480
 
 #define LCD_PHYS_W                      320
 #define LCD_PHYS_H                      480

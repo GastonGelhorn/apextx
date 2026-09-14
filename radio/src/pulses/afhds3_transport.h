@@ -43,6 +43,7 @@ enum COMMAND : uint8_t {
   MODULE_STATE = 0x02,
   MODULE_MODE = 0x03,
   MODULE_SET_CONFIG = 0x04,
+  MODULE_APPLY_CONFIG = 0x05, // NB4 internal module: commit bind / learned receiver
   MODULE_GET_CONFIG = 0x06,
   CHANNELS_FAILSAFE_DATA = 0x07,
   TELEMETRY_DATA = 0x09,
@@ -137,6 +138,8 @@ struct CommandFifo {
   inline void skip() { getIndex = nextIndex(getIndex); }
 
   void enqueueACK(COMMAND command, uint8_t frameNumber);
+  void enqueueResponse(COMMAND command, uint8_t frameNumber, uint8_t value,
+                       bool withValue = true);
 
   void enqueue(COMMAND command, FRAME_TYPE frameType, bool useData,
                uint8_t byteContent);
@@ -151,7 +154,11 @@ struct FrameTransport {
   // uint8_t timeout;
   uint8_t esc_state;
 
-  void init(void* buffer, uint8_t fAddr);
+  uint8_t omitAddress;
+  uint16_t capacity;
+  bool overflow;
+
+  void init(void* buffer, uint8_t fAddr, bool noAddress = false, uint16_t capacity = AFHDS_MAX_PULSES);
   void clear();
 
   void putByte(uint8_t b);
@@ -166,6 +173,24 @@ struct FrameTransport {
                             uint8_t& rxBufferCount, uint8_t maxSize);
 };
 
+#if defined(RADIO_NB4) && defined(SIMU)
+struct Nb4TransportDiagnostics {
+  uint32_t txFrames = 0; // Accepted by the serial driver, not proof of wire delivery.
+  uint32_t txBusy = 0;
+  uint32_t rxBytes = 0;
+  uint32_t rxFrames = 0;
+  uint32_t unmatched = 0;
+  uint32_t bindRequests = 0;
+  uint8_t bindRequestType = 0, bindRequestSize = 0, bindRequestSequence = 0;
+  bool receiverStored = false, receiverLearned = false, twoWay = false;
+  uint8_t lastRx[16]{};
+  uint8_t lastTx[16]{};
+  uint8_t lastRxSize = 0;
+  uint8_t lastTxSize = 0;
+  uint8_t command = 0, type = 0, sequence = 0, value = 0;
+};
+#endif
+
 class Transport
 {
   enum State { UNKNOWN = 0, SENDING_COMMAND, AWAITING_RESPONSE, IDLE };
@@ -174,6 +199,7 @@ class Transport
 
   FrameTransport trsp;
   CommandFifo fifo;
+  CommandFifo acknowledgements;
 
   /**
    * Internal operation state one of UNKNOWN, SENDING_COMMAND,
@@ -192,6 +218,22 @@ class Transport
    * attempt sending anything
    */
   uint16_t repeatCount;
+  uint16_t maxResponseRetries;
+  uint8_t pendingIndex;
+  COMMAND pendingCommand;
+  FRAME_TYPE pendingType;
+  alignas(4) uint8_t ackBuffer[16];
+#if defined(RADIO_NB4)
+  uint8_t responsePayload[169];
+  alignas(4) uint8_t responseBuffer[352];
+  COMMAND responseCommand;
+  uint8_t responseIndex, responseLength;
+  volatile bool responsePending = false;
+#endif
+#if defined(RADIO_NB4) && defined(SIMU)
+  Nb4TransportDiagnostics diagnostics;
+  void recordTx(const uint8_t* buffer, uint32_t size);
+#endif
 
   bool handleReply(uint8_t* buffer, uint8_t len);
 
@@ -209,6 +251,14 @@ class Transport
   void sendBuffer();
 
   bool fifoFull() { return fifo.isFull(); }
+  bool waiting() const { return operationState == State::AWAITING_RESPONSE; }
+  void skipFrame() { trsp.data_ptr = trsp.trsp_buffer; }
+#if defined(RADIO_NB4) && defined(SIMU)
+  const Nb4TransportDiagnostics& getDiagnostics() const { return diagnostics; }
+#endif
+#if defined(RADIO_NB4)
+  bool queueResponse(COMMAND command, uint8_t index, const uint8_t* payload, uint8_t size);
+#endif
 
   /**
    * Process retransmissions

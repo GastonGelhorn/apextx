@@ -984,7 +984,7 @@ LvglWidgetLine::LvglWidgetLine() : LvglSimpleWidgetObject()
 LvglWidgetLine::~LvglWidgetLine()
 {
   if (pts)
-    delete pts;
+    delete[] pts;
   pts = nullptr;
 }
 
@@ -1007,7 +1007,7 @@ uint32_t LvglWidgetLine::getPts(lua_State* L)
   if (newPtCnt > 1) {
     ptCnt = newPtCnt;
     if (pts && ptCnt > ptAlloc) {
-      delete pts;
+      delete[] pts;
       pts = nullptr;
     }
     if (!pts) {

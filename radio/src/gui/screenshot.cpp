@@ -76,7 +76,7 @@ static const char* _writeScreenshot()
 {
   char filename[42]; // /SCREENSHOTS/screen-2013-01-01-123540.bmp
 
-  if (sdIsFull()) {
+  if (!sdHasSpaceFor(uint32_t(LCD_W) * LCD_H * 4 + 4096)) {
     return STR_SDCARD_FULL_EXT;
   }
 
@@ -187,7 +187,7 @@ static const char* _writeScreenshot()
   UINT written;
   char filename[42]; // /SCREENSHOTS/screen-2013-01-01-123540.bmp
 
-  if (sdIsFull()) {
+  if (!sdHasSpaceFor(BMP_FILESIZE)) {
     return STR_SDCARD_FULL_EXT;
   }
 

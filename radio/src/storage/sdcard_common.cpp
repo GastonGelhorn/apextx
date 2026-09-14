@@ -22,8 +22,12 @@
 #include "edgetx.h"
 #include "storage.h"
 #include "sdcard_common.h"
+#include "sdcard_yaml.h"
 #include "modelslist.h"
 #include "model_init.h"
+#include "nb4_model_compat.h"
+#include "nb4_history.h"
+#include "tasks/mixer_task.h"
 
 #include "hal/abnormal_reboot.h"
 
@@ -81,6 +85,18 @@ void storageCheck(bool immediately)
 {
   // Don't write anything to SD card if in EM
   if (UNEXPECTED_SHUTDOWN()) return;
+
+#if defined(RADIO_NB4_FAMILY)
+  if (!immediately && nb4StorageStarted()) {
+    // Remove only the edits being sampled. A trim/function can mark a newer
+    // edit during serialization; that mark must survive until the next save.
+    const auto pending = __atomic_exchange_n(&storageDirtyMsk, 0, __ATOMIC_RELAXED);
+    const auto queued = nb4QueueSettings(pending);
+    __atomic_fetch_or(&storageDirtyMsk, uint8_t(pending & ~queued), __ATOMIC_RELAXED);
+    return;
+  }
+  nb4FlushSettings();
+#endif
 
   static constexpr uint8_t retryLimit = 10;
 
@@ -163,6 +179,9 @@ const char * createModel()
   if (index > 0) {
     setModelDefaults(index);
     memcpy(g_eeGeneral.currModelFilename, filename, sizeof(g_eeGeneral.currModelFilename));
+#if defined(RADIO_NB4_FAMILY)
+    nb4AcceptNewCarModel();
+#endif
     forceSave();
   }
 
@@ -176,6 +195,18 @@ const char* loadModel(const char* filename, bool alarms, const char* filePath)
 {
   preModelLoad();
 
+#if defined(RADIO_NB4_FAMILY)
+  char checkedPath[256];
+  getModelPath(checkedPath, filename, filePath);
+  auto compatibilityError = nb4ValidateModelFile(checkedPath);
+  if (compatibilityError && nb4ModelBlocked()) {
+    // Keep original data on disk and the existing model in RAM. RF remains
+    // inhibited by getRequiredProtocol until a compatible model is loaded.
+    storageDirtyMsk &= ~EE_MODEL;
+    if (mixerTaskStarted()) pulsesStart();
+    return compatibilityError;
+  }
+#endif
   const char* error = readModel(filename, (uint8_t*)&g_model, sizeof(g_model), filePath);
   if (error) {
     TRACE("loadModel error=%s", error);

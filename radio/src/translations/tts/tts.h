@@ -48,6 +48,11 @@ extern uint8_t currentLanguagePackIdx;
 extern uint8_t getLanguageId(const char* lang);
 
 enum RadioLanguage {
+#if defined(RADIO_NB4_FAMILY)
+  // Settings store the two-letter language code, not this runtime index.
+  LANG_EN,
+  LANG_ES,
+#else
   LANG_CN,
   LANG_CZ,
   LANG_DA,
@@ -69,9 +74,14 @@ enum RadioLanguage {
   LANG_SK,
   LANG_TW,
   LANG_UA,
+#endif
   LANG_COUNT
 };
 
+#if defined(RADIO_NB4_FAMILY)
+extern const LanguagePack enLanguagePack;
+extern const LanguagePack esLanguagePack;
+#else
 extern const LanguagePack cnLanguagePack;
 extern const LanguagePack czLanguagePack;
 extern const LanguagePack daLanguagePack;
@@ -93,10 +103,15 @@ extern const LanguagePack seLanguagePack;
 extern const LanguagePack skLanguagePack;
 extern const LanguagePack twLanguagePack;
 extern const LanguagePack uaLanguagePack;
+#endif
 extern const LanguagePack * const languagePacks[];
 
 #if defined(LANGUAGE_PACKS_DEFINITION)
 const LanguagePack * const languagePacks[] = {
+#if defined(RADIO_NB4_FAMILY)
+  &enLanguagePack,
+  &esLanguagePack,
+#else
   // alphabetical order
   &cnLanguagePack,
   &czLanguagePack,
@@ -119,8 +134,11 @@ const LanguagePack * const languagePacks[] = {
   &skLanguagePack,
   &twLanguagePack,
   &uaLanguagePack,
+#endif
   NULL
 };
+static_assert(sizeof(languagePacks) / sizeof(languagePacks[0]) == LANG_COUNT + 1,
+              "Language registry must match runtime language indices");
 #endif
 
 #if !defined(ALL_LANGS)

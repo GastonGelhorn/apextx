@@ -20,6 +20,10 @@
  */
 
 #include "edgetx.h"
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_racing.h"
+#endif
 #include "hal/adc_driver.h"
 #include "input_mapping.h"
 #include "mixes.h"
@@ -170,6 +174,10 @@ void applyDefaultTemplate()
 
 #if defined(USE_HATS_AS_KEYS)
   g_model.hatsMode = HATSMODE_GLOBAL;
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+  nb4RacingDefaults(g_model.nb4Racing);
 #endif
 }
 

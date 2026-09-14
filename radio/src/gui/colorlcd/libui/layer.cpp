@@ -50,25 +50,16 @@ void Layer::push(Window* w)
 
 void Layer::pop(Window* w)
 {
-  if (stack.empty()) return;
-
-  if (back() == w) {
-    lv_group_t* prevGroup = stack.back().prevGroup;
-    if (prevGroup) {
-      _assign_lv_group(prevGroup);
-    } else if (!stack.empty()) {
-      _assign_lv_group(stack.back().group);
-    } else {
-      lv_group_set_default(NULL);
-    }
-    stack.pop_back();
-  } else {
-    for (auto layer = stack.crbegin(); layer != stack.crend(); layer++) {
-      if (layer->window == w) {
-        stack.erase(layer.base());
-        return;
-      }
-    }
+  for (auto layer = stack.begin(); layer != stack.end(); ++layer) {
+    if (layer->window != w) continue;
+    auto next = std::next(layer);
+    // A dialog can outlive the page underneath it. Its return focus must skip
+    // that page, and the active group's lifetime must not be shortened.
+    if (next != stack.end())
+      next->prevGroup = layer->prevGroup;
+    else
+      _assign_lv_group(layer->prevGroup);
+    stack.erase(layer);
     return;
   }
 }

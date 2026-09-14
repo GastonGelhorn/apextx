@@ -20,6 +20,12 @@
  */
 
 #include "edgetx.h"
+#include "nb4_model_compat.h"
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_racing.h"
+#include "storage/sdcard_yaml.h"
+#endif
 #include "os/sleep.h"
 #include "timers_driver.h"
 #include "tasks/mixer_task.h"
@@ -55,7 +61,12 @@ tmr10ms_t rambackupDirtyTime10ms;
 
 void storageDirty(uint8_t msk)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (nb4ModelBlocked()) msk &= ~EE_MODEL;
+  __atomic_fetch_or(&storageDirtyMsk, msk, __ATOMIC_RELAXED);
+#else
   storageDirtyMsk |= msk;
+#endif
   storageDirtyTime10ms = get_tmr10ms();
 
 #if defined(RTC_BACKUP_RAM)
@@ -66,6 +77,9 @@ void storageDirty(uint8_t msk)
 
 void preModelLoad()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4FlushSettings();
+#endif
   watchdogSuspend(500/*5s*/);
 
   logsClose();
@@ -131,7 +145,7 @@ static bool sortMixerLines()
   unsigned passes = 0;
   unsigned swaps;
   MixData tmp;
-  
+
   do {
     swaps = 0;
     for (int i = 0; i < MAX_MIXERS - 1; i++) {
@@ -165,29 +179,35 @@ static void sanitizeMixerLines()
 
 void postModelLoad(bool alarms)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (nb4RacingMigrate(g_model.nb4Racing)) storageDirty(EE_MODEL);
+
+  nb4RacingReset();
+#endif
+
 #if defined(COLORLCD)
   if (!g_model.hasScreenData(0))
     LayoutFactory::loadDefaultLayout();
 
   if (g_model.topbarWidgetWidth[0] == 0) {
     // Set default width for top bar widgets
-    for (int i = 0; i < MAX_TOPBAR_ZONES; i += 1)
+    for (int i = 0; i < VISIBLE_TOPBAR_ZONES; i += 1)
       g_model.topbarWidgetWidth[i] = 1;
 
     // Load 'date time' widget if slot is empty
-    if (!g_model.getTopbarData()->hasWidget(MAX_TOPBAR_ZONES-1)) {
-      g_model.getTopbarData()->setWidgetName(MAX_TOPBAR_ZONES-1, "Date Time");
+    if (!g_model.getTopbarData()->hasWidget(VISIBLE_TOPBAR_ZONES-1)) {
+      g_model.getTopbarData()->setWidgetName(VISIBLE_TOPBAR_ZONES-1, "Date Time");
       storageDirty(EE_MODEL);
     }
     // Load 'radio info' widget if slot is empty
-    if (!g_model.getTopbarData()->hasWidget(MAX_TOPBAR_ZONES-2)) {
-      g_model.getTopbarData()->setWidgetName(MAX_TOPBAR_ZONES-2, "Radio Info");
+    if (!g_model.getTopbarData()->hasWidget(VISIBLE_TOPBAR_ZONES-2)) {
+      g_model.getTopbarData()->setWidgetName(VISIBLE_TOPBAR_ZONES-2, "Radio Info");
       storageDirty(EE_MODEL);
     }
 #if defined(INTERNAL_GPS)
     // Load 'internal gps' widget if slot is empty
-    if (!g_model.getTopbarData()->hasWidget(MAX_TOPBAR_ZONES-3)) {
-      g_model.getTopbarData()->setWidgetName(MAX_TOPBAR_ZONES-3, "Internal GPS");
+    if (!g_model.getTopbarData()->hasWidget(VISIBLE_TOPBAR_ZONES-3)) {
+      g_model.getTopbarData()->setWidgetName(VISIBLE_TOPBAR_ZONES-3, "Internal GPS");
       storageDirty(EE_MODEL);
     }
 #endif
@@ -214,7 +234,7 @@ void postModelLoad(bool alarms)
 if(g_model.rssiSource) {
   g_model.rssiSource = 0;
 
-  storageDirty(EE_MODEL);  
+  storageDirty(EE_MODEL);
 }
 #if defined(STM32F4) && defined(CROSSFIRE)
   // Limit ext. CRSF speed to 3.75Mbps due to CRC errors at higher speeds

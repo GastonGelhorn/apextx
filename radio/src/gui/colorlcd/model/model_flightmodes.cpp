@@ -312,20 +312,46 @@ class FlightModeBtn : public ListLineButton
 
   static LAYOUT_SIZE_SCALED(BTN_H, 36, 56)
   static LAYOUT_SIZE(MAX_FMTRIMS, 6, 4)
+#if defined(LCD_RUNTIME_LAYOUT)
+  /* Size arrays for the six trims that fit in landscape mode. Portrait mode
+   * leaves two entries unused. */
+  static constexpr coord_t MAX_FMTRIMS_ARRAY = lvMax(MAX_FMTRIMS);
+#else
+  static constexpr coord_t MAX_FMTRIMS_ARRAY = MAX_FMTRIMS;
+#endif
   static constexpr coord_t FMID_X = PAD_TINY;
   static LAYOUT_SIZE_SCALED(FMID_Y, 6, 16)
   static LAYOUT_SIZE_SCALED(FMID_W, 36, 46)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal NAME_X = lvAdd(FMID_W, FMID_X + PAD_TINY);
+#else
   static constexpr coord_t NAME_X = FMID_X + FMID_W + PAD_TINY;
+#endif
   static LAYOUT_SIZE_SCALED(NAME_Y, 6, 0)
   static LAYOUT_SIZE_SCALED(NAME_W, 95, 160)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal SWTCH_X = lvAdd(lvAdd(NAME_X, NAME_W), PAD_TINY);
+#else
   static constexpr coord_t SWTCH_X = NAME_X + NAME_W + PAD_TINY;
+#endif
   static LAYOUT_SIZE_SCALED(SWTCH_Y, 6, 0)
   static LAYOUT_VAL_SCALED(SWTCH_W, 50)
+#if defined(LCD_RUNTIME_LAYOUT)
+  /* Place trims after the switch in landscape mode and below the ID in
+   * portrait mode. */
+  static constexpr LayoutVal TRIM_X{(coord_t)(SWTCH_X.l + SWTCH_W + PAD_TINY),
+                                    (coord_t)(FMID_X + FMID_W.p + PAD_TINY)};
+#else
   static LAYOUT_SIZE(TRIM_X, SWTCH_X + SWTCH_W + PAD_TINY, FMID_X + FMID_W + PAD_TINY)
+#endif
   static LAYOUT_SIZE_SCALED(TRIM_Y, 0, 20)
   static LAYOUT_SIZE_SCALED(TRIM_W, 30, 40)
   static LAYOUT_VAL_SCALED(TRIM_H, 16)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal TRIMC_W = lvMul(MAX_FMTRIMS, TRIM_W);
+#else
   static constexpr coord_t TRIMC_W = MAX_FMTRIMS * TRIM_W;
+#endif
   static LAYOUT_VAL_SCALED(FADE_W, 45)
   static LAYOUT_SIZE_SCALED(FADE_Y, 6, 24)
   static constexpr coord_t FADE_X = ListLineButton::GRP_W - PAD_BORDER * 2 - FADE_W * 2 - PAD_TINY * 2;
@@ -336,11 +362,11 @@ class FlightModeBtn : public ListLineButton
   lv_obj_t* fmID = nullptr;
   lv_obj_t* fmName = nullptr;
   lv_obj_t* fmSwitch = nullptr;
-  lv_obj_t* fmTrimMode[MAX_FMTRIMS] = {nullptr};
-  lv_obj_t* fmTrimValue[MAX_FMTRIMS] = {nullptr};
+  lv_obj_t* fmTrimMode[MAX_FMTRIMS_ARRAY] = {nullptr};
+  lv_obj_t* fmTrimValue[MAX_FMTRIMS_ARRAY] = {nullptr};
   lv_obj_t* fmFadeIn = nullptr;
   lv_obj_t* fmFadeOut = nullptr;
-  int lastTrim[MAX_FMTRIMS] = {0};
+  int lastTrim[MAX_FMTRIMS_ARRAY] = {0};
 
   static const lv_obj_class_t fm_id_class;
   static const lv_obj_class_t fm_name_class;

@@ -226,7 +226,8 @@ void LCD_ST7796S_Init(void)
   lcdWriteCommand(0x34);
 
   // SET RGB STRAT
-  lcdWriteCommand(0xB0);  // SET HS VS DE CLK 上升还是下降有效
+  // Select whether HS, VS, DE, and CLK are active on rising or falling edges.
+  lcdWriteCommand(0xB0);
   lcdWriteData(0x80);
 
   lcdWriteCommand(0xB4);

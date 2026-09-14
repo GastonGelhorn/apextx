@@ -59,6 +59,20 @@ class FullScreenDialog : public Window
   void closeDialog();
 
   static LAYOUT_SIZE_SCALED(ALERT_FRAME_TOP, 50, 70)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal ALERT_FRAME_HO{LAYOUT_SCALE(120), 2 * 70};
+  static constexpr LayoutVal ALERT_FRAME_HEIGHT =
+      lvSub(LayoutVal{LCD_PHYS_W, LCD_PHYS_H}, ALERT_FRAME_HO);
+  static LAYOUT_SIZE_SCALED(ALERT_BMO, 25, 15)
+  static constexpr LayoutVal ALERT_BITMAP_TOP = lvAdd(ALERT_FRAME_TOP, ALERT_BMO);
+  static LAYOUT_SIZE_SCALED(ALERT_BITMAP_LEFT, 20, 15)
+  static LAYOUT_SIZE_SCALED(ALERT_TO, 5, 10)
+  static constexpr LayoutVal ALERT_TITLE_TOP = lvAdd(ALERT_FRAME_TOP, ALERT_TO);
+  static LAYOUT_SIZE_SCALED(ALERT_TITLE_LEFT, 146, 140)
+  static LAYOUT_SIZE_SCALED(ALERT_MO, 85, 130)
+  static constexpr LayoutVal ALERT_MESSAGE_TOP = lvAdd(ALERT_TITLE_TOP, ALERT_MO);
+#else
   static LAYOUT_SIZE(ALERT_FRAME_HO, LAYOUT_SCALE(120), 2 * ALERT_FRAME_TOP)
   static constexpr coord_t ALERT_FRAME_HEIGHT = LCD_H - ALERT_FRAME_HO;
   static LAYOUT_SIZE_SCALED(ALERT_BMO, 25, 15)
@@ -69,6 +83,7 @@ class FullScreenDialog : public Window
   static LAYOUT_SIZE_SCALED(ALERT_TITLE_LEFT, 146, 140)
   static LAYOUT_SIZE_SCALED(ALERT_MO, 85, 130)
   static constexpr coord_t ALERT_MESSAGE_TOP = ALERT_TITLE_TOP + ALERT_MO;
+#endif
   static LAYOUT_SIZE_SCALED(ALERT_MESSAGE_LEFT, 146, 15)
   static LAYOUT_VAL_SCALED(ONEBTN_W, 280)
   static LAYOUT_VAL_SCALED(ONEBTN_H, 40)

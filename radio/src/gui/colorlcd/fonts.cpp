@@ -169,7 +169,7 @@ void initFontBuffers()
 #else
   uint8_t* b = (uint8_t*)sbrk(sz);
 #endif
-  if (b) {
+  if (b && b != reinterpret_cast<uint8_t*>(-1)) {
 #if defined(ENABLE_FALLBACK)
     b = allocBuf(en_fontTable, b);
 #endif
@@ -209,40 +209,89 @@ extern "C" {
   };
 
 FONT_TABLE(en);
+#if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(cn);
+#endif
+#if defined(HAS_LANG_TW) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(tw);
+#endif
+#if defined(HAS_LANG_JP) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(jp);
+#endif
+#if defined(HAS_LANG_KO) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(ko);
+#endif
+#if defined(HAS_LANG_HE) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(he);
+#endif
+#if defined(HAS_LANG_RU) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(ru);
+#endif
+#if defined(HAS_LANG_UA) || !defined(RADIO_LANG_SUBSET)
 FONT_TABLE(ua);
+#endif
 
 } // extern "C"
 
 // Must match RadioLanguage order
 etxLvglFont* etxFonts[] = {
+#if defined(RADIO_NB4_FAMILY)
+  en_fontTable,            // EN
+  en_fontTable,            // ES (shared Latin alphabet)
+#else
+#if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
   cn_fontTable,   // CN
+#else
   en_fontTable,
-  en_fontTable,
-  en_fontTable,
-  en_fontTable,
-  en_fontTable,
-  en_fontTable,
-  en_fontTable,
+#endif
+  en_fontTable,            // CZ
+  en_fontTable,            // DA
+  en_fontTable,            // DE
+  en_fontTable,            // EN
+  en_fontTable,            // ES
+  en_fontTable,            // FI
+  en_fontTable,            // FR
+#if defined(HAS_LANG_HE) || !defined(RADIO_LANG_SUBSET)
   he_fontTable,   // HE
+#else
   en_fontTable,
-  en_fontTable,
+#endif
+  en_fontTable,            // HU
+  en_fontTable,            // IT
+#if defined(HAS_LANG_JP) || !defined(RADIO_LANG_SUBSET)
   jp_fontTable,   // JP
+#else
+  en_fontTable,
+#endif
+#if defined(HAS_LANG_KO) || !defined(RADIO_LANG_SUBSET)
   ko_fontTable,   // KO
+#else
   en_fontTable,
-  en_fontTable,
-  en_fontTable,
+#endif
+  en_fontTable,            // NL
+  en_fontTable,            // PL
+  en_fontTable,            // PT
+#if defined(HAS_LANG_RU) || !defined(RADIO_LANG_SUBSET)
   ru_fontTable,   // RU
+#else
   en_fontTable,
-  en_fontTable,
+#endif
+  en_fontTable,            // SE
+  en_fontTable,            // SK
+#if defined(HAS_LANG_TW) || !defined(RADIO_LANG_SUBSET)
   tw_fontTable,   // TW
+#else
+  en_fontTable,
+#endif
+#if defined(HAS_LANG_UA) || !defined(RADIO_LANG_SUBSET)
   ua_fontTable,   // UA
+#else
+  en_fontTable,
+#endif
+#endif
 };
+static_assert(sizeof(etxFonts) / sizeof(etxFonts[0]) == LANG_COUNT,
+              "Font registry must match runtime language indices");
 
 etxLvglFont* fontTable = en_fontTable;
 
@@ -299,20 +348,34 @@ void initFontBuffers()
 #else
   uint8_t* b = (uint8_t*)sbrk(sz);
 #endif
-  if (b) {
+  if (b && b != (uint8_t*)-1) {
     for (int i = FONT_STD_INDEX; i < FONTS_COUNT; i += 1) {
       if (en_fontTable[i].lz4Font) {
         // EN data
         en_fontTable[i].lvglFont = (lv_font_t*)b;
         b += BUFSIZE(en_fontTable[i].lz4Font->lvglFontBufSize);
         // All languages except EN use the same buffer for the uncompressed data (only one active)
+#if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
         cn_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_TW) || !defined(RADIO_LANG_SUBSET)
         tw_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_JP) || !defined(RADIO_LANG_SUBSET)
         jp_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_KO) || !defined(RADIO_LANG_SUBSET)
         ko_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_HE) || !defined(RADIO_LANG_SUBSET)
         he_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_RU) || !defined(RADIO_LANG_SUBSET)
         ru_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
+#if defined(HAS_LANG_UA) || !defined(RADIO_LANG_SUBSET)
         ua_fontTable[i].lvglFont = (lv_font_t*)b;
+#endif
         b += getMaxFontSize(i);
       }
     }

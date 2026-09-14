@@ -210,9 +210,14 @@ FailSafePage::FailSafePage(uint8_t moduleIdx) : Page(ICON_STATS_ANALOGS)
     return 0;
   });
 
+#if defined(RADIO_NB4)
+  auto start_ch = 0;
+  auto end_ch = sentModuleChannels(moduleIdx);
+#else
   ModuleData* md = &g_model.moduleData[moduleIdx];
   auto start_ch = md->channelsStart;
   auto end_ch = md->channelsStart + maxModuleChannels(moduleIdx);
+#endif
 
   const int lim = calcRESXto1000(
       g_model.extendedLimits ? 1024 * LIMIT_EXT_PERCENT / 100 : 1024);

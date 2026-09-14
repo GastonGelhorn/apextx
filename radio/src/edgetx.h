@@ -57,7 +57,10 @@
 
 #define IS_FAI_FORBIDDEN(idx) (IS_FAI_ENABLED() && isFaiForbidden(idx))
 
-#if defined(BLUETOOTH)
+#if defined(RADIO_NB4_FAMILY)
+  #define IS_BLUETOOTH_TRAINER()       false
+  #define IS_SLAVE_TRAINER()           false
+#elif defined(BLUETOOTH)
   #if defined(X9E)
     #define IS_BLUETOOTH_TRAINER()       (g_model.trainerData.mode == TRAINER_MODE_SLAVE_BLUETOOTH)
     #define IS_SLAVE_TRAINER()           (g_model.trainerData.mode == TRAINER_MODE_SLAVE)
@@ -274,7 +277,6 @@ extern uint8_t flightModeTransitionLast;
 
 extern uint32_t availableMemory();
 
-
 void evalFlightModeMixes(uint8_t mode, uint8_t tick10ms);
 void evalMixes(uint8_t tick10ms);
 void doMixerCalculations();
@@ -395,6 +397,8 @@ extern bool validateSFGV(CustomFunctionData* cfn);
 
 void applyExpos(int16_t * anas, uint8_t mode, int16_t ovwrIdx=0, int16_t ovwrValue=0);
 int16_t applyLimits(uint8_t channel, int32_t value);
+
+int32_t getSourceNumFieldValue(int16_t val, int16_t min, int16_t max);
 
 void evalInputs(uint8_t mode);
 uint16_t anaIn(uint8_t chan);
@@ -563,7 +567,6 @@ enum AUDIO_SOUNDS {
 #if defined(RTCLOCK)
 #include "rtc.h"
 #endif
-
 
 void checkBattery();
 void edgeTxClose(uint8_t shutdown=true);

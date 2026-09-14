@@ -35,7 +35,7 @@ QMFavoritesPage::QMFavoritesPage():
     strAppendUnsigned(strAppend(strAppend(nm, "#"), " "), i + 1);
     setupLine(nm, [=](Window* parent, coord_t x, coord_t y) {
           auto c = new Choice(
-              parent, {LCD_W / 4, y, LCD_W * 2 / 3, 0}, qmPages, QM_NONE, QM_TOOLS_DEBUG,
+              parent, {lv_disp_get_hor_res(nullptr) / 4, y, lv_disp_get_hor_res(nullptr) * 2 / 3, 0}, qmPages, QM_NONE, QM_TOOLS_DEBUG,
               GET_DEFAULT(g_eeGeneral.qmFavorites[i].shortcut),
               [=](int32_t pg) {
                 g_eeGeneral.qmFavorites[i].shortcut = (QMPage)pg;
@@ -43,7 +43,7 @@ QMFavoritesPage::QMFavoritesPage():
                 SET_DIRTY();
               }, STR_QUICK_MENU_FAVORITES);
 
-          c->setPopupWidth(LCD_W * 3 / 4);
+          c->setPopupWidth(lv_disp_get_hor_res(nullptr) * 3 / 4);
           c->setAvailableHandler(
               [=](int pg) {
                 if (pg == QM_NONE) return true;

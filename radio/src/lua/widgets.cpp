@@ -23,6 +23,9 @@
 #include <stdio.h>
 
 #include "edgetx.h"
+#include "nb4_health.h"
+#include "nb4_model_compat.h"
+#include "nb4_lua_alloc.h"
 #include "lua_api.h"
 
 #include "widget.h"
@@ -223,9 +226,12 @@ LuaMemTracer lsWidgetsTrace;
 
 void luaInitThemesAndWidgets()
 {
+  if ((nb4HealthRecovery() || nb4ModelBlocked())) return;
   TRACE("luaInitThemesAndWidgets");
 
-#if defined(USE_CUSTOM_ALLOCATOR)
+#if defined(RADIO_NB4_FAMILY)
+  lsWidgets = lua_newstate(nb4LuaAlloc, nullptr);
+#elif defined(USE_CUSTOM_ALLOCATOR)
   lsWidgets = lua_newstate(custom_l_alloc, NULL);   //we use our own allocator!
 #elif defined(LUA_ALLOCATOR_TRACER)
   memclear(&lsWidgetsTrace, sizeof(lsWidgetsTrace));

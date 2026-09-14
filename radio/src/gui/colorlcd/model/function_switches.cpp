@@ -41,7 +41,7 @@ class FunctionSwitch : public Window
 {
  public:
   FunctionSwitch(Window* parent, uint8_t sw) :
-      Window(parent, {0, 0, LCD_W - PAD_SMALL * 2, ROW_H}), switchIndex(sw)
+      Window(parent, {0, 0, lv_disp_get_hor_res(nullptr) - PAD_SMALL * 2, ROW_H}), switchIndex(sw)
   {
     padAll(PAD_TINY);
 
@@ -288,7 +288,7 @@ class SwitchGroup : public Window
 {
  public:
   SwitchGroup(Window* parent, uint8_t group) :
-      Window(parent, {0, 0, LCD_W - PAD_SMALL * 2, ROW_H}), groupIndex(group)
+      Window(parent, {0, 0, lv_disp_get_hor_res(nullptr) - PAD_SMALL * 2, ROW_H}), groupIndex(group)
   {
     padAll(PAD_TINY);
 
@@ -397,7 +397,7 @@ ModelFunctionSwitches::ModelFunctionSwitches() : Page(ICON_MODEL_SETUP)
                              makeLvColor(COLOR_THEME_SECONDARY1),
                              makeLvColor(COLOR_THEME_SECONDARY3));
   lv_qrcode_update(qr, edgetx_fs_manual_url, strlen(edgetx_fs_manual_url));
-  lv_obj_set_pos(qr, (LCD_W - 150) / 2, EdgeTxStyles::STD_FONT_HEIGHT);
+  lv_obj_set_pos(qr, (lv_disp_get_hor_res(nullptr) - 150) / 2, EdgeTxStyles::STD_FONT_HEIGHT);
 #endif
 
   setState();

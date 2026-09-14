@@ -2,6 +2,7 @@
     "targets": [
         ["Fatfish F16","f16-"],
         ["Flysky EL18", "el18-"],
+        ["Flysky NB4", "nb4-"],
         ["Flysky NB4+", "nb4p-"],
         ["Flysky NV14", "nv14-"],
         ["Flysky PA01", "pa01-"],

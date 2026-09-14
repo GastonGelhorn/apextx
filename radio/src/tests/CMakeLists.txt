@@ -33,6 +33,14 @@ endif()
 file(GLOB TEST_SRC_FILES ${RADIO_SRC_DIR}/tests/*.cpp
   CONFIGURE_DEPENDS "${RADIO_SRC_DIR}/tests/*.cpp")
 
+if(PCB STREQUAL "PL18" AND (PCBREV STREQUAL "NB4" OR PCBREV STREQUAL "NB4P"))
+  foreach(TEST_FILE ${TEST_SRC_FILES})
+    if(TEST_FILE MATCHES "/test_[a-z][a-z]\\.cpp$" AND NOT TEST_FILE MATCHES "/test_(en|es)\\.cpp$")
+      list(REMOVE_ITEM TEST_SRC_FILES "${TEST_FILE}")
+    endif()
+  endforeach()
+endif()
+
 set(TEST_SRC_FILES ${TEST_SRC_FILES}
   ${CMAKE_CURRENT_SOURCE_DIR}/location.h
   ${SIMU_SRC}
@@ -41,6 +49,9 @@ set(TEST_SRC_FILES ${TEST_SRC_FILES}
 add_executable(gtests-radio EXCLUDE_FROM_ALL
   ${TEST_SRC_FILES}
 )
+if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
+  target_sources(gtests-radio PRIVATE ${RADIO_SRC_DIR}/drivers/frftl.cpp)
+endif()
 target_compile_options(gtests-radio PRIVATE ${SIMU_SRC_OPTIONS})
 
 target_link_libraries(gtests-radio gtests-radio-lib)

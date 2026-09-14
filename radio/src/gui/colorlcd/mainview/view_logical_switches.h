@@ -33,7 +33,15 @@ class LogicalSwitchesViewPage : public PageGroupItem
 
   static LAYOUT_ORIENTATION_SCALED(FOOTER_HEIGHT, 20, 40)
   static LAYOUT_ORIENTATION(BTN_MATRIX_COL, 8, 6)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal BTN_WIDTH =
+      lvSub(lvDiv(lvSub(LayoutVal{LCD_MAX_W, LCD_PHYS_W}, PAD_OUTLINE * 2),
+                  BTN_MATRIX_COL),
+            PAD_OUTLINE);
+#else
   static constexpr coord_t BTN_WIDTH = (LCD_W - PAD_OUTLINE * 2) / BTN_MATRIX_COL - PAD_OUTLINE;
+#endif
 
  protected:
   void build(Window* window) override;

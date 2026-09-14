@@ -29,6 +29,13 @@ constexpr uint8_t MODELIDX_STRLEN = sizeof(MODEL_FILENAME_PREFIX "00");
 
 const char * loadRadioSettingsYaml(bool checks);
 const char * writeModelYaml(const char* filename);
+#if defined(RADIO_NB4_FAMILY)
+uint8_t nb4QueueSettings(uint8_t mask); // UI: serialize immutable bytes, no disk I/O
+void nb4PollSettings();               // UI: collect results and re-arm failed saves
+void nb4WritePendingSettings();       // storage worker: write snapshots only
+void nb4FlushSettings();              // explicit save/model change/shutdown only
+bool nb4SettingsPending();
+#endif
 const char * readModelYaml(const char * filename, uint8_t * buffer, uint32_t size, const char* pathName = MODELS_PATH);
 bool YamlFileChecksum(const YamlNode* root_node, uint8_t* data, uint16_t* checksum);
 

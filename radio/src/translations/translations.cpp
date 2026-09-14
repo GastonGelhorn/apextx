@@ -92,7 +92,77 @@ const char CHR_INPUT = TR_CHR_INPUT;
 
 bool isTextLangAvail(int lang)
 {
-#if defined(COLORLCD)
+#if defined(RADIO_NB4_FAMILY)
+  return lang == LANG_EN || lang == LANG_ES;
+#elif defined(RADIO_LANG_SUBSET)
+
+  switch (lang) {
+#if defined(HAS_LANG_CN)
+    case LANG_CN: return true;
+#endif
+#if defined(HAS_LANG_CZ)
+    case LANG_CZ: return true;
+#endif
+#if defined(HAS_LANG_DA)
+    case LANG_DA: return true;
+#endif
+#if defined(HAS_LANG_DE)
+    case LANG_DE: return true;
+#endif
+#if defined(HAS_LANG_EN)
+    case LANG_EN: return true;
+#endif
+#if defined(HAS_LANG_ES)
+    case LANG_ES: return true;
+#endif
+#if defined(HAS_LANG_FI)
+    case LANG_FI: return true;
+#endif
+#if defined(HAS_LANG_FR)
+    case LANG_FR: return true;
+#endif
+#if defined(HAS_LANG_HE)
+    case LANG_HE: return true;
+#endif
+#if defined(HAS_LANG_HU)
+    case LANG_HU: return true;
+#endif
+#if defined(HAS_LANG_IT)
+    case LANG_IT: return true;
+#endif
+#if defined(HAS_LANG_JP)
+    case LANG_JP: return true;
+#endif
+#if defined(HAS_LANG_KO)
+    case LANG_KO: return true;
+#endif
+#if defined(HAS_LANG_NL)
+    case LANG_NL: return true;
+#endif
+#if defined(HAS_LANG_PL)
+    case LANG_PL: return true;
+#endif
+#if defined(HAS_LANG_PT)
+    case LANG_PT: return true;
+#endif
+#if defined(HAS_LANG_RU)
+    case LANG_RU: return true;
+#endif
+#if defined(HAS_LANG_SE)
+    case LANG_SE: return true;
+#endif
+#if defined(HAS_LANG_SK)
+    case LANG_SK: return true;
+#endif
+#if defined(HAS_LANG_TW)
+    case LANG_TW: return true;
+#endif
+#if defined(HAS_LANG_UA)
+    case LANG_UA: return true;
+#endif
+    default: return false;
+  }
+#elif defined(COLORLCD)
   // Skip languages with no translation files
   return lang != LANG_HU && lang != LANG_SK;
 #else
@@ -103,30 +173,107 @@ bool isTextLangAvail(int lang)
 #endif
 }
 
-// Order must match languagePack[]
-#if defined(COLORLCD)
+#if defined(RADIO_NB4_FAMILY)
+const LangStrings* const langStrings[] = { &enLangStrings, &esLangStrings };
+#elif defined(COLORLCD)
 const LangStrings* const langStrings[] = {
+#if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
   &cnLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_CZ) || !defined(RADIO_LANG_SUBSET)
   &czLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_DA) || !defined(RADIO_LANG_SUBSET)
   &daLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_DE) || !defined(RADIO_LANG_SUBSET)
   &deLangStrings,
+#else
   &enLangStrings,
+#endif
+#if defined(HAS_LANG_EN) || !defined(RADIO_LANG_SUBSET)
+  &enLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_ES) || !defined(RADIO_LANG_SUBSET)
   &esLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_FI) || !defined(RADIO_LANG_SUBSET)
   &fiLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_FR) || !defined(RADIO_LANG_SUBSET)
   &frLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_HE) || !defined(RADIO_LANG_SUBSET)
   &heLangStrings,
+#else
   &enLangStrings,
+#endif
+  &enLangStrings,
+#if defined(HAS_LANG_IT) || !defined(RADIO_LANG_SUBSET)
   &itLangStrings,
-  &jpLangStrings,
-  &koLangStrings,
-  &nlLangStrings,
-  &plLangStrings,
-  &ptLangStrings,
-  &ruLangStrings,
-  &seLangStrings,
+#else
   &enLangStrings,
+#endif
+#if defined(HAS_LANG_JP) || !defined(RADIO_LANG_SUBSET)
+  &jpLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_KO) || !defined(RADIO_LANG_SUBSET)
+  &koLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_NL) || !defined(RADIO_LANG_SUBSET)
+  &nlLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_PL) || !defined(RADIO_LANG_SUBSET)
+  &plLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_PT) || !defined(RADIO_LANG_SUBSET)
+  &ptLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_RU) || !defined(RADIO_LANG_SUBSET)
+  &ruLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_SE) || !defined(RADIO_LANG_SUBSET)
+  &seLangStrings,
+#else
+  &enLangStrings,
+#endif
+  &enLangStrings,
+#if defined(HAS_LANG_TW) || !defined(RADIO_LANG_SUBSET)
   &twLangStrings,
+#else
+  &enLangStrings,
+#endif
+#if defined(HAS_LANG_UA) || !defined(RADIO_LANG_SUBSET)
   &uaLangStrings,
+#else
+  &enLangStrings,
+#endif
 };
 #else
 const LangStrings* const langStrings[] = {

@@ -193,10 +193,12 @@ void evalFunctions(CustomFunctionData * functions, CustomFunctionsContext & func
         switch (CFN_FUNC(cfn)) {
 #if defined(OVERRIDE_CHANNEL_FUNCTION)
           case FUNC_OVERRIDE_CHANNEL:
-            safetyCh[CFN_CH_INDEX(cfn)] = CFN_PARAM(cfn);
+            if (CFN_CH_INDEX(cfn) < MAX_OUTPUT_CHANNELS)
+              safetyCh[CFN_CH_INDEX(cfn)] = CFN_PARAM(cfn);
             break;
 #endif
 
+#if !defined(RADIO_NB4_FAMILY)
           case FUNC_TRAINER: {
             uint8_t param = CFN_CH_INDEX(cfn);
             if (param == 0)
@@ -208,6 +210,7 @@ void evalFunctions(CustomFunctionData * functions, CustomFunctionsContext & func
             break;
           }
 
+#endif
           case FUNC_INSTANT_TRIM:
             newActiveFunctions |= (1u << FUNCTION_INSTANT_TRIM);
             if (!isFunctionActive(FUNCTION_INSTANT_TRIM)) {
@@ -518,8 +521,10 @@ const char* funcGetLabel(uint8_t func)
   switch(func) {
   case FUNC_OVERRIDE_CHANNEL:
     return STR_SF_SAFETY;
+#if !defined(RADIO_NB4_FAMILY)
   case FUNC_TRAINER:
     return STR_SF_TRAINER;
+#endif
   case FUNC_INSTANT_TRIM:
     return STR_SF_INST_TRIM;
   case FUNC_RESET:

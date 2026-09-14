@@ -26,6 +26,10 @@
 #include "bitmapbuffer.h"
 #include "board.h"
 #include "etx_lv_theme.h"
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#include <atomic>
+#include <algorithm>
+#endif
 #if !LV_USE_GPU_STM32_DMA2D && !defined(SIMU)
 #include "dma2d.h"
 #endif
@@ -40,11 +44,55 @@ char* get_lvgl_mem(int nbytes)
 }
 #endif
 
+#if defined(LCD_DUAL_ORIENTATION) && !defined(BOOT)
+// Runtime dimensions shared by native layouts; persisted data stays invariant.
+coord_t lcdWidth = LCD_W;
+coord_t lcdHeight = LCD_H;
+#endif
+
 pixel_t LCD_FIRST_FRAME_BUFFER[DISPLAY_BUFFER_SIZE] __SDRAM __ALIGNED(64);
 pixel_t LCD_SECOND_FRAME_BUFFER[DISPLAY_BUFFER_SIZE] __SDRAM __ALIGNED(64);
 
 static lv_disp_draw_buf_t disp_buf;
 static lv_disp_drv_t disp_drv;
+
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+// One LVGL drawing buffer plus two physical scanout buffers. The panel always
+// scans 320x480; LVGL rotates dirty rectangles and input coordinates together.
+static pixel_t nb4ScanBuffer[DISPLAY_BUFFER_SIZE] __SDRAM __ALIGNED(64);
+static pixel_t* nb4Front = LCD_SECOND_FRAME_BUFFER;
+static pixel_t* nb4Back = nb4ScanBuffer;
+static int dirtyTop = LCD_PHYS_H, dirtyBottom = -1;
+static int syncTop = LCD_PHYS_H, syncBottom = -1;
+static std::atomic<uint32_t> presentedSize{(LCD_PHYS_W << 16) | LCD_PHYS_H};
+
+void lcdPresentedSize(unsigned* width, unsigned* height)
+{
+  auto size = presentedSize.load(std::memory_order_acquire);
+  *width = size >> 16; *height = size & 0xffff;
+}
+
+bool lcdSetOrientation(bool landscape)
+{
+  auto display = lv_disp_get_default();
+  if (!display) return false;
+  const auto rotation = landscape ? LV_DISP_ROT_90 : LV_DISP_ROT_NONE;
+  if (lv_disp_get_rotation(display) == rotation) {
+    lcdWidth = landscape ? LCD_PHYS_H : LCD_PHYS_W;
+    lcdHeight = landscape ? LCD_PHYS_W : LCD_PHYS_H;
+    return true;
+  }
+  if (lv_disp_get_draw_buf(display)->flushing) return false;
+  for (auto input = lv_indev_get_next(nullptr); input; input = lv_indev_get_next(input)) {
+    lv_indev_reset(input, nullptr);
+    lv_indev_wait_release(input);
+  }
+  lcdWidth = landscape ? LCD_PHYS_H : LCD_PHYS_W;
+  lcdHeight = landscape ? LCD_PHYS_W : LCD_PHYS_H;
+  lv_disp_set_rotation(display, rotation);
+  return true;
+}
+#endif
 
 // Call backs
 static void (*lcd_flush_cb)(lv_disp_drv_t*, uint16_t* buffer,
@@ -72,6 +120,38 @@ void lcdRefresh() {}
 static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
                      lv_color_t* color_p)
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  // LVGL's software rotation gives physical coordinates here. Assemble all
+  // chunks before presenting at vertical blank; never scan a partial buffer.
+  if (area->x1 < 0 || area->y1 < 0 || area->x2 >= LCD_PHYS_W || area->y2 >= LCD_PHYS_H) {
+    lv_disp_flush_ready(disp_drv);
+    return;
+  }
+  const unsigned width = area->x2 - area->x1 + 1;
+  if (syncBottom >= syncTop) {
+    // The preceding flush was acknowledged at vertical blank. Its old front
+    // buffer is now free; synchronise it before composing the next frame.
+    memcpy(nb4Back + syncTop * LCD_PHYS_W, nb4Front + syncTop * LCD_PHYS_W,
+      (syncBottom - syncTop + 1) * LCD_PHYS_W * sizeof(pixel_t));
+    syncTop = LCD_PHYS_H; syncBottom = -1;
+  }
+  for (int y = area->y1; y <= area->y2; ++y)
+    memcpy(nb4Back + y * LCD_PHYS_W + area->x1,
+      color_p + (y - area->y1) * width, width * sizeof(pixel_t));
+  dirtyTop = std::min(dirtyTop, int(area->y1));
+  dirtyBottom = std::max(dirtyBottom, int(area->y2));
+  if (!lv_disp_flush_is_last(disp_drv)) {
+    lv_disp_flush_ready(disp_drv);
+    return;
+  }
+  auto oldFront = nb4Front; nb4Front = nb4Back; nb4Back = oldFront;
+  syncTop = dirtyTop; syncBottom = dirtyBottom;
+  dirtyTop = LCD_PHYS_H; dirtyBottom = -1;
+  presentedSize.store((uint32_t(lcdWidth) << 16) | lcdHeight, std::memory_order_release);
+  if (lcd_flush_cb) lcd_flush_cb(disp_drv, nb4Front, {0, 0, LCD_PHYS_W, LCD_PHYS_H});
+  else lv_disp_flush_ready(disp_drv);
+  return;
+#endif
   // we're only interested in the last flush in direct mode
   if (disp_drv->direct_mode && !lv_disp_flush_is_last(disp_drv)) {
     lv_disp_flush_ready(disp_drv);
@@ -100,6 +180,9 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
 
 static void clear_frame_buffers()
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  memset(nb4ScanBuffer, 0, sizeof(nb4ScanBuffer));
+#endif
   memset(LCD_FIRST_FRAME_BUFFER, 0, sizeof(LCD_FIRST_FRAME_BUFFER));
   memset(LCD_SECOND_FRAME_BUFFER, 0, sizeof(LCD_SECOND_FRAME_BUFFER));
 }
@@ -115,6 +198,9 @@ static void init_lvgl_disp_drv()
 #endif
 #endif
 
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  direct_mode = 0;
+#endif
   lv_disp_draw_buf_init(&disp_buf,
                         LCD_FIRST_FRAME_BUFFER,
                         direct_mode ? LCD_SECOND_FRAME_BUFFER : nullptr,
@@ -130,6 +216,11 @@ static void init_lvgl_disp_drv()
   disp_drv.hor_res = LCD_W; /*Set the horizontal resolution in pixels*/
   disp_drv.ver_res = LCD_H; /*Set the vertical resolution in pixels*/
   disp_drv.direct_mode = direct_mode;
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  disp_drv.hor_res = LCD_PHYS_W;
+  disp_drv.ver_res = LCD_PHYS_H;
+  disp_drv.sw_rotate = 1;
+#endif
 }
 
 void lcdInitDisplayDriver()
@@ -150,7 +241,11 @@ void lcdInitDisplayDriver()
 
   // Clear buffers first
   clear_frame_buffers();
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  lcdSetInitalFrameBuffer(LCD_SECOND_FRAME_BUFFER);
+#else
   lcdSetInitalFrameBuffer(LCD_FIRST_FRAME_BUFFER);
+#endif
 
   // Init hardware LCD driver
   lcdInit();

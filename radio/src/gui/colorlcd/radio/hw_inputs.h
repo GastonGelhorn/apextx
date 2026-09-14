@@ -52,6 +52,29 @@ class HWPots : public Window
 
   // Absolute layout for Pots popup - due to performance issues with lv_textarea
   // in a flex layout
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal P_LBL_W{(coord_t)LAYOUT_SCALE(60),
+                                     (coord_t)LAYOUT_SCALE(120)};
+  static constexpr LayoutVal P_NM_X = lvAdd(P_LBL_W, PAD_SMALL);
+  static LAYOUT_VAL_SCALED(P_NM_W, 64)
+  static constexpr LayoutVal P_TYP_X{(coord_t)(P_NM_X.l + P_NM_W + PAD_SMALL),
+                                     (coord_t)LAYOUT_SCALE(32)};
+  static constexpr LayoutVal P_TYP_W{(coord_t)LAYOUT_SCALE(160), P_LBL_W.p};
+  static constexpr LayoutVal P_INV_X{
+      (coord_t)(P_TYP_X.l + P_TYP_W.l + PAD_SMALL),
+      (coord_t)(P_NM_X.p + P_NM_W + PAD_SMALL)};
+  static constexpr coord_t P_INV_W = ToggleSwitch::TOGGLE_W;
+  static constexpr LayoutVal P_ROW_H{
+      (coord_t)(EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_OUTLINE),
+      (coord_t)LAYOUT_SCALE(72)};
+  static LAYOUT_ORIENTATION_SCALED(P_OFST_Y, 0, 36)
+  static constexpr LayoutVal POTS_WINDOW_WIDTH{
+      (coord_t)(P_LBL_W.l + P_NM_W + P_TYP_W.l + P_INV_W + PAD_TINY * 2 +
+                PAD_SMALL * 5 + PAD_SCROLL),
+      (coord_t)(P_LBL_W.p + P_NM_W + P_INV_W + PAD_TINY * 2 + PAD_SMALL * 4 +
+                PAD_SCROLL)};
+#else
   static LAYOUT_ORIENTATION_SCALED(P_LBL_W, 60, 120)
   static constexpr coord_t P_NM_X = P_LBL_W + PAD_SMALL;
   static LAYOUT_VAL_SCALED(P_NM_W, 64)
@@ -64,6 +87,7 @@ class HWPots : public Window
   static LAYOUT_ORIENTATION(POTS_WINDOW_WIDTH,
                               P_LBL_W + P_NM_W + P_TYP_W + P_INV_W + PAD_TINY * 2 + PAD_SMALL * 5 + PAD_SCROLL,
                               P_LBL_W + P_NM_W + P_INV_W + PAD_TINY * 2 + PAD_SMALL * 4 + PAD_SCROLL)
+#endif
   #define P_Y(i) (i * P_ROW_H + PAD_TINY)
 
  protected:
@@ -77,7 +101,12 @@ class HWSwitches : public Window
   HWSwitches(Window* parent);
 
   static LAYOUT_SIZE_SCALED(SW_CTRL_W, 86, 72)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal SW_WINDOW_WIDTH =
+      lvAdd(lvMul(SW_CTRL_W, 4), PAD_SMALL * 5 + PAD_TINY * 2 + PAD_SCROLL);
+#else
   static constexpr coord_t SW_WINDOW_WIDTH = SW_CTRL_W * 4 + PAD_SMALL * 5 + PAD_TINY * 2 + PAD_SCROLL;
+#endif
 };
 
 template <class T>

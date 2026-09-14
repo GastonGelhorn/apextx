@@ -24,6 +24,28 @@
 #include "edgetx.h"
 #include "serial.h"
 
+#if defined(RADIO_NB4_FAMILY)
+// Legacy source identifiers/storage remain readable; no trainer transport or
+// mixing override is available on the car target.
+#if defined(SIMU)
+// Companion's generic input API remains link-compatible on the host.
+int16_t trainerInput[MAX_TRAINER_CHANNELS] = {};
+#endif
+uint8_t currentTrainerMode = 0xff;
+bool isTrainerValid() { return false; }
+bool isTrainerConnected() { return false; }
+void trainerResetTimer() {}
+void trainerDecTimer() {}
+void trainerSetTimer(uint16_t) {}
+void checkTrainerSignalWarning() {}
+void stopTrainer() {}
+void checkTrainerSettings() {}
+void trainerSetChangeCb(void (*)(uint8_t, uint8_t)) {}
+#if !defined(SIMU)
+bool trainer_dsc_available() { return false; }
+bool is_trainer_dsc_connected() { return false; }
+#endif
+#else
 // Timer gets decremented in per10ms()
 #define TRAINER_IN_VALID_TIMEOUT 100 // 1s
 
@@ -236,3 +258,4 @@ static void trainer_stop_module_sbus()
   modulePortSetPower(EXTERNAL_MODULE,false);
   sbus_trainer_mod_st = nullptr;
 }
+#endif

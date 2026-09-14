@@ -73,6 +73,26 @@ uint8_t get_current_rfpower_level( uint8_t module );
 extern etx_proto_driver_t ProtoDriver;
 
 void getStatusString(uint8_t module, char* buffer);
+
+bool isConnected(uint8_t module);
+#if defined(RADIO_NB4)
+enum class BindPhase : uint8_t { Preparing, Searching, Confirming, ManualFinish, Connected, Failed };
+BindPhase getBindPhase(uint8_t module);
+// Built-in receiver readings remain available without sensor discovery. Times
+// are independent: a quality packet must not make an old voltage look fresh.
+struct Nb4ReceiverTelemetry {
+  uint32_t voltageMv = 0;
+  tmr10ms_t voltageTime = 0, qualityTime = 0;
+  uint8_t quality = 0;
+  bool voltageAvailable = false, qualityAvailable = false;
+};
+Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module);
+void resetReceiverTelemetry();
+#if defined(SIMU)
+struct Nb4TransportDiagnostics;
+void getDiagnostics(uint8_t module, Nb4TransportDiagnostics& result);
+#endif
+#endif
 void processTelemetryData(uint8_t data, uint8_t module);
 
 }  // namespace afhds3

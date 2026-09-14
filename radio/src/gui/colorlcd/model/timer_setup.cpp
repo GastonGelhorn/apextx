@@ -113,7 +113,15 @@ TimerWindow::TimerWindow(uint8_t timer) :
   // Timer persistent
   setupLine(STR_PERSISTENT,
     [=](Window* parent, coord_t x, coord_t y) {
+#if defined(SURFACE_RADIO)
+
+      const char* persistOptions[] = {STR_VPERSISTENT[0], STR_NB4_RACE,
+                                      STR_VPERSISTENT[2]};
+      new Choice(parent, {x, y, 0, 0}, persistOptions, 0, 2,
+                GET_SET_DEFAULT(p_timer->persistent));
+#else
       new Choice(parent, {x, y, 0, 0}, STR_VPERSISTENT, 0, 2,
                 GET_SET_DEFAULT(p_timer->persistent));
+#endif
     });
 }

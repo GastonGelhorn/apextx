@@ -30,7 +30,7 @@ static SetupLineDef setupLines[] = {
     // Reset trims
     nullptr,
     [](Window* parent, coord_t x, coord_t y) {
-      new TextButton(parent, {PAD_TINY, y, LCD_W - PAD_MEDIUM * 2, 0}, STR_RESET_BTN, []() -> uint8_t {
+      new TextButton(parent, {PAD_TINY, y, lv_disp_get_hor_res(nullptr) - PAD_MEDIUM * 2, 0}, STR_RESET_BTN, []() -> uint8_t {
         for (auto &fm : g_model.flightModeData) memclear(&fm.trim, sizeof(fm.trim));
         SET_DIRTY();
         AUDIO_WARNING1();

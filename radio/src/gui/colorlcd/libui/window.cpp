@@ -17,6 +17,7 @@
  */
 
 #include "window.h"
+#include "nb4_health.h"
 
 #include "button.h"
 #include "form.h"
@@ -47,7 +48,7 @@ lv_obj_t *window_create(lv_obj_t *parent)
 void Window::window_event_cb(lv_event_t *e)
 {
   Window *window = (Window *)lv_obj_get_user_data(lv_event_get_target(e));
-  if (window) 
+  if (window)
     window->eventHandler(e);
 }
 
@@ -125,6 +126,9 @@ Window::Window(const rect_t &rect) : rect(rect), parent(nullptr)
 Window::Window(Window *parent, const rect_t &rect, LvglCreate objConstruct) :
     rect(rect), parent(parent)
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4HealthAssertUi();
+#endif
   lv_obj_t *lv_parent = parent ? parent->lvobj : nullptr;
 
   if (objConstruct == nullptr) objConstruct = window_create;
@@ -204,7 +208,7 @@ void Window::pushLayer(bool hideParent)
   if (!layerCreated) {
     parentHidden = hideParent;
     layerCreated = true;
-    if (parentHidden) Layer::back()->hide();
+    if (parentHidden && Layer::back()) Layer::back()->hide();
     Layer::push(this);
   }
 }
@@ -213,7 +217,7 @@ void Window::popLayer()
 {
   if (layerCreated) {
     Layer::pop(this);
-    if (parentHidden) Layer::back()->show();
+    if (parentHidden && Layer::back()) Layer::back()->show();
     layerCreated = false;
     parentHidden = false;
   }
@@ -221,7 +225,7 @@ void Window::popLayer()
 
 Window *Window::getFullScreenWindow()
 {
-  if (width() == LCD_W && height() == LCD_H) return this;
+  if (width() == lv_disp_get_hor_res(nullptr) && height() == lv_disp_get_ver_res(nullptr)) return this;
   if (parent) return parent->getFullScreenWindow();
   return nullptr;
 }
@@ -259,6 +263,9 @@ void Window::detach()
 
 void Window::deleteLater(bool detach, bool trash)
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4HealthAssertUi();
+#endif
   if (_deleted) return;
   _deleted = true;
 
@@ -342,6 +349,18 @@ void Window::bringToTop()
 
 void Window::checkEvents()
 {
+#if defined(RADIO_NB4_FAMILY)
+
+  constexpr unsigned localCapacity = 16;
+  const unsigned count = children.size();
+  if (count <= localCapacity) {
+    Window* snapshot[localCapacity];
+    std::copy(children.begin(), children.end(), snapshot);
+    for (unsigned i = 0; i < count; ++i)
+      if (!snapshot[i]->deleted()) snapshot[i]->checkEvents();
+    return;
+  }
+#endif
   auto copy = children;
   for (auto child : copy) {
     if (!child->deleted()) {
@@ -438,7 +457,7 @@ bool Window::isOnScreen()
   if (!isVisible()) return false;
   lv_area_t a;
   lv_obj_get_coords(lvobj, &a);
-  return a.x2 >= 0 && a.x1 < LCD_W && a.y2 >= 0 && a.y1 < LCD_H;
+  return a.x2 >= 0 && a.x1 < lv_disp_get_hor_res(nullptr) && a.y2 >= 0 && a.y1 < lv_disp_get_ver_res(nullptr);
 }
 
 void Window::enable(bool enabled)
@@ -599,7 +618,7 @@ SetupButtonGroup::SetupButtonGroup(Window* parent, const rect_t& rect, const cha
 
 SetupLine::SetupLine(Window* parent, coord_t y, coord_t col2, PaddingSize padding, const char* title,
                     std::function<void(Window*, coord_t, coord_t)> createEdit, coord_t lblYOffset) :
-    Window(parent, {0, y, LCD_W - padding * 2, 0})
+    Window(parent, {0, y, lv_disp_get_hor_res(nullptr) - padding * 2, 0})
 {
   padAll(PAD_ZERO);
   coord_t titleY = PAD_LARGE + lblYOffset;

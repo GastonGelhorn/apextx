@@ -235,7 +235,13 @@ int8_t STORAGE_Read (uint8_t lun,
                    uint32_t blk_addr,
                    uint16_t blk_len)
 {
+#if defined(RADIO_NB4) && !defined(BOOT)
+  // Reading can evict a dirty FTL page and wait for a NOR erase. Keep the
+  // hardware watchdog serviced after the callback while the host continues.
+  WATCHDOG_SUSPEND(1000 /* 10 s */);
+#else
   WATCHDOG_SUSPEND(100/*1s*/);
+#endif
 
 #if USE_UF2_DRIVE
   if (lun == STORAGE_UF2_LUN) {
@@ -257,7 +263,13 @@ int8_t STORAGE_Read (uint8_t lun,
   */
 int8_t STORAGE_Write(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t blk_len)
 {
+#if defined(RADIO_NB4) && !defined(BOOT)
+  // One SCSI command can force several first-use NOR block erases. Keep the
+  // hardware watchdog serviced while the host continues the transfer.
+  WATCHDOG_SUSPEND(1000 /* 10 s */);
+#else
   WATCHDOG_SUSPEND(500/*5s*/);
+#endif
 
 #if USE_UF2_DRIVE
   if (lun == STORAGE_UF2_LUN) {

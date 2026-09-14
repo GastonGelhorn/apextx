@@ -81,7 +81,6 @@
 #define TOUCH_CST836U_CHIP_TYPE_L_REG     0xaa
 #define TOUCH_CST836U_CHIP_TYPE_H_REG     0xab
 
-
 typedef enum {TC_NONE, TC_FT6236, TC_CST836U, TC_CST340, TC_CHSC5448} TouchController;
 
 #if defined(DEBUG)
@@ -122,7 +121,7 @@ struct TouchControllerDescriptor
 
 union rpt_point_t
 {
-  struct 
+  struct
   {
     unsigned char x_l8;
     unsigned char y_l8;
@@ -238,7 +237,7 @@ static bool ft6236TouchRead(uint16_t * X, uint16_t * Y)
     uint8_t dataxy[4];
     // Read X and Y positions and event
     _i2c_readMultipleRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6206_REG_P1_XH, 1, dataxy, sizeof(dataxy));
-    
+
     // Send back ready X position to caller
     *X = ((dataxy[0] & 0x0f) << 8) | dataxy[1];
     // Send back ready Y position to caller
@@ -275,7 +274,7 @@ static bool cst836uTouchRead(uint16_t * X, uint16_t * Y)
     uint8_t dataxy[4];
     // Read X and Y positions and event
     _i2c_readMultipleRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_REG_P1_XH, 1, dataxy, sizeof(dataxy));
-    
+
     // Send back ready X position to caller
     *X = ((dataxy[0] & 0x0f) << 8) | dataxy[1];
     // Send back ready Y position to caller
@@ -351,8 +350,8 @@ static bool chsc5448TouchRead(uint16_t * X, uint16_t * Y)
   bool hasEvent = ptCnt > 0 && event == TOUCH_CHSC5448_EVT_CONTACT;
 
   // Touch keys returns X = 2600, Y = 1 to 8 (total 8 keys)
-  uint8_t currTouchKey = 0;  
-  if (hasEvent && *X >= 2000) {    
+  uint8_t currTouchKey = 0;
+  if (hasEvent && *X >= 2000) {
     // Touch key event
     currTouchKey = *Y;
     if (currTouchKey > 8) {
@@ -388,7 +387,7 @@ static const TouchControllerDescriptor FT6236 =
   .hasTouchEvent = defaultHasTouchEvent,
   .touchRead = ft6236TouchRead,
   .printDebugInfo = ft6236PrintDebugInfo,
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
   .rotate = DEG_180,
 #else
   .rotate = DEG_270,
@@ -400,7 +399,7 @@ static const TouchControllerDescriptor CST836U =
   .hasTouchEvent = defaultHasTouchEvent,
   .touchRead = cst836uTouchRead,
   .printDebugInfo = cst836uPrintDebugInfo,
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
   .rotate = DEG_180,
 #else
   .rotate = DEG_270,
@@ -412,7 +411,7 @@ static const TouchControllerDescriptor CST340 =
   .hasTouchEvent = cst340HasTouchEvent,
   .touchRead = cst340TouchRead,
   .printDebugInfo = cst340PrintDebugInfo,
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
   .rotate = DEG_180,
 #else
   .rotate = DEG_270,
@@ -447,7 +446,7 @@ void _detect_touch_controller()
     touchController = TC_FT6236;
     tcd = &FT6236;
     boardTouchType = "FT6236";
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
     TouchControllerType = 0;
 #else
     TouchControllerType = 1;
@@ -502,14 +501,20 @@ struct TouchState touchPanelRead()
 
   unsigned short tmp;
   switch(tcd->rotate) {
+    case DEG_90:
+
+      tmp = touchX;
+      touchX = (unsigned short)(LCD_PHYS_H - 1) - touchY;
+      touchY = tmp;
+      break;
     case DEG_270:
       tmp = touchY;
-      touchY = 319 - touchX;
+      touchY = (unsigned short)(LCD_PHYS_W - 1) - touchX;
       touchX = tmp;
       break;
     case DEG_180:
-      touchY = 479 - touchY;
-      touchX = 319 - touchX;
+      touchY = (unsigned short)(LCD_PHYS_H - 1) - touchY;
+      touchX = (unsigned short)(LCD_PHYS_W - 1) - touchX;
       break;
     default:
       break;

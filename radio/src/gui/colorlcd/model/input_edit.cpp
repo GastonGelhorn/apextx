@@ -29,7 +29,9 @@
 #include "edgetx.h"
 #include "etx_lv_theme.h"
 #include "switchchoice.h"
+#if defined(FLIGHT_MODES)
 #include "fm_matrix.h"
+#endif
 
 #define SET_DIRTY() storageDirty(EE_MODEL)
 
@@ -84,12 +86,14 @@ class InputEditAdvanced : public Page
       return getTrimSourceLabel(srcRaw, -value);
     });
 
+#if defined(FLIGHT_MODES)
     // Flight modes
     if (modelFMEnabled()) {
       line = body->newLine(grid);
       new StaticText(line, rect_t{}, STR_FLMODE);
       new FMMatrix<ExpoData>(line, rect_t{}, input);
     }
+#endif
   }
 };
 
@@ -117,7 +121,7 @@ InputEditWindow::InputEditWindow(int8_t input, uint8_t index) :
   buildBody(form);
 
   preview = new Curve(
-      body, rect_t{(LCD_W - INPUT_EDIT_CURVE_WIDTH) / 2, body->height() - INPUT_EDIT_CURVE_HEIGHT - PAD_TINY, INPUT_EDIT_CURVE_WIDTH, INPUT_EDIT_CURVE_HEIGHT},
+      body, rect_t{(lv_disp_get_hor_res(nullptr) - INPUT_EDIT_CURVE_WIDTH) / 2, body->height() - INPUT_EDIT_CURVE_HEIGHT - PAD_TINY, INPUT_EDIT_CURVE_WIDTH, INPUT_EDIT_CURVE_HEIGHT},
       [=](int x) -> int {
         ExpoData* line = expoAddress(index);
         int16_t anas[MAX_INPUTS] = {0};
@@ -130,7 +134,7 @@ InputEditWindow::InputEditWindow(int8_t input, uint8_t index) :
   buildBody(body);
 
   preview = new Curve(
-      this, rect_t{LCD_W - INPUT_EDIT_CURVE_WIDTH - PAD_LARGE, EdgeTxStyles::MENU_HEADER_HEIGHT + PAD_TINY, INPUT_EDIT_CURVE_WIDTH, INPUT_EDIT_CURVE_HEIGHT},
+      this, rect_t{lv_disp_get_hor_res(nullptr) - INPUT_EDIT_CURVE_WIDTH - PAD_LARGE, EdgeTxStyles::MENU_HEADER_HEIGHT + PAD_TINY, INPUT_EDIT_CURVE_WIDTH, INPUT_EDIT_CURVE_HEIGHT},
       [=](int x) -> int {
         ExpoData* line = expoAddress(index);
         int16_t anas[MAX_INPUTS] = {0};

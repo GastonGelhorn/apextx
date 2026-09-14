@@ -32,6 +32,11 @@
 #include "hal/rotary_encoder.h"
 #include "switches.h"
 #include "input_mapping.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_car_state.h"
+#include "nb4_racing.h"
+#include "tasks/mixer_task.h"
+#endif
 #if defined(LED_STRIP_GPIO)
 #include "boards/generic_stm32/rgb_leds.h"
 #include "hal/rgbleds.h"
@@ -62,7 +67,11 @@
   #define RADIO_VERSION FLAVOUR
 #endif
 
-#define VERSION_OSNAME "EdgeTX"
+#if defined(RADIO_NB4)
+  #define VERSION_OSNAME "ApexTX"
+#else
+  #define VERSION_OSNAME "EdgeTX"
+#endif
 
 #define FIND_FIELD_DESC  0x01
 
@@ -1438,6 +1447,7 @@ is not specified (or contains invalid value), then the current flight mode data 
 
 @status current Introduced in 2.1.7
 */
+#if !defined(RADIO_NB4_FAMILY)
 static int luaGetFlightMode(lua_State * L)
 {
   int mode = luaL_optinteger(L, 1, -1);
@@ -1451,6 +1461,7 @@ static int luaGetFlightMode(lua_State * L)
   lua_pushstring(L, name);
   return 2;
 }
+#endif
 
 /*luadoc
 @function playFile(filename [, volume])
@@ -2884,12 +2895,14 @@ static int luaGetOutputValue(lua_State * L)
 
 @status current Introduced in 2.9.0
 */
+#if !defined(RADIO_NB4_FAMILY)
 static int luaGetTrainerStatus(lua_State * L)
 {
   extern uint8_t trainerStatus;
   lua_pushinteger(L, trainerStatus);
   return 1;
 }
+#endif
 
 // To simplify code below
 #if !defined(BLING_LED_STRIP_LENGTH)
@@ -3101,6 +3114,70 @@ static int luaSetIMU_Y(lua_State* const L)
 }
 
 
+#if defined(RADIO_NB4_FAMILY)
+// NB4 API v1: integers with explicit units and validity. Absent readings have
+// no value field; callers must not turn missing telemetry into a valid zero.
+static void pushCarReading(lua_State* L, const Nb4Reading& reading)
+{
+  const char* validity[] = {"absent", "valid", "stale", "alarm"};
+  const char* units[] = {"percent", "mV", "s", "cs", "trim"};
+  lua_createtable(L, 0, 3);
+  lua_pushstring(L, validity[unsigned(reading.validity)]); lua_setfield(L, -2, "validity");
+  lua_pushstring(L, units[unsigned(reading.unit)]); lua_setfield(L, -2, "unit");
+  if (reading.validity != Nb4Validity::Absent) {
+    lua_pushinteger(L, reading.value); lua_setfield(L, -2, "value");
+  }
+}
+
+static int luaGetCarState(lua_State* L)
+{
+  auto state = nb4ReadCarState(); // native readings; Lua allocation happens afterwards
+  lua_createtable(L, 0, 16);
+  lua_pushinteger(L, 1); lua_setfield(L, -2, "version");
+  lua_pushinteger(L, state.timestampMs); lua_setfield(L, -2, "timestampMs");
+  lua_pushstring(L, state.model); lua_setfield(L, -2, "model");
+  lua_pushstring(L, nb4Text("es", "en")); lua_setfield(L, -2, "language");
+  lua_pushinteger(L, lv_disp_get_hor_res(nullptr)); lua_setfield(L, -2, "width");
+  lua_pushinteger(L, lv_disp_get_ver_res(nullptr)); lua_setfield(L, -2, "height");
+  lua_pushinteger(L, state.steeringChannel + 1); lua_setfield(L, -2, "steeringChannel");
+  lua_pushinteger(L, state.throttleChannel + 1); lua_setfield(L, -2, "throttleChannel");
+  lua_createtable(L, 8, 0);
+  for (unsigned ch = 0; ch < 8; ++ch) {
+    pushCarReading(L, state.channels[ch].output);
+    pushCarReading(L, state.channels[ch].command); lua_setfield(L, -2, "command");
+    lua_pushboolean(L, state.channels[ch].assigned); lua_setfield(L, -2, "assigned");
+    lua_rawseti(L, -2, ch + 1);
+  }
+  lua_setfield(L, -2, "channels");
+  const Nb4Reading* readings[] = {&state.steeringTrim, &state.throttleTrim, &state.link,
+    &state.transmitter, &state.receiver, &state.timer, &state.lastLap, &state.bestLap, &state.currentLap};
+  const char* keys[] = {"steeringTrim", "throttleTrim", "link", "transmitterBattery", "receiverBattery",
+    "timer", "lastLap", "bestLap", "currentLap"};
+  for (unsigned i = 0; i < DIM(keys); ++i) {
+    pushCarReading(L, *readings[i]); lua_setfield(L, -2, keys[i]);
+  }
+  lua_pushboolean(L, state.lapsConfigured); lua_setfield(L, -2, "lapsConfigured");
+  lua_pushinteger(L, state.laps); lua_setfield(L, -2, "lapCount");
+  const char* phases[] = {"ready", "running", "finished"};
+  lua_pushstring(L, phases[unsigned(state.racePhase)]); lua_setfield(L, -2, "racePhase");
+  pushCarReading(L, state.raceElapsed); lua_setfield(L, -2, "raceElapsed");
+  return 1;
+}
+
+static int luaGetRaceLaps(lua_State* L)
+{
+  uint32_t laps[NB4_MAX_LAPS];
+  bool running = mixerTaskStarted();
+  if (running && !mixerTaskTryLock()) { lua_pushnil(L); return 1; }
+  unsigned count = min<unsigned>(nb4RacingLaps(), NB4_MAX_LAPS);
+  for (unsigned i = 0; i < count; ++i) laps[i] = nb4RacingLapTime(i);
+  if (running) mixerTaskUnlock();
+  lua_createtable(L, count, 0);
+  for (unsigned i = 0; i < count; ++i) { lua_pushinteger(L, laps[i]); lua_rawseti(L, -2, i + 1); }
+  return 1;
+}
+#endif
+
 #define KEY_EVENTS(xxx, yyy)                                    \
   { "EVT_"#xxx"_FIRST", LRO_NUMVAL(EVT_KEY_FIRST(yyy)) },       \
   { "EVT_"#xxx"_BREAK", LRO_NUMVAL(EVT_KEY_BREAK(yyy)) },       \
@@ -3109,6 +3186,10 @@ static int luaSetIMU_Y(lua_State* const L)
 
 extern "C" {
 LROT_BEGIN(etxlib, NULL, 0)
+#if defined(RADIO_NB4_FAMILY)
+  LROT_FUNCENTRY( getCarState, luaGetCarState )
+  LROT_FUNCENTRY( getRaceLaps, luaGetRaceLaps )
+#endif
   LROT_FUNCENTRY( getTime, luaGetTime )
   LROT_FUNCENTRY( getDateTime, luaGetDateTime )
 #if defined(RTCLOCK)
@@ -3122,12 +3203,16 @@ LROT_BEGIN(etxlib, NULL, 0)
   LROT_FUNCENTRY( getValue, luaGetValue )
   LROT_FUNCENTRY( getOutputValue, luaGetOutputValue )
   LROT_FUNCENTRY( getSourceValue, luaGetSourceValue )
+#if !defined(RADIO_NB4_FAMILY)
   LROT_FUNCENTRY( getTrainerStatus, luaGetTrainerStatus )
+#endif
   LROT_FUNCENTRY( getRAS, luaGetRAS )
   LROT_FUNCENTRY( getTxGPS, luaGetTxGPS )
   LROT_FUNCENTRY( getFieldInfo, luaGetFieldInfo )
   LROT_FUNCENTRY( getSourceInfo, luaGetFieldInfo )
+#if !defined(RADIO_NB4_FAMILY)
   LROT_FUNCENTRY( getFlightMode, luaGetFlightMode )
+#endif
   LROT_FUNCENTRY( playFile, luaPlayFile )
   LROT_FUNCENTRY( playNumber, luaPlayNumber )
   LROT_FUNCENTRY( playDuration, luaPlayDuration )

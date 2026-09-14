@@ -50,18 +50,43 @@ class FunctionLineButton : public ListLineButton
   static constexpr coord_t NM_X = PAD_TINY;
   static LAYOUT_SIZE_SCALED(NM_Y, 4, 10)
   static LAYOUT_SIZE_SCALED(NM_W, 43, 40)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal SW_X = lvAdd(NM_W, NM_X + PAD_TINY);
+#else
   static constexpr coord_t SW_X = NM_X + NM_W + PAD_TINY;
+#endif
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal SW_Y{NM_Y.l, 0};
+#else
   static LAYOUT_SIZE(SW_Y, NM_Y, 0)
+#endif
   static LAYOUT_SIZE_SCALED(SW_W, 70, 198)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal FN_X{SW_X.l + SW_W.l + PAD_TINY,
+                                  NM_X + NM_W.p + PAD_TINY};
+#else
   static LAYOUT_SIZE(FN_X, SW_X + SW_W + PAD_TINY, NM_X + NM_W + PAD_TINY)
+#endif
   static LAYOUT_SIZE_SCALED(FN_Y, 4, 20)
   static LAYOUT_SIZE_SCALED(RP_W, 40, 34)
   static LAYOUT_VAL_SCALED(EN_SZ, 16)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal RP_X =
+      lvSub(lvSub(ListLineButton::GRP_W, RP_W), PAD_BORDER * 2 + EN_SZ + PAD_TINY * 2);
+  static constexpr LayoutVal RP_Y = NM_Y;
+  static constexpr LayoutVal FN_W = lvSub(lvSub(RP_X, FN_X), PAD_TINY);
+  static constexpr LayoutVal EN_X =
+      lvSub(ListLineButton::GRP_W, PAD_BORDER * 2 + EN_SZ + PAD_TINY);
+  static constexpr LayoutVal EN_Y = lvAdd(NM_Y, PAD_TINY);
+#else
   static constexpr coord_t RP_X = ListLineButton::GRP_W - PAD_BORDER * 2 - RP_W - EN_SZ - PAD_TINY * 2;
   static constexpr coord_t RP_Y = NM_Y;
   static constexpr coord_t FN_W = RP_X - FN_X - PAD_TINY;
   static constexpr coord_t EN_X = ListLineButton::GRP_W - PAD_BORDER * 2 - EN_SZ - PAD_TINY;
   static constexpr coord_t EN_Y = NM_Y + PAD_TINY;
+#endif
 
  protected:
   const CustomFunctionData *cfn;

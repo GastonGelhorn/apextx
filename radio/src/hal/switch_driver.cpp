@@ -27,6 +27,9 @@
 #include "dataconstants.h"
 #include "edgetx_helpers.h"
 #include "edgetx.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_controls.h"
+#endif
 
 // Board API
 void boardInitSwitches();
@@ -102,7 +105,11 @@ SwitchHwPos switchGetPosition(uint8_t sw_idx)
   auto idx = (int)sw_idx;
   auto max_switches = switchGetMaxSwitches();
   if (idx < max_switches) {
+#if defined(RADIO_NB4_FAMILY)
+    return static_cast<SwitchHwPos>(nb4ControlsSwitchSource(idx, boardSwitchGetPosition(idx)));
+#else
     return boardSwitchGetPosition(idx);
+#endif
   }
 
   idx -= max_switches;

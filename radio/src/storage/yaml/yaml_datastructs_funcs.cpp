@@ -1486,7 +1486,8 @@ static bool fmd_is_active(void* user, uint8_t* data, uint32_t bitoffs)
   return is_active;
 }
 
-static bool swash_is_active(void* user, uint8_t* data, uint32_t bitoffs)
+[[maybe_unused]] static bool swash_is_active(void* user, uint8_t* data,
+                                             uint32_t bitoffs)
 {
   auto swashR = reinterpret_cast<SwashRingData*>(data + (bitoffs >> 3UL));
   return swashR->type | swashR->value;
@@ -1625,13 +1626,15 @@ static const struct YamlIdStr enum_TrainerMode[] = {
   {  0, NULL  }
 };
 
-static uint32_t r_trainerMode(const YamlNode* node, const char* val, uint8_t val_len)
+[[maybe_unused]] static uint32_t r_trainerMode(const YamlNode* node,
+                                               const char* val,
+                                               uint8_t val_len)
 {
   return yaml_parse_enum(enum_TrainerMode, val, val_len);
 }
 
-static bool w_trainerMode(const YamlNode* node, uint32_t val,
-                          yaml_writer_func wf, void* opaque)
+[[maybe_unused]] static bool w_trainerMode(const YamlNode* node, uint32_t val,
+                                           yaml_writer_func wf, void* opaque)
 {
   const char* str = nullptr;
   str = yaml_output_enum(val, enum_TrainerMode);

@@ -150,6 +150,8 @@ TEST(getSwitch, edgeInstant)
   for (sw2 = sw1 + 1; sw2 < switchGetMaxAllSwitches(); sw2 += 1)
     if (g_model.getSwitchType(sw2) == SWITCH_3POS)
       break;
+  if (sw2 >= switchGetMaxAllSwitches())
+    GTEST_SKIP() << "This test requires two physical three-position switches.";
   int sw1Pos = (sw1 * 3) + SWSRC_FIRST_SWITCH;
   int sw2Pos = (sw2 * 3) + SWSRC_FIRST_SWITCH;
   
@@ -272,6 +274,8 @@ TEST(getSwitch, edgeRelease)
   for (sw2 = sw1 + 1; sw2 < switchGetMaxAllSwitches(); sw2 += 1)
     if (g_model.getSwitchType(sw2) == SWITCH_3POS)
       break;
+  if (sw2 >= switchGetMaxAllSwitches())
+    GTEST_SKIP() << "This test requires two physical three-position switches.";
   int sw1Pos = (sw1 * 3) + SWSRC_FIRST_SWITCH;
   int sw2Pos = (sw2 * 3) + SWSRC_FIRST_SWITCH;
   

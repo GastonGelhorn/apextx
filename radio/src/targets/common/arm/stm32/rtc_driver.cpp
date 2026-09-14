@@ -26,6 +26,10 @@ RTC_HandleTypeDef rtc = {};
 
 void rtcSetTime(const struct gtm * t)
 {
+#if defined(RADIO_NB4) && !defined(RTCLOCK)
+  // This target never initializes the HAL RTC handle.
+  (void)t;
+#else
   g_ms100 = 0; // start of next second begins now
 
   RTC_TimeTypeDef RTC_TimeStruct = {};
@@ -39,10 +43,14 @@ void rtcSetTime(const struct gtm * t)
   RTC_DateStruct.Date = t->tm_mday;
   HAL_RTC_SetTime(&rtc, &RTC_TimeStruct, RTC_FORMAT_BIN);
   HAL_RTC_SetDate(&rtc, &RTC_DateStruct, RTC_FORMAT_BIN);
+#endif
 }
 
 void rtcGetTime(struct gtm * t)
 {
+#if defined(RADIO_NB4) && !defined(RTCLOCK)
+  *t = {};
+#else
   RTC_TimeTypeDef RTC_TimeStruct;
   RTC_DateTypeDef RTC_DateStruct;
 
@@ -55,6 +63,7 @@ void rtcGetTime(struct gtm * t)
   t->tm_year = RTC_DateStruct.Year + 100; // STM32 year is two decimals only (so base is currently 2000), gtm is based on number of years since 1900
   t->tm_mon  = RTC_DateStruct.Month - 1;
   t->tm_mday = RTC_DateStruct.Date;
+#endif
 }
 
 void rtcInit()

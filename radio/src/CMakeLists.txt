@@ -4,6 +4,10 @@ include(Bitmaps)
 set(PCB_TYPES X9LITE X9LITES X7 XLITE XLITES X9D X9D+ X9E X10 X12S PL18 T15PRO ST16 PA01 TX15 TX16SMK3 T22 V12 GX15)
 set(RADIO_LANGUAGES CN CZ DA DE EN ES FI FR HE HU IT JP KO NL PL PT RU SE SK TW UA)
 set(TTS_LANGUAGES CN CZ DA DE EN ES FI FR HE HU IT JP KO NL PL PT RU SE SK TW UA)
+if(PCB STREQUAL "PL18" AND (PCBREV STREQUAL "NB4" OR PCBREV STREQUAL "NB4P"))
+  set(RADIO_LANGUAGES EN ES)
+  set(TTS_LANGUAGES EN ES)
+endif()
 
 set(PCB "X9D+" CACHE STRING "Radio type, one of: ${PCB_TYPES}")
 set_property(CACHE PCB PROPERTY STRINGS ${PCB_TYPES})
@@ -454,6 +458,17 @@ set(SRC
   analogs.cpp
   mixes.cpp
   mixer.cpp
+  nb4_racing.cpp
+  nb4_controls.cpp
+  nb4_health.cpp
+  nb4_car_state.cpp
+  nb4_leds.cpp
+  nb4_axis.cpp
+  nb4_palettes.cpp
+  nb4_pit.cpp
+  nb4_history.cpp
+  nb4_lua_alloc.cpp
+  nb4_model_compat.cpp
   mixer_scheduler.cpp
   stamp.cpp
   timers.cpp
@@ -468,6 +483,14 @@ set(SRC
   inactivity_timer.cpp
   tasks/mixer_task.cpp
   )
+
+if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
+  list(APPEND SRC targets/pl18/nb4_rf_controller.cpp)
+endif()
+
+if(NB4_CAR_ONLY)
+  list(REMOVE_ITEM SRC sbus.cpp)
+endif()
 
 if(GUI)
   add_definitions(-DGUI)
@@ -488,30 +511,28 @@ if(AUDIO)
   add_definitions(-DAUDIO)
 endif()
 
-if(ALL_LANGUAGES)
+# A target can use RADIO_LANG_SET to keep a selected language subset in flash.
+# RADIO_LANG_SUBSET lets the translation table fall back to English for entries
+# that were not compiled.
+set(ETX_LANG_FILES CN CZ DA DE EN ES FI FR HE IT JP KO NL PL PT RU SE TW UA)
+
+if(RADIO_LANG_SET)
+  add_definitions(-DALL_LANGS -DRADIO_LANG_SUBSET)
+  foreach(LANG ${RADIO_LANG_SET})
+    if(NOT LANG IN_LIST ETX_LANG_FILES)
+      message(FATAL_ERROR "RADIO_LANGUAGES: '${LANG}' has no translation file")
+    endif()
+    string(TOLOWER ${LANG} LANG_LC)
+    add_definitions(-DHAS_LANG_${LANG})
+    set(SRC ${SRC} translations/sim/lang_${LANG_LC}.cpp)
+  endforeach()
+  message("-- Compiled languages: ${RADIO_LANG_SET}")
+elseif(ALL_LANGUAGES)
   add_definitions(-DALL_LANGS)
-  set(SRC
-    ${SRC}
-    translations/sim/lang_cn.cpp
-    translations/sim/lang_cz.cpp
-    translations/sim/lang_da.cpp
-    translations/sim/lang_de.cpp
-    translations/sim/lang_en.cpp
-    translations/sim/lang_es.cpp
-    translations/sim/lang_fi.cpp
-    translations/sim/lang_fr.cpp
-    translations/sim/lang_he.cpp
-    translations/sim/lang_it.cpp
-    translations/sim/lang_jp.cpp
-    translations/sim/lang_ko.cpp
-    translations/sim/lang_nl.cpp
-    translations/sim/lang_pl.cpp
-    translations/sim/lang_pt.cpp
-    translations/sim/lang_ru.cpp
-    translations/sim/lang_se.cpp
-    translations/sim/lang_tw.cpp
-    translations/sim/lang_ua.cpp
-  )
+  foreach(LANG ${ETX_LANG_FILES})
+    string(TOLOWER ${LANG} LANG_LC)
+    set(SRC ${SRC} translations/sim/lang_${LANG_LC}.cpp)
+  endforeach()
 endif()
 
 if(USBJ_EX)
@@ -641,6 +662,35 @@ link_libraries(firmware -lstdc++)
 add_dependencies(firmware ${RADIO_DEPENDENCIES})
 set_target_properties(firmware PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
+if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
+  if(NB4_RF_PROFILE STREQUAL UNQUALIFIED)
+    set(NB4_RF_LINK_MARKER nb4_rf_linked_unqualified)
+  elseif(NB4_RF_PROFILE STREQUAL CANDIDATE_USART3)
+    set(NB4_RF_LINK_MARKER nb4_rf_linked_usart3)
+  else()
+    set(NB4_RF_LINK_MARKER nb4_rf_linked_usart6)
+  endif()
+  if(NB4_RF_PROFILE STREQUAL QUALIFIED OR
+     NB4_RF_PROFILE STREQUAL RECOVERED_USART6)
+    if(NB4_RF_QUALIFIED_FRAMING STREQUAL "ADDRESSED_SLIP")
+      set(NB4_RF_FRAMING_MARKER nb4_rf_framing_addressed_slip)
+    else()
+      set(NB4_RF_FRAMING_MARKER nb4_rf_framing_addressless_slip)
+    endif()
+  else()
+    set(NB4_RF_FRAMING_MARKER nb4_rf_framing_unqualified)
+  endif()
+  if(APEXTX_PUBLIC_RELEASE)
+    set(NB4_RF_IMAGE_MARKER nb4_rf_image_public)
+  else()
+    set(NB4_RF_IMAGE_MARKER nb4_rf_image_laboratory)
+  endif()
+  target_link_options(firmware PRIVATE
+    -Wl,-u,${NB4_RF_LINK_MARKER}
+    -Wl,-u,${NB4_RF_FRAMING_MARKER}
+    -Wl,-u,${NB4_RF_IMAGE_MARKER})
+endif()
+
 if(ARCH STREQUAL ARM)
   target_link_libraries(firmware PRIVATE cmsis)
 endif()
@@ -691,6 +741,9 @@ if (DEFINED TARGET_FLASH_SIZE)
 endif()
 
 if (DEFINED TARGET_EXTRAM_START)
+  if(PCBREV MATCHES "^NB4P?$")
+    target_link_options(firmware PRIVATE -Wl,--defsym=__NB4_HEALTH_SIZE__=512)
+  endif()
   target_link_options(firmware PRIVATE
     -Wl,--defsym=__EXTRAM_START__=${TARGET_EXTRAM_START}
   )
@@ -735,7 +788,7 @@ if(FIRMWARE_FORMAT_UF2)
   else()
     set(UF2_VERSION_STRING "edgetx-${VERSION_PREFIX}${VERSION}${VERSION_SUFFIX} (${GIT_STR})")
   endif()
-  
+
   add_custom_command(
     TARGET firmware POST_BUILD
     COMMAND ${PYTHON_EXECUTABLE} ${RADIO_DIRECTORY}/util/elf2uf2.py
@@ -753,6 +806,32 @@ add_custom_command(
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
 
+if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
+  if(NB4_RF_PROFILE STREQUAL QUALIFIED)
+    set(NB4_VERIFY_PROFILE "QUALIFIED_${NB4_RF_QUALIFIED_CANDIDATE}")
+    set(NB4_VERIFY_FRAMING "${NB4_RF_QUALIFIED_FRAMING}")
+  elseif(NB4_RF_PROFILE STREQUAL RECOVERED_USART6)
+    set(NB4_VERIFY_PROFILE "RECOVERED_USART6")
+    set(NB4_VERIFY_FRAMING "${NB4_RF_QUALIFIED_FRAMING}")
+  else()
+    set(NB4_VERIFY_PROFILE "${NB4_RF_PROFILE}")
+    set(NB4_VERIFY_FRAMING "UNKNOWN")
+  endif()
+  set(NB4_VERIFY_PUBLIC_ARG "")
+  if(APEXTX_PUBLIC_RELEASE)
+    set(NB4_VERIFY_PUBLIC_ARG --public)
+  endif()
+  add_custom_command(
+    TARGET firmware POST_BUILD
+    COMMAND ${PYTHON_EXECUTABLE} ${RADIO_DIRECTORY}/../tools/nb4-verify-firmware.py
+      --elf firmware.elf --bin firmware.bin --nm ${CMAKE_NM}
+      --size ${CMAKE_SIZE_UTIL} --report nb4-size-report.json
+      --profile ${NB4_VERIFY_PROFILE} --framing ${NB4_VERIFY_FRAMING}
+      ${NB4_VERIFY_PUBLIC_ARG}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    VERBATIM
+  )
+endif()
 
 find_program(GAWK gawk
   HINTS "c:/cygwin/bin/" "c:/msys/bin/"

@@ -32,6 +32,7 @@
 #include "hal/watchdog_driver.h"
 
 #include "edgetx.h"
+
 #include "os/sleep.h"
 #include "os/time.h"
 #include "os/task.h"
@@ -151,7 +152,7 @@ static void cliSerialPrintf(const char * format, ...)
 
   // no need to do anything if we don't have an output
   if (!cliSendCb) return;
-  
+
   va_start(arglist, format);
   vsnprintf(tmp, CLI_PRINT_BUFFER_SIZE-1, format, arglist);
   tmp[CLI_PRINT_BUFFER_SIZE-1] = '\0';
@@ -188,7 +189,6 @@ static uint32_t cliGetBaudRate()
 
   return 0;
 }
-
 
 char cliLastLine[CLI_COMMAND_MAX_LEN+1];
 
@@ -1124,7 +1124,12 @@ const MemArea memAreas[] = {
 
 int cliSet(const char **argv)
 {
+  if (!argv[1]) return -1;
   if (!strcmp(argv[1], "rtc")) {
+#if defined(RADIO_NB4) && !defined(RTCLOCK)
+    cliSerialPrint("RTC unavailable on this board");
+    return -1;
+#else
     struct gtm t;
     int year, month, day, hour, minute, second;
     if (toInt(argv, 2, &year) > 0 && toInt(argv, 3, &month) > 0 &&
@@ -1144,6 +1149,7 @@ int cliSet(const char **argv)
                   argv[2]);
       return -1;
     }
+#endif
   }
 #if !defined(SOFTWARE_VOLUME) && defined(AUDIO)
   else if (!strcmp(argv[1], "volume")) {
@@ -1964,7 +1970,7 @@ static void cliTask()
 
     // TODO: implement block read instead
     //       of going byte-by-byte.
-    
+
     /* Block for max 100ms. */
     const TickType_t xTimeout = 100 / portTICK_PERIOD_MS;
     size_t xReceivedBytes = xStreamBufferReceive(cliRxBuffer, &c, 1, xTimeout);

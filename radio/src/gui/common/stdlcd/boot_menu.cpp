@@ -79,8 +79,9 @@ void bootloaderDrawScreen(BootloaderState st, int opt, const char *str)
 
     const char * vers = getFirmwareVersion();
 #if LCD_W < 212
-    // Remove "edgetx-" from string
-    if (strncmp(vers, "edgetx-", 7) == 0)
+    // Remove the firmware-family prefix from the compact version line.
+    if (strncmp(vers, "edgetx-", 7) == 0 ||
+        strncmp(vers, "apextx-", 7) == 0)
       vers += 7;
 #endif
     lcdDrawCenteredText(7 * FH, vers);

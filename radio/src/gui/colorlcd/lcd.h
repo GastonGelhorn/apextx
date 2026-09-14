@@ -25,7 +25,11 @@
 
 #include "colors.h"
 
-#define DISPLAY_PIXELS_COUNT           (LCD_W * LCD_H)
+#if defined(LCD_PHYS_W) && defined(LCD_PHYS_H)
+  #define DISPLAY_PIXELS_COUNT         (LCD_PHYS_W * LCD_PHYS_H)
+#else
+  #define DISPLAY_PIXELS_COUNT         (LCD_W * LCD_H)
+#endif
 #define DISPLAY_BUFFER_SIZE            (DISPLAY_PIXELS_COUNT)
 
 #if defined(BOOT)
@@ -46,6 +50,12 @@ void lcdSetWaitCb(void (*cb)(lv_disp_drv_t *));
 
 // Init LVGL and its display driver
 void lcdInitDisplayDriver();
+
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+// Called between UI iterations, after editors and gestures have been resolved.
+bool lcdSetOrientation(bool landscape);
+void lcdPresentedSize(unsigned* width, unsigned* height);
+#endif
 
 void lcdClear();
 

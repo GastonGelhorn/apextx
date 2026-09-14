@@ -53,7 +53,7 @@ class FlashDialog: public FullScreenDialog
   explicit FlashDialog(const T & device):
     FullScreenDialog(WARNING_TYPE_INFO, STR_FLASH_DEVICE),
     device(device),
-    progress(this, {LCD_W / 2 - PROGRESS_W / 2, LCD_H / 2 + PROGRESS_YO, PROGRESS_W, EdgeTxStyles::UI_ELEMENT_HEIGHT})
+    progress(this, {lv_disp_get_hor_res(nullptr) / 2 - PROGRESS_W / 2, lv_disp_get_ver_res(nullptr) / 2 + PROGRESS_YO, PROGRESS_W, EdgeTxStyles::UI_ELEMENT_HEIGHT})
   {
   }
 
@@ -320,7 +320,7 @@ void RadioSdManagerPage::fileAction(const char* path, const char* name,
         audioQueue.playFile(fullpath, 0, ID_PLAY_FROM_SD_MANAGER);
       });
     }
-#if defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE)
+#if !defined(RADIO_NB4_FAMILY) && (defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE))
 #if defined(MULTIMODULE) && !defined(DISABLE_MULTI_UPDATE)
     if (!strcasecmp(ext, MULTI_FIRMWARE_EXT)) {
       MultiFirmwareInformation information;
@@ -338,12 +338,13 @@ void RadioSdManagerPage::fileAction(const char* path, const char* name,
       }
     }
 #endif
-    else if (!strcasecmp(ext, ELRS_FIRMWARE_EXT)) {
+    if (!strcasecmp(ext, ELRS_FIRMWARE_EXT)) {
       menu->addLine(STR_FLASH_EXTERNAL_ELRS, [=]() {
         MultiFirmwareUpdate(fullpath, EXTERNAL_MODULE, MULTI_TYPE_ELRS);
       });
+    }
 #endif
-    } else if (!strcasecmp(BITMAPS_PATH, path) &&
+    if (!strcasecmp(BITMAPS_PATH, path) &&
                isExtensionMatching(ext, BITMAPS_EXT) &&
                strlen(name) <= LEN_BITMAP_NAME) {
       menu->addLine(STR_ASSIGN_BITMAP, [=]() {
@@ -378,8 +379,9 @@ void RadioSdManagerPage::fileAction(const char* path, const char* name,
                       [=]() { BootloaderUpdate(fullpath); });
       }
 #endif
-#if defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE)
-    } else if (!strcasecmp(ext, SPORT_FIRMWARE_EXT)) {
+    }
+#if !defined(RADIO_NB4_FAMILY) && (defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE))
+    if (!strcasecmp(ext, SPORT_FIRMWARE_EXT)) {
 
       auto mod_desc = modulePortGetModuleDescription(SPORT_MODULE);
       if (mod_desc && mod_desc->set_pwr) {
@@ -467,7 +469,7 @@ void RadioSdManagerPage::fileAction(const char* path, const char* name,
     }
 #endif
 #if defined(LUA)
-    else if (isExtensionMatching(ext, SCRIPTS_EXT)) {
+    if (isExtensionMatching(ext, SCRIPTS_EXT)) {
       menu->addLine(STR_EXECUTE_FILE, [=]() {
         luaExecStandalone(fullpath);
       });
@@ -554,7 +556,7 @@ void RadioSdManagerPage::BluetoothFirmwareUpdate(const char* fn)
 }
 #endif
 
-#if defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE)
+#if !defined(RADIO_NB4_FAMILY) && (defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE))
 void RadioSdManagerPage::FrSkyFirmwareUpdate(const char* fn,
                                              ModuleIndex module)
 {

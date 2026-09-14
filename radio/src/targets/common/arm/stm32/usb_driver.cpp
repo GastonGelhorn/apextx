@@ -69,6 +69,16 @@ static const USBD_DFU_MediaTypeDef* _dfu_media[USBD_DFU_MAX_ITF_NUM] = {nullptr}
 static bool usbDriverStarted = false;
 static usbMode selectedUsbMode = DEFAULT_USB_MODE;
 
+#if defined(RADIO_NB4)
+static volatile uint32_t usbSofCounter = 0;
+static uint32_t usbSofObserved = 0;
+
+extern "C" void usbHostSofReceived()
+{
+  ++usbSofCounter;
+}
+#endif
+
 USBD_HandleTypeDef hUsbDevice;
 
 int getSelectedUsbMode()
@@ -212,19 +222,52 @@ void usbStart()
 
   if (USBD_Start(&hUsbDevice) == USBD_OK) {
     usbDriverStarted = true;
+#if defined(RADIO_NB4)
+    // Register all class callbacks before the first reset/SOF interrupt.
+    NVIC_ClearPendingIRQ(OTG_FS_IRQn);
+    NVIC_EnableIRQ(OTG_FS_IRQn);
+#endif
   }
 }
 
 void usbStop()
 {
+#if defined(RADIO_NB4)
+  // Class DeInit frees memory also used by SOF/RX callbacks. Do not let an
+  // interrupt dereference it halfway through teardown or after clock removal.
+  NVIC_DisableIRQ(OTG_FS_IRQn);
+#endif
   usbDriverStarted = false;
   USBD_DeInit(&hUsbDevice);
+#if defined(RADIO_NB4)
+  NVIC_ClearPendingIRQ(OTG_FS_IRQn);
+#endif
 }
 
 
 bool usbStarted()
 {
   return usbDriverStarted;
+}
+
+bool usbHostSessionAlive()
+{
+#if defined(RADIO_NB4)
+  if (!usbDriverStarted) return false;
+
+  const uint32_t current = usbSofCounter;
+  if (current == usbSofObserved) return false;
+  usbSofObserved = current;
+  return true;
+#else
+  return usbDriverStarted && hUsbDevice.dev_state != USBD_STATE_SUSPENDED;
+#endif
+}
+
+bool usbHostEnumerated()
+{
+  return usbDriverStarted && (hUsbDevice.dev_state == USBD_STATE_ADDRESSED ||
+                              hUsbDevice.dev_state == USBD_STATE_CONFIGURED);
 }
 
 #if defined(BOOT)
@@ -274,13 +317,13 @@ void usbJoystickUpdate()
    HID_Buffer[1] = 0;
    HID_Buffer[2] = 0;
    for (int i = 0; i < 8; ++i) {
-     if ( channelOutputs[i+8] > 0 ) {
+     if (i + 8 < MAX_OUTPUT_CHANNELS && channelOutputs[i+8] > 0) {
        HID_Buffer[0] |= (1 << i);
      }
-     if ( channelOutputs[i+16] > 0 ) {
+     if (i + 16 < MAX_OUTPUT_CHANNELS && channelOutputs[i+16] > 0) {
        HID_Buffer[1] |= (1 << i);
      }
-     if ( channelOutputs[i+24] > 0 ) {
+     if (i + 24 < MAX_OUTPUT_CHANNELS && channelOutputs[i+24] > 0) {
        HID_Buffer[2] |= (1 << i);
      }
    }

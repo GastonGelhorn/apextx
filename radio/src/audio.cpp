@@ -25,6 +25,10 @@
 #include "os/task.h"
 
 #include "edgetx.h"
+#if defined(RADIO_NB4)
+#include <atomic>
+static std::atomic<uint8_t> audioFileState{0}; // running, pause requested, paused
+#endif
 #include "strhelpers.h"
 #include "switches.h"
 
@@ -209,7 +213,9 @@ constexpr unsigned int MAX_SWITCH_POSITIONS =
     MAX_SWITCHES * 3 + MAX_POTS * XPOTS_MULTIPOS_COUNT;
 
 BitField<(AU_SPECIAL_SOUND_FIRST)> sdAvailableSystemAudioFiles;
+#if defined(FLIGHT_MODES)
 BitField<(MAX_FLIGHT_MODES * 2/*on, off*/)> sdAvailableFlightmodeAudioFiles;
+#endif
 BitField<MAX_SWITCH_POSITIONS> sdAvailableSwitchAudioFiles;
 BitField<(MAX_LOGICAL_SWITCHES * 2/*on, off*/)> sdAvailableLogicalSwitchAudioFiles;
 
@@ -287,7 +293,9 @@ void referenceModelAudioFiles()
   FILINFO fno;
   char path[AUDIO_FILENAME_MAXLEN + 1];
 
+#if defined(FLIGHT_MODES)
   sdAvailableFlightmodeAudioFiles.reset();
+#endif
   sdAvailableSwitchAudioFiles.reset();
   sdAvailableLogicalSwitchAudioFiles.reset();
 
@@ -311,11 +319,13 @@ void referenceModelAudioFiles()
       TRACE("referenceModelAudioFiles(): using file: %s", fno.fname);
 
       int idx, event;
+#if defined(FLIGHT_MODES)
       if (matchModeAudioFile(fno.fname, idx, event)) {
         sdAvailableFlightmodeAudioFiles.setBit(
             INDEX_PHASE_AUDIO_FILE(idx, event));
         continue;
       }
+#endif
 
       if (matchSwitchAudioFile(fno.fname, idx)) {
         sdAvailableSwitchAudioFiles.setBit(idx);
@@ -346,12 +356,14 @@ bool isAudioFileReferenced(uint32_t i, char * filename)
       return true;
     }
   }
+#if defined(FLIGHT_MODES)
   else if (category == PHASE_AUDIO_CATEGORY) {
     if (sdAvailableFlightmodeAudioFiles.getBit(INDEX_PHASE_AUDIO_FILE(index, event))) {
       getFlightmodeAudioFile(filename, index, event);
       return true;
     }
   }
+#endif
   else if (category == SWITCH_AUDIO_CATEGORY) {
     if (sdAvailableSwitchAudioFiles.getBit(index)) {
       getSwitchAudioFile(filename, SWSRC_FIRST_SWITCH + index);
@@ -639,6 +651,13 @@ int ToneContext::mixBuffer(AudioBuffer * buffer, int volume, unsigned int fade)
 
 void AudioQueue::wakeup()
 {
+#if defined(RADIO_NB4)
+  if (audioFileState.load(std::memory_order_acquire) == 1) {
+    stopAll();
+    uint8_t requested = 1;
+    audioFileState.compare_exchange_strong(requested, 2);
+  }
+#endif
   DEBUG_TIMER_START(debugTimerAudioConsume);
   audioConsumeCurrentBuffer();
   DEBUG_TIMER_STOP(debugTimerAudioConsume);
@@ -787,12 +806,24 @@ void AudioQueue::playFile(const char * filename, uint8_t flags, uint8_t id, int8
   if (g_eeGeneral.beepMode == e_mode_quiet)
     return;
 
+#if defined(RADIO_NB4)
+  if (g_eeGeneral.nb4TonesOnly)
+    return;
+#endif
+
   if (strlen(filename) > AUDIO_FILENAME_MAXLEN) {
     POPUP_WARNING(STR_PATH_TOO_LONG);
     return;
   }
 
   _audio_lock();
+#if defined(RADIO_NB4)
+  // Recheck under the queue lock: a USB pause may have arrived since entry.
+  if (audioFileState.load() != 0) {
+    _audio_unlock();
+    return;
+  }
+#endif
 
   if (flags & PLAY_BACKGROUND) {
     backgroundContext.clear();
@@ -821,6 +852,17 @@ void AudioQueue::stopSD()
   stopAll();
   playTone(0, 0, 100, PLAY_NOW);        // insert a 100ms pause
 }
+
+#if defined(RADIO_NB4)
+bool AudioQueue::pauseFiles()
+{
+  uint8_t running = 0;
+  audioFileState.compare_exchange_strong(running, 1);
+  return audioFileState.load() == 2;
+}
+
+void AudioQueue::resumeFiles() { audioFileState.store(0); }
+#endif
 
 void AudioQueue::stopAll()
 {
@@ -885,7 +927,12 @@ void audioTrimPress(int value)
 
 void audioTimerCountdown(uint8_t timer, int value)
 {
-  if (g_model.timers[timer].countdownBeep == COUNTDOWN_VOICE) {
+  auto countdownBeep = g_model.timers[timer].countdownBeep;
+#if defined(RADIO_NB4)
+  if (g_eeGeneral.nb4TonesOnly && countdownBeep == COUNTDOWN_VOICE)
+    countdownBeep = COUNTDOWN_BEEPS;
+#endif
+  if (countdownBeep == COUNTDOWN_VOICE) {
     int announceValue = value;
     if (g_model.timers[timer].showElapsed) {
       announceValue = g_model.timers[timer].start - value;
@@ -900,7 +947,11 @@ void audioTimerCountdown(uint8_t timer, int value)
     } else if ((!(announceValue % 30) || !(announceValue % 20)) && value < 31) {
       playDuration(announceValue, 0, 0);
     }
-  } else if (g_model.timers[timer].countdownBeep == COUNTDOWN_BEEPS) {
+  } else if (countdownBeep == COUNTDOWN_BEEPS
+#if defined(RADIO_NB4)
+             && g_eeGeneral.beepMode != e_mode_quiet
+#endif
+  ) {
     if (value == 0) {
       audioQueue.playTone(BEEP_DEFAULT_FREQ + 150, 300, 20, PLAY_NOW);
     } else if (value > 0 && value <= TIMER_COUNTDOWN_START(timer)) {
@@ -952,7 +1003,11 @@ void audioEvent(unsigned int index)
 
   if (g_eeGeneral.beepMode >= e_mode_nokeys || (g_eeGeneral.beepMode >= e_mode_alarms && index <= AU_ERROR)) {
     char filename[AUDIO_FILENAME_MAXLEN + 1];
-    if (index < AU_SPECIAL_SOUND_FIRST && isAudioFileReferenced(index, filename)) {
+    if (index < AU_SPECIAL_SOUND_FIRST &&
+#if defined(RADIO_NB4)
+        !g_eeGeneral.nb4TonesOnly &&
+#endif
+        isAudioFileReferenced(index, filename)) {
       audioQueue.stopPlay(ID_PLAY_PROMPT_BASE + index);
       audioQueue.playFile(filename, 0, ID_PLAY_PROMPT_BASE + index);
       return;
@@ -1033,6 +1088,17 @@ void audioEvent(unsigned int index)
       case AU_RSSI_RED:
         audioQueue.playTone(BEEP_DEFAULT_FREQ + 1800, 800, 20, PLAY_REPEAT(1) | PLAY_NOW);
         break;
+#if defined(RADIO_NB4)
+      // The receiver-loss alarm must also work without a voice pack on SD.
+      case AU_TELEMETRY_LOST:
+        audioQueue.stopAll();
+        audioQueue.playTone(2250, 200, 100, PLAY_REPEAT(2) | PLAY_NOW, -1);
+        break;
+      case AU_TELEMETRY_CONNECTED:
+      case AU_TELEMETRY_BACK:
+        audioQueue.playTone(1950, 120, 20, PLAY_NOW, 1);
+        break;
+#endif
       case AU_RAS_RED:
         audioQueue.playTone(450, 160, 40, PLAY_REPEAT(2), 1);
         break;

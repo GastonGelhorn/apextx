@@ -29,6 +29,7 @@
 #include "hal/usb_driver.h"
 
 #include "os/timer.h"
+#include "nb4_history.h"
 #include "tasks/mixer_task.h"
 
 FIL g_oLogFile __DMA;
@@ -42,7 +43,11 @@ static void loggingTimerCb(timer_handle_t* timer)
   (void)timer;
   if (mixerTaskRunning()) {
     DEBUG_TIMER_START(debugTimerLoggingWakeup);
+#if defined(RADIO_NB4_FAMILY)
+    nb4StorageRequestLog();
+#else
     logsWrite();
+#endif
     DEBUG_TIMER_STOP(debugTimerLoggingWakeup);
   }
 }

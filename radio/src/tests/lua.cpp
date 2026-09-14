@@ -28,6 +28,8 @@
 #include "lua/lua_states.h"
 
 #include <filesystem>
+#include <fstream>
+#include "location.h"
 
 #define MIXSRC_THR     (MIXSRC_FIRST_STICK + inputMappingGetThrottle())
 #define MIXSRC_TRIMTHR (MIXSRC_FIRST_TRIM + inputMappingGetThrottle())
@@ -44,6 +46,52 @@
 }
 
 #define luaExecStr(test)  EXPECT_TRUE(__luaExecStr(test))
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_lua_alloc.h"
+TEST(Lua, CarBudgetExhaustionIsCaughtAndReleasesMemory)
+{
+  auto before = nb4LuaHeapUsed();
+  auto state = lua_newstate(nb4LuaAlloc, nullptr);
+  ASSERT_NE(state, nullptr);
+  luaL_openlibs(state);
+  ASSERT_EQ(luaL_loadstring(state, "local t={} for i=1,10000 do t[i]=string.rep('x',1024) end"), LUA_OK);
+  EXPECT_EQ(lua_pcall(state, 0, 0, 0), LUA_ERRMEM);
+  EXPECT_LE(nb4LuaHeapUsed(), NB4_LUA_HEAP_LIMIT);
+  lua_close(state);
+  EXPECT_EQ(nb4LuaHeapUsed(), before);
+}
+
+TEST(Lua, NativeCarApiUsesExplicitValidityAndCannotAlterTheModel)
+{
+  SYSTEM_RESET(); MODEL_RESET();
+  g_model.nb4Racing.steeringChannel = 0;
+  g_model.nb4Racing.throttleChannel = 1;
+  g_model.mixData[0].srcRaw = MIXSRC_FIRST_STICK;
+  g_model.mixData[0].destCh = 0;
+  ex_chans[0] = RESX / 2;
+  channelOutputs[0] = -RESX / 2;
+  luaExecStr("local s=getCarState(); assert(s.version==1 and #s.channels==8); assert(s.channels[1].value==-50 and s.channels[1].command.value==50); assert(s.channels[1].unit=='percent'); assert(s.channels[2].validity=='absent' and s.channels[2].value==nil); assert(s.timer.value==nil); assert(s.steeringChannel==1 and s.throttleChannel==2); s.channels[1].value=99; s.model='changed'; assert(getCarState().channels[1].value==-50); assert(type(getRaceLaps())=='table'); assert(getFlightMode==nil and getTrainerStatus==nil)");
+  EXPECT_EQ(channelOutputs[0], -RESX / 2);
+  EXPECT_EQ(ex_chans[0], RESX / 2);
+}
+
+TEST(Lua, PackagedLapApplicationRunsOnTheNativeApi)
+{
+  EXPECT_TRUE(__luaExecStr("assert(getCarState().version==1)"));
+  auto source = std::filesystem::path(TESTS_PATH).parent_path().parent_path().parent_path() /
+    "sdcard/SCRIPTS/TOOLS/NB4Laps.lua";
+  std::ifstream file(source);
+  ASSERT_TRUE(file.good());
+  std::string script{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+  ASSERT_EQ(luaL_loadbuffer(lsScripts, script.c_str(), script.size(), "NB4Laps"), LUA_OK);
+  ASSERT_EQ(lua_pcall(lsScripts, 0, 1, 0), LUA_OK);
+  lua_getfield(lsScripts, -1, "run"); lua_pushinteger(lsScripts, 0);
+  ASSERT_EQ(lua_pcall(lsScripts, 1, 1, 0), LUA_OK);
+  EXPECT_EQ(lua_tointeger(lsScripts, -1), 0);
+  lua_pop(lsScripts, 2);
+}
+#endif
 
 TEST(Lua, testSetModelInfo)
 {

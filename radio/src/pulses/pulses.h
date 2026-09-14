@@ -145,7 +145,9 @@ union TrainerPulsesData {
 
 extern TrainerPulsesData trainerPulsesData;
 
-#if !defined(AFHDS3)
+#if defined(RADIO_NB4)
+  #define MODULE_BUFFER_SIZE 364
+#elif !defined(AFHDS3)
   #define MODULE_BUFFER_SIZE 64
 #else
   #define MODULE_BUFFER_SIZE 128

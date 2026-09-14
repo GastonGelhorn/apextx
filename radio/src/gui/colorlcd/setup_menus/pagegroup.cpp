@@ -26,29 +26,9 @@
 #include "view_main.h"
 #include "topbar.h"
 #include "model_select.h"
-#include "os/time.h"
 #include "view_channels.h"
 #include "screen_setup.h"
 #include "keyboard_base.h"
-
-#if defined(DEBUG)
-static uint32_t dsms, dems, end_ms, start_ms;
-static bool timepg = false;
-
-static void on_draw_begin(lv_event_t* e)
-{
-  if (timepg) {
-    dsms = time_get_ms();
-  }
-}
-static void on_draw_end(lv_event_t* e)
-{
-  timepg = false;
-  dems = time_get_ms();
-  TRACE("tab time: build %ld layout %ld draw %ld total %ld",
-        end_ms - start_ms, dsms - end_ms, dems - dsms, dems - start_ms);
-}
-#endif
 
 //-----------------------------------------------------------------------------
 
@@ -56,12 +36,21 @@ static void on_draw_end(lv_event_t* e)
 class SelectedTabIcon : public StaticIcon
 {
  public:
+#if defined(RADIO_NB4_FAMILY)
+
+  SelectedTabIcon(Window* parent) :
+      StaticIcon(parent, 0, 0, ICON_CURRENTMENU_BG, COLOR_THEME_FOCUS_INDEX)
+  {
+  }
+#else
   SelectedTabIcon(Window* parent) :
       StaticIcon(parent, 0, 0, ICON_CURRENTMENU_SHADOW, COLOR_THEME_PRIMARY1_INDEX)
   {
     new StaticIcon(this, 0, 0, ICON_CURRENTMENU_BG, COLOR_THEME_FOCUS_INDEX);
+
     new StaticIcon(this, SEL_DOT_X, SEL_DOT_Y, ICON_CURRENTMENU_DOT, COLOR_THEME_PRIMARY2_INDEX);
   }
+#endif
 
 #if defined(DEBUG_WINDOWS)
   std::string getName() const override { return "SelectedTabIcon"; }
@@ -77,7 +66,10 @@ class PageGroupIconButton : public ButtonBase
   PageGroupIconButton(Window* parent, const rect_t& rect, PageGroupItem* page, int idx) :
       ButtonBase(parent, rect, nullptr, window_create), pageTab(page), index(idx)
   {
-    new StaticIcon(this, 2, ICON_Y, pageTab->getIcon(), COLOR_THEME_PRIMARY2_INDEX);
+    new StaticIcon(this, 2, ICON_Y, pageTab->getIcon(), COLOR_THEME_HEADER_FG_INDEX);
+#if defined(RADIO_NB4_FAMILY)
+    refreshVisibility(true);
+#endif
     show(isVisible());
   }
 
@@ -88,13 +80,35 @@ class PageGroupIconButton : public ButtonBase
   }
 #endif
 
-  bool isVisible() const { return pageTab->isVisible(); }
+  bool isVisible() const
+  {
+#if defined(RADIO_NB4_FAMILY)
+    return visible;
+#else
+    return pageTab->isVisible();
+#endif
+  }
+
+#if defined(RADIO_NB4_FAMILY)
+  void refreshVisibility(bool includeFiles = false)
+  {
+    // Notes availability calls FatFs. Refresh it on opening/changing tabs,
+    // never while drawing live controls: an autosave may own the volume lock.
+    // Other predicates only read settings and must still update immediately.
+    if (includeFiles || pageTab->pageId() != QM_MODEL_NOTES)
+      visible = pageTab->isVisible();
+    show(visible);
+  }
+#endif
 
   static LAYOUT_VAL_SCALED(ICON_Y, 7)
 
  protected:
   PageGroupItem* pageTab;
   int index;
+#if defined(RADIO_NB4_FAMILY)
+  bool visible = true;
+#endif
 
   void checkEvents() override
   {
@@ -107,9 +121,9 @@ class PageGroupIconButton : public ButtonBase
 //-----------------------------------------------------------------------------
 
 PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxIcon icon, const char* parentTitle, PageGroupBase* menu) :
-    Window(parent, {0, 0, LCD_W, height}), menu(menu)
+    Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), height}), menu(menu)
 {
-    etx_solid_bg(lvobj, COLOR_THEME_SECONDARY1_INDEX);
+    etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
     hdrIcon = new HeaderIcon(this, icon);
 
@@ -117,36 +131,36 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     new HeaderBackIcon(this);
 
     parentLabel = etx_label_create(lvobj);
-    etx_txt_color(parentLabel, COLOR_THEME_PRIMARY2_INDEX);
+    etx_txt_color(parentLabel, COLOR_THEME_HEADER_FG_INDEX);
     lv_obj_set_pos(parentLabel, PageHeader::PAGE_TITLE_LEFT, PageHeader::PAGE_TITLE_TOP);
-    lv_obj_set_size(parentLabel, LCD_W - PageHeader::PAGE_TITLE_LEFT - PageGroup::PAGE_GROUP_BACK_BTN_W * 2 - PAD_LARGE * 2, EdgeTxStyles::STD_FONT_HEIGHT);
+    lv_obj_set_size(parentLabel, lv_disp_get_hor_res(nullptr) - PageHeader::PAGE_TITLE_LEFT - PageGroup::PAGE_GROUP_BACK_BTN_W * 2 - PAD_LARGE * 2, EdgeTxStyles::STD_FONT_HEIGHT);
     lv_label_set_text(parentLabel, parentTitle);
 #endif
 
     titleLabel = etx_label_create(lvobj);
-    etx_txt_color(titleLabel, COLOR_THEME_PRIMARY2_INDEX);
+    etx_txt_color(titleLabel, COLOR_THEME_HEADER_FG_INDEX);
 
 #if VERSION_MAJOR == 2
     auto sep = lv_obj_create(lvobj);
     etx_solid_bg(sep);
     lv_obj_set_pos(sep, 0, EdgeTxStyles::MENU_HEADER_HEIGHT);
-    lv_obj_set_size(sep, LCD_W, PageGroup::PAGE_GROUP_TOP_BAR_H - EdgeTxStyles::MENU_HEADER_HEIGHT);
+    lv_obj_set_size(sep, lv_disp_get_hor_res(nullptr), PageGroup::PAGE_GROUP_TOP_BAR_H - EdgeTxStyles::MENU_HEADER_HEIGHT);
 
     lv_obj_set_style_pad_left(titleLabel, PAD_MEDIUM, LV_PART_MAIN);
     lv_obj_set_style_pad_top(titleLabel, 1, LV_PART_MAIN);
     lv_obj_set_pos(titleLabel, 0, PageGroup::PAGE_GROUP_TOP_BAR_H);
-    lv_obj_set_size(titleLabel, LCD_W, PageGroup::PAGE_GROUP_ALT_TITLE_H);
+    lv_obj_set_size(titleLabel, lv_disp_get_hor_res(nullptr), PageGroup::PAGE_GROUP_ALT_TITLE_H);
 #else
     lv_obj_set_pos(titleLabel, PageHeader::PAGE_TITLE_LEFT, PageHeader::PAGE_TITLE_TOP + EdgeTxStyles::STD_FONT_HEIGHT);
-    lv_obj_set_size(titleLabel, LCD_W - PageHeader::PAGE_TITLE_LEFT - PageGroup::PAGE_GROUP_BACK_BTN_W * 2 - PAD_LARGE * 2, EdgeTxStyles::STD_FONT_HEIGHT);
+    lv_obj_set_size(titleLabel, lv_disp_get_hor_res(nullptr) - PageHeader::PAGE_TITLE_LEFT - PageGroup::PAGE_GROUP_BACK_BTN_W * 2 - PAD_LARGE * 2, EdgeTxStyles::STD_FONT_HEIGHT);
 #endif
 
     setTitle("");
 
 #if VERSION_MAJOR == 2
-    carousel = new Window(this, 
+    carousel = new Window(this,
                           {MENU_HEADER_BUTTONS_LEFT, 0,
-                           LCD_W - MENU_HEADER_BUTTONS_LEFT, EdgeTxStyles::MENU_HEADER_HEIGHT + ICON_EXTRA_H});
+                           lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT, EdgeTxStyles::MENU_HEADER_HEIGHT + ICON_EXTRA_H});
     carousel->padAll(PAD_ZERO);
     carousel->setWindowFlag(NO_FOCUS);
 
@@ -157,10 +171,30 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
 #if VERSION_MAJOR == 2
 coord_t PageGroupHeaderBase::getX(uint8_t idx)
 {
+  coord_t pitch = MENU_HEADER_BUTTON_WIDTH;
+
+#if defined(RADIO_NB4_FAMILY)
+
+  uint8_t visible = 0;
+  for (uint8_t i = 0; i < buttons.size(); i += 1)
+    if (buttons[i]->isVisible()) visible += 1;
+  if (visible > 1) {
+
+    const coord_t room =
+        (coord_t)(lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT);
+    const coord_t width = MENU_HEADER_BUTTON_WIDTH + PAD_THREE;
+    const coord_t needed = (visible - 1) * MENU_HEADER_BUTTON_WIDTH + width;
+    if (needed <= room) {
+      const coord_t spread = (coord_t)((room - width) / (visible - 1));
+      if (spread > pitch) pitch = spread;
+    }
+  }
+#endif
+
   coord_t x = 0;
   for (uint8_t i = 0; i < idx; i += 1)
     if (buttons[i]->isVisible())
-      x += MENU_HEADER_BUTTON_WIDTH;
+      x += pitch;
   return x;
 }
 #endif
@@ -168,13 +202,17 @@ coord_t PageGroupHeaderBase::getX(uint8_t idx)
 void PageGroupHeaderBase::setCurrentIndex(uint8_t index)
 {
   if (index < pages.size()) {
-    currentIndex = index;
 #if VERSION_MAJOR == 2
     if (index < buttons.size()) {
+#if defined(RADIO_NB4_FAMILY)
+      for (auto button : buttons) button->refreshVisibility(true);
+#endif
       buttons[currentIndex]->check(false);
       currentIndex = index;
       buttons[currentIndex]->check(true);
       coord_t x = getX(currentIndex);
+
+      selectedIcon->show(buttons[currentIndex]->isVisible());
       selectedIcon->setPos(x, 0);
       coord_t sx = lv_obj_get_scroll_x(carousel->getLvObj());
       if (x + MENU_HEADER_BUTTON_WIDTH - sx > carousel->width()) {
@@ -184,6 +222,7 @@ void PageGroupHeaderBase::setCurrentIndex(uint8_t index)
       }
     }
 #endif
+    currentIndex = index;
   }
 }
 
@@ -234,19 +273,31 @@ void PageGroupHeaderBase::deleteLater(bool detach, bool trash)
 {
   if (deleted()) return;
 
+  // Tear down controls (and their focus callbacks) while their page data is
+  // still alive. Window deletion itself is deferred until the end of the frame.
+  Window::deleteLater(detach, trash);
   for (uint8_t i = 0; i < pages.size(); i += 1)
     delete pages[i];
   pages.clear();
-
-  Window::deleteLater(detach, trash);
 }
 
 #if VERSION_MAJOR == 2
 void PageGroupHeaderBase::checkEvents()
 {
+#if defined(RADIO_NB4_FAMILY)
+  // Sample settings once per frame; getX() is called for every button and
+  // must use the same visibility snapshot throughout the layout.
+  for (auto button : buttons) button->refreshVisibility();
+#endif
   for (uint8_t i = 0; i < buttons.size(); i += 1) {
     buttons[i]->setPos(getX(i), 0);
   }
+#if defined(RADIO_NB4_FAMILY)
+  if (currentIndex < buttons.size()) {
+    selectedIcon->show(buttons[currentIndex]->isVisible());
+    selectedIcon->setPos(getX(currentIndex), 0);
+  }
+#endif
 
   Window::checkEvents();
 }
@@ -268,13 +319,17 @@ class PageGroupHeader : public PageGroupHeaderBase
 
   void chgTab(int dir) override
   {
+    if (pages.empty()) return;
     int idx = currentIndex;
-    do {
+    for (size_t visited = 0; visited < pages.size(); ++visited) {
       idx += dir;
       if (idx < 0) idx = pages.size() - 1;
       if (idx >= (int)pages.size()) idx = 0;
-    } while (!pages[idx]->isVisible());
-    menu->setCurrentTab(idx);
+      if (pages[idx]->isVisible()) {
+        menu->setCurrentTab(idx);
+        return;
+      }
+    }
   }
 
   void updateLayout()
@@ -295,21 +350,17 @@ class PageGroupHeader : public PageGroupHeaderBase
 //-----------------------------------------------------------------------------
 
 PageGroupBase::PageGroupBase(coord_t bodyY, EdgeTxIcon icon) :
-    NavWindow(MainWindow::instance(), {0, 0, LCD_W, LCD_H}), icon(icon)
+    NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}), icon(icon)
 {
   etx_solid_bg(lvobj);
 
   pushLayer(true);
 
-  body = new Window(this, {0, bodyY, LCD_W, LCD_H - bodyY});
+  body = new Window(this, {0, bodyY, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr) - bodyY});
   body->setWindowFlag(NO_FOCUS);
-  lv_obj_set_style_max_height(body->getLvObj(), LCD_H - bodyY, LV_PART_MAIN);
+  lv_obj_set_style_max_height(body->getLvObj(), lv_disp_get_ver_res(nullptr) - bodyY, LV_PART_MAIN);
   etx_scrollbar(body->getLvObj());
 
-#if defined(DEBUG)
-  lv_obj_add_event_cb(lvobj, on_draw_begin, LV_EVENT_COVER_CHECK, nullptr);
-  lv_obj_add_event_cb(lvobj, on_draw_end, LV_EVENT_DRAW_POST_END, nullptr);
-#endif
 }
 
 void PageGroupBase::checkEvents()
@@ -324,8 +375,23 @@ void PageGroupBase::checkEvents()
 
 void PageGroupBase::onClicked() { Keyboard::hide(false); }
 
+static void closePageOverlays(Window* page)
+{
+  if (!Layer::walk([=](Window* w) { return w == page; })) return;
+  while (!page->deleted()) {
+    auto top = Layer::back();
+    if (!top || top == page) break;
+    top->deleteLater();
+    if (Layer::back() == top) break;
+  }
+}
+
 void PageGroupBase::onCancel()
 {
+  // Dialogs capture editor/page callbacks. Dispose of them before their owner,
+  // including when Back is delivered through a hardware shortcut.
+  closePageOverlays(this);
+  if (deleted()) return;
   if (quickMenu) quickMenu->closeMenu();
   quickMenu = nullptr;
   deleteLater();
@@ -346,13 +412,18 @@ void PageGroupBase::addTab(PageGroupItem* page)
 
 void PageGroupBase::setCurrentTab(unsigned index)
 {
-  if (deleted()) return;
-
-  header->setCurrentIndex(index);
+  if (deleted() || index >= header->tabCount()) return;
 
   PageGroupItem* tab = header->pageTab(index);
+  if (!tab) return;
+#if defined(RADIO_NB4_FAMILY)
+  if (!nb4PageAllowed(tab->pageId())) return;
+#endif
+  header->setCurrentIndex(index);
 
   if (tab != currentTab && !deleted()) {
+    closePageOverlays(this);
+    if (deleted()) return;
     header->setTitle(tab->getTitle().c_str());
 #if VERSION_MAJOR > 2
     header->setIcon(tab->getIcon());
@@ -366,11 +437,6 @@ void PageGroupBase::setCurrentTab(unsigned index)
     if (currentTab)
       currentTab->cleanup();
     currentTab = tab;
-
-#if defined(DEBUG)
-    start_ms = time_get_ms();
-    timepg = true;
-#endif
 
     static lv_style_prop_t remStyles[] = {
         LV_STYLE_FLEX_FLOW,  LV_STYLE_LAYOUT,    LV_STYLE_PAD_ROW,
@@ -387,9 +453,6 @@ void PageGroupBase::setCurrentTab(unsigned index)
     lv_obj_enable_style_refresh(true);
     lv_obj_refresh_style(body->getLvObj(), LV_PART_ANY, LV_STYLE_PROP_ANY);
 
-#if defined(DEBUG)
-    end_ms = time_get_ms();
-#endif
   }
 }
 
@@ -444,9 +507,12 @@ PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages) :
 {
   header = new PageGroupHeader(this, icon, title);
 
+  int tabs = 0;
   for (int i = 0; pages[i].icon < EDGETX_ICONS_COUNT; i += 1) {
-    if (pages[i].create)
+    if (pages[i].create) {
       addTab(pages[i].create(pages[i]));
+      tabs += 1;
+    }
   }
 
 #if defined(HARDWARE_TOUCH)
@@ -454,12 +520,17 @@ PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages) :
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
   addCustomButton(0, 0, [=]() { openMenu(); });
-  addCustomButton(LCD_W - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
+  addCustomButton(lv_disp_get_hor_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
 #endif
 #endif
 
   setCloseHandler([]{
+#if defined(RADIO_NB4_FAMILY)
+    // Closing a settings page is an autosave, not a filesystem handoff.
+    storageCheck(false);
+#else
     storageCheck(true);
+#endif
     ViewMain::instance()->updateTopbarVisibility();
   });
 }
@@ -483,26 +554,26 @@ class TabsGroupHeader : public PageGroupHeaderBase
   {
 #if PORTRAIT && VERSION_MAJOR > 2
     lv_obj_set_pos(parentLabel, PageGroup::PAGE_GROUP_TOP_BAR_H + PAD_LARGE, PAD_MEDIUM * 2);
-    lv_obj_set_size(parentLabel, LCD_W - PageGroup::PAGE_GROUP_TOP_BAR_H * 2 - PAD_LARGE * 2, PageGroup::PAGE_GROUP_TOP_BAR_H - PAD_MEDIUM * 2);
+    lv_obj_set_size(parentLabel, lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_TOP_BAR_H * 2 - PAD_LARGE * 2, PageGroup::PAGE_GROUP_TOP_BAR_H - PAD_MEDIUM * 2);
 
     auto sep = lv_obj_create(lvobj);
     etx_solid_bg(sep);
     lv_obj_set_pos(sep, 0, EdgeTxStyles::MENU_HEADER_HEIGHT);
-    lv_obj_set_size(sep, LCD_W, TabsGroup::TABS_GROUP_TOP_BAR_H - EdgeTxStyles::MENU_HEADER_HEIGHT);
+    lv_obj_set_size(sep, lv_disp_get_hor_res(nullptr), TabsGroup::TABS_GROUP_TOP_BAR_H - EdgeTxStyles::MENU_HEADER_HEIGHT);
 
     lv_obj_set_style_pad_left(titleLabel, PAD_MEDIUM, LV_PART_MAIN);
     lv_obj_set_style_pad_top(titleLabel, 1, LV_PART_MAIN);
     lv_obj_set_pos(titleLabel, 0, TabsGroup::TABS_GROUP_TOP_BAR_H);
-    lv_obj_set_size(titleLabel, LCD_W, TabsGroup::TABS_GROUP_ALT_TITLE_H);
+    lv_obj_set_size(titleLabel, lv_disp_get_hor_res(nullptr), TabsGroup::TABS_GROUP_ALT_TITLE_H);
 #endif
 
 #if VERSION_MAJOR > 2
-    prevBtn = new IconButton(this, ICON_BTN_PREV, LCD_W - PageGroup::PAGE_GROUP_BACK_BTN_W * 3, PAD_MEDIUM, [=]() {
+    prevBtn = new IconButton(this, ICON_BTN_PREV, lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_BACK_BTN_W * 3, PAD_MEDIUM, [=]() {
       prevTab();
       return 0;
     });
 
-    nextBtn = new IconButton(this, ICON_BTN_NEXT, LCD_W - PageGroup::PAGE_GROUP_BACK_BTN_W * 2, PAD_MEDIUM, [=]() {
+    nextBtn = new IconButton(this, ICON_BTN_NEXT, lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_BACK_BTN_W * 2, PAD_MEDIUM, [=]() {
       nextTab();
       return 0;
     });
@@ -545,7 +616,7 @@ TabsGroup::TabsGroup(EdgeTxIcon icon, const char* parentLabel) :
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
   addCustomButton(0, 0, [=]() { openMenu(); });
-  addCustomButton(LCD_W - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
+  addCustomButton(lv_disp_get_hor_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
 #endif
 #endif
 }
@@ -560,10 +631,12 @@ void TabsGroup::openMenu()
     [=](bool close) {
       onCancel();
       if (p) {
-        while (!Layer::back()->isPageGroup()) {
-          Layer::back()->deleteLater();
+        while (auto top = Layer::back()) {
+          if (top->isPageGroup()) break;
+          top->deleteLater();
+          if (Layer::back() == top) break;
         }
-        if (close)
+        if (close && Layer::back() && Layer::back()->isPageGroup())
           Layer::back()->onCancel();
       }
     }, p, qmPage);

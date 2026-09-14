@@ -118,5 +118,8 @@ typedef struct {
   void (*setReceiveCb)(void* ctx, void (*on_receive)(uint8_t*, uint32_t));
   void (*setIdleCb)(void* ctx, void (*on_idle)(void*), void* param);
   void (*setBaudrateCb)(void* ctx, void (*on_set_baudrate)(uint32_t));
+  // Called from the peripheral ISR. Implementations must keep the callback
+  // IRQ-safe; recovery belongs in the owning task.
+  void (*setErrorCb)(void* ctx, void (*on_error)());
 
 } etx_serial_driver_t;

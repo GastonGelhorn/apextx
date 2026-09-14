@@ -321,7 +321,7 @@ class MenuWindowContent : public Window
     header->hide();
 
     body = new MenuBody(this, rect_t{0, 0, w, LV_SIZE_CONTENT});
-    lv_obj_set_style_max_height(body->getLvObj(), LCD_H * 0.8, LV_PART_MAIN);
+    lv_obj_set_style_max_height(body->getLvObj(), lv_disp_get_ver_res(nullptr) * 0.8, LV_PART_MAIN);
   }
 
   virtual void setTitle(const std::string& text)

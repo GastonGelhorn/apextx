@@ -23,6 +23,12 @@
 
 #include "edgetx.h"
 
+#if defined(LCD_DUAL_ORIENTATION)
+  #define SPECTRUM_MAX_W  LCD_MAX_W
+#else
+  #define SPECTRUM_MAX_W  LCD_W
+#endif
+
 #define SET_DIRTY() storageDirty(EE_GENERAL)
 
 LAYOUT_VAL_SCALED(SCALE_HEIGHT, 15)
@@ -303,14 +309,14 @@ class SpectrumWindow : public Window
  protected:
   static LAYOUT_VAL_SCALED(LINE_SPACE, 40) static LAYOUT_VAL_SCALED(WARN_YO, 20)
 
-  lv_point_t maxPts[2 * LCD_W / 4];
-  lv_point_t barPts[2 * LCD_W / 4];
-  lv_point_t peakPts[2 * LCD_W / 4];
+  lv_point_t maxPts[2 * SPECTRUM_MAX_W / 4];
+  lv_point_t barPts[2 * SPECTRUM_MAX_W / 4];
+  lv_point_t peakPts[2 * SPECTRUM_MAX_W / 4];
   lv_point_t hAxisPts[2 * SPECTRUM_HEIGHT / LINE_SPACE];
   lv_point_t vAxisPts[2 * 8];
-  lv_obj_t* maxLines[LCD_W / 4];
-  lv_obj_t* barLines[LCD_W / 4];
-  lv_obj_t* peakLines[LCD_W / 4];
+  lv_obj_t* maxLines[SPECTRUM_MAX_W / 4];
+  lv_obj_t* barLines[SPECTRUM_MAX_W / 4];
+  lv_obj_t* peakLines[SPECTRUM_MAX_W / 4];
   lv_obj_t* vAxisLines[8];
   StaticText* warning = nullptr;
 

@@ -70,6 +70,10 @@ typedef struct {
 } FrFTL;
 
 bool ftlInit(FrFTL* ftl, const FrFTLOps* cb, uint16_t flashSizeInMB);
+// Initialize an erase-block-aligned region whose size is not a whole,
+// supported power-of-two number of MiB.
+bool ftlInitWithSize(FrFTL* ftl, const FrFTLOps* cb,
+                     uint32_t flashSizeInBytes);
 void ftlDeInit(FrFTL* ftl);
 
 bool ftlWrite(FrFTL* ftl, uint32_t startSectorNo, uint32_t noOfSectors, const uint8_t* buf);

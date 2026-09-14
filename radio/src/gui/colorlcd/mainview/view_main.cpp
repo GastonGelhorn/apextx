@@ -23,6 +23,11 @@
 
 #include "model_select.h"
 #include "edgetx.h"
+#include "nb4_health.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_home.h"
+#include "nb4_routes.h"
+#endif
 #include "topbar.h"
 #include "quick_menu.h"
 #include "view_channels.h"
@@ -31,6 +36,7 @@
 
 static void saveViewId(unsigned view)
 {
+  if (nb4HealthRecovery()) return;
   if (view != g_model.view) {
     TRACE("save view #%d", view);
     g_model.view = view;
@@ -151,6 +157,16 @@ rect_t ViewMain::getMainZone(rect_t zone, bool hasTopbar) const
 unsigned ViewMain::getCurrentMainView() const
 {
   return lv_obj_get_scroll_x(tile_view) / width();
+}
+
+void ViewMain::resizeToDisplay()
+{
+  coord_t w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
+  MainWindow::instance()->setRect({0, 0, w, h});
+  setRect({0, 0, w, h});
+  lv_obj_set_size(tile_view, w, h);
+  auto topRect = topbar->getRect(); topRect.w = w;
+  topbar->setRect(topRect);
 }
 
 void ViewMain::setCurrentMainView(unsigned viewId)
@@ -323,7 +339,11 @@ void ViewMain::enableWidgetSelect(bool enable)
 
 void ViewMain::openMenu()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4OpenSettingsModal();
+#else
   viewMainMenu = QuickMenu::openQuickMenu([=]() { viewMainMenu = nullptr; });
+#endif
 }
 
 bool ViewMain::onLongPress()
@@ -363,7 +383,7 @@ bool ViewMain::isAppMode()
 bool ViewMain::isAppMode(unsigned view)
 {
   if (view < MAX_CUSTOM_SCREENS && customScreens[view])
-    return ((Layout*)customScreens[view])->isAppMode();
+    return customScreens[view]->isAppMode();
   return false;
 }
 
@@ -374,7 +394,8 @@ bool ViewMain::hasTopbar()
 
 bool ViewMain::hasTopbar(unsigned view)
 {
-  if (view < MAX_CUSTOM_SCREENS)
+  if (nb4HealthRecovery()) return false;
+  if (view < MAX_CUSTOM_SCREENS && customScreens[view] && customScreens[view]->isLayout())
     return g_model.getScreenLayoutData(view)->options[LAYOUT_OPTION_TOPBAR].value.boolValue;
   return false;
 }

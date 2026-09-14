@@ -20,6 +20,10 @@
  */
 
 #include "standalone_lua.h"
+#include "nb4_health.h"
+#include "nb4_model_compat.h"
+#include "nb4_lua_alloc.h"
+#include "popups.h"
 
 #include "view_main.h"
 #include "dma2d.h"
@@ -53,7 +57,9 @@ static void luaStandaloneHook(lua_State * L, lua_Debug *ar)
 
 static void luaStandaloneInit()
 {
-#if defined(USE_CUSTOM_ALLOCATOR)
+#if defined(RADIO_NB4_FAMILY)
+  lsStandalone = lua_newstate(nb4LuaAlloc, nullptr);
+#elif defined(USE_CUSTOM_ALLOCATOR)
   lsStandalone = lua_newstate(custom_l_alloc, nullptr);   //we use our own allocator!
 #elif defined(LUA_ALLOCATOR_TRACER)
   memclear(&lsStandaloneTrace, sizeof(lsStandaloneTrace));
@@ -83,8 +89,18 @@ static void luaStandaloneInit()
 
 void luaExecStandalone(const char * filename)
 {
+  if ((nb4HealthRecovery() || nb4ModelBlocked())) {
+    POPUP_WARNING(g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's' ?
+      "Recuperacion: scripts desactivados" : "Recovery: scripts disabled");
+    return;
+  }
   if (lsStandalone == nullptr)
     luaStandaloneInit();
+
+  if (lsStandalone == nullptr) {
+    POPUP_WARNING(g_eeGeneral.uiLanguage[1] == 's' ? "Lua: memoria insuficiente" : "Lua: insufficient memory");
+    return;
+  }
 
   PROTECT_LUA() {
     if (luaLoadScriptFileToState(lsStandalone, filename, LUA_SCRIPT_LOAD_MODE) == SCRIPT_OK) {
@@ -124,7 +140,7 @@ void luaExecStandalone(const char * filename)
 StandaloneLuaWindow* StandaloneLuaWindow::_instance;
 
 StandaloneLuaWindow::StandaloneLuaWindow(bool useLvgl, int initFn, int runFn) :
-    Window(MainWindow::instance(), {0, 0, LCD_W, LCD_H}),
+    Window(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}),
     useLvgl(useLvgl), initFunction(initFn), runFunction(runFn)
 {
   setWindowFlag(OPAQUE);
@@ -141,18 +157,18 @@ StandaloneLuaWindow::StandaloneLuaWindow(bool useLvgl, int initFn, int runFn) :
 
     lv_obj_t* lbl = etx_label_create(lvobj, FONT_XL_INDEX);
     lv_obj_set_pos(lbl, 0, 0);
-    lv_obj_set_size(lbl, LCD_W, LCD_H);
+    lv_obj_set_size(lbl, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
     etx_solid_bg(lbl, COLOR_THEME_PRIMARY1_INDEX);
     etx_txt_color(lbl, COLOR_THEME_PRIMARY2_INDEX);
     lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(lbl, (LCD_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(lbl, (lv_disp_get_ver_res(nullptr) - EdgeTxStyles::STD_FONT_HEIGHT) / 2, LV_PART_MAIN);
     lv_label_set_text(lbl, STR_LOADING);
   } else {
-    lcdBuffer = new BitmapBuffer(BMP_RGB565, LCD_W, LCD_H);
+    lcdBuffer = new BitmapBuffer(BMP_RGB565, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
     lcdBuffer->addCanvas(this);
 
     lcdBuffer->clear();
-    lcdBuffer->drawText(LCD_W / 2, LCD_H / 2 - EdgeTxStyles::STD_FONT_HEIGHT, STR_LOADING,
+    lcdBuffer->drawText(lv_disp_get_hor_res(nullptr) / 2, lv_disp_get_ver_res(nullptr) / 2 - EdgeTxStyles::STD_FONT_HEIGHT, STR_LOADING,
                       FONT(L) | COLOR_THEME_PRIMARY2 | CENTERED);
     lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_CLICK_FOCUSABLE);
@@ -348,10 +364,10 @@ bool StandaloneLuaWindow::displayPopup(event_t event, uint8_t type,
   if (useLvgl) return true;
 
   // transparent background
-  lcdBuffer->drawFilledRect(0, 0, LCD_W, LCD_H, SOLID, COLOR_THEME_PRIMARY1,
+  lcdBuffer->drawFilledRect(0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr), SOLID, COLOR_THEME_PRIMARY1,
                             OPACITY(5));
 
-  popupPaint(lcdBuffer, POPUP_X, POPUP_Y, LCD_W - POPUP_X * 2, LCD_H - POPUP_Y * 2, text, info);
+  popupPaint(lcdBuffer, POPUP_X, POPUP_Y, lv_disp_get_hor_res(nullptr) - POPUP_X * 2, lv_disp_get_ver_res(nullptr) - POPUP_Y * 2, text, info);
 
   // TRACE("displayPopup(event = 0x%x)", event);
   if (event == EVT_KEY_BREAK(KEY_EXIT)) {
@@ -388,18 +404,18 @@ void StandaloneLuaWindow::showError(bool firstCall, const char* title, const cha
     lv_obj_set_scroll_dir(lvobj, LV_DIR_NONE);
     errorModal = lv_obj_create(lvobj);
     lv_obj_set_pos(errorModal, lv_obj_get_scroll_x(lvobj), lv_obj_get_scroll_y(lvobj));
-    lv_obj_set_size(errorModal, LCD_W, LCD_H);
+    lv_obj_set_size(errorModal, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
     etx_bg_color(errorModal, COLOR_BLACK_INDEX);
     etx_obj_add_style(errorModal, styles->bg_opacity_75, LV_PART_MAIN);
     errorTitle = etx_label_create(errorModal, FONT_L_INDEX);
     lv_obj_set_pos(errorTitle, ERR_TTL_X, ERR_TTL_Y);
-    lv_obj_set_size(errorTitle, LCD_W - ERR_TTL_X * 2, EdgeTxStyles::UI_ELEMENT_HEIGHT);
+    lv_obj_set_size(errorTitle, lv_disp_get_hor_res(nullptr) - ERR_TTL_X * 2, EdgeTxStyles::UI_ELEMENT_HEIGHT);
     etx_txt_color(errorTitle, COLOR_THEME_PRIMARY2_INDEX);
     etx_solid_bg(errorTitle, COLOR_THEME_SECONDARY1_INDEX);
     etx_obj_add_style(errorTitle, styles->text_align_center, LV_PART_MAIN);
     errorMsg = etx_label_create(errorModal);
     lv_obj_set_pos(errorMsg, ERR_TTL_X, ERR_MSG_Y);
-    lv_obj_set_size(errorMsg, LCD_W - ERR_TTL_X * 2, LCD_H - ERR_MSG_HO);
+    lv_obj_set_size(errorMsg, lv_disp_get_hor_res(nullptr) - ERR_TTL_X * 2, lv_disp_get_ver_res(nullptr) - ERR_MSG_HO);
     lv_obj_set_style_pad_all(errorMsg, PAD_SMALL, LV_PART_MAIN);
     etx_txt_color(errorMsg, COLOR_THEME_PRIMARY1_INDEX);
     etx_solid_bg(errorMsg, COLOR_THEME_SECONDARY3_INDEX);

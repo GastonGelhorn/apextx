@@ -27,11 +27,17 @@
 #include "sdcard_common.h"
 #include "sdcard_yaml.h"
 #include "modelslist.h"
+#include "nb4_car_state.h"
+#include "nb4_model_compat.h"
 
 #include "yaml/yaml_tree_walker.h"
 #include "yaml/yaml_parser.h"
 #include "yaml/yaml_datastructs.h"
 #include "yaml/yaml_bits.h"
+#if defined(RADIO_NB4_FAMILY)
+#include <atomic>
+#include "os/sleep.h"
+#endif
 
 const char * readYamlFile(const char* fullpath, const YamlParserCalls* calls, void* parser_ctx, ChecksumResult* checksum_result)
 {
@@ -52,10 +58,11 @@ const char * readYamlFile(const char* fullpath, const YamlParserCalls* calls, vo
 
     bool first_block = true;
     char buffer[32];
-    while (f_read(&file, buffer, sizeof(buffer)-1, &bytes_read) == FR_OK) {
+    while ((result = f_read(&file, buffer, sizeof(buffer)-1, &bytes_read)) == FR_OK) {
       if (bytes_read == 0)  // EOF
         break;
       total_bytes += bytes_read;
+      buffer[bytes_read] = '\0';
 
       uint16_t skip = 0;
       if(first_block) {
@@ -68,14 +75,13 @@ const char * readYamlFile(const char* fullpath, const YamlParserCalls* calls, vo
           char* startPos = buffer + strlen(skipValue);
           char* endPos = startPos;
           // Advance through the value
-          while((*endPos != '\r') && (*endPos != '\n')) {
-            if (endPos > buffer + bytes_read) {
-              return SDCARD_ERROR(	FR_INT_ERR );
-            }
-            endPos++;
+          while (endPos < buffer + bytes_read && *endPos != '\r' && *endPos != '\n') ++endPos;
+          if (endPos == buffer + bytes_read) {
+            f_close(&file);
+            return SDCARD_ERROR(FR_INT_ERR);
           }
           // Skip trailing newline
-          while((*endPos == '\r') || (*endPos == '\n')) {
+          while(endPos < buffer + bytes_read && ((*endPos == '\r') || (*endPos == '\n'))) {
             *endPos = 0;
             endPos++;
           }
@@ -91,10 +97,13 @@ const char * readYamlFile(const char* fullpath, const YamlParserCalls* calls, vo
       }
 
       if (f_eof(&file)) yp.set_eof();
-      if (yp.parse(buffer + skip, bytes_read - skip) != YamlParser::CONTINUE_PARSING)
-        break;
+      auto parsed = yp.parse(buffer + skip, bytes_read - skip);
+      if (parsed == YamlParser::STRING_OVERFLOW) { result = FR_INVALID_PARAMETER; break; }
+      if (parsed != YamlParser::CONTINUE_PARSING) break;
     }
-    f_close(&file);
+    auto closeResult = f_close(&file);
+    if (result != FR_OK) return SDCARD_ERROR(result);
+    if (closeResult != FR_OK) return SDCARD_ERROR(closeResult);
 
     if (checksum_result != NULL) {
       // Special case to handle "old" files with no checksum field
@@ -126,12 +135,154 @@ static const char * attemptLoad(const char *filename, ChecksumResult* checksum_s
   return readYamlFile(filename, YamlTreeWalker::get_parser_calls(), &tree, checksum_status);
 }
 
+#if defined(RADIO_NB4_FAMILY)
+static constexpr auto radioPrevious = RADIO_PATH "/radio.yml.previous";
+
+static const char* replaceYamlFile(const char* path, const char* temporary)
+{
+    const std::string previous = std::string(path) + ".previous";
+    FILINFO info;
+    auto result = f_stat(path, &info);
+    if (result == FR_OK) {
+      result = f_unlink(previous.c_str());
+      if (result != FR_OK && result != FR_NO_FILE) return SDCARD_ERROR(result);
+      result = f_rename(path, previous.c_str());
+      if (result != FR_OK) return SDCARD_ERROR(result);
+    } else if (result != FR_NO_FILE) {
+      return SDCARD_ERROR(result);
+    }
+    result = f_rename(temporary, path);
+    if (result != FR_OK) {
+      f_rename(previous.c_str(), path);
+      return SDCARD_ERROR(result);
+    }
+    return nullptr;
+}
+
+namespace {
+enum SaveState : uint8_t { SaveIdle, SavePending, SaveWriting, SaveDone, SaveFailed };
+struct SettingsSave {
+  std::atomic<uint8_t> state{SaveIdle};
+  std::string bytes, path, temporary;
+};
+SettingsSave settingsSaves[3]; // radio, model and labels; owned by state transitions
+constexpr uint8_t settingsMasks[] = {EE_GENERAL, EE_MODEL, EE_LABELS};
+
+bool collectSettings(void* ctx, const char* text, size_t length)
+{
+  auto& bytes = *static_cast<std::string*>(ctx);
+  if (bytes.size() + length > 128 * 1024) return false;
+  bytes.append(text, length);
+  return true;
+}
+}
+
+void nb4PollSettings()
+{
+  for (unsigned i = 0; i < 3; ++i) {
+    auto& save = settingsSaves[i];
+    const auto state = save.state.load(std::memory_order_acquire);
+    if (state != SaveDone && state != SaveFailed) continue;
+    if (state == SaveFailed) storageDirty(settingsMasks[i]);
+    save.bytes.clear();
+    save.state.store(SaveIdle, std::memory_order_release);
+  }
+}
+
+uint8_t nb4QueueSettings(uint8_t mask)
+{
+  nb4PollSettings();
+  uint8_t queued = 0;
+  for (unsigned i = 0; i < 3; ++i) {
+    if (!(mask & settingsMasks[i]) || (i == 1 && nb4ModelBlocked())) continue;
+    auto& save = settingsSaves[i];
+    if (save.state.load(std::memory_order_acquire) != SaveIdle) continue;
+    save.bytes.clear();
+    if (i == 2) {
+      save.bytes = modelslist.serialize();
+      save.path = LABELSLIST_YAML_PATH;
+      save.temporary = save.path + ".tmp";
+      queued |= settingsMasks[i];
+      save.state.store(SavePending, std::memory_order_release);
+      continue;
+    }
+    YamlTreeWalker tree;
+    tree.reset(i ? get_modeldata_nodes() : get_radiodata_nodes(),
+               i ? (uint8_t*)&g_model : (uint8_t*)&g_eeGeneral);
+    if (!tree.generate(collectSettings, &save.bytes)) continue;
+    if (!i) {
+      const auto crc = crc16(0, (const uint8_t*)save.bytes.data(), save.bytes.size(), 0xffff);
+      char header[24]; snprintf(header, sizeof(header), "checksum: %u\r\n", crc);
+      save.bytes.insert(0, header);
+      save.path = RADIO_SETTINGS_YAML_PATH;
+      save.temporary = RADIO_SETTINGS_TMPFILE_YAML_PATH;
+      g_eeGeneral.manuallyEdited = false;
+    } else {
+      save.path = std::string(MODELS_PATH) + "/" + g_eeGeneral.currModelFilename;
+      save.temporary = save.path + ".tmp";
+      modelslist.updateCurrentModelCell();
+      mask |= EE_LABELS;
+    }
+    queued |= settingsMasks[i];
+    save.state.store(SavePending, std::memory_order_release);
+  }
+  return queued;
+}
+
+void nb4WritePendingSettings()
+{
+  for (auto& save : settingsSaves) {
+    uint8_t pending = SavePending;
+    if (!save.state.compare_exchange_strong(pending, SaveWriting)) continue;
+    FIL file;
+    auto result = f_open(&file, save.temporary.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
+    bool success = false;
+    if (result == FR_OK) {
+      UINT written = 0;
+      result = f_write(&file, save.bytes.data(), save.bytes.size(), &written);
+      const auto closeResult = f_close(&file);
+      success = result == FR_OK && written == save.bytes.size() && closeResult == FR_OK;
+      if (success) success = !replaceYamlFile(save.path.c_str(), save.temporary.c_str());
+    }
+    save.state.store(success ? SaveDone : SaveFailed, std::memory_order_release);
+  }
+}
+
+bool nb4SettingsPending()
+{
+  for (auto& save : settingsSaves) {
+    const auto state = save.state.load();
+    if (state == SavePending || state == SaveWriting) return true;
+  }
+  return false;
+}
+
+void nb4FlushSettings()
+{
+  do {
+    nb4WritePendingSettings();
+    if (nb4SettingsPending()) sleep_ms(1);
+  } while (nb4SettingsPending());
+  nb4PollSettings();
+}
+#endif
+
 const char * loadRadioSettingsYaml(bool checks)
 {
     // YAML reader
     TRACE("YAML radio settings reader");
 
     ChecksumResult checksum_status;
+#if defined(RADIO_NB4_FAMILY)
+    FILINFO previousInfo;
+    if (f_stat(RADIO_SETTINGS_YAML_PATH, &previousInfo) == FR_NO_FILE &&
+        f_stat(radioPrevious, &previousInfo) == FR_OK) {
+      auto result = f_rename(radioPrevious, RADIO_SETTINGS_YAML_PATH);
+      if (result != FR_OK) return SDCARD_ERROR(result);
+    }
+    // Missing visual fields identify an old file even if defaults were loaded.
+    g_eeGeneral.nb4UiVersion = 0;
+#endif
     const char* p = attemptLoad(RADIO_SETTINGS_YAML_PATH, &checksum_status);
 
     if(!checks)
@@ -151,6 +302,16 @@ const char * loadRadioSettingsYaml(bool checks)
         f_unlink(RADIO_SETTINGS_ERRORFILE_YAML_PATH);
         result = f_rename(RADIO_SETTINGS_YAML_PATH, RADIO_SETTINGS_ERRORFILE_YAML_PATH); // Save corrupted file for later analysis
         p = attemptLoad(RADIO_SETTINGS_TMPFILE_YAML_PATH, &checksum_status);
+#if defined(RADIO_NB4_FAMILY)
+        if (p || checksum_status != ChecksumResult::Success) {
+          p = attemptLoad(radioPrevious, &checksum_status);
+          if (!p && checksum_status == ChecksumResult::Success) {
+            auto copyError = sdCopyFile(radioPrevious, RADIO_SETTINGS_TMPFILE_YAML_PATH);
+            if (copyError) return copyError;
+          }
+        }
+        if (!p && checksum_status != ChecksumResult::Success) p = SDCARD_ERROR(FR_INT_ERR);
+#endif
         if (p == NULL && (checksum_status == ChecksumResult::Success)) {
             f_unlink(RADIO_SETTINGS_YAML_PATH);
             result = f_rename(RADIO_SETTINGS_TMPFILE_YAML_PATH, RADIO_SETTINGS_YAML_PATH);  // Rename previously saved file to active file
@@ -163,6 +324,61 @@ const char * loadRadioSettingsYaml(bool checks)
         ALERT(STR_STORAGE_WARNING, p == NULL ? STR_RADIO_DATA_RECOVERED : STR_RADIO_DATA_UNRECOVERABLE, AU_BAD_RADIODATA);
       }
     }
+    #if defined(RADIO_NB4_FAMILY)
+    if (!p && g_eeGeneral.nb4UiVersion == 0) {
+      // Retain a byte-for-byte copy before the first writer sees new fields.
+      // The primary model screen is never rewritten by this migration.
+      constexpr auto backup = RADIO_PATH "/radio-pre-car-ui.yml";
+      FILINFO info;
+      const char* error = nullptr;
+      if (f_stat(backup, &info) != FR_OK) {
+        constexpr auto temporary = RADIO_PATH "/radio-pre-car-ui.tmp";
+        error = sdCopyFile(RADIO_SETTINGS_YAML_PATH, temporary);
+        if (!error) {
+          auto result = f_rename(temporary, backup);
+          if (result != FR_OK) error = SDCARD_ERROR(result);
+        }
+      }
+      if (error) {
+        g_eeGeneral.nb4Home = NB4_HOME_PREVIOUS;
+        TRACE("NB4 visual migration deferred: %s", error);
+      } else {
+        // Preserve a selected custom theme; only old default names migrate.
+        char theme[SELECTED_THEME_NAME_LEN];
+        memcpy(theme, g_eeGeneral.selectedTheme, sizeof(theme));
+        nb4VisualDefaults();
+        if (theme[0] && strcmp(theme, "EdgeTX Default") && strcmp(theme, "Default"))
+          memcpy(g_eeGeneral.selectedTheme, theme, sizeof(theme));
+        storageDirty(EE_GENERAL);
+      }
+    }
+    if (!p && g_eeGeneral.nb4UiVersion < NB4_UI_VERSION) {
+      constexpr auto backup = RADIO_PATH "/radio-pre-racing-ui-v2.yml";
+      constexpr auto temporary = RADIO_PATH "/radio-pre-racing-ui-v2.tmp";
+      FILINFO info;
+      const char* error = nullptr;
+      if (f_stat(backup, &info) != FR_OK) {
+        error = sdCopyFile(RADIO_SETTINGS_YAML_PATH, temporary);
+        if (!error) {
+          auto result = f_rename(temporary, backup);
+          if (result != FR_OK) error = SDCARD_ERROR(result);
+        }
+      }
+      if (!error) {
+        g_eeGeneral.nb4Home = NB4_HOME_INSTRUMENTS;
+        g_eeGeneral.nb4UiVersion = NB4_UI_VERSION;
+        storageDirty(EE_GENERAL);
+      } else TRACE("ApexTX visual migration deferred: %s", error);
+    }
+    // NB4 models have one stable surface convention: CH1 starts from the
+    // steering wheel and CH2 from the trigger.  The generic EdgeTX channel
+    // order remains untouched; only an old radio-wide preference is normalised
+    // at the NB4 compatibility boundary before another model can inherit it.
+    if (!p && g_eeGeneral.templateSetup != 0) {
+      g_eeGeneral.templateSetup = 0;
+      storageDirty(EE_GENERAL);
+    }
+    #endif
     return p;
 }
 
@@ -170,7 +386,11 @@ const char * loadRadioSettings()
 {
     FILINFO fno;
 
-    if ( (f_stat(RADIO_SETTINGS_YAML_PATH, &fno) != FR_OK) && ((f_stat(RADIO_SETTINGS_TMPFILE_YAML_PATH, &fno) != FR_OK)) ) {
+    if ( (f_stat(RADIO_SETTINGS_YAML_PATH, &fno) != FR_OK) && ((f_stat(RADIO_SETTINGS_TMPFILE_YAML_PATH, &fno) != FR_OK))
+#if defined(RADIO_NB4_FAMILY)
+         && f_stat(radioPrevious, &fno) != FR_OK
+#endif
+       ) {
       // If neither the radio configuraion YAML file or the temporary file generated on write exist, this must be a first run with YAML support.
       // - thus requiring a conversion from binary to YAML.
       return "no radio settings";
@@ -269,28 +489,30 @@ const char* writeFileYaml(const char* path, const YamlNode* root_node, uint8_t* 
 
     // Try to add CRC
     if (checksum != 0) {
-      if (!yaml_writer(&ctx, YAMLFILE_CHECKSUM_TAG_NAME, strlen(YAMLFILE_CHECKSUM_TAG_NAME))) return NULL;
-      if (!yaml_writer(&ctx, ": ", 2)) return SDCARD_ERROR(FR_INVALID_PARAMETER);
-      const char* p_out = NULL;
-      p_out = yaml_unsigned2str((int)checksum);
-      if (p_out && !yaml_writer(&ctx, p_out, strlen(p_out))) return SDCARD_ERROR(FR_INVALID_PARAMETER);
-      yaml_writer(&ctx, "\r\n", 2);
+      const char* p_out = yaml_unsigned2str((int)checksum);
+      if (!p_out || !yaml_writer(&ctx, YAMLFILE_CHECKSUM_TAG_NAME, strlen(YAMLFILE_CHECKSUM_TAG_NAME)) ||
+          !yaml_writer(&ctx, ": ", 2) || !yaml_writer(&ctx, p_out, strlen(p_out)) ||
+          !yaml_writer(&ctx, "\r\n", 2)) {
+        f_close(&file);
+        return SDCARD_ERROR(ctx.result == FR_OK ? FR_INVALID_PARAMETER : ctx.result);
+      }
     }
 
 
     if (!tree.generate(yaml_writer, &ctx)) {
-        if (ctx.result != FR_OK) {
-            f_close(&file);
-            return SDCARD_ERROR(ctx.result);
-        }
+        f_close(&file);
+        return SDCARD_ERROR(ctx.result == FR_OK ? FR_INVALID_PARAMETER : ctx.result);
     }
 
-    f_close(&file);
-    return NULL;
+    result = f_close(&file);
+    return result == FR_OK ? nullptr : SDCARD_ERROR(result);
 }
 
 const char * writeGeneralSettings()
 {
+#if defined(RADIO_NB4_FAMILY)
+    nb4FlushSettings();
+#endif
     TRACE("YAML radio settings writer");
     uint16_t file_checksum = 0;
 
@@ -304,6 +526,9 @@ const char * writeGeneralSettings()
     if (p != NULL) {
         return p;
     }
+#if defined(RADIO_NB4_FAMILY)
+    return replaceYamlFile(RADIO_SETTINGS_YAML_PATH, RADIO_SETTINGS_TMPFILE_YAML_PATH);
+#else
     f_unlink(RADIO_SETTINGS_YAML_PATH);
 
     FRESULT result = f_rename(RADIO_SETTINGS_TMPFILE_YAML_PATH, RADIO_SETTINGS_YAML_PATH);
@@ -311,6 +536,7 @@ const char * writeGeneralSettings()
         return SDCARD_ERROR(result);
 
     return nullptr;
+#endif
 }
 
 
@@ -387,10 +613,23 @@ const char* readModel(const char* filename, uint8_t* buffer, uint32_t size, cons
 
 const char * writeModelYaml(const char* filename)
 {
+#if defined(RADIO_NB4_FAMILY)
+    nb4FlushSettings();
+#endif
+#if defined(RADIO_NB4_FAMILY)
+    if (nb4ModelBlocked()) return nb4ModelCompatibilityIssue();
+#endif
     TRACE("YAML model writer");
     char path[256];
     getModelPath(path, filename);
+#if defined(RADIO_NB4_FAMILY)
+    const std::string temporary = std::string(path) + ".tmp";
+    auto error = writeFileYaml(temporary.c_str(), get_modeldata_nodes(), (uint8_t*)&g_model, 0);
+    if (error) return error;
+    return replaceYamlFile(path, temporary.c_str());
+#else
     return writeFileYaml(path, get_modeldata_nodes(), (uint8_t*)&g_model,0 );
+#endif
 }
 
 #if !defined(STORAGE_MODELSLIST)

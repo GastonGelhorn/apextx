@@ -182,6 +182,15 @@ static const lv_style_const_prop_t outline_props[] = {
 };
 LV_STYLE_CONST_MULTI_INIT(EdgeTxStyles::outline, outline_props);
 
+#if defined(RADIO_NB4_FAMILY)
+
+static const lv_style_const_prop_t focus_shade_props[] = {
+    LV_STYLE_CONST_BG_OPA(LV_OPA_40),
+    LV_STYLE_PROP_INV,
+};
+LV_STYLE_CONST_MULTI_INIT(EdgeTxStyles::focus_shade, focus_shade_props);
+#endif
+
 // States (pressed, disabled, etc)
 static lv_color_t dark_color_filter_cb(const lv_color_filter_dsc_t* f,
                                        lv_color_t c, lv_opa_t opa)
@@ -339,7 +348,11 @@ void EdgeTxStyles::applyColors()
 
   lv_style_set_line_color(&graph_border, makeLvColor(COLOR_THEME_SECONDARY2));
   lv_style_set_line_color(&graph_dashed, makeLvColor(COLOR_THEME_SECONDARY2));
+#if defined(RADIO_NB4_FAMILY)
+  lv_style_set_line_color(&graph_line, makeLvColor(COLOR_THEME_FOCUS));
+#else
   lv_style_set_line_color(&graph_line, makeLvColor(COLOR_THEME_SECONDARY1));
+#endif
   lv_style_set_line_color(&graph_position_line,
                           makeLvColor(COLOR_THEME_ACTIVE));
   lv_style_set_line_color(&div_line, makeLvColor(COLOR_THEME_SECONDARY1));
@@ -421,7 +434,7 @@ void etx_solid_bg(lv_obj_t* obj, LcdColorIndex bg_color,
 void etx_font(lv_obj_t* obj, FontIndex fontIdx, lv_style_selector_t selector)
 {
   // Remove old style first
-  for (int i = 0; i < TOTAL_COLOR_COUNT; i += 1)
+  for (int i = 0; i < FONTS_COUNT; i += 1)
     lv_obj_remove_style(obj, &styles->font[i], selector);
   etx_obj_add_style(obj, styles->font[fontIdx], selector);
 }
@@ -579,8 +592,13 @@ void etx_std_ctrl_colors(lv_obj_t* obj, lv_style_selector_t selector)
   etx_bg_color(obj, COLOR_THEME_ACTIVE_INDEX, selector | LV_STATE_CHECKED);
   etx_txt_color(obj, COLOR_THEME_PRIMARY1_INDEX, selector | LV_STATE_CHECKED);
 
+#if defined(RADIO_NB4_FAMILY)
+
+  etx_bg_color(obj, COLOR_THEME_FOCUS_INDEX, selector | LV_STATE_FOCUSED);
+#else
   etx_obj_add_style(obj, styles->outline_color_focus,
                     selector | LV_STATE_FOCUSED);
+#endif
 }
 
 void etx_std_settings(lv_obj_t* obj, lv_style_selector_t selector)
@@ -589,7 +607,11 @@ void etx_std_settings(lv_obj_t* obj, lv_style_selector_t selector)
   etx_obj_add_style(obj, styles->border_color[COLOR_THEME_SECONDARY2_INDEX], selector);
   etx_obj_add_style(obj, styles->rounded, selector);
 
+#if defined(RADIO_NB4_FAMILY)
+  etx_obj_add_style(obj, styles->focus_shade, selector | LV_STATE_FOCUSED);
+#else
   etx_obj_add_style(obj, styles->outline, selector | LV_STATE_FOCUSED);
+#endif
   etx_obj_add_style(obj, styles->disabled, selector | LV_STATE_DISABLED);
   etx_obj_add_style(obj, styles->pressed, selector | LV_STATE_PRESSED);
 }

@@ -92,6 +92,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_eeGeneral.radioGFDisabled);
     }
   },
+#if !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_MENUTRAINER),
     [](Window* parent, coord_t x, coord_t y) {
@@ -100,6 +101,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_eeGeneral.radioTrainerDisabled);
     }
   },
+#endif
   {
     STR_DEF(STR_MODEL_MENU_TABS), nullptr,
   },
@@ -197,7 +199,7 @@ struct CenterBeepsMatrix : public ButtonMatrix {
       }
     }
 
-    initBtnMap(min((int)btn_cnt, SW_BTNS), btn_cnt);
+    initBtnMap(min((int)btn_cnt, (int)SW_BTNS), btn_cnt);
 
     uint8_t btn_id = 0;
     for (uint8_t i = 0; i < max_analogs; i++) {
@@ -210,7 +212,7 @@ struct CenterBeepsMatrix : public ButtonMatrix {
 
     update();
 
-    setWidth(min((int)btn_cnt, SW_BTNS) * SW_BTN_W + PAD_SMALL);
+    setWidth(min((int)btn_cnt, (int)SW_BTNS) * SW_BTN_W + PAD_SMALL);
 
     uint8_t rows = ((btn_cnt - 1) / SW_BTNS) + 1;
     setHeight((rows * (EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_SMALL)) + PAD_SMALL);
@@ -326,6 +328,7 @@ static SetupLineDef setupLines[] = {
           });
     }
   },
+#if !defined(RADIO_NB4_FAMILY)
   {
     // Model bitmap
     STR_DEF(STR_BITMAP),
@@ -345,17 +348,20 @@ static SetupLineDef setupLines[] = {
                      }, false, STR_BITMAP);
     }
   },
+#endif
 };
 
 void ModelSetupPage::build(Window * window)
 {
   coord_t y = SetupLine::showLines(window, 0, SubPage::EDT_X, padding, setupLines, DIM(setupLines));
 
-  new SetupButtonGroup(window, {0, y, LCD_W - padding * 2, 0}, nullptr, BTN_COLS, PAD_TINY, {
+  new SetupButtonGroup(window, {0, y, lv_disp_get_hor_res(nullptr) - padding * 2, 0}, nullptr, BTN_COLS, PAD_TINY, {
     // Modules
     {STR_DEF(STR_INTERNALRF), []() { new ModulePage(INTERNAL_MODULE); }, []() { return g_model.moduleData[INTERNAL_MODULE].type > 0; }},
+#if !defined(RADIO_NB4_FAMILY)
     {STR_DEF(STR_EXTERNALRF), []() { new ModulePage(EXTERNAL_MODULE); }, []() { return g_model.moduleData[EXTERNAL_MODULE].type > 0; }},
     {STR_DEF(STR_TRAINER), []() { new TrainerPage(); }, []() { return g_model.trainerData.mode > 0; }},
+#endif
     // Timer buttons
     {STR_DEF(STR_TIMER_1), []() { new TimerWindow(0); }, []() { return g_model.timers[0].mode > 0; }},
     {STR_DEF(STR_TIMER_2), []() { new TimerWindow(1); }, []() { return g_model.timers[1].mode > 0; }},

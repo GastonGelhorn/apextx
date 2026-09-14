@@ -34,3 +34,12 @@ class RadioSetupPage: public PageGroupItem
   static LAYOUT_VAL_SCALED(BTN_H, 62)
   static LAYOUT_VAL_SCALED(HATS_MODE_W, 120)
 };
+
+#if defined(RADIO_NB4_FAMILY)
+
+void openRadioSetupSoundPage(const char* subtitle);
+void openRadioSetupAlarmsPage(const char* subtitle);
+void openRadioSetupHapticPage(const char* subtitle);
+void openRadioSetupPowerPage(const char* subtitle);
+void openRadioSetupDateTimePage(const char* subtitle);
+#endif

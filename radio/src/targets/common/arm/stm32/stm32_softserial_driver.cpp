@@ -233,6 +233,7 @@ const etx_serial_driver_t STM32SoftSerialRxDriver = {
   .getBaudrate = nullptr,
   .setReceiveCb = nullptr,
   .setBaudrateCb = nullptr,
+  .setErrorCb = nullptr,
 };
 
 
@@ -307,6 +308,7 @@ static void _conv_byte_8n1(stm32_softserial_tx_state* st, uint8_t b)
 }
 
 
+#if defined(PXX1)
 // PXX1 PWM is encoded as a PWM signal
 // with a fixed ON phase of 9us and a variable OFF phase
 // depending on whether the bit is SET or RESET.
@@ -335,6 +337,7 @@ static void _conv_byte_pxx1(stm32_softserial_tx_state* st, uint8_t b)
 
   st->serial_size -= bits;
 }
+#endif
 
 // stm32_pulse_timer_t based TX implementation
 static void* stm32_softserial_tx_init(void* hw_def, const etx_serial_init* params)
@@ -360,6 +363,7 @@ static void* stm32_softserial_tx_init(void* hw_def, const etx_serial_init* param
     st->conv_byte = _conv_byte_8e2;
     break;
 
+#if defined(PXX1)
   case ETX_Encoding_PXX1_PWM:
     st->conv_byte = _conv_byte_pxx1;
     freq = PXX1_FREQ;
@@ -367,6 +371,7 @@ static void* stm32_softserial_tx_init(void* hw_def, const etx_serial_init* param
     ocmode = LL_TIM_OCMODE_FORCED_INACTIVE;
     cmp_val = PXX1_PWM_ON + __pxx1_get_inverter_comp();
     break;
+#endif
 
   default:
     return nullptr;
@@ -416,7 +421,11 @@ static void stm32_softserial_tx_send_byte(void* ctx, uint8_t byte)
 static uint16_t _fill_pulses(stm32_softserial_tx_state* st)
 {
   st->pulse_ptr = (uint16_t*)st->pulse_buffer;
+#if defined(PXX1)
   bool is_pxx1 = (st->conv_byte == _conv_byte_pxx1);
+#else
+  constexpr bool is_pxx1 = false;
+#endif
 
   uint32_t size = st->serial_size;
 
@@ -486,10 +495,12 @@ static void stm32_softserial_tx_send_buffer(void* ctx, const uint8_t* data, uint
   uint32_t cmp_val = 0;
 
   // dirty hack...
+#if defined(PXX1)
   if (st->conv_byte == _conv_byte_pxx1) {
     ocmode = LL_TIM_OCMODE_PWM1;
     cmp_val = PXX1_PWM_ON + __pxx1_get_inverter_comp();
   }
+#endif
 
   stm32_pulse_start_dma_req(timer, pulses, length, ocmode, cmp_val);
 }
@@ -526,4 +537,5 @@ const etx_serial_driver_t STM32SoftSerialTxDriver = {
   .setReceiveCb = nullptr,
   .setIdleCb = nullptr,
   .setBaudrateCb = nullptr,
+  .setErrorCb = nullptr,
 };

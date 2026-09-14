@@ -25,7 +25,14 @@
 #include "edgetx.h"
 
 static const char* const _afhds3_region[] = {"CE", "FCC"};
+#if defined(RADIO_NB4_FAMILY)
+static const char* const _afhds3_region_nb4[] = {"Sin fijar", "CE (Europa)",
+                                                 "FCC (America)"};
+#endif
 
+#if defined(RADIO_NB4)
+static const char* const _afhds3_phy_mode[] = {"Classic", "Enhanced"};
+#else
 static const char* const _afhds3_phy_mode[] = {
     // V0
     "Classic 18ch",
@@ -35,6 +42,7 @@ static const char* const _afhds3_phy_mode[] = {
     "Fast 8ch",
     "Lora 12ch",
 };
+#endif
 
 #include "pulses/afhds3.h"
 #include "pulses/afhds3_config.h"
@@ -73,13 +81,35 @@ AFHDS3Settings::AFHDS3Settings(Window* parent, const FlexGridLayout& g,
   lv_obj_set_style_grid_cell_x_align(afhds3TypeForm->getLvObj(),
                                      LV_GRID_ALIGN_STRETCH, 0);
 
+#if defined(RADIO_NB4)
+  afhds3PhyMode = new Choice(afhds3TypeForm, rect_t{}, _afhds3_phy_mode, 0, 1,
+      [=]() { return md->afhds3.phyMode >= afhds3::ROUTINE_FLCR1_18CH ? 1 : 0; },
+      [=](int32_t value) {
+        md->afhds3.phyMode = value ? afhds3::ROUTINE_FLCR1_18CH : afhds3::CLASSIC_FLCR1_18CH;
+        SET_DIRTY();
+      });
+#else
   afhds3PhyMode =
       new Choice(afhds3TypeForm, rect_t{}, _afhds3_phy_mode, 0,
                  afhds3::PHYMODE_MAX, GET_SET_DEFAULT(md->afhds3.phyMode));
 
+#endif
+
+#if defined(RADIO_NB4)
+  // The internal NB4 dialect preserves the module's stock regional RF data.
+  // Do not expose the legacy FRM region byte as if it controlled these pages.
+#elif defined(RADIO_NB4_FAMILY)
+
+  afhds3Emi = new Choice(afhds3TypeForm, rect_t{}, _afhds3_region_nb4,
+                         afhds3::LNK_ES_FREE, afhds3::LNK_ES_FCC,
+                         GET_SET_DEFAULT(md->afhds3.emi));
+  afhds3Emi->setAvailableHandler(
+      [](int value) { return value != afhds3::LNK_ES_FREE; });
+#else
   afhds3Emi =
       new Choice(afhds3TypeForm, rect_t{}, _afhds3_region, afhds3::LNK_ES_CE,
                  afhds3::LNK_ES_FCC, GET_SET_DEFAULT(md->afhds3.emi));
+#endif
 
   new TextButton(afhds3TypeForm, rect_t{}, STR_MODULE_OPTIONS, [=]() {
     afhds3::applyModelConfig(moduleIdx);
@@ -94,7 +124,7 @@ AFHDS3Settings::AFHDS3Settings(Window* parent, const FlexGridLayout& g,
 
   bool hasPowerOption = false;
   int maxPower;
-  if (moduleIdx == INTERNAL_MODULE) {    
+  if (moduleIdx == INTERNAL_MODULE) {
   #if defined(RADIO_PL18U) || defined(PCBPA01)
     hasPowerOption = true;
     maxPower = AFHDS3_POWER_500;
@@ -140,16 +170,16 @@ void AFHDS3Settings::showAFHDS3Options()
   afhds3TypeLabel->show();
   afhds3TypeForm->show();
   afhds3PhyMode->update();
-  afhds3Emi->update();
+  if (afhds3Emi) afhds3Emi->update();
   if (moduleIdx == EXTERNAL_MODULE) {
     afhds3RfPower->update();
   }
   if (afhds3::getConfig(moduleIdx)->others.isConnected) {
     afhds3PhyMode->disable();
-    afhds3Emi->disable();
+    if (afhds3Emi) afhds3Emi->disable();
   } else {
     afhds3PhyMode->enable();
-    afhds3Emi->enable();
+    if (afhds3Emi) afhds3Emi->enable();
   }
 }
 

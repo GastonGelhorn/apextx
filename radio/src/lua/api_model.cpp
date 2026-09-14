@@ -235,8 +235,10 @@ static int luaModelSetModule(lua_State *L)
   unsigned int idx = luaL_checkinteger(L, 1);
 
   if (idx < NUM_MODULES) {
+#if defined(MULTIMODULE)
     int protocol = -1;
     int subprotocol = -1;
+#endif
 
     ModuleData & module = g_model.moduleData[idx];
     luaL_checktype(L, -1, LUA_TTABLE);
@@ -454,6 +456,7 @@ static int luaModelGetInputsCount(lua_State *L)
   return 1;
 }
 
+#if defined(FLIGHT_MODES)
 /*luadoc
 @function model.deleteFlightModes()
 
@@ -590,6 +593,7 @@ static int luaModelSetFlightMode(lua_State * L)
   lua_pushinteger(L, 0);
   return 1;
 }
+#endif
 
 /*luadoc
 @function model.getInput(input, line)
@@ -1879,9 +1883,11 @@ LROT_BEGIN(modellib, NULL, 0)
   LROT_FUNCENTRY( getTimer, luaModelGetTimer )
   LROT_FUNCENTRY( setTimer, luaModelSetTimer )
   LROT_FUNCENTRY( resetTimer, luaModelResetTimer )
+#if defined(FLIGHT_MODES)
   LROT_FUNCENTRY( deleteFlightModes, luaModelDeleteFlightModes )
   LROT_FUNCENTRY( getFlightMode, luaModelGetFlightMode )
   LROT_FUNCENTRY( setFlightMode, luaModelSetFlightMode )
+#endif
   LROT_FUNCENTRY( getInputsCount, luaModelGetInputsCount )
   LROT_FUNCENTRY( getInput, luaModelGetInput )
   LROT_FUNCENTRY( insertInput, luaModelInsertInput )

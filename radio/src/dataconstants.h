@@ -41,9 +41,23 @@
 #define LABEL_LENGTH 16
 
 #if defined(COLORLCD)
-  #define MAX_MODELS                   60
-  #define MAX_OUTPUT_CHANNELS          32 // number of real output channels CH1-CH32
-  #define MAX_FLIGHT_MODES             9
+  #if defined(RADIO_NB4_FAMILY)
+
+    #define MAX_MODELS                 10
+  #else
+    #define MAX_MODELS                 60
+  #endif
+  #if defined(RADIO_NB4_FAMILY)
+    #define MAX_OUTPUT_CHANNELS        8
+  #else
+    #define MAX_OUTPUT_CHANNELS        32
+  #endif
+
+  #if defined(RADIO_NB4_FAMILY)
+    #define MAX_FLIGHT_MODES           1
+  #else
+    #define MAX_FLIGHT_MODES           9
+  #endif
   #define MAX_MIXERS                   64
   #define MAX_EXPOS                    64
   #define MAX_LOGICAL_SWITCHES         64
@@ -185,7 +199,7 @@ enum ModuleIndex {
   INTERNAL_MODULE,
   EXTERNAL_MODULE,
   // end of "normal" modules
-  
+
   MAX_MODULES,
 
   // only used for power control

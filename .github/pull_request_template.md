@@ -1,13 +1,11 @@
-<!-- 
-Please note that pull requests are NOT an appropriate way to
-ask questions or for support, and will be closed. 
+## Problem and resulting behavior
 
-For feature requests or bug reports, please use the Issues tab.
-For support, please use the Discussion tab or join us on Discord.
+Describe the concrete problem and the behavior after this change.
 
-Feel free to delete any of the below which does not apply.
--->
+## Validation
 
-Fixes #
+List the automated checks and physical transmitter tests performed.
 
-Summary of changes:
+## Hardware impact
+
+Describe any effect on RF, storage layout, USB, power handling, inputs, or factory-data restoration. Write `None` when the change has no hardware impact.

@@ -23,6 +23,9 @@
 #include "progress.h"
 #include "etx_lv_theme.h"
 #include "keyboard_base.h"
+#include "button.h"
+#include "bitmaps.h"
+#include "static.h"
 
 //-----------------------------------------------------------------------------
 
@@ -46,7 +49,7 @@ BaseDialog::BaseDialog(const char* title,
                        lv_coord_t maxHeight, bool flexLayout) :
     ModalWindow(closeIfClickedOutside)
 {
-  auto content = new Window(this, rect_t{});
+  content = new Window(this, rect_t{});
   content->setWindowFlag(OPAQUE);
   content->padAll(PAD_ZERO);
   content->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO, width, LV_SIZE_CONTENT);
@@ -58,10 +61,81 @@ BaseDialog::BaseDialog(const char* title,
   header->padAll(PAD_SMALL);
   header->show(title != nullptr);
 
+#if defined(RADIO_NB4_FAMILY)
+
+  if (title) {
+
+    const coord_t headerH = EdgeTxStyles::STD_FONT_HEIGHT + PAD_MEDIUM * 2;
+    auto close = new TextButton(content, {0, 0, headerH, headerH}, LV_SYMBOL_CLOSE,
+                                [this]() { onCancel(); return 0; });
+    closeButton = close;
+    lv_obj_add_flag(close->getLvObj(), LV_OBJ_FLAG_FLOATING);
+    lv_obj_align(close->getLvObj(), LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_set_style_bg_opa(close->getLvObj(), LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(close->getLvObj(), 0, LV_PART_MAIN);
+    etx_txt_color(close->getLvObj(), COLOR_THEME_PRIMARY2_INDEX, LV_PART_MAIN);
+
+    lv_group_remove_obj(close->getLvObj());
+  }
+#endif
+
   form = new BaseDialogForm(content, width, flexLayout);
   if (maxHeight != LV_SIZE_CONTENT)
     lv_obj_set_style_max_height(form->getLvObj(), maxHeight - EdgeTxStyles::UI_ELEMENT_HEIGHT, LV_PART_MAIN);
+
+#if defined(RADIO_NB4_FAMILY)
+
+  form->padTop(PAD_LARGE * 2);
+  form->padBottom(PAD_LARGE * 2);
+  form->padLeft(PAD_LARGE);
+  form->padRight(PAD_LARGE);
+
+  form->padRow(PAD_LARGE * 2);
+
+  header->padAll(PAD_MEDIUM);
+#endif
 }
+
+#if defined(RADIO_NB4_FAMILY)
+void BaseDialog::useSectionHeader()
+{
+  // The QuickMenu header treatment, with a real section title in place of a logo.
+  etx_solid_bg(header->getLvObj(), COLOR_THEME_QM_BG_INDEX);
+  etx_txt_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  etx_font(header->getLvObj(), FONT_BOLD_INDEX);
+  header->padLeft(40);
+  header->padRight(40);
+  header->padTop(10);
+  header->padBottom(10);
+  lv_obj_set_style_text_align(header->getLvObj(), LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_border_side(header->getLvObj(), LV_BORDER_SIDE_TOP, 0);
+  lv_obj_set_style_border_width(header->getLvObj(), 3, 0);
+  etx_border_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  if (closeButton) {
+    closeButton->setSize(40, 40);
+    etx_txt_color(closeButton->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  }
+}
+
+void BaseDialog::useBrandHeader()
+{
+  useSectionHeader();
+  header->show(false);
+
+  auto brand = new Window(content, {0, 0, LV_PCT(100), 34});
+  brand->setWindowFlag(OPAQUE);
+  brand->padAll(PAD_ZERO);
+  etx_solid_bg(brand->getLvObj(), COLOR_THEME_QM_BG_INDEX);
+  lv_obj_set_style_border_side(brand->getLvObj(), LV_BORDER_SIDE_TOP, 0);
+  lv_obj_set_style_border_width(brand->getLvObj(), 3, 0);
+  etx_border_color(brand->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  lv_obj_move_to_index(brand->getLvObj(), 0);
+
+  auto logo = new StaticIcon(brand, 0, 0, ICON_TOP_LOGO,
+                             COLOR_THEME_QM_FG_INDEX);
+  lv_obj_center(logo->getLvObj());
+}
+#endif
 
 void BaseDialog::setTitle(const char* title)
 {
@@ -181,7 +255,7 @@ LabelDialog::LabelDialog(const char *label, int length, const char* title,
 
   auto form = new Window(this, rect_t{});
   form->padAll(PAD_ZERO);
-  form->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO, LCD_W * 0.8,
+  form->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO, lv_disp_get_hor_res(nullptr) * 0.8,
                       LV_SIZE_CONTENT);
   etx_solid_bg(form->getLvObj());
   lv_obj_center(form->getLvObj());

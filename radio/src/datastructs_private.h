@@ -598,7 +598,6 @@ PACK(struct ModuleData {
 #define MODEL_HEADER_BITMAP_FIELD
 #endif
 
-
 PACK(struct ModelHeader {
   char      name[LEN_MODEL_NAME]; // must be first for eeLoadModelName
   uint8_t   modelId[NUM_MODULES];
@@ -754,6 +753,49 @@ PACK(struct USBJoystickChData {
 #endif
 });
 
+#if defined(RADIO_NB4_FAMILY)
+
+PACK(struct Nb4RacingData {
+  uint8_t version;
+
+  // Brake
+  uint8_t brakeMax;             // Brake limit, 0..100%
+  uint8_t dragBrake;
+
+  uint8_t absEnable:1;
+  uint8_t absPoint:7;           // Brake percentage at which ABS engages
+  uint8_t absRate;              // Pulses per second
+  uint8_t absRelease;           // Amount released on each pulse, 0..100%
+
+  uint8_t steerSpeedTurn;       // Moving away from center
+  uint8_t steerSpeedReturn;
+
+  // Engine
+  uint8_t idleUp;               // High idle for nitro engines, 0..100%
+  int8_t  engineCutPos;
+
+  int16_t idleUpSw:10 CUST(r_swtchSrc,w_swtchSrc);
+  int16_t engineCutSw:10 CUST(r_swtchSrc,w_swtchSrc);
+
+  // Race
+  int16_t lapSw:10 CUST(r_swtchSrc,w_swtchSrc);   // Button used to mark a lap
+
+  uint16_t lapAnnounce:1;
+
+  uint16_t pitEnabled:1;
+
+  uint8_t lapCount;
+
+  uint8_t steeringChannel:5;
+  uint8_t vehicleType:2;
+  uint8_t spare2:1 SKIP;
+  uint8_t throttleChannel:5;
+
+  uint8_t homeTimer:2;
+  uint8_t spare3:1 SKIP;
+});
+#endif
+
 PACK(struct ModelData {
   // Must match start of PartialModel
   CUST_ATTR(semver,nullptr,w_semver);
@@ -792,7 +834,10 @@ PACK(struct ModelData {
 
   LogicalSwitchData logicalSw[MAX_LOGICAL_SWITCHES];
   CustomFunctionData customFn[MAX_SPECIAL_FUNCTIONS] FUNC(cfn_is_active);
+
+#if !defined(RADIO_NB4_FAMILY)
   SwashRingData swashR FUNC(swash_is_active);
+#endif
   FlightModeData flightModeData[MAX_FLIGHT_MODES] FUNC(fmd_is_active);
 
   NOBACKUP(uint8_t thrTraceSrc CUST(r_thrSrc,w_thrSrc));
@@ -801,7 +846,9 @@ PACK(struct ModelData {
 
   GVarData gvars[MAX_GVARS];
 
+#if !defined(RADIO_NB4_FAMILY)
   NOBACKUP(VarioData varioData);
+#endif
   NOBACKUP(uint8_t rssiSource CUST(r_tele_sensor,w_tele_sensor));
 
   TOPBAR_DATA
@@ -818,7 +865,9 @@ PACK(struct ModelData {
 
   ModuleData moduleData[NUM_MODULES];
   int16_t failsafeChannels[MAX_OUTPUT_CHANNELS];
+#if !defined(RADIO_NB4_FAMILY)
   TrainerModuleData trainerData;
+#endif
 
   SCRIPT_DATA
 
@@ -902,6 +951,18 @@ PACK(struct ModelData {
   uint8_t modelSFDisabled:2 ENUM(ModelOverridableEnable);
   uint8_t modelCustomScriptsDisabled:2 ENUM(ModelOverridableEnable);
   uint8_t modelTelemetryDisabled:2 ENUM(ModelOverridableEnable);
+
+#if defined(RADIO_NB4_FAMILY)
+
+  uint8_t nb4ModelTabsSpare:2 SKIP;
+  Nb4RacingData nb4Racing;
+  // Optional YAML extension: absent fields keep the native physical controls.
+  uint8_t nb4Bindings[12];
+#if defined(RADIO_NB4)
+  // Versioned receiver identity and PWM options, persisted independently per car.
+  uint8_t nb4RfSettings[196];
+#endif
+#endif
 
   SwitchConfig getSwitchType(uint8_t n);
   void setSwitchType(uint8_t n, SwitchConfig v);
@@ -1038,7 +1099,9 @@ PACK(struct RadioData {
   uint8_t keysBacklight:1;
   NOBACKUP(uint8_t dontPlayHello:1);
   uint8_t internalModule ENUM(ModuleType);
+#if !defined(RADIO_NB4_FAMILY)
   NOBACKUP(TrainerData trainer);
+#endif
   NOBACKUP(uint8_t view);            // index of view in main screen
   NOBACKUP(int8_t buzzerModeSkip:2 SKIP); // 2 bits for alignment
   NOBACKUP(uint8_t fai:1);
@@ -1134,6 +1197,17 @@ PACK(struct RadioData {
 
 #if defined(COLORLCD)
   NOBACKUP(char selectedTheme[SELECTED_THEME_NAME_LEN]);
+#if defined(RADIO_NB4_FAMILY)
+  NOBACKUP(uint8_t nb4UiVersion);
+  NOBACKUP(uint8_t nb4Home);
+  NOBACKUP(uint8_t nb4Orientation);
+
+  NOBACKUP(uint8_t nb4Accent);
+  NOBACKUP(uint8_t nb4Cards[28]);
+
+  NOBACKUP(uint8_t nb4LedMode);
+  NOBACKUP(uint8_t nb4LedColor);
+#endif
 #endif
 
 #if defined(COLORLCD)
@@ -1168,6 +1242,12 @@ PACK(struct RadioData {
   // UCHARGER_EN_GPIO high) when USB is plugged in SD/Joystick/VCP mode
   NOBACKUP(uint8_t usbChargeDisabled:1);
   NOBACKUP(uint8_t spare:2 SKIP);
+#elif defined(RADIO_NB4)
+  NOBACKUP(uint8_t nb4TonesOnly:1);  // 0 = voices and tones (default), 1 = tones only
+  /* Deprecated storage compatibility bit. Runtime RF never reads it: framing
+   * comes only from the hash-verified generated hardware profile. */
+  NOBACKUP(uint8_t nb4NoAddress:1);
+  NOBACKUP(uint8_t spare:1 SKIP);
 #else
   NOBACKUP(uint8_t spare:3 SKIP);
 #endif

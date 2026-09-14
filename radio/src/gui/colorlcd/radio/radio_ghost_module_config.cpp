@@ -151,7 +151,7 @@ void RadioGhostModuleConfig::buildBody(Window* window)
 {
   window->padAll(PAD_ZERO);
   new GhostModuleConfigWindow(window,
-                              {0, 0, LCD_W, LCD_H - EdgeTxStyles::MENU_HEADER_HEIGHT - 5});
+                              {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT - 5});
 }
 
 #if defined(HARDWARE_KEYS) && !defined(PCBPL18)

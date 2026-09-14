@@ -280,7 +280,7 @@ class SensorButton : public ListLineButton
     lv_obj_set_pos(valLabel, TSStyle::NUM_W + TSStyle::NAME_W + PAD_LARGE * 3, PAD_MEDIUM/2);
 
     lv_obj_update_layout(lvobj);
-  
+
     lv_obj_enable_style_refresh(true);
     lv_obj_refresh_style(lvobj, LV_PART_ANY, LV_STYLE_PROP_ANY);
   }
@@ -854,6 +854,30 @@ void ModelTelemetryPage::buildSensorList(int8_t focusSensorIndex)
     lastKnownIndex = MAX_TELEMETRY_SENSORS;
 }
 
+static SetupLineDef rxStatAlarmLines[] = {
+    {STR_DEF(STR_LOWALARM),
+     [](Window* parent, coord_t x, coord_t y) {
+       new NumberEdit(parent, {x, y, ModelTelemetryPage::NUM_EDIT_W, 0}, 0, 100,
+                      GET_SET_DEFAULT(g_model.rfAlarms.warning));
+     }},
+    {STR_DEF(STR_CRITICALALARM),
+     [](Window* parent, coord_t x, coord_t y) {
+       new NumberEdit(parent, {x, y, ModelTelemetryPage::NUM_EDIT_W, 0}, 0, 100,
+                      GET_SET_DEFAULT(g_model.rfAlarms.critical));
+     }},
+    {STR_DEF(STR_DISABLE_ALARM),
+     [](Window* parent, coord_t x, coord_t y) {
+       new ToggleSwitch(parent, {x, y, 0, 0},
+                        GET_SET_DEFAULT(g_model.disableTelemetryWarning));
+     }},
+};
+
+void openTelemetryAlarmsPage()
+{
+  new SubPage(ICON_MODEL_TELEMETRY, STR_MENUTELEMETRY, STR_ALARMS_LABEL,
+              rxStatAlarmLines, DIM(rxStatAlarmLines));
+}
+
 void ModelTelemetryPage::build(Window* window)
 {
   window->padAll(PAD_TINY);
@@ -916,7 +940,7 @@ void ModelTelemetryPage::build(Window* window)
         return 0;
       });
 #if TWOCOLBUTTONS
-  deleteAll->setWidth((LCD_W - 16) / 2);
+  deleteAll->setWidth((lv_disp_get_hor_res(nullptr) - 16) / 2);
   lv_obj_set_grid_cell(deleteAll->getLvObj(), LV_GRID_ALIGN_CENTER, 0, 2,
                        LV_GRID_ALIGN_CENTER, 0, 1);
 #else
@@ -941,25 +965,15 @@ void ModelTelemetryPage::build(Window* window)
   // RX stat
   new Subtitle(window, getRxStatLabels()->label);
 
-  line = window->newLine(grid);
-  line->padLeft(PAD_LARGE);
-  new StaticText(line, rect_t{}, STR_LOWALARM);
-  new NumberEdit(line, {0, 0, NUM_EDIT_W, 0}, 0, 100,
-                 GET_SET_DEFAULT(g_model.rfAlarms.warning));
-
-  line = window->newLine(grid);
-  line->padLeft(PAD_LARGE);
-  new StaticText(line, rect_t{}, STR_CRITICALALARM);
-  new NumberEdit(line, {0, 0, NUM_EDIT_W, 0}, 0, 100,
-                 GET_SET_DEFAULT(g_model.rfAlarms.critical));
-
-  line = window->newLine(grid);
-  line->padLeft(PAD_LARGE);
-  new StaticText(line, rect_t{}, STR_DISABLE_ALARM);
-  new ToggleSwitch(line, rect_t{},
-                   GET_SET_DEFAULT(g_model.disableTelemetryWarning));
+  for (auto& alarm : rxStatAlarmLines) {
+    line = window->newLine(grid);
+    line->padLeft(PAD_LARGE);
+    new StaticText(line, rect_t{}, STR_VAL(alarm.title));
+    alarm.createEdit(line, 0, 0);
+  }
 
   // Vario
+#if defined(VARIO)
   new Subtitle(window, STR_VARIO);
 
   FlexGridLayout grid5(col_dsc5, row_dsc);
@@ -1015,6 +1029,7 @@ void ModelTelemetryPage::build(Window* window)
 
   new Choice(line, rect_t{}, STR_VVARIOCENTER, 0, 1,
              GET_SET_DEFAULT(g_model.varioData.centerSilent));
+#endif
 
   // Don't call this before the 'discover' button has been created
   buildSensorList(-1);

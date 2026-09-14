@@ -34,7 +34,13 @@
     #define BOOTLOADER_TITLE               " Bootl." VERSION_PREFIX VERSION VERSION_SUFFIX
   #endif
 #else
-  #if defined(VERSION_TAG)
+  #if defined(RADIO_NB4)
+    #if defined(VERSION_TAG)
+      #define BOOTLOADER_TITLE             " ApexTX Bootloader - " VERSION_TAG
+    #else
+      #define BOOTLOADER_TITLE             " ApexTX Bootloader - " VERSION_PREFIX VERSION VERSION_SUFFIX
+    #endif
+  #elif defined(VERSION_TAG)
     #define BOOTLOADER_TITLE               " EdgeTX Bootloader - " VERSION_TAG
   #else
     #define BOOTLOADER_TITLE               " EdgeTX Bootloader - " VERSION_PREFIX VERSION VERSION_SUFFIX

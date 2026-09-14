@@ -29,7 +29,8 @@
   #if defined(RADIO_NV14_FAMILY)
     #define BL_SELECT_KEY              "[R TRIM]"
     #define BL_EXIT_KEY                "[L TRIM]"
-  #elif defined(RADIO_NB4P)
+  #elif defined(RADIO_NB4_FAMILY)
+
     #define BL_SELECT_KEY              "[SW1A]"
     #define BL_EXIT_KEY                "[SW1B]"
   #elif defined(RADIO_PL18U)
@@ -50,7 +51,7 @@
 #if defined(TRANSLATIONS_CZ)
 
     // ASCII characters only
-    
+
     // Poznamka: nutne pouziti textu bez diakritiky - omezeni velikosti pameti bootloader!
     #define TR_BL_USB_CONNECTED           "USB pripojeno"
     #define TR_BL_USB_PLUGIN              "nebo pripojte USB kabel"
@@ -145,7 +146,7 @@
 #elif defined(TRANSLATIONS_DE)
 
     // ASCII characters only
-    
+
     #define TR_BL_USB_CONNECTED           "USB verbunden"
     #define TR_BL_USB_PLUGIN              "oder USB-Kabel anschl."
     #define TR_BL_USB_MASS_STORE          "fuer den SD-Speicher an"
@@ -193,7 +194,7 @@
 #elif defined(TRANSLATIONS_FR)
 
     // ASCII characters only
-    
+
     #define TR_BL_USB_CONNECTED           "USB Connecte"
     #define TR_BL_USB_PLUGIN              "ou branchez cable USB"
     #define TR_BL_USB_MASS_STORE          "pour stockage de masse"
@@ -240,7 +241,7 @@
 #elif defined(TRANSLATIONS_IT)
 
     // ASCII characters only
-    
+
     #define TR_BL_USB_CONNECTED           "USB Connessa"
     #define TR_BL_USB_PLUGIN              "O connetti il cavo USB"
     #define TR_BL_USB_MASS_STORE          "per memoria di massa"
@@ -277,7 +278,7 @@
     #define TR_BL_ERASE_KEY                "Premi " BL_SELECT_KEY " a lungo per cancellare"
     #define TR_BL_TOGGLE_KEY               BL_SELECT_KEY " per cambiare"
     #define TR_BL_EXIT_KEY                 BL_EXIT_KEY " per uscire"
-    
+
     // Bootloader UF2 specific - ASCII characters only
     #define TR_BL_DFU_MODE                "Modo DFU"
     #define TR_BL_PLUG_USB                "Inserisci connettore USB"
@@ -287,7 +288,7 @@
 #elif defined(TRANSLATIONS_PL)
 
     // ASCII characters only
-    
+
     #define TR_BL_USB_CONNECTED           "USB polaczone"
     #define TR_BL_USB_PLUGIN              "lub podlacz kabel USB"
     #define TR_BL_USB_MASS_STORE          "dla trybu danych"
@@ -381,7 +382,7 @@
 #else  // EN
 
     // ASCII characters only
-    
+
     #define TR_BL_USB_CONNECTED           "USB Connected"
     #define TR_BL_USB_PLUGIN              "Or plug in a USB cable"
     #define TR_BL_USB_MASS_STORE          "for mass storage"

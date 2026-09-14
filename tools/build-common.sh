@@ -167,6 +167,9 @@ get_target_build_options() {
         nb4p)
             BUILD_OPTIONS+="-DPCB=PL18 -DPCBREV=NB4P"
             ;;
+        nb4)
+            BUILD_OPTIONS+="-DPCB=PL18 -DPCBREV=NB4"
+            ;;
         st16)
             BUILD_OPTIONS+="-DPCB=ST16"
             ;;

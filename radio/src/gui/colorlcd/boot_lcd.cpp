@@ -21,6 +21,12 @@
 
 #include "lcd.h"
 
+#if defined(LCD_DUAL_ORIENTATION)
+
+coord_t lcdWidth = LCD_PHYS_W;
+coord_t lcdHeight = LCD_PHYS_H;
+#endif
+
 #include <lvgl/lvgl.h>
 
 #if LV_USE_GPU_STM32_DMA2D
@@ -140,15 +146,21 @@ void lcdInitDisplayDriver()
   lv_draw_ctx_t* draw_ctx = disp_drv.draw_ctx;
   lcd.setDrawCtx(draw_ctx);
 
+#if defined(LCD_DUAL_ORIENTATION)
+
+  static lv_area_t screen_area = {0, 0, LCD_PHYS_W - 1, LCD_PHYS_H - 1};
+  (void)lcdWidth;
+#else
   static lv_area_t screen_area = {0, 0, LCD_W - 1, LCD_H - 1};
+#endif
   draw_ctx->buf = disp_drv.draw_buf->buf_act;
   draw_ctx->buf_area = &screen_area;
   draw_ctx->clip_area = &screen_area;
-    
+
 #if defined(LCD_BACKLIGHT_INIT_DELAY_MS)
   delay_ms(LCD_BACKLIGHT_INIT_DELAY_MS);
 #endif
-    
+
   backlightInit();
 }
 

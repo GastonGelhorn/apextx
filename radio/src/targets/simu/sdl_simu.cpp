@@ -79,6 +79,9 @@
 static SDL_Window* window;
 static SDL_Renderer* renderer;
 static SDL_Texture* screen_frame_buffer;
+#if defined(RADIO_NB4_FAMILY)
+static unsigned screenWidth = LCD_PHYS_W, screenHeight = LCD_PHYS_H;
+#endif
 
 static GimbalState stick_left = {{0.5f, 0.5f}, false};
 static GimbalState stick_right = {{0.5f, 0.5f}, false};
@@ -546,11 +549,19 @@ static ImVec2 calc_screen_size()
   float width, height;
 
   height = ImGui::GetContentRegionAvail().y;
+#if defined(RADIO_NB4_FAMILY)
+  width = height * float(screenWidth) / float(screenHeight);
+#else
   width = height * float(LCD_W) / float(LCD_H);
+#endif
 
   if (width > ImGui::GetContentRegionAvail().x) {
     width = ImGui::GetContentRegionAvail().x;
+#if defined(RADIO_NB4_FAMILY)
+    height = width * float(screenHeight) / float(screenWidth);
+#else
     height = width * float(LCD_H) / float(LCD_W);
+#endif
   }
 
   return {width, height};
@@ -559,8 +570,13 @@ static ImVec2 calc_screen_size()
 static void draw_screen()
 {
   const ScreenDesc desc = {
+#if defined(RADIO_NB4_FAMILY)
+    .width = int(screenWidth),
+    .height = int(screenHeight),
+#else
     .width = LCD_W,
     .height = LCD_H,
+#endif
     .is_dot_matrix = LCD_DEPTH == 1 || LCD_DEPTH == 4,
   };
 
@@ -573,6 +589,11 @@ static void draw_screen()
   ScreenMouseEvent touch_event;
   if (SimuScreenMouseEvent(desc, touch_event)) {
     if (touch_event.type == ScreenMouseEventType::MouseDown) {
+#if defined(RADIO_NB4_FAMILY)
+      if (screenWidth > screenHeight)
+        touchPanelDown(touch_event.pos_y, LCD_PHYS_H - 1 - touch_event.pos_x);
+      else
+#endif
       touchPanelDown(touch_event.pos_x, touch_event.pos_y);
     } else {
       touchPanelUp();
@@ -594,6 +615,20 @@ static int calc_min_width()
 
 static void redraw()
 {
+#if defined(RADIO_NB4_FAMILY)
+  unsigned w, h;
+  lcdPresentedSize(&w, &h);
+  if (w != screenWidth || h != screenHeight) {
+    auto replacement = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+      SDL_TEXTUREACCESS_STREAMING, w, h);
+    if (replacement) {
+      SDL_DestroyTexture(screen_frame_buffer);
+      screen_frame_buffer = replacement;
+      SDL_SetTextureBlendMode(screen_frame_buffer, SDL_BLENDMODE_BLEND);
+      screenWidth = w; screenHeight = h;
+    }
+  }
+#endif
   refreshDisplay(screen_frame_buffer);
     
   // Start the Dear ImGui frame

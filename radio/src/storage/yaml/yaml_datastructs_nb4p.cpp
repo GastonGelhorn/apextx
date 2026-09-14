@@ -40,12 +40,6 @@ const struct YamlIdStr enum_ModuleType[] = {
   {  MODULE_TYPE_LEMON_DSMP, "TYPE_LEMON_DSMP"  },
   {  0, NULL  }
 };
-const struct YamlIdStr enum_TrainerMultiplex[] = {
-  {  TRAINER_OFF, "OFF"  },
-  {  TRAINER_ADD, "ADD"  },
-  {  TRAINER_REPL, "REPL"  },
-  {  0, NULL  }
-};
 const struct YamlIdStr enum_BeeperMode[] = {
   {  e_mode_quiet, "mode_quiet"  },
   {  e_mode_alarms, "mode_alarms"  },
@@ -141,6 +135,9 @@ const struct YamlIdStr enum_QMPage[] = {
   {  QM_TOOLS_LS_MON, "TOOLS_LS_MON"  },
   {  QM_TOOLS_STATS, "TOOLS_STATS"  },
   {  QM_TOOLS_DEBUG, "TOOLS_DEBUG"  },
+  {  QM_MODEL_NB4_RACING, "MODEL_NB4_RACING"  },
+  {  QM_MODEL_NB4_STEERING, "MODEL_NB4_STEERING"  },
+  {  QM_MODEL_NB4_THROTTLE, "MODEL_NB4_THROTTLE"  },
   {  0, NULL  }
 };
 const struct YamlIdStr enum_TimerModes[] = {
@@ -186,14 +183,6 @@ const struct YamlIdStr enum_LogicalSwitchesFunctions[] = {
   {  LS_FUNC_ADIFFEGREATER, "FUNC_ADIFFEGREATER"  },
   {  LS_FUNC_TIMER, "FUNC_TIMER"  },
   {  LS_FUNC_STICKY, "FUNC_STICKY"  },
-  {  0, NULL  }
-};
-const struct YamlIdStr enum_SwashType[] = {
-  {  SWASH_TYPE_NONE, "TYPE_NONE"  },
-  {  SWASH_TYPE_120, "TYPE_120"  },
-  {  SWASH_TYPE_120X, "TYPE_120X"  },
-  {  SWASH_TYPE_140, "TYPE_140"  },
-  {  SWASH_TYPE_90, "TYPE_90"  },
   {  0, NULL  }
 };
 const struct YamlIdStr enum_SwitchSources[] = {
@@ -268,23 +257,6 @@ static const struct YamlNode struct_CalibData[] = {
   YAML_SIGNED( "spanPos", 16 ),
   YAML_END
 };
-static const struct YamlNode struct_signed_16[] = {
-  YAML_IDX,
-  YAML_SIGNED( "val", 16 ),
-  YAML_END
-};
-static const struct YamlNode struct_TrainerMix[] = {
-  YAML_IDX,
-  YAML_UNSIGNED( "srcChn", 6 ),
-  YAML_ENUM("mode", 2, enum_TrainerMultiplex, NULL),
-  YAML_SIGNED( "studWeight", 8 ),
-  YAML_END
-};
-static const struct YamlNode struct_TrainerData[] = {
-  YAML_ARRAY("calib", 16, 4, struct_signed_16, NULL),
-  YAML_ARRAY("mix", 16, 4, struct_TrainerMix, NULL),
-  YAML_END
-};
 static const struct YamlNode struct_anonymous_1[] = {
   YAML_STRING("name", 8),
   YAML_END
@@ -324,6 +296,11 @@ static const struct YamlNode struct_switchDef[] = {
   YAML_PADDING( 5 ),
   YAML_END
 };
+static const struct YamlNode struct_unsigned_8[] = {
+  YAML_IDX,
+  YAML_UNSIGNED( "val", 8 ),
+  YAML_END
+};
 static const struct YamlNode struct_QuickMenuPage[] = {
   YAML_IDX,
   YAML_ENUM("shortcut", 8, enum_QMPage, NULL),
@@ -348,7 +325,6 @@ static const struct YamlNode struct_RadioData[] = {
   YAML_UNSIGNED( "keysBacklight", 1 ),
   YAML_UNSIGNED( "dontPlayHello", 1 ),
   YAML_ENUM("internalModule", 8, enum_ModuleType, NULL),
-  YAML_STRUCT("trainer", 128, struct_TrainerData, NULL),
   YAML_UNSIGNED( "view", 8 ),
   YAML_PADDING( 2 ),
   YAML_UNSIGNED( "fai", 1 ),
@@ -419,6 +395,13 @@ static const struct YamlNode struct_RadioData[] = {
   YAML_SIGNED( "uartSampleMode", 2 ),
   YAML_UNSIGNED( "stickDeadZone", 3 ),
   YAML_STRING("selectedTheme", 26),
+  YAML_UNSIGNED( "nb4UiVersion", 8 ),
+  YAML_UNSIGNED( "nb4Home", 8 ),
+  YAML_UNSIGNED( "nb4Orientation", 8 ),
+  YAML_UNSIGNED( "nb4Accent", 8 ),
+  YAML_ARRAY("nb4Cards", 8, 28, struct_unsigned_8, NULL),
+  YAML_UNSIGNED( "nb4LedMode", 8 ),
+  YAML_UNSIGNED( "nb4LedColor", 8 ),
   YAML_UNSIGNED( "labelSingleSelect", 1 ),
   YAML_UNSIGNED( "labelMultiMode", 1 ),
   YAML_UNSIGNED( "favMultiMode", 1 ),
@@ -443,11 +426,6 @@ static const struct YamlNode struct_RadioData[] = {
   YAML_UNSIGNED( "pwrOffIfInactive", 8 ),
   YAML_ARRAY("keyShortcuts", 8, 6, struct_QuickMenuPage, NULL),
   YAML_ARRAY("qmFavorites", 8, 12, struct_QuickMenuPage, NULL),
-  YAML_END
-};
-static const struct YamlNode struct_unsigned_8[] = {
-  YAML_IDX,
-  YAML_UNSIGNED( "val", 8 ),
   YAML_END
 };
 static const struct YamlNode struct_ModelHeader[] = {
@@ -555,21 +533,15 @@ static const struct YamlNode struct_LogicalSwitchData[] = {
   YAML_UNSIGNED( "duration", 8 ),
   YAML_END
 };
-static const struct YamlNode struct_SwashRingData[] = {
-  YAML_ENUM("type", 8, enum_SwashType, NULL),
-  YAML_UNSIGNED( "value", 8 ),
-  YAML_UNSIGNED_CUST( "collectiveSource", 8, r_mixSrcRaw, w_mixSrcRaw ),
-  YAML_UNSIGNED_CUST( "aileronSource", 8, r_mixSrcRaw, w_mixSrcRaw ),
-  YAML_UNSIGNED_CUST( "elevatorSource", 8, r_mixSrcRaw, w_mixSrcRaw ),
-  YAML_SIGNED( "collectiveWeight", 8 ),
-  YAML_SIGNED( "aileronWeight", 8 ),
-  YAML_SIGNED( "elevatorWeight", 8 ),
-  YAML_END
-};
 static const struct YamlNode struct_trim_t[] = {
   YAML_IDX,
   YAML_SIGNED( "value", 11 ),
   YAML_UNSIGNED( "mode", 5 ),
+  YAML_END
+};
+static const struct YamlNode struct_signed_16[] = {
+  YAML_IDX,
+  YAML_SIGNED( "val", 16 ),
   YAML_END
 };
 static const struct YamlNode struct_FlightModeData[] = {
@@ -592,15 +564,6 @@ static const struct YamlNode struct_GVarData[] = {
   YAML_UNSIGNED( "prec", 1 ),
   YAML_UNSIGNED( "unit", 2 ),
   YAML_PADDING( 4 ),
-  YAML_END
-};
-static const struct YamlNode struct_VarioData[] = {
-  YAML_UNSIGNED_CUST( "source", 7, r_tele_sensor, w_tele_sensor ),
-  YAML_UNSIGNED( "centerSilent", 1 ),
-  YAML_SIGNED( "centerMax", 8 ),
-  YAML_SIGNED( "centerMin", 8 ),
-  YAML_SIGNED( "min", 8 ),
-  YAML_SIGNED( "max", 8 ),
   YAML_END
 };
 static const struct YamlNode struct_RssiAlarmData[] = {
@@ -719,16 +682,6 @@ static const struct YamlNode struct_ModuleData[] = {
   YAML_ENUM("failsafeMode", 4, enum_FailsafeModes, NULL),
   YAML_PADDING( 4 ),
   YAML_UNION("mod", 200, union_anonymous_4_elmts, select_mod_type),
-  YAML_END
-};
-static const struct YamlNode struct_TrainerModuleData[] = {
-  YAML_UNSIGNED_CUST( "mode", 8, r_trainerMode, w_trainerMode ),
-  YAML_UNSIGNED( "channelsStart", 8 ),
-  YAML_SIGNED( "channelsCount", 8 ),
-  YAML_SIGNED( "frameLength", 8 ),
-  YAML_SIGNED( "delay", 6 ),
-  YAML_UNSIGNED( "pulsePol", 1 ),
-  YAML_PADDING( 1 ),
   YAML_END
 };
 static const struct YamlNode union_ScriptDataInput_elmts[] = {
@@ -884,6 +837,32 @@ static const struct YamlNode struct_USBJoystickChData[] = {
   YAML_UNSIGNED( "switch_npos", 3 ),
   YAML_END
 };
+static const struct YamlNode struct_Nb4RacingData[] = {
+  YAML_UNSIGNED( "version", 8 ),
+  YAML_UNSIGNED( "brakeMax", 8 ),
+  YAML_UNSIGNED( "dragBrake", 8 ),
+  YAML_UNSIGNED( "absEnable", 1 ),
+  YAML_UNSIGNED( "absPoint", 7 ),
+  YAML_UNSIGNED( "absRate", 8 ),
+  YAML_UNSIGNED( "absRelease", 8 ),
+  YAML_UNSIGNED( "steerSpeedTurn", 8 ),
+  YAML_UNSIGNED( "steerSpeedReturn", 8 ),
+  YAML_UNSIGNED( "idleUp", 8 ),
+  YAML_SIGNED( "engineCutPos", 8 ),
+  YAML_SIGNED_CUST( "idleUpSw", 10, r_swtchSrc, w_swtchSrc ),
+  YAML_SIGNED_CUST( "engineCutSw", 10, r_swtchSrc, w_swtchSrc ),
+  YAML_SIGNED_CUST( "lapSw", 10, r_swtchSrc, w_swtchSrc ),
+  YAML_UNSIGNED( "lapAnnounce", 1 ),
+  YAML_UNSIGNED( "pitEnabled", 1 ),
+  YAML_UNSIGNED( "lapCount", 8 ),
+  YAML_UNSIGNED( "steeringChannel", 5 ),
+  YAML_UNSIGNED( "vehicleType", 2 ),
+  YAML_PADDING( 1 ),
+  YAML_UNSIGNED( "throttleChannel", 5 ),
+  YAML_UNSIGNED( "homeTimer", 2 ),
+  YAML_PADDING( 1 ),
+  YAML_END
+};
 static const struct YamlNode struct_ModelData[] = {
   YAML_CUSTOM("semver",nullptr,w_semver),
   YAML_STRUCT("header", 1048, struct_ModelHeader, NULL),
@@ -907,19 +886,17 @@ static const struct YamlNode struct_ModelData[] = {
   YAML_SIGNED( "customThrottleWarningPosition", 8 ),
   YAML_UNSIGNED( "beepANACenter", 16 ),
   YAML_ARRAY("mixData", 160, 64, struct_MixData, NULL),
-  YAML_ARRAY("limitData", 104, 32, struct_LimitData, NULL),
+  YAML_ARRAY("limitData", 104, 8, struct_LimitData, NULL),
   YAML_ARRAY("expoData", 144, 64, struct_ExpoData, NULL),
   YAML_ARRAY("curves", 32, 32, struct_CurveHeader, NULL),
   YAML_ARRAY("points", 8, 512, struct_signed_8, NULL),
   YAML_ARRAY("logicalSw", 72, 64, struct_LogicalSwitchData, NULL),
   YAML_ARRAY("customFn", 88, 64, struct_CustomFunctionData, cfn_is_active),
-  YAML_STRUCT("swashR", 64, struct_SwashRingData, swash_is_active),
-  YAML_ARRAY("flightModeData", 384, 9, struct_FlightModeData, fmd_is_active),
+  YAML_ARRAY("flightModeData", 384, 1, struct_FlightModeData, fmd_is_active),
   YAML_UNSIGNED_CUST( "thrTraceSrc", 8, r_thrSrc, w_thrSrc ),
   YAML_CUSTOM("switchWarningState",r_swtchWarn,nullptr),
   YAML_ARRAY("switchWarning", 2, 32, struct_swtchWarn, nullptr),
   YAML_ARRAY("gvars", 56, 9, struct_GVarData, NULL),
-  YAML_STRUCT("varioData", 40, struct_VarioData, NULL),
   YAML_UNSIGNED_CUST( "rssiSource", 8, r_tele_sensor, w_tele_sensor ),
   YAML_STRUCT("rssiAlarms", 0, struct_RssiAlarmData, NULL),
   YAML_STRUCT("rfAlarms", 16, struct_RFAlarmData, NULL),
@@ -928,8 +905,7 @@ static const struct YamlNode struct_ModelData[] = {
   YAML_ENUM("jitterFilter", 2, enum_ModelOverridableEnable, NULL),
   YAML_PADDING( 1 ),
   YAML_ARRAY("moduleData", 232, 2, struct_ModuleData, NULL),
-  YAML_ARRAY("failsafeChannels", 16, 32, struct_signed_16, NULL),
-  YAML_STRUCT("trainerData", 40, struct_TrainerModuleData, NULL),
+  YAML_ARRAY("failsafeChannels", 16, 8, struct_signed_16, NULL),
   YAML_ARRAY("scriptsData", 192, 9, struct_ScriptData, NULL),
   YAML_ARRAY("inputNames", 32, 32, struct_string_32, NULL),
   YAML_UNSIGNED( "potsWarnEnabled", 16 ),
@@ -943,7 +919,7 @@ static const struct YamlNode struct_ModelData[] = {
   YAML_UNSIGNED( "usbJoystickExtMode", 1 ),
   YAML_ENUM("usbJoystickIfMode", 3, enum_USBJoystickIfMode, NULL),
   YAML_UNSIGNED( "usbJoystickCircularCut", 4 ),
-  YAML_ARRAY("usbJoystickCh", 16, 26, struct_USBJoystickChData, NULL),
+  YAML_ARRAY("usbJoystickCh", 16, 8, struct_USBJoystickChData, NULL),
   YAML_ENUM("radioThemesDisabled", 2, enum_ModelOverridableEnable, NULL),
   YAML_ENUM("radioGFDisabled", 2, enum_ModelOverridableEnable, NULL),
   YAML_ENUM("radioTrainerDisabled", 2, enum_ModelOverridableEnable, NULL),
@@ -955,6 +931,9 @@ static const struct YamlNode struct_ModelData[] = {
   YAML_ENUM("modelSFDisabled", 2, enum_ModelOverridableEnable, NULL),
   YAML_ENUM("modelCustomScriptsDisabled", 2, enum_ModelOverridableEnable, NULL),
   YAML_ENUM("modelTelemetryDisabled", 2, enum_ModelOverridableEnable, NULL),
+  YAML_PADDING( 2 ),
+  YAML_STRUCT("nb4Racing", 136, struct_Nb4RacingData, NULL),
+  YAML_ARRAY("nb4Bindings", 8, 12, struct_unsigned_8, NULL),
   YAML_END
 };
 static const struct YamlNode struct_PartialModel[] = {
@@ -984,4 +963,3 @@ const YamlNode* get_partialmodel_nodes()
 {
    return &__PartialModel_root_node;
 }
-

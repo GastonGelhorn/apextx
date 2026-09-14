@@ -84,6 +84,12 @@ SWITCH_CONFIG = {
         "SA" : { "default": "TOGGLE" },
         "SB" : { "default": "TOGGLE" }
     },
+    # SA = SW2 and SB = SW3. Both are momentary buttons on the same channel 10
+    # resistor ladder, rather than a three-position switch.
+    "nb4": {
+        "SA" : { "default": "TOGGLE" },
+        "SB" : { "default": "TOGGLE" }
+    },
     "st16": {
         "SA": { "default": "2POS"   },
         "SB": { "default": "3POS"   },

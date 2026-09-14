@@ -19,6 +19,9 @@
  * GNU General Public License for more details.
  */
 #include "theme_manager.h"
+#include "nb4_health.h"
+#include "nb4_palettes.h"
+#include "nb4_car_state.h"
 
 #include "hal/abnormal_reboot.h"
 #include "../../storage/sdcard_common.h"
@@ -41,12 +44,17 @@ ThemePersistance ThemePersistance::themePersistance;
 
 static uint32_t r_color(const YamlNode* node, const char* val, uint8_t val_len)
 {
-  if ((strncmp(val, RGBSTRING, strlen(RGBSTRING)) == 0) &&
+  if ((val_len >= 6) && (strncmp(val, RGBSTRING, strlen(RGBSTRING)) == 0) &&
       (val[val_len - 1] == ')')) {
+    char text[32];
+    if (val_len >= sizeof(text)) return 0;
+    memcpy(text, val, val_len);
+    text[val_len] = 0;
     int r, g, b;
-    int numTokens = sscanf(val, "RGB(%i,%i,%i)", &r, &g, &b);
+    int numTokens = sscanf(text, "RGB(%i,%i,%i)", &r, &g, &b);
 
-    if (numTokens == 3) return RGB(r, g, b);
+    if (numTokens == 3 && r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255)
+      return RGB(r, g, b);
 
   } else if (val_len > 2 && val[0] == '0' && (val[1] == 'x' || val[1] == 'X')) {
     val += 2;
@@ -201,6 +209,13 @@ void ThemeFile::serialize()
 
 void ThemeFile::deSerialize()
 {
+#if defined(RADIO_NB4_FAMILY)
+  FILINFO fileInfo;
+  if (f_stat(path.c_str(), &fileInfo) != FR_OK || fileInfo.fsize > 16384) {
+    valid = false;
+    return;
+  }
+#endif
   struct YAMLTheme yt;
   struct YamlNode themeRootNode = YAML_ROOT(r_struct_YAMLTheme);
 
@@ -214,6 +229,7 @@ void ThemeFile::deSerialize()
                           &tree, nullptr);
 
   if (err == nullptr) {
+    if (!yt.summary.name[0]) { valid = false; return; }
     name = yt.summary.name;
     author = yt.summary.author;
     info = yt.summary.info;
@@ -222,7 +238,8 @@ void ThemeFile::deSerialize()
           ColorEntry{(LcdColorIndex)(i), yt.colors.colors[i]});
     }
   } else {
-    ALERT(STR_WARNING, err, AU_WARNING1);
+    valid = false;
+    TRACE("Theme: skipping invalid file %s: %s", path.c_str(), err);
   }
 }
 
@@ -250,8 +267,14 @@ void ThemeFile::applyBackground()
   auto pos = backgroundImageFileName.rfind('/');
   if (pos != std::string::npos) {
     auto rootDir = backgroundImageFileName.substr(0, pos + 1);
-    rootDir = rootDir + "background_" + std::to_string(LCD_W) + "x" +
-              std::to_string(LCD_H) + ".png";
+#if defined(LCD_DUAL_ORIENTATION)
+
+    rootDir = rootDir + "background_" + std::to_string(LCD_PHYS_W) + "x" +
+              std::to_string(LCD_PHYS_H) + ".png";
+#else
+    rootDir = rootDir + "background_" + std::to_string(lv_disp_get_hor_res(nullptr)) + "x" +
+              std::to_string(lv_disp_get_ver_res(nullptr)) + ".png";
+#endif
 
     if (isFileAvailable(rootDir.c_str())) {
       instance->setBackgroundImage((char*)rootDir.c_str());
@@ -275,8 +298,16 @@ void ThemeFile::applyBackground()
 void ThemeFile::applyTheme()
 {
   applyColors();
+#if defined(RADIO_NB4_FAMILY)
+
+  nb4ApplyAccent();
+#endif
   applyBackground();
   styles->applyColors();
+  // applyColors() mutates the SHARED lv_style_t objects that every etx_* helper
+  // attached by reference, but LVGL does not know they changed. Without this,
+  // switching palette only repaints windows that happen to be rebuilt.
+  lv_obj_report_style_change(nullptr);
 }
 
 // avoid leaking memory
@@ -296,14 +327,21 @@ void ThemePersistance::scanThemeFolder(char* themeFolder)
   strAppend(s, "/theme.yml", FF_MAX_LFN - (s - themePath));
   if (isFileAvailable(themePath, true)) {
     TRACE("scanForThemes: found file %s", themePath);
-    themes.emplace_back(new ThemeFile(themePath));
+    auto theme = new ThemeFile(themePath);
+#if defined(RADIO_NB4_FAMILY)
+    // Packaged reference palettes must not duplicate the integrated themes.
+    if (nb4PaletteIndexByName(theme->getName().c_str()) >= 0) {
+      delete theme;
+      return;
+    }
+#endif
+    if (theme->isValid()) themes.emplace_back(theme);
+    else delete theme;
   }
 }
 
 void ThemePersistance::scanForThemes()
 {
-  clearThemes();
-
   DIR dir;
   FILINFO fno;
 
@@ -317,7 +355,7 @@ void ThemePersistance::scanForThemes()
     TRACE("scanForThemes: open successful");
     // read all entries
     bool firstTime = true;
-    for (;;) {
+    for (unsigned inspected = 0; inspected < MAX_FILES; ++inspected) {
       res = sdReadDir(&dir, &fno, firstTime);
 
       if (res != FR_OK || fno.fname[0] == 0)
@@ -337,14 +375,24 @@ void ThemePersistance::scanForThemes()
 
 void ThemePersistance::refresh()
 {
-  if (!UNEXPECTED_SHUTDOWN())
+  const auto selected = getCurrentTheme() ? getCurrentTheme()->getName() : "";
+  clearThemes();
+  if (!UNEXPECTED_SHUTDOWN() && !nb4HealthRecovery())
     scanForThemes();
   insertDefaultTheme();
+  currentTheme = 0;
+  for (unsigned i = 0; i < themes.size(); ++i)
+    if (themes[i]->getName() == selected) currentTheme = i;
 }
 
 void ThemePersistance::loadDefaultTheme()
 {
   refresh();
+  if (nb4HealthRecovery()) {
+    applyTheme(0);
+    setThemeIndex(0);
+    return;
+  }
 
   int index = 0;
   bool found = false;
@@ -362,7 +410,7 @@ void ThemePersistance::loadDefaultTheme()
       char line[256];
       unsigned int len;
 
-      status = f_read(&file, line, 256, &len);
+      status = f_read(&file, line, sizeof(line) - 1, &len);
       if (status == FR_OK) {
         line[len] = '\0';
 
@@ -392,6 +440,19 @@ void ThemePersistance::loadDefaultTheme()
     found = false;
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  // Normalize legacy development names before resolving the saved theme. This
+  // preserves the selected palette across upgrades and writes its English name
+  // back to radio settings.
+  const int builtinPalette = nb4PaletteIndexByName(g_eeGeneral.selectedTheme);
+  if (builtinPalette >= 0 &&
+      strcmp(g_eeGeneral.selectedTheme, nb4Palette(builtinPalette).name) != 0) {
+    strAppend(g_eeGeneral.selectedTheme, nb4Palette(builtinPalette).name,
+              SELECTED_THEME_NAME_LEN);
+    SET_DIRTY();
+  }
+#endif
+
   for (auto theme : themes) {
     if (theme->getName().compare(0, SELECTED_THEME_NAME_LEN, g_eeGeneral.selectedTheme) == 0) {
       found = true;
@@ -411,8 +472,7 @@ char** ThemePersistance::getColorNames() { return (char**)colorNames; }
 
 bool ThemePersistance::deleteThemeByIndex(int index)
 {
-  // greater than 0 is intentional here.  cant delete default theme.
-  if (index > 0 && index < (int)themes.size()) {
+  if (index >= 0 && index < (int)themes.size() && !themes[index]->isBuiltin()) {
     ThemeFile* theme = themes[index];
 
     char newFile[FF_MAX_LFN + 10];
@@ -476,11 +536,22 @@ void ThemePersistance::setDefaultTheme(int index)
 class DefaultEdgeTxTheme : public ThemeFile
 {
  public:
+#if defined(RADIO_NB4_FAMILY)
+  DefaultEdgeTxTheme() : ThemeFile(THEMES_PATH "/ApexTX/", false)
+#else
   DefaultEdgeTxTheme() : ThemeFile(THEMES_PATH "/EdgeTX/", false)
+#endif
   {
+    builtin = true;
+#if defined(RADIO_NB4_FAMILY)
+    setName("Classic");
+    setAuthor("Upstream contributors");
+    setInfo("Classic color scheme");
+#else
     setName("EdgeTX Default");
     setAuthor("EdgeTX Team");
     setInfo("Default EdgeTX Color Scheme");
+#endif
 
     // initialize the default color table
     for (uint8_t i = COLOR_THEME_PRIMARY1_INDEX; i < THEME_COLOR_COUNT - 1; i += 1)
@@ -488,10 +559,40 @@ class DefaultEdgeTxTheme : public ThemeFile
   }
 };
 
+#if defined(RADIO_NB4_FAMILY)
+class Nb4BuiltinTheme : public ThemeFile
+{
+ public:
+  explicit Nb4BuiltinTheme(unsigned index)
+  {
+    const Nb4Palette& palette = nb4Palette(index);
+    builtin = true;
+    setName(palette.name);
+    setAuthor("ApexTX");
+    setInfo(nb4Text(palette.infoEs, palette.infoEn));
+    static_assert(NB4_PALETTE_COLORS == THEME_COLOR_COUNT - 1,
+                  "the palette must cover every theme color");
+    for (unsigned i = 0; i < NB4_PALETTE_COLORS; ++i) {
+      const auto c = palette.colors[i];
+      colorList.push_back({(LcdColorIndex)i, RGB((c >> 16) & 255, (c >> 8) & 255, c & 255)});
+    }
+  }
+};
+#endif
+
 void ThemePersistance::insertDefaultTheme()
 {
   auto themeFile = new DefaultEdgeTxTheme();
   themes.insert(themes.begin(), themeFile);
+#if defined(RADIO_NB4_FAMILY)
+  // Motorsport palettes extend EdgeTX's catalogue.  The original built-in
+  // theme remains available as the stable base for all native controls, but it
+  // goes BEHIND them: index 0 is both the factory default and the fallback for
+  // a selectedTheme name that no longer resolves (see loadDefaultTheme), and a
+  // track radio must never land on a light theme by accident.
+  for (unsigned i = nb4PaletteCount(); i > 0; --i)
+    themes.insert(themes.begin(), new Nb4BuiltinTheme(i - 1));
+#endif
 }
 
 HeaderDateTime::HeaderDateTime(Window* parent, coord_t x, coord_t y) :
@@ -573,7 +674,7 @@ HeaderIcon::HeaderIcon(Window* parent, const char* iconFile, std::function<void(
 }
 
 HeaderBackIcon::HeaderBackIcon(Window* parent, std::function<void()> action) :
-  StaticIcon(parent, LCD_W - PageGroup::PAGE_GROUP_BACK_BTN_XO, 0, ICON_TOPRIGHT_BG, COLOR_THEME_FOCUS_INDEX),
+  StaticIcon(parent, lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_BACK_BTN_XO, 0, ICON_TOPRIGHT_BG, COLOR_THEME_FOCUS_INDEX),
   action(std::move(action))
 {
   (new StaticIcon(this, 0, 0, ICON_BTN_CLOSE, COLOR_THEME_PRIMARY2_INDEX))->center(width() + PAD_MEDIUM, height());
@@ -586,12 +687,12 @@ HeaderBackIcon::HeaderBackIcon(Window* parent, std::function<void()> action) :
 }
 
 UsbSDConnected::UsbSDConnected() :
-    Window(MainWindow::instance(), {0, 0, LCD_W, LCD_H})
+    Window(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)})
 {
   setWindowFlag(OPAQUE);
 
   etx_solid_bg(lvobj, COLOR_THEME_PRIMARY1_INDEX);
-  new HeaderDateTime(this, LCD_W - TopBar::HDR_DATE_XO, PAD_MEDIUM);
+  new HeaderDateTime(this, lv_disp_get_hor_res(nullptr) - TopBar::HDR_DATE_XO, PAD_MEDIUM);
 
   auto icon = new StaticIcon(this, 0, 0, ICON_USB_PLUGGED, COLOR_THEME_PRIMARY2_INDEX);
   lv_obj_center(icon->getLvObj());

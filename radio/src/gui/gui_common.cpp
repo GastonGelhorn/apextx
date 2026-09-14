@@ -221,7 +221,11 @@ static bool isSourceLSAvailable(int source) {
 }
 
 static bool isSourceTrainerAvailable(int source) {
+#if defined(RADIO_NB4_FAMILY)
+  return false;
+#else
   return g_model.trainerData.mode > 0;
+#endif
 }
 
 static bool isSourceGvarAvailable(int source) {
@@ -377,6 +381,9 @@ bool isSwitchAvailable(int swtch, SwitchContext context)
   }
 
   if (swtch >= SWSRC_FIRST_FLIGHT_MODE && swtch <= SWSRC_LAST_FLIGHT_MODE) {
+#if !defined(FLIGHT_MODES)
+    return false;
+#else
     if (context == MixesContext || context == GeneralCustomFunctionsContext) {
       return false;
     }
@@ -388,6 +395,7 @@ bool isSwitchAvailable(int swtch, SwitchContext context)
       FlightModeData * fm = flightModeAddress(swtch);
       return (fm->swtch != SWSRC_NONE);
     }
+#endif
   }
 
   if (swtch >= SWSRC_FIRST_SENSOR && swtch <= SWSRC_LAST_SENSOR) {
@@ -442,10 +450,16 @@ static bool isSwitchLSAvailable(int swtch, bool invert) {
 }
 
 static bool isSwitchFMAvailable(int swtch, bool invert) {
+#if !defined(FLIGHT_MODES)
+  (void)swtch;
+  (void)invert;
+  return false;
+#else
   if (swtch == 0)
     return true;
   FlightModeData * fm = flightModeAddress(swtch);
   return (fm->swtch != SWSRC_NONE);
+#endif
 }
 
 static bool isSwitchTelemAvailable(int swtch, bool invert) {
@@ -616,6 +630,14 @@ bool isThrottleSourceAvailable(int src)
 bool isAssignableFunctionAvailable(int function, bool modelFunctions)
 {
   switch (function) {
+#if defined(RADIO_NB4_FAMILY)
+    case FUNC_TRAINER:
+      return false;
+#endif
+#if !defined(VARIO)
+    case FUNC_VARIO:
+      return false;
+#endif
     case FUNC_OVERRIDE_CHANNEL:
 #if defined(OVERRIDE_CHANNEL_FUNCTION)
       return modelFunctions;
@@ -874,12 +896,16 @@ bool isPxx2IsrmChannelsCountAllowed(int channels)
 
 bool isTrainerUsingModuleBay()
 {
+#if !defined(RADIO_NB4_FAMILY)
   if (g_model.trainerData.mode == TRAINER_MODE_MASTER_SBUS_EXTERNAL_MODULE ||
       g_model.trainerData.mode == TRAINER_MODE_MASTER_CPPM_EXTERNAL_MODULE) {
     return true;
   }
 
   return false;
+#else
+  return false;
+#endif
 }
 
 bool isModuleUsingSport(uint8_t moduleBay, uint8_t moduleType)

@@ -35,6 +35,43 @@ class Window;
  *      Layout
  *********************/
 
+#if defined(LCD_DUAL_ORIENTATION)
+
+extern coord_t lcdWidth;
+extern coord_t lcdHeight;
+
+inline bool lcdIsLandscape() { return lcdWidth > lcdHeight; }
+
+struct LayoutVal {
+  coord_t l;
+  coord_t p;
+  constexpr LayoutVal(coord_t landscape, coord_t portrait) :
+      l(landscape), p(portrait) {}
+  constexpr LayoutVal(coord_t both) : l(both), p(both) {}
+
+  operator coord_t() const { return lcdIsLandscape() ? l : p; }
+
+};
+
+constexpr LayoutVal lvAdd(LayoutVal a, LayoutVal b) { return {(coord_t)(a.l + b.l), (coord_t)(a.p + b.p)}; }
+constexpr LayoutVal lvSub(LayoutVal a, LayoutVal b) { return {(coord_t)(a.l - b.l), (coord_t)(a.p - b.p)}; }
+constexpr LayoutVal lvMul(LayoutVal a, LayoutVal b) { return {(coord_t)(a.l * b.l), (coord_t)(a.p * b.p)}; }
+constexpr LayoutVal lvDiv(LayoutVal a, LayoutVal b) { return {(coord_t)(a.l / b.l), (coord_t)(a.p / b.p)}; }
+
+constexpr coord_t lvMax(LayoutVal v) { return v.l > v.p ? v.l : v.p; }
+
+#if defined(LCD_RUNTIME_LAYOUT)
+  #define LAYOUT_DERIVED(name, expr) constexpr LayoutVal name = (expr);
+#else
+  #define LAYOUT_DERIVED(name, expr) constexpr coord_t name = (expr);
+#endif
+
+#else
+
+#define LAYOUT_DERIVED(name, expr) constexpr coord_t name = (expr);
+
+#endif  // LCD_DUAL_ORIENTATION
+
 #if LCD_W > LCD_H
   #define LANDSCAPE true
   #define PORTRAIT false
@@ -55,7 +92,9 @@ class Window;
   #endif
 #endif
 
-#if LANDSCAPE
+#if defined(LCD_RUNTIME_LAYOUT)
+
+#elif LANDSCAPE
   #if LCD_W == 320
     #define LAYOUT_SCALE(x) (((x) * 8 + 5) / 10)
     #define LUA_LCD_SCALE 0.8
@@ -71,7 +110,10 @@ class Window;
 #endif
 
 // Macros for setting up layout values
-#if NARROW_LAYOUT
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  #define LV(standard, narrow) LAYOUT_SCALE(standard)
+#elif NARROW_LAYOUT
   #define LV(standard, narrow) LAYOUT_SCALE(narrow)
 #else
   #define LV(standard, narrow) LAYOUT_SCALE(standard)
@@ -99,14 +141,39 @@ enum PaddingSize {
   constexpr coord_t name = (LAYOUT_SCALE(value) & 0xFFFE) + 1;
 
 // Layout values based on available width (standard or narrow)
+#if !defined(LCD_RUNTIME_LAYOUT)
 #define LAYOUT_SIZE_SCALED(name, standard, narrow) \
   constexpr coord_t name = LV(standard, narrow);
 #define LAYOUT_SIZE_SCALED_EVEN(name, standard, narrow) \
   constexpr coord_t name = (LV(standard, narrow) + 1) & 0xFFFE;
 #define LAYOUT_SIZE_SCALED_ODD(name, standard, narrow) \
   constexpr coord_t name = (LV(standard, narrow) & 0xFFFE) + 1;
+#endif
 
 // Macro for value which only differ by whether layout is normal or narrow (no scaling)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+#define LAYOUT_SIZE(name, standard, narrow) \
+  constexpr LayoutVal name{(coord_t)(standard), (coord_t)(narrow)};
+#define LAYOUT_SIZE_SCALED(name, standard, narrow)               \
+  constexpr LayoutVal name{(coord_t)(LAYOUT_SCALE(standard)),    \
+                           (coord_t)(LAYOUT_SCALE(narrow))};
+#define LAYOUT_SIZE_SCALED_EVEN(name, standard, narrow)                  \
+  constexpr LayoutVal name{(LAYOUT_SCALE(standard) + 1) & 0xFFFE,        \
+                           (LAYOUT_SCALE(narrow) + 1) & 0xFFFE};
+#define LAYOUT_SIZE_SCALED_ODD(name, standard, narrow)                   \
+  constexpr LayoutVal name{(LAYOUT_SCALE(standard) & 0xFFFE) + 1,        \
+                           (LAYOUT_SCALE(narrow) & 0xFFFE) + 1};
+
+#define LAYOUT_ORIENTATION_SCALED(name, landscape, portrait)      \
+  constexpr LayoutVal name{(coord_t)(LAYOUT_SCALE(landscape)),    \
+                           (coord_t)(LAYOUT_SCALE(portrait))};
+
+#define LAYOUT_ORIENTATION(name, landscape, portrait) \
+  constexpr LayoutVal name{(coord_t)(landscape), (coord_t)(portrait)};
+
+#else
+
 #if NARROW_LAYOUT
 #define LAYOUT_SIZE(name, standard, narrow) \
   constexpr int name = narrow;
@@ -128,6 +195,8 @@ enum PaddingSize {
     constexpr int name = portrait;
 #endif
 
+#endif  // LCD_RUNTIME_LAYOUT
+
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
@@ -138,6 +207,14 @@ void useMainStyle();
 lv_obj_t* etx_create(const lv_obj_class_t* class_p, lv_obj_t* parent);
 lv_obj_t* etx_textarea_create(lv_obj_t* parent);
 lv_obj_t* window_create(lv_obj_t* parent);
+
+#if defined(RADIO_NB4_FAMILY)
+#define COLOR_THEME_HEADER_BG_INDEX COLOR_THEME_PRIMARY2_INDEX
+#define COLOR_THEME_HEADER_FG_INDEX COLOR_THEME_PRIMARY1_INDEX
+#else
+#define COLOR_THEME_HEADER_BG_INDEX COLOR_THEME_SECONDARY1_INDEX
+#define COLOR_THEME_HEADER_FG_INDEX COLOR_THEME_PRIMARY2_INDEX
+#endif
 
 void etx_std_style(lv_obj_t* obj, lv_style_selector_t selector = LV_PART_MAIN,
                    PaddingSize padding = PAD_ZERO);
@@ -271,7 +348,11 @@ class EdgeTxStyles
   static const lv_style_t border_transparent;
   static const lv_style_t border_thin;
   static const lv_style_t outline;
-  
+#if defined(RADIO_NB4_FAMILY)
+
+  static const lv_style_t focus_shade;
+#endif
+
   EdgeTxStyles();
 
   void init();
@@ -279,7 +360,11 @@ class EdgeTxStyles
   void setFonts();
 
   static LAYOUT_VAL_SCALED(STD_FONT_HEIGHT, 21)
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t UI_ELEMENT_HEIGHT = 44;
+#else
   static LAYOUT_VAL_SCALED(UI_ELEMENT_HEIGHT, 32)
+#endif
   static LAYOUT_VAL_SCALED(MENU_HEADER_HEIGHT, 45)
   static LAYOUT_VAL_SCALED(EDIT_FLD_WIDTH_NARROW, 70)
   static LAYOUT_VAL_SCALED(EDIT_FLD_WIDTH, 100)

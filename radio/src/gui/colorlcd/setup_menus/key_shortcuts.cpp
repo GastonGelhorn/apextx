@@ -43,14 +43,14 @@ void QMKeyShortcutsPage::addKey(event_t event, std::vector<std::string> qmPages,
 
     setupLine(nm, [=](Window* parent, coord_t x, coord_t y) {
           auto c = new Choice(
-              parent, {LCD_W / 4, y, LCD_W * 2 / 3, 0}, qmPages, QM_NONE, QM_TOOLS_DEBUG,
+              parent, {lv_disp_get_hor_res(nullptr) / 4, y, lv_disp_get_hor_res(nullptr) * 2 / 3, 0}, qmPages, QM_NONE, QM_TOOLS_DEBUG,
               GET_DEFAULT(g_eeGeneral.getKeyShortcut(event)),
               [=](int32_t newValue) {
                 g_eeGeneral.setKeyShortcut(event, (QMPage)newValue);
                 SET_DIRTY();
               }, STR_KEY_SHORTCUTS);
 
-          c->setPopupWidth(LCD_W * 3 / 4);
+          c->setPopupWidth(lv_disp_get_hor_res(nullptr) * 3 / 4);
           c->setAvailableHandler(
               [=](int newValue) {
                 if (newValue == QM_NONE) return true;

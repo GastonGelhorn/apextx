@@ -37,7 +37,11 @@ static void _blit_simu_screen_color(void* screen_buffer, Uint32 format, int w, i
 
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
+#if defined(RADIO_NB4_FAMILY)
+      pixel_t z = w > h ? src_buffer[(LCD_PHYS_H - 1 - x) * LCD_PHYS_W + y] : src_buffer[y * LCD_PHYS_W + x];
+#else
       pixel_t z = *src_buffer++;
+#endif
       // Alpha
       line_buffer[0] = SDL_ALPHA_OPAQUE;
       // Blue
@@ -135,5 +139,4 @@ void refreshDisplay(SDL_Texture* screen)
     lcdFlushed();
   }
 }
-
 

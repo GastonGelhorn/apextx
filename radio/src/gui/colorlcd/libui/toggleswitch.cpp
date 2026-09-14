@@ -46,6 +46,12 @@ static void switch_constructor(const lv_obj_class_t* class_p, lv_obj_t* obj)
   etx_bg_color(obj, COLOR_THEME_SECONDARY1_INDEX, LV_PART_KNOB);
 
   etx_obj_add_style(obj, styles->disabled, LV_PART_KNOB | LV_STATE_DISABLED);
+
+  // Keep the finger target of a UI_ELEMENT_HEIGHT row without painting one:
+  // the switch stays EdgeTX-sized, the touchable area does not.
+  if (EdgeTxStyles::UI_ELEMENT_HEIGHT > ToggleSwitch::TOGGLE_H)
+    lv_obj_set_ext_click_area(
+        obj, (EdgeTxStyles::UI_ELEMENT_HEIGHT - ToggleSwitch::TOGGLE_H) / 2);
 }
 
 static const lv_obj_class_t switch_class = {
@@ -55,7 +61,7 @@ static const lv_obj_class_t switch_class = {
     .user_data = nullptr,
     .event_cb = nullptr,
     .width_def = ToggleSwitch::TOGGLE_W,
-    .height_def = EdgeTxStyles::UI_ELEMENT_HEIGHT,
+    .height_def = ToggleSwitch::TOGGLE_H,
     .editable = LV_OBJ_CLASS_EDITABLE_INHERIT,
     .group_def = LV_OBJ_CLASS_GROUP_DEF_INHERIT,
     .instance_size = sizeof(lv_switch_t),

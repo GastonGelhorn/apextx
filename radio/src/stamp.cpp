@@ -54,7 +54,11 @@
 #endif
 
 #if defined(COLORLCD)
-  const char fw_stamp[]     = "FW" TAB ": edgetx-" FLAVOUR;
+  #if defined(RADIO_NB4)
+    const char fw_stamp[]   = "FW" TAB ": apextx-" FLAVOUR;
+  #else
+    const char fw_stamp[]   = "FW" TAB ": edgetx-" FLAVOUR;
+  #endif
   #if defined(VERSION_TAG) // tagged release, possibly mfg build
     const char vers_stamp[] = "VERS" TAB ": " WITH_FACTORY_RELEASE(VERSION_TAG) " \"" CODENAME "\"";
   #elif defined(FACTORY_RELEASE) // mfg build of non-tagged release, show commit hash only
@@ -81,11 +85,21 @@
 #if defined(STM32) && !defined(SIMU)
   #if defined(COLORLCD)
     #if defined(VERSION_TAG)
+#if defined(RADIO_NB4)
+__SECTION_USED(".fwversiondata")   const char firmware_version[] = "apextx-" FLAVOUR "-" WITH_FACTORY_RELEASE(VERSION_TAG) " (" GIT_STR ")";
+__SECTION_USED(".bootversiondata") const char boot_version[] =     "apextx-" FLAVOUR "-" WITH_FACTORY_RELEASE(VERSION_TAG) " (" GIT_STR ")";
+#else
 __SECTION_USED(".fwversiondata")   const char firmware_version[] = "edgetx-" FLAVOUR "-" WITH_FACTORY_RELEASE(VERSION_TAG) " (" GIT_STR ")";
 __SECTION_USED(".bootversiondata") const char boot_version[] =     "edgetx-" FLAVOUR "-" WITH_FACTORY_RELEASE(VERSION_TAG) " (" GIT_STR ")";
+#endif
     #else
+#if defined(RADIO_NB4)
+__SECTION_USED(".fwversiondata")   const char firmware_version[] = "apextx-" FLAVOUR "-" VERSION_PREFIX WITH_FACTORY_RELEASE(VERSION) VERSION_SUFFIX " (" GIT_STR ")";
+__SECTION_USED(".bootversiondata") const char boot_version[] =     "apextx-" FLAVOUR "-" VERSION_PREFIX WITH_FACTORY_RELEASE(VERSION) VERSION_SUFFIX " (" GIT_STR ")";
+#else
 __SECTION_USED(".fwversiondata")   const char firmware_version[] = "edgetx-" FLAVOUR "-" VERSION_PREFIX WITH_FACTORY_RELEASE(VERSION) VERSION_SUFFIX " (" GIT_STR ")";
 __SECTION_USED(".bootversiondata") const char boot_version[] =     "edgetx-" FLAVOUR "-" VERSION_PREFIX WITH_FACTORY_RELEASE(VERSION) VERSION_SUFFIX " (" GIT_STR ")";
+#endif
     #endif
   #else // B&W / !COLOR_LCD
   /* 128x64 does not have enough real estate to display more than basic VERSION */
@@ -108,7 +122,8 @@ const char * getFirmwareVersion(const uint8_t* buffer)
   }
 
   for (int i = 0; i < 1024; i++) {
-    if ((memcmp(buffer + i, "edgetx-", 7) == 0)
+    if ((memcmp(buffer + i, "apextx-", 7) == 0)
+        || (memcmp(buffer + i, "edgetx-", 7) == 0)
         || memcmp(buffer + i, "opentx-", 7) == 0) {
       return (const char*)buffer + i;
     }

@@ -29,33 +29,33 @@
 #include "pagegroup.h"
 
 PageHeader::PageHeader(Window* parent, EdgeTxIcon icon) :
-    Window(parent, {0, 0, LCD_W, EdgeTxStyles::MENU_HEADER_HEIGHT})
+    Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), EdgeTxStyles::MENU_HEADER_HEIGHT})
 {
   setWindowFlag(NO_FOCUS | OPAQUE);
 
-  etx_solid_bg(lvobj, COLOR_THEME_SECONDARY1_INDEX);
+  etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
   new HeaderIcon(this, icon);
 
   title = new StaticText(this,
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
-                          LCD_W - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
-                         "", COLOR_THEME_PRIMARY2_INDEX);
+                          lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
+                         "", COLOR_THEME_HEADER_FG_INDEX);
 }
 
 PageHeader::PageHeader(Window* parent, const char* iconFile) :
-    Window(parent, {0, 0, LCD_W, EdgeTxStyles::MENU_HEADER_HEIGHT})
+    Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), EdgeTxStyles::MENU_HEADER_HEIGHT})
 {
   setWindowFlag(NO_FOCUS | OPAQUE);
 
-  etx_solid_bg(lvobj, COLOR_THEME_SECONDARY1_INDEX);
+  etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
   new HeaderIcon(this, iconFile);
 
   title = new StaticText(this,
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
-                          LCD_W - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
-                         "", COLOR_THEME_PRIMARY2_INDEX);
+                          lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
+                         "", COLOR_THEME_HEADER_FG_INDEX);
 }
 
 StaticText* PageHeader::setTitle2(std::string txt)
@@ -63,15 +63,15 @@ StaticText* PageHeader::setTitle2(std::string txt)
   if (title2 == nullptr) {
     title2 = new StaticText(this,
                             {PAGE_TITLE_LEFT, PAGE_TITLE_TOP + EdgeTxStyles::STD_FONT_HEIGHT,
-                             LCD_W - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
-                            "", COLOR_THEME_PRIMARY2_INDEX);
+                             lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
+                            "", COLOR_THEME_HEADER_FG_INDEX);
   }
   title2->setText(std::move(txt));
   return title2;
 }
 
 Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
-    NavWindow(MainWindow::instance(), {0, 0, LCD_W, LCD_H})
+    NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)})
 {
   if (pauseRefresh)
     lv_obj_enable_style_refresh(false);
@@ -87,16 +87,16 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
   addCustomButton(0, 0, [=]() { openMenu(); });
-  addCustomButton(LCD_W - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
+  addCustomButton(lv_disp_get_hor_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT, 0, [=]() { onCancel(); });
 #endif
 #endif
 
   body = new Window(this,
-                    {0, EdgeTxStyles::MENU_HEADER_HEIGHT, LCD_W, LCD_H - EdgeTxStyles::MENU_HEADER_HEIGHT});
+                    {0, EdgeTxStyles::MENU_HEADER_HEIGHT, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT});
   body->setWindowFlag(NO_FOCUS);
 
   etx_solid_bg(lvobj);
-  lv_obj_set_style_max_height(body->getLvObj(), LCD_H - EdgeTxStyles::MENU_HEADER_HEIGHT,
+  lv_obj_set_style_max_height(body->getLvObj(), lv_disp_get_ver_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT,
                               LV_PART_MAIN);
   etx_scrollbar(body->getLvObj());
 

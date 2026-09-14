@@ -35,7 +35,11 @@ extern uint32_t SystemCoreClock;
 #define configCPU_CLOCK_HZ              ( SystemCoreClock )
 #define configTICK_RATE_HZ              ( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES            ( 5 )
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#define configMINIMAL_STACK_SIZE        ( ( unsigned short ) 128 )
+#else
 #define configMINIMAL_STACK_SIZE        ( ( unsigned short ) 30 )
+#endif
 // static memory is used instead
 // #define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 75 * 1024 ) )
 #define configUSE_16_BIT_TICKS          0
@@ -61,6 +65,12 @@ extern uint32_t SystemCoreClock;
 #endif
 
 #define configSUPPORT_DYNAMIC_ALLOCATION 0
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  #undef configCHECK_FOR_STACK_OVERFLOW
+  #define configCHECK_FOR_STACK_OVERFLOW 2
+  #define INCLUDE_xTaskGetCurrentTaskHandle 1
+  #define INCLUDE_xTimerGetTimerDaemonTaskHandle 1
+#endif
 #define configSUPPORT_STATIC_ALLOCATION  1
 
 /* Co-routine definitions. */

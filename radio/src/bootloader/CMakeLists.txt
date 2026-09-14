@@ -74,6 +74,9 @@ target_link_options(bootloader BEFORE PRIVATE
 )
 
 if (DEFINED TARGET_EXTRAM_START)
+  if(PCBREV MATCHES "^NB4P?$")
+    target_link_options(bootloader PRIVATE -Wl,--defsym=__NB4_HEALTH_SIZE__=512)
+  endif()
   target_link_options(bootloader PRIVATE
     -Wl,--defsym=__EXTRAM_START__=${TARGET_EXTRAM_START}
   )

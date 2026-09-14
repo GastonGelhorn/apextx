@@ -47,7 +47,7 @@ static lv_obj_t* modal_create(lv_obj_t* parent)
 }
 
 ModalWindow::ModalWindow(bool closeWhenClickOutside) :
-    Window(MainWindow::instance(), {0, 0, LCD_W, LCD_H}, modal_create),
+    Window(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}, modal_create),
     closeWhenClickOutside(closeWhenClickOutside)
 {
   setWindowFlag(OPAQUE);

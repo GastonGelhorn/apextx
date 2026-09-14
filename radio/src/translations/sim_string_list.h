@@ -27,6 +27,43 @@
 
 #if defined(COLORLCD)
 #define STR_ACTIVATE currentLangStrings->STR_ACTIVATE
+#define STR_NB4_RACING currentLangStrings->STR_NB4_RACING
+#define STR_NB4_CONDITION currentLangStrings->STR_NB4_CONDITION
+#define STR_NB4_RACE currentLangStrings->STR_NB4_RACE
+#define STR_NB4_MODE currentLangStrings->STR_NB4_MODE
+#define STR_NB4_PRESETS currentLangStrings->STR_NB4_PRESETS
+#define STR_NB4_START_POINT currentLangStrings->STR_NB4_START_POINT
+#define STR_NB4_SUMMARY currentLangStrings->STR_NB4_SUMMARY
+#define STR_NB4_ANNOUNCE currentLangStrings->STR_NB4_ANNOUNCE
+#define STR_NB4_QUICK currentLangStrings->STR_NB4_QUICK
+#define STR_NB4_RESET_RACE currentLangStrings->STR_NB4_RESET_RACE
+#define STR_NB4_RESET_RACE_ASK currentLangStrings->STR_NB4_RESET_RACE_ASK
+#define STR_NB4_BEST currentLangStrings->STR_NB4_BEST
+#define STR_NB4_AVERAGE currentLangStrings->STR_NB4_AVERAGE
+#define STR_NB4_TOTAL currentLangStrings->STR_NB4_TOTAL
+#define STR_NB4_NO_LAPS currentLangStrings->STR_NB4_NO_LAPS
+#define STR_NB4_ADDRESS_BYTE currentLangStrings->STR_NB4_ADDRESS_BYTE
+#define STR_NB4_ADDRESS_MODES currentLangStrings->STR_NB4_ADDRESS_MODES
+#define STR_NB4_SET_HOME currentLangStrings->STR_NB4_SET_HOME
+#define STR_NB4_SET_HOME_ASK currentLangStrings->STR_NB4_SET_HOME_ASK
+#define STR_NB4_ELECTRIC currentLangStrings->STR_NB4_ELECTRIC
+#define STR_NB4_NITRO currentLangStrings->STR_NB4_NITRO
+#define STR_NB4_PRESET_ASK currentLangStrings->STR_NB4_PRESET_ASK
+#define STR_NB4_MODES currentLangStrings->STR_NB4_MODES
+#define STR_NB4_BRAKE_MAX currentLangStrings->STR_NB4_BRAKE_MAX
+#define STR_NB4_DRAG_BRAKE currentLangStrings->STR_NB4_DRAG_BRAKE
+#define STR_NB4_ABS currentLangStrings->STR_NB4_ABS
+#define STR_NB4_ABS_POINT currentLangStrings->STR_NB4_ABS_POINT
+#define STR_NB4_ABS_RATE currentLangStrings->STR_NB4_ABS_RATE
+#define STR_NB4_ABS_RELEASE currentLangStrings->STR_NB4_ABS_RELEASE
+#define STR_NB4_STEER_TURN currentLangStrings->STR_NB4_STEER_TURN
+#define STR_NB4_STEER_RETURN currentLangStrings->STR_NB4_STEER_RETURN
+#define STR_NB4_IDLE_UP currentLangStrings->STR_NB4_IDLE_UP
+#define STR_NB4_IDLE_UP_SW currentLangStrings->STR_NB4_IDLE_UP_SW
+#define STR_NB4_ENGINE_CUT currentLangStrings->STR_NB4_ENGINE_CUT
+#define STR_NB4_CUT_POS currentLangStrings->STR_NB4_CUT_POS
+#define STR_NB4_LAP_SW currentLangStrings->STR_NB4_LAP_SW
+#define STR_NB4_LAPS currentLangStrings->STR_NB4_LAPS
 #define STR_ACTIVE currentLangStrings->STR_ACTIVE
 #define STR_ADD_ALL_TRIMS_TO_SUBTRIMS currentLangStrings->STR_ADD_ALL_TRIMS_TO_SUBTRIMS
 #define STR_ALIGN_LABEL currentLangStrings->STR_ALIGN_LABEL
@@ -346,7 +383,7 @@
 #define STR_MENUCUSTOMSCRIPTS currentLangStrings->STR_MENUCUSTOMSCRIPTS
 #endif
 
-#if defined(DSM2) || defined(PXX) || defined(DSMP)
+#if defined(DSM2) || defined(PXX) || defined(DSMP) || defined(AFHDS3)
 #define STR_BIND_OK currentLangStrings->STR_BIND_OK
 #define STR_REBIND currentLangStrings->STR_REBIND
 #define STR_RECEIVER_NUM currentLangStrings->STR_RECEIVER_NUM
@@ -957,6 +994,11 @@
 #define STR_SPECTRUM_ANALYSER_EXT currentLangStrings->STR_SPECTRUM_ANALYSER_EXT
 #define STR_SPECTRUM_ANALYSER_INT currentLangStrings->STR_SPECTRUM_ANALYSER_INT
 #define STR_SPLASHSCREEN currentLangStrings->STR_SPLASHSCREEN
+#define STR_ONE_LOG_PER_DAY currentLangStrings->STR_ONE_LOG_PER_DAY
+#define STR_KEY_LOCK_FMT currentLangStrings->STR_KEY_LOCK_FMT
+#define STR_KEYS_LOCKED currentLangStrings->STR_KEYS_LOCKED
+#define STR_KEYS_LOCKED_FMT currentLangStrings->STR_KEYS_LOCKED_FMT
+#define STR_KEYS_UNLOCKED currentLangStrings->STR_KEYS_UNLOCKED
 #define STR_SPORT_UPDATE_POWER_MODE currentLangStrings->STR_SPORT_UPDATE_POWER_MODE
 #define STR_SRC_BATT currentLangStrings->STR_SRC_BATT
 #define STR_SRC_GPS currentLangStrings->STR_SRC_GPS
@@ -1014,6 +1056,7 @@
 #define STR_TIMEZONE currentLangStrings->STR_TIMEZONE
 #define STR_TMIXMAXMS currentLangStrings->STR_TMIXMAXMS
 #define STR_TOO_MANY_LUA_SCRIPTS currentLangStrings->STR_TOO_MANY_LUA_SCRIPTS
+#define STR_TOO_MANY_MODELS currentLangStrings->STR_TOO_MANY_MODELS
 #define STR_TOP_BAR currentLangStrings->STR_TOP_BAR
 #define STR_TOPLCDTIMER currentLangStrings->STR_TOPLCDTIMER
 #define STR_TOUCH_EXIT currentLangStrings->STR_TOUCH_EXIT
@@ -1169,8 +1212,3 @@
 #define STR_VUNITSSYSTEM currentLangStrings->STR_VUNITSSYSTEM
 #define STR_VVARIOCENTER currentLangStrings->STR_VVARIOCENTER
 #define STR_XJT_ACCST_RF_PROTOCOLS currentLangStrings->STR_XJT_ACCST_RF_PROTOCOLS
-#define STR_ONE_LOG_PER_DAY currentLangStrings->STR_ONE_LOG_PER_DAY
-#define STR_KEY_LOCK_FMT currentLangStrings->STR_KEY_LOCK_FMT
-#define STR_KEYS_LOCKED currentLangStrings->STR_KEYS_LOCKED
-#define STR_KEYS_LOCKED_FMT currentLangStrings->STR_KEYS_LOCKED_FMT
-#define STR_KEYS_UNLOCKED currentLangStrings->STR_KEYS_UNLOCKED

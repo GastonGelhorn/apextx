@@ -36,19 +36,42 @@ class ModelOutputsPage : public PageGroupItem
 
   static constexpr coord_t ADD_TRIMS_X = PAD_SMALL;
   static constexpr coord_t ADD_TRIMS_Y = PAD_SMALL;
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal ADD_TRIMS_W{(LCD_MAX_W / 2) - PAD_LARGE,
+                                         LCD_PHYS_W - PAD_LARGE - PAD_SMALL};
+#else
   static LAYOUT_SIZE(ADD_TRIMS_W, (LCD_W / 2) - PAD_LARGE, LCD_W - PAD_LARGE - PAD_SMALL)
+#endif
   static constexpr coord_t ADD_TRIMS_H = EdgeTxStyles::UI_ELEMENT_HEIGHT;
   static LAYOUT_VAL_SCALED(EXLIM_XO, 58)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal EXLIMCB_X = lvSub(LayoutVal{LCD_MAX_W, LCD_PHYS_W}, EXLIM_XO);
+#else
   static constexpr coord_t EXLIMCB_X = LCD_W - EXLIM_XO;
+#endif
   static LAYOUT_SIZE(EXLIMCB_Y, PAD_SMALL, ADD_TRIMS_Y + ADD_TRIMS_H + PAD_TINY)
   static LAYOUT_VAL_SCALED(EXLIMCB_W, 52)
   static constexpr coord_t EXLIMCB_H = EdgeTxStyles::UI_ELEMENT_HEIGHT;
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal EXLIM_X{ADD_TRIMS_X + ADD_TRIMS_W.l + PAD_SMALL,
+                                     PAD_MEDIUM};
+#else
   static LAYOUT_SIZE(EXLIM_X, ADD_TRIMS_X + ADD_TRIMS_W + PAD_SMALL, PAD_MEDIUM)
+#endif
   static LAYOUT_SIZE(EXLIM_Y, PAD_LARGE + PAD_TINY, ADD_TRIMS_Y + ADD_TRIMS_H + PAD_LARGE)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal EXLIM_W = lvSub(lvSub(EXLIMCB_X, EXLIM_X), PAD_SMALL);
+  static constexpr coord_t TRIMB_X = PAD_SMALL;
+  static constexpr LayoutVal TRIMB_Y = lvAdd(EXLIMCB_Y, EXLIMCB_H + PAD_MEDIUM / 2);
+  static constexpr LayoutVal TRIMB_W = lvSub(LayoutVal{LCD_MAX_W, LCD_PHYS_W}, PAD_SMALL * 2);
+#else
   static constexpr coord_t EXLIM_W = EXLIMCB_X - EXLIM_X - PAD_SMALL;
   static constexpr coord_t TRIMB_X = PAD_SMALL;
   static constexpr coord_t TRIMB_Y = EXLIMCB_Y + EXLIMCB_H + PAD_MEDIUM / 2;
   static constexpr coord_t TRIMB_W = LCD_W - PAD_SMALL * 2;
+#endif
 
  protected:
   std::vector<OutputLineButton*> outputButtons;

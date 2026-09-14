@@ -26,6 +26,7 @@
 #include "stm32_hal_ll.h"
 
 #include "hal.h"
+#include "hal/usb_driver.h"
 #include "usbd_def.h"
 #include "usbd_core.h"
 
@@ -104,7 +105,9 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* pcdHandle)
 
     /* Peripheral interrupt init */
     NVIC_SetPriority(OTG_FS_IRQn, 11);
+#if !defined(RADIO_NB4)
     NVIC_EnableIRQ(OTG_FS_IRQn);
+#endif
   }
 #endif
   /**
@@ -197,6 +200,9 @@ static void PCD_SOFCallback(PCD_HandleTypeDef *hpcd)
 void HAL_PCD_SOFCallback(PCD_HandleTypeDef *hpcd)
 #endif /* USE_HAL_PCD_REGISTER_CALLBACKS */
 {
+#if defined(RADIO_NB4)
+  usbHostSofReceived();
+#endif
   USBD_LL_SOF((USBD_HandleTypeDef*)hpcd->pData);
 }
 

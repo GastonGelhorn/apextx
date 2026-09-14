@@ -73,10 +73,10 @@ void ScreenUserInterfacePage::build(Window* window)
   box->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_TINY);
   box->padAll(PAD_TINY);
   box->padLeft(PAD_MEDIUM);
-  for (int i = 0; i < MAX_TOPBAR_ZONES; i += 1) {
+  for (int i = 0; i < VISIBLE_TOPBAR_ZONES; i += 1) {
     coord_t w = (g_model.topbarWidgetWidth[i] * (WWBTN_W + PAD_TINY)) - PAD_TINY;
     if (w < WWBTN_W) w = WWBTN_W;
-    widths[i] = new Choice(box, {0, 0, w, 0}, 0, MAX_TOPBAR_ZONES,
+    widths[i] = new Choice(box, {0, 0, w, 0}, 0, VISIBLE_TOPBAR_ZONES,
               [=]() {
                 return g_model.topbarWidgetWidth[i];
               },
@@ -84,8 +84,8 @@ void ScreenUserInterfacePage::build(Window* window)
                 g_model.topbarWidgetWidth[i] = value;
                 coord_t w = (g_model.topbarWidgetWidth[i] * (WWBTN_W + PAD_TINY)) - PAD_TINY;
                 widths[i]->setWidth(w);
-                int remaining = MAX_TOPBAR_ZONES;
-                for (int n = 0; n < MAX_TOPBAR_ZONES; n += 1) {
+                int remaining = VISIBLE_TOPBAR_ZONES;
+                for (int n = 0; n < VISIBLE_TOPBAR_ZONES; n += 1) {
                   if (n > i) {
                     if (remaining > 0) {
                       if (g_model.topbarWidgetWidth[n] == 0) {
@@ -109,7 +109,7 @@ void ScreenUserInterfacePage::build(Window* window)
                 storageDirty(EE_MODEL);
               }, STR_WIDGET_SIZE);
     widths[i]->setAvailableHandler([=](int value) {
-      int remaining = MAX_TOPBAR_ZONES;
+      int remaining = VISIBLE_TOPBAR_ZONES;
       for (int n = 0; n < i; n += 1)
         remaining -= g_model.topbarWidgetWidth[n];
       return value > 0 && value <= remaining;

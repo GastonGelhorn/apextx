@@ -49,6 +49,12 @@ POT_CONFIG = {
         "P1": {"default": "POT"},
         "P2": {"default": "POT"}
     },
+    # NB4 VR1-L and VR1-R are independent proportional controls on ADC12/PC2
+    # and ADC7/PA7, with per-unit calibration stored in the radio settings.
+    "nb4": {
+        "P1": {"default": "POT"},
+        "P2": {"default": "POT"}
+    },
     "v12": {
         "P1": {"default": "POT_CENTER"},
         "P2": {"default": "POT_CENTER"},

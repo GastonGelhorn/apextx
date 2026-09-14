@@ -23,6 +23,7 @@
 
 #include "gtests.h"
 
+#if defined(FLIGHT_MODES)
 TEST(ModelAudio, flightModes)
 {
   strncpy(g_model.flightModeData[0].name, "One", LEN_FLIGHT_MODE_NAME);
@@ -57,6 +58,7 @@ TEST(ModelAudio, flightModes)
   EXPECT_FALSE(matchModeAudioFile("One", idx, event));
   EXPECT_FALSE(matchModeAudioFile("One.", idx, event));
 }
+#endif
 
 TEST(ModelAudio, switches)
 {

@@ -30,6 +30,15 @@
 
 #define SET_DIRTY() storageDirty(EE_MODEL)
 
+static uint8_t switchWarningCount()
+{
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < switchGetMaxAllSwitches(); i++) {
+    if (SWITCH_WARNING_ALLOWED(i)) count++;
+  }
+  return count;
+}
+
 class SwitchWarnMatrix : public ButtonMatrix
 {
  public:
@@ -45,13 +54,13 @@ class SwitchWarnMatrix : public ButtonMatrix
       }
     }
 
-    initBtnMap(min((int)btn_cnt, SW_BTNS), btn_cnt);
+    initBtnMap(min((int)btn_cnt, (int)SW_BTNS), btn_cnt);
 
     setAllState();
 
     update();
 
-    lv_obj_set_width(lvobj, min((int)btn_cnt, SW_BTNS) * SW_BTN_W + PAD_SMALL);
+    lv_obj_set_width(lvobj, min((int)btn_cnt, (int)SW_BTNS) * SW_BTN_W + PAD_SMALL);
 
     uint8_t rows = ((btn_cnt - 1) / SW_BTNS) + 1;
     setHeight((rows * SW_BTN_H) + PAD_SMALL);
@@ -140,7 +149,7 @@ class PotWarnMatrix : public ButtonMatrix
       }
     }
 
-    initBtnMap(min((int)btn_cnt, SwitchWarnMatrix::SW_BTNS), btn_cnt);
+    initBtnMap(min((int)btn_cnt, (int)SwitchWarnMatrix::SW_BTNS), btn_cnt);
 
     uint8_t btn_id = 0;
     for (uint16_t i = 0; i < MAX_POTS; i++) {
@@ -152,7 +161,7 @@ class PotWarnMatrix : public ButtonMatrix
 
     update();
 
-    lv_obj_set_width(lvobj, min((int)btn_cnt, SwitchWarnMatrix::SW_BTNS) * SwitchWarnMatrix::SW_BTN_W + PAD_SMALL);
+    lv_obj_set_width(lvobj, min((int)btn_cnt, (int)SwitchWarnMatrix::SW_BTNS) * SwitchWarnMatrix::SW_BTN_W + PAD_SMALL);
 
     uint8_t rows = ((btn_cnt - 1) / SwitchWarnMatrix::SW_BTNS) + 1;
     setHeight((rows * SwitchWarnMatrix::SW_BTN_H) + PAD_SMALL);
@@ -241,13 +250,15 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
       customThrottleValue->show(g_model.enableCustomThrottleWarning);
     });
 
-  // Switch warnings (TODO: add display switch?)
-  setupLine(STR_SWITCHES, [](Window*, coord_t, coord_t){});
-  setupLine(nullptr,
-    [=](Window* parent, coord_t x, coord_t y) {
-      auto w = new SwitchWarnMatrix(parent, rect_t{PAD_SMALL, y, 0, 0});
-      parent->setHeight(w->height() + PAD_TINY * 2);
-    });
+  if (switchWarningCount() > 0) {
+    // Switch warnings (TODO: add display switch?)
+    setupLine(STR_SWITCHES, [](Window*, coord_t, coord_t){});
+    setupLine(nullptr,
+      [=](Window* parent, coord_t x, coord_t y) {
+        auto w = new SwitchWarnMatrix(parent, rect_t{PAD_SMALL, y, 0, 0});
+        parent->setHeight(w->height() + PAD_TINY * 2);
+      });
+  }
 
   // Pots and sliders warning
   if (adcGetMaxInputs(ADC_INPUT_FLEX) > 0) {

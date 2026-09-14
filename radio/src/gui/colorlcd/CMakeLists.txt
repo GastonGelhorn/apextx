@@ -40,6 +40,10 @@ file(GLOB MENUS_SRC RELATIVE ${RADIO_SRC_DIR}/gui/colorlcd
 file(GLOB CONTROLS_SRC RELATIVE ${RADIO_SRC_DIR}/gui/colorlcd
   ${RADIO_SRC_DIR}/gui/colorlcd/controls/*.cpp)
 
+if(NOT FLIGHT_MODES)
+  list(REMOVE_ITEM CONTROLS_SRC controls/fm_matrix.cpp)
+endif()
+
 set(GUI_SRC
   ${GUI_SRC}
   ${LIBUI_SRC}
@@ -61,11 +65,12 @@ set(GUI_SRC
   model/mixer_edit_adv.cpp
   model/mixer_edit.cpp
   model/model_curves.cpp
-  model/model_flightmodes.cpp
-  model/model_gvars.cpp
   model/model_inputs.cpp
   model/model_logical_switches.cpp
   model/model_mixes.cpp
+  model/model_nb4_axis.cpp
+  model/nb4_params.cpp
+  model/model_nb4_racing.cpp
   model/model_outputs.cpp
   model/model_select.cpp
   model/model_setup.cpp
@@ -103,12 +108,20 @@ set(GUI_SRC
   radio/radio_mic_recorder.cpp
   )
 
+if(NB4_CAR_ONLY)
+  list(REMOVE_ITEM GUI_SRC model/trainer_setup.cpp radio/radio_trainer.cpp)
+endif()
+
 macro(add_gui_src src)
   set(GUI_SRC
     ${GUI_SRC}
     ${src}
     )
 endmacro(add_gui_src)
+
+if(FLIGHT_MODES)
+  add_gui_src(model/model_flightmodes.cpp)
+endif()
 
 if(DSMP)
    add_gui_src(module/dsmp_settings.cpp)

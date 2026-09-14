@@ -140,7 +140,7 @@ int main()
       printf("#if %s\n", list[i].cond.c_str());
       addEndif = true;
     }
-    printf("  /* %s */ %s,\n", list[i].str.c_str(), list[i].nam.c_str());
+    printf("  %s,\n", list[i].nam.c_str());
     if (addEndif)
       printf("#endif\n");
   }

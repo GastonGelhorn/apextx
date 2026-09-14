@@ -25,8 +25,13 @@ class StaticText;
 class DynamicText;
 class Progress;
 
-#define DIALOG_DEFAULT_WIDTH ((coord_t)(LCD_W * 0.8))
-#define DIALOG_DEFAULT_HEIGHT ((coord_t)(LCD_H * 0.8))
+#define DIALOG_DEFAULT_WIDTH ((coord_t)(lv_disp_get_hor_res(nullptr) * 0.8))
+#if defined(RADIO_NB4_FAMILY)
+
+#define DIALOG_DEFAULT_HEIGHT ((coord_t)(lv_disp_get_ver_res(nullptr) * 0.9))
+#else
+#define DIALOG_DEFAULT_HEIGHT ((coord_t)(lv_disp_get_ver_res(nullptr) * 0.8))
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -39,10 +44,18 @@ class BaseDialog : public ModalWindow
              bool flexLayout = true);
 
   void setTitle(const char* title);
+#if defined(RADIO_NB4_FAMILY)
+  void useSectionHeader();
+  void useBrandHeader();
+#endif
 
  protected:
+  Window* content = nullptr;
   Window* form = nullptr;
   StaticText* header = nullptr;
+#if defined(RADIO_NB4_FAMILY)
+  Window* closeButton = nullptr;
+#endif
 
   void onCancel() override { deleteLater(); }
   void onEvent(event_t event) override {}

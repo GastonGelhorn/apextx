@@ -28,17 +28,15 @@
 #include "edgetx.h"
 #include "lib_file.h"
 
+#if defined(RADIO_NB4) && !defined(SIMU) && !defined(BOOT)
+#include "diskio_spi_flash.h"
+#endif
+
 #if FF_MAX_SS != FF_MIN_SS
 #error "Variable sector size is not supported"
 #endif
 
 #define BLOCK_SIZE FF_MAX_SS
-
-#if defined(SPI_FLASH)
-#define SDCARD_MIN_FREE_SPACE_MB 2 // Maintain 2MB free space buffer to prevent crashes
-#else
-#define SDCARD_MIN_FREE_SPACE_MB 50 // Maintain a 50MB free space buffer to prevent crashes
-#endif
 
 const char * sdCheckAndCreateDirectory(const char * path)
 {
@@ -366,10 +364,12 @@ const char * sdCopyFile(const char * srcPath, const char * destPath)
     result = f_read(&srcFile, buf, sizeof(buf), &read);
     if (result == FR_OK) {
       result = f_write(&destFile, buf, read, &written);
+      if (result == FR_OK && written != read) result = FR_DISK_ERR;
     }
   }
 
-  f_close(&destFile);
+  FRESULT closeResult = f_close(&destFile);
+  if (result == FR_OK) result = closeResult;
   f_close(&srcFile);
 
   if (result != FR_OK) {
@@ -457,10 +457,10 @@ uint32_t sdGetFreeSectors()
 
 uint32_t sdGetFreeKB()
 {
-  return sdGetFreeSectors() * (1024 / BLOCK_SIZE);
+  return sdFreeKBFromSectors(sdGetFreeSectors());
 }
 
-bool sdIsFull() { return sdGetFreeKB() < SDCARD_MIN_FREE_SPACE_MB * 1024; }
+bool sdIsFull() { return !sdHasSpaceFor(0); }
 
 #else  // #if !defined(SIMU) || defined(SIMU_DISKIO)
 
@@ -477,14 +477,13 @@ uint32_t sdGetSize()
 uint32_t sdGetFreeSectors()
 {
   // SIMU SD card is always above threshold
-  return ((SDCARD_MIN_FREE_SPACE_MB*1024*1024)/BLOCK_SIZE)+1;
+  return ((SD_MIN_FREE_KB + 1024) * 1024) / BLOCK_SIZE;
 }
 
-uint32_t sdGetFreeKB() { return SDCARD_MIN_FREE_SPACE_MB * 1024 + 1; }
+uint32_t sdGetFreeKB() { return SD_MIN_FREE_KB + 1024; }
 bool sdIsFull() { return false; }
 
 #endif  // #if !defined(SIMU) || defined(SIMU_DISKIO)
-
 
 static bool _g_FATFS_init = false;
 static FATFS g_FATFS_Obj __DMA; // this is in uninitialised section !!!
@@ -507,13 +506,75 @@ void sdInit()
   sdMount();
 }
 
+static FRESULT _nb4LastMountResult = FR_OK;
+static uint32_t _nb4FilesystemCreationRequests = 0;
+
+FRESULT nb4StorageMountResult() { return _nb4LastMountResult; }
+
+uint32_t nb4FilesystemCreationRequests() { return _nb4FilesystemCreationRequests; }
+
+bool nb4MountFailureIsMissingFilesystem(FRESULT result)
+{
+  return result == FR_NO_FILESYSTEM;
+}
+
+bool nb4RequestFilesystemCreation()
+{
+  _nb4FilesystemCreationRequests += 1;
+
+#if defined(RADIO_NB4) && !defined(SIMU) && !defined(BOOT)
+  static BYTE work[FF_MAX_SS];
+  static const MKFS_PARM opt = {
+    FM_FAT | FM_SFD,   /* FAT12/16 without a partition table */
+    1,
+    0,                 /* Default alignment */
+    0,                 /* Default root entries */
+#if defined(STORAGE_FAT_CLUSTER_SIZE)
+    STORAGE_FAT_CLUSTER_SIZE,
+#else
+    4096,
+#endif
+  };
+
+  // A previous firmware may have placed valid FTL tables at a different base.
+  // Erase the complete device before creating the new full-NOR layout so an old
+  // table with a higher serial cannot supersede the new filesystem after reboot.
+  watchdogSuspend(6000 /* 60 s */);
+  sdDone();
+  const bool erased = spiFlashDiskEraseAll();
+  storageInit();
+  if (!erased) {
+    watchdogSuspend(0);
+    TRACE("nb4RequestFilesystemCreation: NOR erase verification failed");
+    return false;
+  }
+
+  TRACE("nb4RequestFilesystemCreation: creating filesystem");
+  if (f_mkfs("", &opt, work, sizeof(work)) != FR_OK) {
+    watchdogSuspend(0);
+    TRACE("nb4RequestFilesystemCreation: f_mkfs failed");
+    return false;
+  }
+  _nb4LastMountResult = f_mount(&g_FATFS_Obj, "", 1);
+  _g_FATFS_init = _nb4LastMountResult == FR_OK;
+  if (_g_FATFS_init) sdGetFreeSectors();
+  watchdogSuspend(0);
+  return _g_FATFS_init;
+#else
+  return false;
+#endif
+}
+
 void sdMount()
 {
   TRACE("sdMount");
 
   storagePreMountHook();
-  
-  if (f_mount(&g_FATFS_Obj, "", 1) == FR_OK) {
+
+  _nb4LastMountResult = f_mount(&g_FATFS_Obj, "", 1);
+  const bool mounted = (_nb4LastMountResult == FR_OK);
+
+  if (mounted) {
     // call sdGetFreeSectors() now because f_getfree() takes a long time first time it's called
     _g_FATFS_init = true;
     sdGetFreeSectors();
@@ -556,6 +617,7 @@ void sdDone()
   }
 
   storageDeInit();
+  _g_FATFS_init = false;
 }
 
 uint32_t sdMounted()

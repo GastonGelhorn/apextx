@@ -293,7 +293,8 @@ void LCD_ST7796S_Init(void) {
   lcdWriteCommand(0x34);
 
   // SET RGB STRAT
-  lcdWriteCommand(0xB0);  // SET HS VS DE CLK 上升还是下降有效
+  // Select whether HS, VS, DE, and CLK are active on rising or falling edges.
+  lcdWriteCommand(0xB0);
   lcdWriteData(0x80);
 
   lcdWriteCommand(0xB4);
@@ -1098,7 +1099,7 @@ void LCD_NT35310_Init( void )
     delay_ms(20);
     lcdWriteCommand(0x36);
 //    if( IsHorizontal )
-//        lcdWriteData(0x00);//需修改
+//        lcdWriteData(0x00);  // TODO: verify this orientation value.
 //    else
         lcdWriteData(0x14);
 
@@ -1787,7 +1788,7 @@ void LCD_NT35310_Init( void )
     SYSTEM_DelayMS(20);
     lcdWriteCommand(0x36);
     if( IsHorizontal )
-        lcdWriteData(0x14);//需修改
+        lcdWriteData(0x14);  // TODO: verify this orientation value.
     else
         lcdWriteData(0x14);
 

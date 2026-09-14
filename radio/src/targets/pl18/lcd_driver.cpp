@@ -76,7 +76,6 @@ enum ENUM_IO_MODE
     IO_MODE_ANALOG
 };
 
-
 static void LCD_AF_GPIOConfig(void)
 {
   /* GPIOs Configuration */
@@ -756,7 +755,6 @@ unsigned int LCD_ILI9481_ReadID(void) {
   int ID = 0;
   int Data;
 
-
   lcdWriteByte(0, 0xBF);
 
   Data = LCD_ReadByteOnFallingEdge();
@@ -1096,7 +1094,7 @@ unsigned int LCD_ILI9488_ReadID(void) {
   lcdWriteData(0x2C);
   lcdWriteData(0x82);
 
-  // Interface Mode Control: 
+  // Interface Mode Control:
   //   SDA_EN = 1, DIN/SDA pin is used for 3/4 wire serial
   //               interface and SDO pin is not used.
   lcdWriteCommand(0xB0);
@@ -1175,7 +1173,7 @@ void LCD_ST7796S_Init(void) {
   lcdWriteData( 0x66 );
 
   //SET RGB STRAT
-  lcdWriteCommand (0xB0 );   //SET HS VS DE CLK 上升还是下降有效
+  lcdWriteCommand (0xB0 );   // Select the active edges for HS, VS, DE, and CLK.
   lcdWriteData( 0x80 );
 
   lcdWriteCommand( 0xB4 );
@@ -1300,11 +1298,10 @@ unsigned int LCD_ST7796S_ReadID(void) {
   return (ID);
 }
 
-
 unsigned int LCD_NT35310_ReadID( void )
 {
     unsigned int ID = 0x3531;
-    
+
     return( ID );
 
 }
@@ -1325,14 +1322,11 @@ void LCD_NT35310_Init( void )
     lcdWriteCommand(0xB3);
     lcdWriteData(0x21);
 
-
-
     lcdWriteCommand(0xC0);
     lcdWriteData(0x33);
     lcdWriteData(0x33);
     lcdWriteData(0x10);
     lcdWriteData(0x10);
-
 
     lcdWriteCommand(0xC4);
     lcdWriteData(0x56);  //3a
@@ -1937,7 +1931,7 @@ void LCD_NT35310_Init( void )
     lcdWriteData(0xAA);
     lcdWriteData(0x00);
     lcdWriteData(0x00);
-    lcdWriteData(0x00); 
+    lcdWriteData(0x00);
 
     lcdWriteCommand(0x00);
     lcdWriteData(0xAA);
@@ -1979,12 +1973,12 @@ void LCD_NT35310_Init( void )
 
     lcdWriteCommand(0xDF);
     lcdWriteData(0x10);
-    delay_ms(20);       
+    delay_ms(20);
     lcdWriteCommand(0x36);
 //    if( IsHorizontal )
-//        lcdWriteData(0x00);//需修改
-//    else    
-        lcdWriteData(0x14);	 
+//        lcdWriteData(0x00);  // TODO: verify this orientation value.
+//    else
+        lcdWriteData(0x14);
 
     lcdWriteCommand(0x3A);
     lcdWriteData(0x66);
@@ -2008,7 +2002,6 @@ void LCD_NT35310_Init( void )
     SYSTEM_DelayMS(120);
     lcdWriteCommand(0xB3);
     lcdWriteData(0x21);
-
 
     lcdWriteCommand(0xc0);
     lcdWriteData(0x56);
@@ -2321,7 +2314,7 @@ void LCD_NT35310_Init( void )
     lcdWriteData(0xDA);
     lcdWriteData(0x00);
     lcdWriteData(0xF3);
-    lcdWriteData(0x00);  
+    lcdWriteData(0x00);
 
     lcdWriteCommand(0xE1);
     lcdWriteData(0x00);
@@ -2359,7 +2352,7 @@ void LCD_NT35310_Init( void )
     lcdWriteData(0xD9);
     lcdWriteData(0x00);
     lcdWriteData(0xF3);
-    lcdWriteData(0x00); 
+    lcdWriteData(0x00);
 
     lcdWriteCommand(0xE2);
     lcdWriteData(0x10);
@@ -2397,7 +2390,7 @@ void LCD_NT35310_Init( void )
     lcdWriteData(0xDA);
     lcdWriteData(0x00);
     lcdWriteData(0xF3);
-    lcdWriteData(0x00);  
+    lcdWriteData(0x00);
 
     lcdWriteCommand(0xE3);
     lcdWriteData(0x00);
@@ -2619,7 +2612,7 @@ void LCD_NT35310_Init( void )
     lcdWriteData(0xAA);
     lcdWriteData(0x00);
     lcdWriteData(0x00);
-    lcdWriteData(0x00); 
+    lcdWriteData(0x00);
 
     lcdWriteCommand(0x00);
     lcdWriteData(0xAA);
@@ -2668,13 +2661,13 @@ void LCD_NT35310_Init( void )
 
     lcdWriteCommand(0xDF);
     lcdWriteData(0x10);
-    SYSTEM_DelayMS(20);       
+    SYSTEM_DelayMS(20);
     lcdWriteCommand(0x36);
     if( IsHorizontal )
-        lcdWriteData(0x14);//需修改
-    else    
+        lcdWriteData(0x14);  // TODO: verify this orientation value.
+    else
         lcdWriteData(0x14);
-    
+
     lcdWriteCommand(0x3A);
     lcdWriteData(0x66);
 
@@ -2683,7 +2676,7 @@ void LCD_NT35310_Init( void )
     lcdWriteCommand(0x35);
     lcdWriteData(0x00);
 
-    lcdWriteCommand(0x28); 
+    lcdWriteCommand(0x28);
 #endif
 }
 
@@ -2753,7 +2746,7 @@ void LCD_Init_LTDC() {
   // Configure IRQ (line)
   NVIC_SetPriority(LTDC_IRQn, LTDC_IRQ_PRIO);
   NVIC_EnableIRQ(LTDC_IRQn);
-  
+
   // Trigger on last line
   HAL_LTDC_ProgramLineEvent(&hltdc, lcd_phys_h);
 }
@@ -2769,7 +2762,7 @@ void LCD_LayerInit() {
 
   /* Pixel Format configuration*/
   layer.PixelFormat = LTDC_PIXEL_FORMAT_RGB565;
-  
+
   /* Alpha constant (255 totally opaque) */
   layer.Alpha = 255;
 
@@ -2855,6 +2848,17 @@ void lcdInit(void)
     lcdOnFunction = LCD_ST7796S_On;
     lcdPixelClock = 14500000;
   }
+#if defined(RADIO_NB4)
+  else {
+
+    TRACE("LCD INIT (default NB4): NT35310");
+    boardLcdType = "NT35310";
+    lcdInitFunction = LCD_NT35310_Init;
+    lcdOffFunction = LCD_NT35310_Off;
+    lcdOnFunction = LCD_NT35310_On;
+    lcdPixelClock = 14000000;
+  }
+#else
   else{
     TRACE("LCD INIT (default): ST7796S");
     boardLcdType = "ST7796S (Default)";
@@ -2863,6 +2867,7 @@ void lcdInit(void)
     lcdOnFunction = LCD_ST7796S_On;
     lcdPixelClock = 12000000;
   }
+#endif
 
   lcdInitFunction();
 

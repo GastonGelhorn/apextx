@@ -53,6 +53,7 @@ class ViewMain : public NavWindow
   unsigned getMainViewsCount() const;
   unsigned getCurrentMainView() const;
   void setCurrentMainView(unsigned view);
+  void resizeToDisplay();
 
   void nextMainView();
   void previousMainView();

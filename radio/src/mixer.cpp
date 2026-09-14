@@ -20,6 +20,11 @@
  */
 
 #include "edgetx.h"
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_racing.h"
+#include "nb4_controls.h"
+#endif
 #include "edgetx_types.h"
 #include "timers.h"
 #include "switches.h"
@@ -273,9 +278,11 @@ int16_t applyLimits(uint8_t channel, int32_t value)
   }
 #endif
 
+#if !defined(RADIO_NB4_FAMILY)
   if (isFunctionActive(FUNCTION_TRAINER_CHANNELS) && isTrainerValid()) {
     return trainerInput[channel] * 2;
   }
+#endif
 
   LimitData * lim = limitAddress(channel);
 
@@ -335,13 +342,13 @@ int16_t applyLimits(uint8_t channel, int32_t value)
 static const getvalue_t _switch_2pos_lookup[] = {
   -1024, // SWITCH_HW_UP
   +1024, // SWITCH_HW_MID
-  +1024, // SWITCH_HW_DOWN 
+  +1024, // SWITCH_HW_DOWN
 };
 
 static const getvalue_t _switch_3pos_lookup[] = {
   -1024, // SWITCH_HW_UP
   0,     // SWITCH_HW_MID
-  +1024, // SWITCH_HW_DOWN 
+  +1024, // SWITCH_HW_DOWN
 };
 
 // TODO same naming convention than the drawSource
@@ -486,11 +493,16 @@ getvalue_t _getValue(mixsrc_t i, bool* valid)
   else if (i <= MIXSRC_LAST_LOGICAL_SWITCH) {
     return getSwitch(SWSRC_FIRST_LOGICAL_SWITCH + i - MIXSRC_FIRST_LOGICAL_SWITCH) ? 1024 : -1024;
   } else if (i <= MIXSRC_LAST_TRAINER) {
+#if defined(RADIO_NB4_FAMILY)
+    if (valid) *valid = false;
+    return 0;
+#else
     int16_t x = trainerInput[i - MIXSRC_FIRST_TRAINER];
     if (i < MIXSRC_FIRST_TRAINER + NUM_CAL_PPM) {
       x -= g_eeGeneral.trainer.calib[i - MIXSRC_FIRST_TRAINER];
     }
     return x * 2;
+#endif
   } else if (i <= MIXSRC_LAST_CH) {
     return ex_chans[i - MIXSRC_FIRST_CH];
   }
@@ -535,7 +547,7 @@ getvalue_t _getValue(mixsrc_t i, bool* valid)
         return telemetryItem.value;
     }
   }
-  
+
   if (valid != nullptr) *valid = false;
   return 0;
 }
@@ -565,7 +577,7 @@ void evalInputs(uint8_t mode)
 
   auto max_calib_analogs = adcGetInputOffset(ADC_INPUT_VBAT);
   auto pots_offset = adcGetInputOffset(ADC_INPUT_FLEX);
-  
+
   for (uint8_t i = 0; i < max_calib_analogs; i++) {
     int16_t v = anaIn(i);
     uint8_t ch = (i < pots_offset ? inputMappingConvertMode(i) : i);
@@ -575,7 +587,15 @@ void evalInputs(uint8_t mode)
 
 #if defined(STICK_DEAD_ZONE)
     // dead zone invented by FlySky in my opinion it should goes into ADC
+#if defined(SURFACE_RADIO)
+    // A surface radio's trigger rests at CENTRE, so it is the axis that most
+    // needs the dead zone: without it, ADC bleed from the wheel reaches the
+    // servo. Aircraft throttle is excluded upstream because it rests at the
+    // bottom, where a dead zone would eat the idle end of the travel instead.
+    if (g_eeGeneral.stickDeadZone) {
+#else
     if (g_eeGeneral.stickDeadZone && ch != inputMappingGetThrottle()) {
+#endif
       if (v > deadZoneOffset) {
         // y=ax+b
         v = (int16_t)((int32_t)(v - deadZoneOffset) * 1024L / (1024L - deadZoneOffset));
@@ -615,6 +635,7 @@ void evalInputs(uint8_t mode)
         v = 0;
       }
 
+#if !defined(RADIO_NB4_FAMILY)
       if (mode <= e_perout_mode_inactive_flight_mode &&
           isFunctionActive(FUNCTION_TRAINER_STICK1 + ch) &&
           isTrainerValid()) {
@@ -638,6 +659,7 @@ void evalInputs(uint8_t mode)
           }
         }
       }
+#endif
       calibratedAnalogs[i] = v;
     }
   }
@@ -665,7 +687,7 @@ getvalue_t getValue(mixsrc_t i, bool* valid)
   getvalue_t v = _getValue(i, valid);
   if (invert) v = -v;
   return v;
-}  
+}
 
 #if defined(SURFACE_RADIO)
   constexpr int IDLE_TRIM_SCALE = 1;
@@ -1088,7 +1110,6 @@ void evalFlightModeMixes(uint8_t mode, uint8_t tick10ms)
         *ptr >>= 6;  // this is quite tricky, reduces the value a lot but should be still over 100% and reduces flash need
       } */
 
-
       PACK( union u_int16int32_t {
         struct {
           int16_t lo;
@@ -1131,27 +1152,34 @@ void evalFlightModeMixes(uint8_t mode, uint8_t tick10ms)
   mixWarning = lv_mixWarning;
 }
 
-
-
 #define MAX_ACT 0xffff
+#if defined(FLIGHT_MODES)
 uint8_t lastFlightMode = 255; // TODO reinit everything here when the model changes, no???
 
 tmr10ms_t flightModeTransitionTime;
 uint8_t   flightModeTransitionLast = 255;
+#else
+
+uint8_t lastFlightMode = 0;
+uint8_t flightModeTransitionLast = 0;
+#endif
 
 void evalMixes(uint8_t tick10ms)
 {
+#if defined(FLIGHT_MODES)
   int32_t sum_chans512[MAX_OUTPUT_CHANNELS];
 
   static uint16_t fp_act[MAX_FLIGHT_MODES] = {0};
   static uint16_t delta = 0;
   static uint16_t flightModesFade = 0;
+#endif
 
 #if defined(RADIO_GX12)
   // see #6159
   _poll_switches();
 #endif
 
+#if defined(FLIGHT_MODES)
   uint8_t fm = getFlightMode();
 
   if (lastFlightMode != fm) {
@@ -1207,6 +1235,12 @@ void evalMixes(uint8_t tick10ms)
     mixerCurrentFlightMode = fm;
     evalFlightModeMixes(e_perout_mode_normal, tick10ms);
   }
+#else
+  lastFlightMode = 0;
+  flightModeTransitionLast = 0;
+  mixerCurrentFlightMode = 0;
+  evalFlightModeMixes(e_perout_mode_normal, tick10ms);
+#endif
 
   //========== FUNCTIONS ===============
   // must be done after mixing because some functions use the inputs/channels values
@@ -1215,7 +1249,7 @@ void evalMixes(uint8_t tick10ms)
 #if defined(AUDIO)
     requiredSpeakerVolume = g_eeGeneral.speakerVolume + VOLUME_LEVEL_DEF;
 #endif
-  
+
     requiredBacklightBright = g_eeGeneral.getBrightness();
 
     if (radioGFEnabled()) {
@@ -1244,7 +1278,16 @@ void evalMixes(uint8_t tick10ms)
     // at the end chans[i] = chans[i]/256 =>  -1024..1024
     // interpolate value with min/max so we get smooth motion from center to stop
     // this limits based on v original values and min=-1024, max=1024  RESX=1024
+#if defined(FLIGHT_MODES)
     int32_t q = (flightModesFade ? (sum_chans512[i] / weight) << 4 : chans[i]);
+#else
+    int32_t q = chans[i];
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+
+    q = nb4RacingApplyChannel(i, q, tick10ms);
+#endif
 
     ex_chans[i] = q / 256;
 
@@ -1253,6 +1296,7 @@ void evalMixes(uint8_t tick10ms)
     channelOutputs[i] = value;  // copy consistent word to int-level
   }
 
+#if defined(FLIGHT_MODES)
   if (tick10ms && flightModesFade) {
     uint16_t tick_delta = delta * tick10ms;
     for (uint8_t p=0; p<MAX_FLIGHT_MODES; p++) {
@@ -1277,6 +1321,7 @@ void evalMixes(uint8_t tick10ms)
       }
     }
   }
+#endif
 }
 
 #if defined(THRTRACE)
@@ -1345,7 +1390,14 @@ void doMixerPeriodicUpdates()
     val = val >> (RESX_SHIFT - 6);
 #endif
 
+#if defined(RADIO_NB4_FAMILY)
+    nb4ControlsProcessCommands();
+    nb4RaceProcessCommands();
+#endif
     evalTimers(val, tick10ms);
+#if defined(RADIO_NB4_FAMILY)
+    nb4RacingTick(tick10ms);
+#endif
 
     static uint8_t  s_cnt_100ms;
     static uint8_t  s_cnt_1s;

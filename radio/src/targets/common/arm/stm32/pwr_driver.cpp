@@ -25,6 +25,10 @@
 #include "hal/usb_driver.h"
 #include "stm32_gpio.h"
 
+#if defined(RADIO_NB4) && !defined(BOOT)
+#include "targets/pl18/nb4_rf_controller.h"
+#endif
+
 void pwrInit()
 {
 
@@ -107,6 +111,9 @@ void pwrOn()
 
 void pwrOff()
 {
+#if defined(RADIO_NB4) && !defined(BOOT)
+  nb4::Nb4RfController::shutdown();
+#endif
 #if defined(PWR_ON_GPIO)
   gpio_clear(PWR_ON_GPIO);
 #endif

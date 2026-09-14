@@ -38,7 +38,7 @@ class ChannelsViewFooter : public Window
 {
  public:
   explicit ChannelsViewFooter(Window* parent) :
-      Window(parent, {0, parent->height() - FOOTER_H, LCD_W, FOOTER_H})
+      Window(parent, {0, parent->height() - FOOTER_H, lv_disp_get_hor_res(nullptr), FOOTER_H})
   {
     etx_solid_bg(lvobj, COLOR_THEME_SECONDARY1_INDEX);
 
@@ -133,7 +133,7 @@ ChannelsViewMenu::ChannelsViewMenu() :
     int rows = 8;
 #else
     int cols = 2;
-    int rows = (LCD_H - EdgeTxStyles::MENU_HEADER_HEIGHT - ChannelsViewFooter::FOOTER_H) / ChannelsViewPage::CHANS_H;
+    int rows = (lv_disp_get_ver_res(nullptr) - EdgeTxStyles::MENU_HEADER_HEIGHT - ChannelsViewFooter::FOOTER_H) / ChannelsViewPage::CHANS_H;
 #endif
 
   int pages = 0;

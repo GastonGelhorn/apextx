@@ -32,6 +32,8 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
+#include <atomic>
 
 namespace fs = std::filesystem;
 
@@ -46,6 +48,17 @@ static fs::path simuSettingsDirectory;
 
 // current simulater path
 static fs::path simuCurrentPath;
+static std::atomic<unsigned> ioDelay{0}, ioWriteLimit{UINT32_MAX}, renameFault{0};
+void simuFatfsSetRenameFault(unsigned phase) { renameFault.store(phase); }
+void simuFatfsSetFaults(unsigned delayMs, unsigned writeLimit)
+{
+  ioDelay.store(delayMs); ioWriteLimit.store(writeLimit);
+}
+static void delayIo()
+{
+  auto delay = ioDelay.load();
+  if (delay) std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+}
 
 static bool lower_case_equal(unsigned char c1, unsigned char c2)
 {
@@ -175,11 +188,15 @@ std::string simuFatfsGetRealPath(const std::string &p)
 
 FRESULT file_stat(const std::string& realPath, FILINFO* fno)
 {
+  delayIo();
   std::error_code ec;
   fs::path fsPath(realPath);
 
   // Check if file/directory exists
   auto status = fs::status(fsPath, ec);
+  if (status.type() == fs::file_type::not_found || ec == std::errc::no_such_file_or_directory) {
+    return fs::is_directory(fsPath.parent_path(), ec) ? FR_NO_FILE : FR_NO_PATH;
+  }
   if (ec || status.type() == fs::file_type::not_found) {
     return FR_INVALID_NAME;
   }
@@ -228,15 +245,32 @@ FRESULT file_stat(const std::string& realPath, FILINFO* fno)
   return FR_OK;
 }
 
+static std::atomic<uint32_t> statCalls{0};
+
+uint32_t simuFatfsStatCalls()
+{
+  return statCalls.load();
+}
+
 FRESULT f_stat(const TCHAR* name, FILINFO* fno)
 {
+  ++statCalls;
   std::string realPath = convertToSimuPath(name);
   return file_stat(realPath, fno);
 }
 
+static FRESULT _simuNextMountResult = FR_OK;
+
+void simuFatfsSetNextMountResult(FRESULT result)
+{
+  _simuNextMountResult = result;
+}
+
 FRESULT f_mount(FATFS*, const TCHAR*, BYTE opt)
 {
-  return FR_OK;
+  const FRESULT forced = _simuNextMountResult;
+  _simuNextMountResult = FR_OK;
+  return forced;
 }
 
 struct _simu_FIL {
@@ -300,6 +334,15 @@ FRESULT f_open(FIL* fil, const TCHAR* name, BYTE flag)
   }
 }
 
+FRESULT f_sync(FIL* fil)
+{
+  delayIo();
+  if (!fil || !fil->obj.fs) return FR_INVALID_OBJECT;
+  auto sf = reinterpret_cast<_simu_FIL*>(fil->obj.fs);
+  sf->stream->flush();
+  return sf->stream->good() ? FR_OK : FR_DISK_ERR;
+}
+
 FRESULT f_close(FIL* fil)
 {
   if (fil && fil->obj.fs) {
@@ -311,6 +354,7 @@ FRESULT f_close(FIL* fil)
 
 FRESULT f_read(FIL* fil, void* data, UINT size, UINT* read)
 {
+  delayIo();
   *read = 0;
   if (fil && fil->obj.fs) {
     _simu_FIL* sf = reinterpret_cast<_simu_FIL*>(fil->obj.fs);
@@ -326,6 +370,8 @@ FRESULT f_read(FIL* fil, void* data, UINT size, UINT* read)
 
 FRESULT f_write(FIL* fil, const void* data, UINT size, UINT* written)
 {
+  delayIo();
+  size = std::min(size, ioWriteLimit.load());
   *written = 0;
   if (fil && fil->obj.fs) {
     _simu_FIL* sf = reinterpret_cast<_simu_FIL*>(fil->obj.fs);
@@ -475,8 +521,10 @@ FRESULT f_readdir(DIR* rep, FILINFO* fil)
 {
   _simu_DIR* sd = reinterpret_cast<_simu_DIR*>(rep->obj.fs);
 
-  if (!sd || !sd->hasNext()) {
-    return FR_NO_FILE;
+  if (!sd) return FR_INVALID_OBJECT;
+  if (!sd->hasNext()) {
+    if (fil) fil->fname[0] = 0;
+    return FR_OK; // FatFs end-of-directory contract
   }
 
   try {
@@ -523,7 +571,7 @@ FRESULT f_unlink(const TCHAR * name)
   bool removed = fs::remove(path, ec);
   if (ec) return FR_INVALID_NAME;
 
-  return removed ? FR_OK : FR_INVALID_NAME;
+  return removed ? FR_OK : FR_NO_FILE;
 }
 
 FRESULT f_rename(const TCHAR *oldname, const TCHAR *newname)
@@ -532,10 +580,13 @@ FRESULT f_rename(const TCHAR *oldname, const TCHAR *newname)
   std::string path = convertToSimuPath(newname);
   std::error_code ec;
 
+  unsigned fault = renameFault.exchange(0);
+  if (fault == 1) return FR_DISK_ERR;
+  // FatFs does not replace an existing destination.
+  if (fs::exists(path, ec)) return FR_EXIST;
   fs::rename(old.c_str(), path.c_str(), ec);
   if (ec) return FR_INVALID_NAME;
-
-  return FR_OK;
+  return fault == 2 ? FR_DISK_ERR : FR_OK;
 }
 
 FRESULT f_utime(const TCHAR* path, const FILINFO* fno)
@@ -545,7 +596,7 @@ FRESULT f_utime(const TCHAR* path, const FILINFO* fno)
     }
 
     std::string realPath = convertToSimuPath(path);
-    
+
     // Convert FatFs time to tm structure
     struct tm ltime = {};
     ltime.tm_year = ((fno->fdate >> 9) & 0x7F) + 80;

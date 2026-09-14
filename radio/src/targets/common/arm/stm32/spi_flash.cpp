@@ -24,6 +24,11 @@
 #include "stm32_gpio.h"
 
 #include "hal.h"
+#if defined(RADIO_NB4) && !defined(BOOT)
+#include "os/task.h"
+#include "os/sleep.h"
+#include "stm32_hal.h"
+#endif
 
 #define CS_HIGH() stm32_spi_unselect(&_flash_spi)
 #define CS_LOW()  stm32_spi_select(&_flash_spi)
@@ -55,7 +60,6 @@
 
 #define FLASH_CMD_EN4B          0xb7
 
-
 struct SpiFlashDescriptor {
   uint16_t id;
   uint8_t  log2Size;
@@ -67,7 +71,6 @@ struct SpiFlashDescriptor {
 
 // TODO:
 // - fallback for flash size discovery (no JEDEC SFDP; see 'pico-bootrom')
-
 
 const stm32_spi_t _flash_spi = {
   .SPIx = FLASH_SPI,
@@ -147,6 +150,12 @@ static void flash_wait_for_not_busy()
   uint8_t status;
   do {
     flash_do_cmd(FLASH_CMD_STATUS, 0, &status, 1);
+#if defined(RADIO_NB4) && !defined(BOOT)
+    // NOR erase/program is slow. Let the display run while a storage worker
+    // waits, including when FatFs priority inheritance has boosted that worker.
+    // USB MSC also calls this from its ISR, where yielding is forbidden.
+    if ((status & 1) && __get_IPSR() == 0 && scheduler_is_running()) sleep_ms(1);
+#endif
   } while (status & 0x01);
 }
 
@@ -182,7 +191,7 @@ static bool flash_read_id(SpiFlashDescriptor* desc)
     return false;
   }
 
-  desc->id = id;  
+  desc->id = id;
   return true;
 }
 
@@ -222,7 +231,7 @@ static bool flash_read_sfdp(SpiFlashDescriptor* desc)
   // 2nd DWORD: flash memory density
   // - MSB set: array >= 2 Gbit, encoded as log2 of number of bits
   // - MSB clear: array < 2 Gbit, encoded as direct bit count
-  
+
   param_table_dword = bytes_to_u32le(rxbuf + 4);
   if (param_table_dword & (1u << 31)) {
     param_table_dword &= ~(1u << 31);
@@ -234,21 +243,25 @@ static bool flash_read_sfdp(SpiFlashDescriptor* desc)
     param_table_dword = ctr;
   }
   desc->log2Size = param_table_dword - 3;
-  
+
   return true;
 }
 
 void flashSpiSync()
 {
-  uint8_t status;
-  do {
-    flash_do_cmd(FLASH_CMD_STATUS, 0, &status, 1);
-  } while (status & 0x01);
+  flash_wait_for_not_busy();
 }
 
 bool flashSpiInit(void)
 {
   stm32_spi_init(&_flash_spi, LL_SPI_DATAWIDTH_8BIT);
+
+#if defined(FLASH_SPI_MAX_FREQ)
+
+  LL_SPI_Disable(FLASH_SPI);
+  stm32_spi_set_max_baudrate(&_flash_spi, FLASH_SPI_MAX_FREQ);
+  LL_SPI_Enable(FLASH_SPI);
+#endif
   delay_ms(1);
   flashSpiSync();
 
@@ -260,7 +273,7 @@ bool flashSpiInit(void)
     return false;
   }
 
-  return true;  
+  return true;
 }
 
 uint32_t flashSpiGetSize()
@@ -344,7 +357,7 @@ uint32_t flashSpiWrite(uint32_t address, const uint8_t* data, uint32_t size)
   }
   flash_dma_write_bytes(data, size);
   flash_unselect();
-  
+
   flash_wait_for_not_busy();
   return size;
 }
@@ -377,7 +390,7 @@ int flashSpiBlockErase(uint32_t address)
 
   flash_wait_for_not_busy();
   flash_enable_write();
-  
+
   flash_select();
   if (_flashDescriptor.use4BytesAddress) {
     flash_put_cmd_4b_addr(FLASH_CMD_BLOCK_ERASE, address);

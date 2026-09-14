@@ -30,6 +30,10 @@
 
 #if !defined(BOOT)
 #include "edgetx.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_controls.h"
+#include "hal/switch_driver.h"
+#endif
 #endif
 
 // long key press minimum duration (x10ms),
@@ -328,7 +332,11 @@ bool keyDown()
 
 bool trimDown(uint8_t idx)
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  return nb4ControlsTrimSource(READ_TRIMS()) & (1u << idx);
+#else
   return READ_TRIMS() & (1 << idx);
+#endif
 }
 
 bool keysGetState(uint8_t key)
@@ -509,6 +517,10 @@ bool keysPollingCycle()
   }
 #else
   trims_input = READ_TRIMS();
+#endif
+
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4ControlsFilter(keys_input, trims_input, nb4ControlsReadSwitches());
 #endif
 
 #if !defined(BOOT) && defined(KEYS_LOCK_KEY1) && defined(KEYS_LOCK_KEY2)

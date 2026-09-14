@@ -49,11 +49,15 @@
 #elif defined(PCBGX15)
  #include "yaml_datastructs_gx15.cpp"
 #elif defined(PCBPL18)
- #if defined(RADIO_NB4P)
+ #if defined(RADIO_NB4)
+
+  #include "yaml_datastructs_nb4.cpp"
+ #elif defined(RADIO_NB4_FAMILY)
+
   #include "yaml_datastructs_nb4p.cpp"
- #elif defined(RADIO_NV14_FAMILY)  
+ #elif defined(RADIO_NV14_FAMILY)
   #include "yaml_datastructs_nv14.cpp"
- #elif defined(RADIO_PL18U)  
+ #elif defined(RADIO_PL18U)
   #include "yaml_datastructs_pl18u.cpp"
  #else
   #include "yaml_datastructs_pl18.cpp"

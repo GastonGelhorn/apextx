@@ -136,8 +136,12 @@ static int8_t VCP_DeInit_FS(void)
 {
   /* USER CODE BEGIN 4 */
   cdcConnected = false;
+#if !defined(RADIO_NB4)
   receiveDataCb = nullptr;
   baudRateCb = nullptr;
+#endif
+  // The serial owner clears callbacks in serialStop(). USB bus resets also
+  // deinitialize this class, and must not silently detach an active CLI.
   APP_Tx_ptr_in = 0;
   APP_Tx_ptr_out = 0;
   return (USBD_OK);
@@ -264,7 +268,7 @@ static int8_t VCP_StartOfFrame_FS()
     /* Check the data to be sent through IN pipe */
     USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDevice.pClassData;
 
-    if (hcdc->TxState != 0)
+    if (!hcdc || hcdc->TxState != 0)
       return USBD_OK;
 
     if (APP_Tx_ptr_out == APP_TX_DATA_SIZE)
@@ -408,6 +412,7 @@ static const etx_serial_driver_t usbSerialDriver = {
   .getBaudrate = usbSerialBaudRate,
   .setReceiveCb = usbSerialSetReceiveDataCb,
   .setBaudrateCb = usbSerialSetBaudRateCb,
+  .setErrorCb = nullptr,
 };
 
 const etx_serial_port_t UsbSerialPort = {

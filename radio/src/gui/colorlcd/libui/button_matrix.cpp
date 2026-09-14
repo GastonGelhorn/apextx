@@ -108,6 +108,16 @@ void ButtonMatrix::initBtnMap(uint8_t cols, uint8_t btns)
 {
   deallocate();
 
+  if (cols == 0 || btns == 0) {
+    txt_cnt = 1;
+    btn_cnt = 0;
+    lv_btnm_map = (char**)malloc(sizeof(char*));
+    txt_index = nullptr;
+    lv_btnm_map[0] = (char*)_map_end;
+    update();
+    return;
+  }
+
   uint8_t rows = ((btns - 1) / cols) + 1;
   if (rows == 1) cols = btns;
   txt_cnt = (cols + 1) * rows;

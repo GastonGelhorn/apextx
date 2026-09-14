@@ -141,7 +141,7 @@ class BubbleDialog : public Window
 {
  public:
   BubbleDialog(const char* message, int timeout, coord_t width) :
-      Window(MainWindow::instance(), rect_t{(LCD_W - width) / 2, LCD_H - 100, width, 50},
+      Window(MainWindow::instance(), rect_t{(lv_disp_get_hor_res(nullptr) - width) / 2, lv_disp_get_ver_res(nullptr) - 100, width, 50},
              bubble_popup_create),
       startTime(lv_tick_get()), timeout(timeout)
   {

@@ -31,87 +31,87 @@
  */
 
 // Main menu
-#define TR_QM_MANAGE_MODELS             "Manage\nModels"
-#define TR_QM_MODEL_SETUP               "Model\nSetup"
-#define TR_QM_RADIO_SETUP               "Radio\nSetup"
-#define TR_QM_UI_SETUP                  "UI\nSetup"
-#define TR_QM_TOOLS                     "Tools"
-#define TR_QM_MODEL_SETTINGS            "Model\nSettings"
-#define TR_QM_RADIO_SETTINGS            "Radio\nSettings"
-#define TR_QM_FLIGHT_MODES              TR_SFC_AIR("Drive\nModes", "Flight\nModes")
-#define TR_QM_INPUTS                    "Inputs"
-#define TR_QM_MIXES                     "Mixes"
-#define TR_QM_OUTPUTS                   "Outputs"
-#define TR_QM_CURVES                    "Curves"
-#define TR_QM_GLOBAL_VARS               "Global\nVariables"
-#define TR_QM_LOGICAL_SW                "Logical\nSwitches"
-#define TR_QM_SPEC_FUNC                 "Special\nFunctions"
-#define TR_QM_CUSTOM_LUA                "Custom\nScripts"
-#define TR_QM_TELEM                     "Telemetry"
-#define TR_QM_GLOB_FUNC                 "Global\nFunctions"
-#define TR_QM_TRAINER                   "Trainer"
+#define TR_QM_MANAGE_MODELS             "Gestionar\nmodelos"
+#define TR_QM_MODEL_SETUP               "Config.\nmodelo"
+#define TR_QM_RADIO_SETUP               "Config.\nradio"
+#define TR_QM_UI_SETUP                  "Config.\ninterfaz"
+#define TR_QM_TOOLS                     "Herramientas"
+#define TR_QM_MODEL_SETTINGS            "Ajustes\nmodelo"
+#define TR_QM_RADIO_SETTINGS            "Ajustes\nradio"
+#define TR_QM_FLIGHT_MODES              TR_SFC_AIR("Modos\ncoche", "Modos\nvuelo")
+#define TR_QM_INPUTS                    "Entradas"
+#define TR_QM_MIXES                     "Mezclas"
+#define TR_QM_OUTPUTS                   "Salidas"
+#define TR_QM_CURVES                    "Curvas"
+#define TR_QM_GLOBAL_VARS               "Variables\nglobales"
+#define TR_QM_LOGICAL_SW                "Interrupt.\nlógicos"
+#define TR_QM_SPEC_FUNC                 "Funciones\nespeciales"
+#define TR_QM_CUSTOM_LUA                "Scripts\nmezcla"
+#define TR_QM_TELEM                     "Telemetría"
+#define TR_QM_GLOB_FUNC                 "Funciones\nglobales"
+#define TR_QM_TRAINER                   "Entrenador"
 #define TR_QM_HARDWARE                  "Hardware"
-#define TR_QM_ABOUT                     "About\nEdgeTX"
-#define TR_QM_THEMES                    "Themes"
-#define TR_QM_TOP_BAR                   "Top Bar"
-#define TR_QM_SCREEN_1                  "Screen 1"
-#define TR_QM_SCREEN_2                  "Screen 2"
-#define TR_QM_SCREEN_3                  "Screen 3"
-#define TR_QM_SCREEN_4                  "Screen 4"
-#define TR_QM_SCREEN_5                  "Screen 5"
-#define TR_QM_SCREEN_6                  "Screen 6"
-#define TR_QM_SCREEN_7                  "Screen 7"
-#define TR_QM_SCREEN_8                  "Screen 8"
-#define TR_QM_SCREEN_9                  "Screen 9"
-#define TR_QM_SCREEN_10                 "Screen 10"
-#define TR_QM_ADD_SCREEN                "Add\nScreen"
-#define TR_QM_APPS                      "Apps"
-#define TR_QM_STORAGE                   "Storage"
-#define TR_QM_RESET                     TR_SFC_AIR("Drive\nReset", "Flight\nReset")
-#define TR_QM_CHAN_MON                  "Channel\nMonitor"
-#define TR_QM_LS_MON                    "LS\nMonitor"
-#define TR_QM_STATS                     "Statistics"
-#define TR_QM_DEBUG                     "Debug"
-#define TR_MAIN_MODEL_SETTINGS          "Model Settings"
-#define TR_MAIN_RADIO_SETTINGS          "Radio Settings"
-#define TR_MAIN_MENU_MANAGE_MODELS      "Model Manager"
-#define TR_MAIN_MENU_MODEL_NOTES        "Model Notes"
-#define TR_MAIN_MENU_CHANNEL_MONITOR    "Channel Monitor"
+#define TR_QM_ABOUT                     "Acerca de\nEdgeTX"
+#define TR_QM_THEMES                    "Temas"
+#define TR_QM_TOP_BAR                   "Barra sup."
+#define TR_QM_SCREEN_1                  "Pantalla 1"
+#define TR_QM_SCREEN_2                  "Pantalla 2"
+#define TR_QM_SCREEN_3                  "Pantalla 3"
+#define TR_QM_SCREEN_4                  "Pantalla 4"
+#define TR_QM_SCREEN_5                  "Pantalla 5"
+#define TR_QM_SCREEN_6                  "Pantalla 6"
+#define TR_QM_SCREEN_7                  "Pantalla 7"
+#define TR_QM_SCREEN_8                  "Pantalla 8"
+#define TR_QM_SCREEN_9                  "Pantalla 9"
+#define TR_QM_SCREEN_10                 "Pantalla 10"
+#define TR_QM_ADD_SCREEN                "Añadir\npantalla"
+#define TR_QM_APPS                      "Aplicaciones"
+#define TR_QM_STORAGE                   "Archivos"
+#define TR_QM_RESET                     TR_SFC_AIR("Reiniciar\ncoche", "Reiniciar\nvuelo")
+#define TR_QM_CHAN_MON                  "Monitor\ncanales"
+#define TR_QM_LS_MON                    "Monitor\nlógicos"
+#define TR_QM_STATS                     "Estadísticas"
+#define TR_QM_DEBUG                     "Diagnóstico"
+#define TR_MAIN_MODEL_SETTINGS          "Ajustes del coche"
+#define TR_MAIN_RADIO_SETTINGS          "Ajustes de radio"
+#define TR_MAIN_MENU_MANAGE_MODELS      "Modelos"
+#define TR_MAIN_MENU_MODEL_NOTES        "Notas del modelo"
+#define TR_MAIN_MENU_CHANNEL_MONITOR    "Monitor de canales"
 #define TR_MONITOR_SWITCHES    "MONITOR INTERRP LÓGICOS"
-#define TR_MAIN_MENU_MODEL_SETTINGS     "Model Setup"
-#define TR_MAIN_MENU_RADIO_SETTINGS     "Radio Setup"
-#define TR_MAIN_MENU_SCREEN_SETTINGS    "UI Setup"
-#define TR_MAIN_MENU_STATISTICS         "Statistics"
-#define TR_MAIN_MENU_ABOUT_EDGETX       "About EdgeTX"
-#define TR_MAIN_VIEW_X                  "Screen "
-#define TR_MAIN_MENU_THEMES                 "THEMES"
-#define TR_MAIN_MENU_APPS               "Apps"
+#define TR_MAIN_MENU_MODEL_SETTINGS     "Ajustes del modelo"
+#define TR_MAIN_MENU_RADIO_SETTINGS     "Ajustes de radio"
+#define TR_MAIN_MENU_SCREEN_SETTINGS    "Interfaz"
+#define TR_MAIN_MENU_STATISTICS         "Estadísticas"
+#define TR_MAIN_MENU_ABOUT_EDGETX       "Acerca de EdgeTX"
+#define TR_MAIN_VIEW_X                  "Pantalla "
+#define TR_MAIN_MENU_THEMES                 "TEMAS"
+#define TR_MAIN_MENU_APPS               "Aplicaciones"
 #define TR_MENUHELISETUP       "CONFIGURACIÓN HELI"
-#define TR_MENUFLIGHTMODES     TR_SFC_AIR("DRIVE MODES", "MODOS DE VUELO")
-#define TR_MENUFLIGHTMODE      TR_SFC_AIR("DRIVE MODE", "MODO DE VUELO")
-#define TR_MENUINPUTS          "INPUTS"
-#define TR_MENULIMITS          "OUTPUTS"
+#define TR_MENUFLIGHTMODES     TR_SFC_AIR("MODOS DE COCHE", "MODOS DE VUELO")
+#define TR_MENUFLIGHTMODE      TR_SFC_AIR("MODO DE COCHE", "MODO DE VUELO")
+#define TR_MENUINPUTS          "ENTRADAS"
+#define TR_MENULIMITS          "RECORRIDOS"
 #define TR_MENUCURVES          "CURVAS"
-#define TR_MIXES               "MIXES"
+#define TR_MIXES               "MEZCLAS"
 #define TR_MENU_GLOBAL_VARS            "Variables Globales"
 #define TR_MENULOGICALSWITCHES TR("INTERRUP. LÓGICOS", "INTERRUPTORES LÓGICOS")
 #define TR_MENUCUSTOMFUNC      TR("FUNCIONES", "FUNCIONES ESPECIALES")
-#define TR_MENUCUSTOMSCRIPTS   "CUSTOM SCRIPTS"
+#define TR_MENUCUSTOMSCRIPTS   "SCRIPTS DE MEZCLA"
 #define TR_MENUTELEMETRY       "TELEMETRÍA"
 #define TR_MENUSPECIALFUNCS    "FUNCIONES GLOBALES"
 #define TR_MENUTRAINER         "ENTRENADOR"
 #define TR_HARDWARE            "COMPONENTES"
-#define TR_USER_INTERFACE               "Top Bar"
-#define TR_SD_CARD             "SD CARD"
-#define TR_DEBUG                       "Debug"
+#define TR_USER_INTERFACE               "BARRA SUPERIOR"
+#define TR_SD_CARD             "TARJETA SD"
+#define TR_DEBUG                       "DIAGNÓSTICO"
 #define TR_MENU_RADIO_SWITCHES TR("INTERUPTS", "TEST INTERRUPTORES")
 #define TR_MENUCALIBRATION     "CALIBRACIÓN"
 #define TR_FUNCTION_SWITCHES           "Customizable switches"
 // End Main menu
 
-#define TR_MINUTE_SINGULAR     "minute"
-#define TR_MINUTE_PLURAL1      "minutes"
-#define TR_MINUTE_PLURAL2      "minutes"
+#define TR_MINUTE_SINGULAR     "minuto"
+#define TR_MINUTE_PLURAL1      "minutos"
+#define TR_MINUTE_PLURAL2      "minutos"
 
 #define TR_OFFON_1             "OFF"
 #define TR_OFFON_2             "ON"
@@ -389,9 +389,9 @@
 #define TR_VTRAINER_BLUETOOTH_2        TR("Esclavo/BT","Esclavo/Bluetooth")
 #define TR_VTRAINER_MULTI              "Master/Multi"
 #define TR_VTRAINER_CRSF               "Master/CRSF"
-#define TR_VFAILSAFE_1                 "No"
-#define TR_VFAILSAFE_2                 "Hold"
-#define TR_VFAILSAFE_3                 "Custom"
+#define TR_VFAILSAFE_1                 TR("No", "Sin definir")
+#define TR_VFAILSAFE_2                 TR("Mant.", "Mantener")
+#define TR_VFAILSAFE_3                 TR("Pers.", "Personalizado")
 #define TR_VFAILSAFE_4                 "No pulsos"
 #define TR_VFAILSAFE_5                 "Receptor"
 #define TR_VSENSORTYPES_1              "Custom"
@@ -419,10 +419,10 @@
 #define TR_VCELLINDEX_9                "8"
 #define TR_VCELLINDEX_10               "Mayor"
 #define TR_VCELLINDEX_11               "Delta"
-#define TR_SUBTRIMMODES_1              CHAR_DELTA " (center only)"
-#define TR_SUBTRIMMODES_2              "= (symetrical)"
-#define TR_TIMER_DIR_1                 TR("Remain", "Show Remain")
-#define TR_TIMER_DIR_2                 TR("Elaps.", "Show Elapsed")
+#define TR_SUBTRIMMODES_1              CHAR_DELTA " (solo centro)"
+#define TR_SUBTRIMMODES_2              "= (simétrica)"
+#define TR_TIMER_DIR_1                 "Restante"
+#define TR_TIMER_DIR_2                 "Transcurrido"
 
 #define TR_FONT_SIZES_1                "STD"
 #define TR_FONT_SIZES_2                "BOLD"
@@ -437,13 +437,13 @@
 #define TR_OK                          TR_BW_COL(TR("\010\010\010[OK]", "\010\010\010\010\010[OK]"), "Ok")
 #define TR_EXIT                        TR_BW_COL("EXIT", "RTN")
 
-#define TR_YES                         "Yes"
+#define TR_YES                         "Sí"
 #define TR_NO                          "No"
 #define TR_DELETEMODEL         "BORRAR MODELO"
 #define TR_COPYINGMODEL        "Copiando modelo.."
 #define TR_MOVINGMODEL         "Moviendo modelo..."
 #define TR_LOADINGMODEL        "Cargando modelo..."
-#define TR_UNLABELEDMODEL              "Unlabeled"
+#define TR_UNLABELEDMODEL              "Sin categoría"
 #define TR_NAME                "Nombre"
 #define TR_MODELNAME           TR("Nom. modelo", "Nombre modelo")
 #define TR_PHASENAME           "Nombre fase "
@@ -452,9 +452,9 @@
 #define TR_EXPONAME            TR("Nom.", "Nombre expo")
 #define TR_BITMAP              "Imagen modelo"
 #define TR_NO_PICTURE                  "No Picture"
-#define TR_TIMER               TR("Timer", "Timer ")
+#define TR_TIMER               TR("Crono", "Crono ")
 #define TR_NO_TIMERS                   "No timers"
-#define TR_START                       "Start"
+#define TR_START                       "Iniciar"
 #define TR_NEXT                        "Next"
 #define TR_ELIMITS             TR("E.Límite", "Ampliar límites")
 #define TR_ETRIMS              TR("E.Trims", "Ampliar trims")
@@ -506,6 +506,7 @@
 #define TR_SUBTYPE             "Subtipo"
 #define TR_NOFREEEXPO          "No expo libre!"
 #define TR_NOFREEMIXER         "No mezcla lib!"
+#define TR_TOO_MANY_MODELS     "Limite de modelos alcanzado"
 #define TR_SOURCE              "Fuente"
 #define TR_WEIGHT              "Cantidad"
 #define TR_SIDE                "Zona"
@@ -533,7 +534,7 @@
 #define TR_LENGTH              "Longitud"
 #define TR_BEEP_LENGTH         "Duración Beep"
 #define TR_BEEP_PITCH           "Tono"
-#define TR_HAPTIC_LABEL        "Haptic"
+#define TR_HAPTIC_LABEL        "Vibración"
 #define TR_STRENGTH            "Intensidad"
 #define TR_IMU_LABEL           "IMU"
 #define TR_IMU_OFFSET          "Offset"
@@ -577,7 +578,7 @@
 #define TR_PLAY_HELLO                  "Startup Sound"
 #define TR_PWR_ON_DELAY        TR("Atraso On", "Atraso encendido")
 #define TR_PWR_OFF_DELAY       TR("Atraso Off", "Atraso apagado")
-#define TR_PWR_AUTO_OFF        TR("Pwr Auto Off","Power Auto Off")
+#define TR_PWR_AUTO_OFF        TR("Apag. autom.","Apagado automático")
 #define TR_PWR_ON_OFF_HAPTIC           TR("Pwr ON/OFF Haptic","Power ON/OFF Haptic")
 #define TR_THROTTLE_WARNING    TR("Aviso-A", "Aviso acelerador")
 #define TR_CUSTOM_THROTTLE_WARNING     TR("Cust-Pos", "Custom position?")
@@ -626,7 +627,7 @@
 #define TR_GPS_SATS                    "Sats: "
 #define TR_GPS_HDOP                    "Hdop: "
 #define TR_STACK_MENU                  "Menu: "
-#define TR_TIMER_LABEL                "Timer"
+#define TR_TIMER_LABEL                "Crono"
 #define TR_THROTTLE_PERCENT_LABEL     "Throttle %"
 #define TR_BATT_LABEL                 "Battery"
 #define TR_SESSION                    "Session"
@@ -717,7 +718,7 @@
 #define TR_CURRENT_CALIB               "Calib. actual"
 #define TR_VOLTAGE                     "Voltaje"
 #define TR_SELECT_MODEL                TR("Selec. modelo", "Seleccionar modelo")
-#define TR_MANAGE_MODELS               "MODEL MANAGER"
+#define TR_MANAGE_MODELS               "Modelos"
 #define TR_MODELS                      "Models"
 #define TR_SELECT_MODE                 "Select mode"
 #define TR_CREATE_MODEL                "Crear modelo"
@@ -725,16 +726,16 @@
 #define TR_MODELS_MOVED                "Unused models moved to"
 #define TR_NEW_MODEL                   "New Model"
 #define TR_INVALID_MODEL               "Invalid Model"
-#define TR_EDIT_LABELS                 "Edit Labels"
+#define TR_EDIT_LABELS                 "Editar categorías"
 #define TR_LABEL_MODEL                 "Label model"
 #define TR_MOVE_UP                     "Move Up"
 #define TR_MOVE_DOWN                   "Move Down"
 #define TR_ENTER_LABEL                 "Enter Label"
 #define TR_LABEL                       "Label"
-#define TR_LABELS                      "Labels"
+#define TR_LABELS                      "Categorías"
 #define TR_CURRENT_MODEL               "Current"
-#define TR_ACTIVE                      "Active"
-#define TR_NEW                         "New"
+#define TR_ACTIVE                      "Activo"
+#define TR_NEW                         "Nuevo"
 #define TR_NEW_LABEL                   "New Label"
 #define TR_RENAME_LABEL                "Rename Label"
 #define TR_DELETE_LABEL                "Delete Label"
@@ -767,7 +768,7 @@
 #define TR_UPDATE_RX_OPTIONS           "Actualizar opciones RX?"
 #define TR_UPDATE_TX_OPTIONS           "Actualizar opciones TX?"
 #define TR_MODULES_RX_VERSION          BUTTON("Módulos / versión RX")
-#define TR_SHOW_MIXER_MONITORS         "Show mixer monitors"
+#define TR_SHOW_MIXER_MONITORS         "Mostrar monitores de mezcla"
 #define TR_MENU_MODULES_RX_VERSION     "MÓDULOS / VERSIÓN RX"
 #define TR_MENU_FIRM_OPTIONS           "OPCIONES FIRMWARE"
 #define TR_IMU                        "IMU"
@@ -852,7 +853,7 @@
 #define TR_SAVE_THEME                  "Save Theme?"
 #define TR_EDIT_COLOR                  "Edit Color"
 #define TR_NO_THEME_IMAGE              "No theme image"
-#define TR_BACKLIGHT_TIMER             "Inactivity timeout"
+#define TR_BACKLIGHT_TIMER             "Tiempo de inactividad"
 
 #define TR_MODEL_QUICK_SELECT        "Model quick select"
 #define TR_LABELS_SELECT             "Label select"
@@ -1048,7 +1049,7 @@
 #define TR_CHANS                       "Chans"
 #define TR_ANTENNAPROBLEM      "Problema antena TX!"
 #define TR_MODELIDUSED         TR("ID en uso", "ID modelo en uso")
-#define TR_MODELIDUNIQUE       "ID is unique"
+#define TR_MODELIDUNIQUE       TR("ID libre", "El ID no está repetido")
 #define TR_MODULE              "Módulo"
 #define TR_RX_NAME                     "Nombre Rx"
 #define TR_TELEMETRY_TYPE      TR("Tipo", "Tipo telemetría")
@@ -1112,7 +1113,11 @@
 #define TR_PREFLIGHT_POTSLIDER_CHECK_1 "Off"
 #define TR_PREFLIGHT_POTSLIDER_CHECK_2 "On"
 #define TR_PREFLIGHT_POTSLIDER_CHECK_3 "Auto"
+#if defined(RADIO_NB4_FAMILY)
+#define TR_PREFLIGHT           "Seguridad al encender"
+#else
 #define TR_PREFLIGHT           "Chequeos prevuelo"
+#endif
 #define TR_CHECKLIST           TR("Lista verif", "Lista verificación")
 #define TR_CHECKLIST_INTERACTIVE       TR3("C-Interact", "Interact. checklist", "Interactive checklist")
 #define TR_AUX_SERIAL_MODE     "Puerto serie"
@@ -1151,7 +1156,7 @@
 #define TR_LIMITS_HEADERS_CURVE        "Curva"
 #define TR_LIMITS_HEADERS_PPMCENTER    "Centrado PPM"
 #define TR_LIMITS_HEADERS_SUBTRIMMODE  "Simétrica"
-#define TR_INVERTED                    "Inverted"
+#define TR_INVERTED                    "Invertido"
 
 // Horus layouts and widgets
 #define TR_FIRST_CHANNEL             "Primer canal"
@@ -1226,7 +1231,7 @@
 #define TR_FILTER              "Filtro"
 #define TR_TELEMETRYFULL       TR("Telem. llena!", "Todas las entradas de telemetría llenas!")
 #define TR_IGNORE_INSTANCE     TR("No inst.", "Ignora instancias")
-#define TR_SHOW_INSTANCE_ID            "Show instance ID"
+#define TR_SHOW_INSTANCE_ID            "Mostrar ID de instancia"
 #define TR_DISCOVER_SENSORS    "Buscar sensores"
 #define TR_STOP_DISCOVER_SENSORS "Parar busqueda"
 #define TR_DELETE_ALL_SENSORS  "Borrar sensores"
@@ -1272,7 +1277,7 @@
 
 #define TR_ADD_ALL_TRIMS_TO_SUBTRIMS    "Add all Trims to Subtrims"
 #define TR_DUPLICATE                    "Duplicate"
-#define TR_ACTIVATE                     "Set Active"
+#define TR_ACTIVATE                     "Activar"
 #define TR_RED                          "Red"
 #define TR_BLUE                         "Blue"
 #define TR_GREEN                        "Green"
@@ -1405,7 +1410,7 @@
 #define TR_SERIAL_BUS             "Serial bus"
 #define TR_SYNC                   "Sync"
 
-#define TR_ENABLED_FEATURES       "Enabled Features"
+#define TR_ENABLED_FEATURES       "Funciones visibles"
 #define TR_RADIO_MENU_TABS        "Radio Menu"
 #define TR_MODEL_MENU_TABS        "Model Menu"
 
@@ -1413,10 +1418,10 @@
 #define TR_SELECT_MENU_CLR        "Clear"
 #define TR_SELECT_MENU_INV        "Invert"
 
-#define TR_SORT_ORDERS_1          "Name A-Z"
-#define TR_SORT_ORDERS_2          "Name Z-A"
-#define TR_SORT_ORDERS_3          "Least used"
-#define TR_SORT_ORDERS_4          "Most used"
+#define TR_SORT_ORDERS_1          "Nombre A-Z"
+#define TR_SORT_ORDERS_2          "Nombre Z-A"
+#define TR_SORT_ORDERS_3          "Menos usados"
+#define TR_SORT_ORDERS_4          "Más usados"
 #define TR_SORT_MODELS_BY         "Sort models by"
 #define TR_CREATE_NEW             "Create"
 
@@ -1441,3 +1446,42 @@
 #define TR_LONG_PRESS             "Long Press"
 #define TR_OPEN_QUICK_MENU        "Open Quick Menu"
 #define TR_QUICK_MENU_FAVORITES   "Quick Menu Favorites"
+
+// ApexTX
+#define TR_NB4_RACING             "Competición"
+#define TR_NB4_BRAKE_MAX          "Freno máx."
+#define TR_NB4_DRAG_BRAKE         "Freno arrastre"
+#define TR_NB4_ABS                "ABS"
+#define TR_NB4_ABS_POINT          "Punto ABS"
+#define TR_NB4_ABS_RATE           "Pulsos ABS"
+#define TR_NB4_ABS_RELEASE        "Suelta ABS"
+#define TR_NB4_STEER_TURN         "Vel. giro"
+#define TR_NB4_STEER_RETURN       "Vel. retorno"
+#define TR_NB4_IDLE_UP            "Ralentí alto"
+#define TR_NB4_IDLE_UP_SW         "Mando ralentí"
+#define TR_NB4_ENGINE_CUT         "Corte motor"
+#define TR_NB4_CUT_POS            "Posición corte"
+#define TR_NB4_LAP_SW             "Mando vuelta"
+#define TR_NB4_LAPS               "Vueltas"
+#define TR_NB4_CONDITION          "Condición"
+#define TR_NB4_RACE               "Manga"
+#define TR_NB4_MODE            "Vista de menús"
+#define TR_NB4_MODES           "Compacta","Completa"
+#define TR_NB4_PRESETS            "Punto de partida"
+#define TR_NB4_ELECTRIC           "Eléctrico"
+#define TR_NB4_NITRO              "Nitro"
+#define TR_NB4_PRESET_ASK         "Sobrescribir los ajustes de competición de este modelo?"
+#define TR_NB4_SET_HOME           "Home de competición"
+#define TR_NB4_SET_HOME_ASK       "Poner la home de competición en la pantalla 1?"
+#define TR_NB4_START_POINT        "Punto de partida"
+#define TR_NB4_SUMMARY            "Resumen de manga"
+#define TR_NB4_QUICK              "Ajuste rápido"
+#define TR_NB4_RESET_RACE         "Manga nueva"
+#define TR_NB4_RESET_RACE_ASK     "Borrar las vueltas de esta manga?"
+#define TR_NB4_BEST               "Mejor"
+#define TR_NB4_AVERAGE            "Media"
+#define TR_NB4_TOTAL              "Total"
+#define TR_NB4_NO_LAPS            "Aún no hay vueltas"
+#define TR_NB4_ADDRESS_BYTE       "Trama AFHDS3"
+#define TR_NB4_ADDRESS_MODES      "Con dirección,Sin dirección"
+#define TR_NB4_ANNOUNCE           "Cantar vuelta"

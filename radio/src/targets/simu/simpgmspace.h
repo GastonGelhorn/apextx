@@ -52,6 +52,11 @@ void stopEepromThread();
 void simuMain();
 
 void simuFatfsSetPaths(const char * sdPath, const char * settingsPath);
+uint32_t simuFatfsStatCalls();
+#if !defined(SIMU_DISKIO)
+void simuFatfsSetFaults(unsigned delayMs, unsigned writeLimit = UINT32_MAX);
+void simuFatfsSetRenameFault(unsigned phase); // 1 before rename, 2 after successful rename
+#endif
 
 std::string simuFatfsGetCurrentPath();
 std::string simuFatfsGetRealPath(const std::string &p);

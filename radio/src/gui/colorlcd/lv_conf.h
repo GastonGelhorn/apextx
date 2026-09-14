@@ -64,7 +64,7 @@
     #else
         #define LV_MEM 2
     #endif
-    #if defined(SIMU)
+    #if defined(SIMU) && !defined(RADIO_NB4_FAMILY)
         #define LV_MEM_SIZE (LV_MEM * 2 * 1024U * 1024U)  /*[bytes]*/
     #else
         #define LV_MEM_SIZE (LV_MEM * 1024U * 1024U)      /*[bytes]*/
@@ -99,7 +99,11 @@
  *====================*/
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
+#if defined(RADIO_NB4_FAMILY)
+#define LV_DISP_DEF_REFR_PERIOD 20      /*[ms]*/
+#else
 #define LV_DISP_DEF_REFR_PERIOD 30      /*[ms]*/
+#endif
 
 /*Input device read period in milliseconds*/
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
@@ -308,8 +312,13 @@
 #define LV_USE_ASSERT_OBJ           0   /*Check the object's type and existence (e.g. not deleted). (Slow)*/
 
 /*Add a custom handler when assert happens e.g. to restart the MCU*/
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#define LV_ASSERT_HANDLER_INCLUDE "nb4_health.h"
+#define LV_ASSERT_HANDLER nb4UiAssert(__FILE__, __LINE__);
+#else
 #define LV_ASSERT_HANDLER_INCLUDE <stdint.h>
-#define LV_ASSERT_HANDLER while(1);   /*Halt by default*/
+#define LV_ASSERT_HANDLER while(1);
+#endif
 
 /*-------------
  * Others
@@ -619,7 +628,11 @@
     #define LV_USE_CALENDAR_HEADER_DROPDOWN 1
 #endif  /*LV_USE_CALENDAR*/
 
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#define LV_USE_CHART      1
+#else
 #define LV_USE_CHART      0
+#endif
 
 #define LV_USE_COLORWHEEL 0
 
@@ -633,8 +646,13 @@
 
 #define LV_USE_MENU       0
 
+/* The NB4 home gauge uses lv_meter for its scale, ticks, needle, and arc.
+ * Other radios keep the widget disabled. */
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#define LV_USE_METER      1
+#else
 #define LV_USE_METER      0
-
+#endif
 #define LV_USE_MSGBOX     0
 
 #define LV_USE_SPAN       0

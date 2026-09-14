@@ -78,6 +78,11 @@ do
         echo "Error: Failed to find a match for target '$target_name'"
         exit 1
     fi
+    # Generic CI artifacts are development images. The dedicated release
+    # workflow is the only path that enables the physical-acceptance gate.
+    if [[ "$target_name" = "nb4" ]]; then
+        BUILD_OPTIONS+=" -DAPEXTX_PUBLIC_RELEASE=OFF "
+    fi
 
     cmake ${BUILD_OPTIONS} "${SRCDIR}"
     

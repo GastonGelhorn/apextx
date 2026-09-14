@@ -20,11 +20,18 @@
  */
 
 #include "afhds3_transport.h"
+
+#if defined(RADIO_NB4)
+#include "targets/pl18/nb4_rf_profile.h"
+#endif
 #include "edgetx_helpers.h"
 #include "debug.h"
 
 #include "board.h"
 #include "dataconstants.h"
+#if defined(RADIO_NB4)
+#include "myeeprom.h"
+#endif
 #include "mixer_scheduler.h"
 
 // timer is 2 MHz
@@ -51,9 +58,11 @@ enum AfhdsSpecialChars {
                    // ESC_ESC  must be used
 };
 
-void FrameTransport::init(void* buffer, uint8_t fAddr)
+void FrameTransport::init(void* buffer, uint8_t fAddr, bool noAddress, uint16_t capacity)
 {
+  this->capacity = capacity;
   frameAddress = fAddr;
+  omitAddress = noAddress ? 1 : 0;
   trsp_buffer = (uint8_t*)buffer;
   clear();
 }
@@ -62,6 +71,7 @@ void FrameTransport::clear()
 {
   // reset send buffer
   data_ptr = trsp_buffer;
+  overflow = false;
 
   // reset parser
   esc_state = 0;
@@ -69,7 +79,8 @@ void FrameTransport::clear()
 
 void FrameTransport::putByte(uint8_t b)
 {
-  *(data_ptr++) = b;
+  if (data_ptr - trsp_buffer < capacity) *(data_ptr++) = b;
+  else overflow = true;
 }
 
 void FrameTransport::putBytes(uint8_t* data, int length)
@@ -88,7 +99,7 @@ void FrameTransport::putBytes(uint8_t* data, int length)
     else {
       putByte(byte);
     }
-  }  
+  }
 }
 
 void FrameTransport::putFrame(COMMAND command, FRAME_TYPE frameType,
@@ -97,12 +108,18 @@ void FrameTransport::putFrame(COMMAND command, FRAME_TYPE frameType,
 {
   // header
   data_ptr = trsp_buffer;
+  overflow = false;
 
   crc = 0;
   putByte(START);
 
-  uint8_t buffer[] = {frameAddress, frameIndex, frameType, command};
-  putBytes(buffer, 4);
+  if (omitAddress) {
+    uint8_t buffer[] = {frameIndex, frameType, command};
+    putBytes(buffer, 3);
+  } else {
+    uint8_t buffer[] = {frameAddress, frameIndex, frameType, command};
+    putBytes(buffer, 4);
+  }
 
   // payload
   if (dataLength > 0) {
@@ -117,7 +134,7 @@ void FrameTransport::putFrame(COMMAND command, FRAME_TYPE frameType,
 
 uint32_t FrameTransport::getFrameSize()
 {
-  return data_ptr - trsp_buffer;
+  return overflow ? 0 : data_ptr - trsp_buffer;
 }
 
 static bool _checkCRC(const uint8_t* data, uint8_t size)
@@ -135,7 +152,6 @@ bool FrameTransport::processTelemetryData(uint8_t byte, uint8_t* rxBuffer,
                                           uint8_t maxSize)
 {
   if (rxBufferCount == 0 && byte != START) {
-//     TRACE("AFHDS3 [SKIP] %02X", byte);
     this->esc_state = 0;
     return false;
   }
@@ -146,12 +162,27 @@ bool FrameTransport::processTelemetryData(uint8_t byte, uint8_t* rxBuffer,
   }
 
   if (rxBufferCount > 1 && byte == END) {
+    if (rxBufferCount >= maxSize || rxBufferCount < (omitAddress ? 5 : 6)) {
+      rxBufferCount = 0;
+      return false;
+    }
     rxBuffer[rxBufferCount++] = byte;
 
     if (!_checkCRC(rxBuffer, rxBufferCount - 2)) {
       TRACE("AFHDS3 [INVALID CRC]");
       rxBufferCount = 0;
       return false;
+    }
+
+    if (omitAddress) {
+      if (rxBufferCount >= maxSize) {
+        TRACE("AFHDS3 [BUFFER OVERFLOW]");
+        rxBufferCount = 0;
+        return false;
+      }
+      memmove(&rxBuffer[2], &rxBuffer[1], rxBufferCount - 1);
+      rxBuffer[1] = frameAddress;
+      rxBufferCount++;
     }
 
     return true;
@@ -215,21 +246,48 @@ void CommandFifo::enqueue(COMMAND command, FRAME_TYPE frameType, bool useData,
   }
 }
 
+void CommandFifo::enqueueResponse(COMMAND command, uint8_t frameNumber, uint8_t value,
+                                 bool withValue)
+{
+  uint32_t next = nextIndex(setIndex);
+  if (next == getIndex) return;
+  commandFifo[setIndex] = {command, RESPONSE_DATA, value, frameNumber, true,
+                         uint8_t(withValue ? 1 : 0)};
+  setIndex = next;
+}
+
 void Transport::init(void* buffer, etx_module_state_t* mod_st, uint8_t fAddr)
 {
+#if defined(RADIO_NB4)
+  const auto& profile = nb4::nb4RfSelectedFraming();
+  trsp.init(buffer, fAddr,
+            profile.framing == nb4::Nb4RfFraming::AddresslessSlip);
+  maxResponseRetries = nb4::nb4RfResponseRetries(profile);
+#else
   trsp.init(buffer, fAddr);
+  maxResponseRetries = MAX_RETRIES_AFHDS3;
+#endif
   this->mod_st = mod_st;
+#if defined(RADIO_NB4) && defined(SIMU)
+  diagnostics = {};
+#endif
+  frameIndex = 0;
+  clear();
 }
 
 void Transport::clear()
 {
   // reset frame
   trsp.clear();
-  
+
   // reset command layer
   fifo.clearCommandFifo();
+  acknowledgements.clearCommandFifo();
+#if defined(RADIO_NB4)
+  responsePending = false;
+#endif
 
-  frameIndex = 1;
+  ++frameIndex; // Do not reuse the previous request number after a timeout.
   repeatCount = 0;
 
   // reset internal state
@@ -242,6 +300,9 @@ void Transport::putFrame(COMMAND command, FRAME_TYPE frameType, uint8_t* data,
   operationState = State::SENDING_COMMAND;
   repeatCount = 0;
 
+  pendingIndex = frameIndex;
+  pendingCommand = command;
+  pendingType = frameType;
   trsp.putFrame(command, frameType, data, dataLength, frameIndex);
   frameIndex++;
 
@@ -267,9 +328,76 @@ void Transport::sendBuffer()
 #if !defined(SIMU)
   auto drv = modulePortGetSerialDrv(mod_st->tx);
   auto ctx = modulePortGetCtx(mod_st->tx);
+  if (!drv->txCompleted(ctx)) {
+#if defined(RADIO_NB4) && defined(SIMU)
+    ++diagnostics.txBusy;
+#endif
+    return;
+  }
+#endif
+  if (auto ack = acknowledgements.getCommand()) {
+    FrameTransport frame;
+    frame.init(ackBuffer, trsp.frameAddress, trsp.omitAddress, sizeof(ackBuffer));
+    frame.putFrame(ack->command, ack->frameType, &ack->payload,
+                    ack->payloadSize, ack->frameNumber);
+#if !defined(SIMU)
+    drv->sendBuffer(ctx, ackBuffer, frame.getFrameSize());
+#endif
+#if defined(RADIO_NB4) && defined(SIMU)
+    recordTx(ackBuffer, frame.getFrameSize());
+#endif
+    acknowledgements.skip();
+    return;
+  }
+#if defined(RADIO_NB4)
+  if (responsePending) {
+    // Build only after the previous TX completes. The RX task fills a separate
+    // mailbox, so a retransmitted request cannot alter an in-flight DMA frame.
+    FrameTransport frame;
+    frame.init(responseBuffer, trsp.frameAddress, trsp.omitAddress, sizeof(responseBuffer));
+    frame.putFrame(responseCommand, RESPONSE_DATA, responsePayload,
+                   responseLength, responseIndex);
+    responsePending = false;
+#if !defined(SIMU)
+    drv->sendBuffer(ctx, responseBuffer, frame.getFrameSize());
+#endif
+#if defined(SIMU)
+    recordTx(responseBuffer, frame.getFrameSize());
+#endif
+    return;
+  }
+#endif
+  if (!trsp.getFrameSize()) return;
+#if !defined(SIMU)
   drv->sendBuffer(ctx, (uint8_t*)trsp.trsp_buffer, trsp.getFrameSize());
 #endif
+#if defined(RADIO_NB4) && defined(SIMU)
+  recordTx(trsp.trsp_buffer, trsp.getFrameSize());
+#endif
 }
+
+#if defined(RADIO_NB4)
+bool Transport::queueResponse(COMMAND command, uint8_t index,
+                              const uint8_t* payload, uint8_t size)
+{
+  if (responsePending || size > sizeof(responsePayload)) return false;
+  memcpy(responsePayload, payload, size);
+  responseCommand = command;
+  responseIndex = index;
+  responseLength = size;
+  responsePending = true;
+  return true;
+}
+
+#if defined(SIMU)
+void Transport::recordTx(const uint8_t* buffer, uint32_t size)
+{
+  ++diagnostics.txFrames;
+  diagnostics.lastTxSize = size < sizeof(diagnostics.lastTx) ? size : sizeof(diagnostics.lastTx);
+  memcpy(diagnostics.lastTx, buffer, diagnostics.lastTxSize);
+}
+#endif
+#endif
 
 bool Transport::processQueue()
 {
@@ -277,16 +405,11 @@ bool Transport::processQueue()
   auto f = fifo.getCommand();
   if (!f) return false;
 
-  trsp.putFrame(f->command, f->frameType, &f->payload, f->payloadSize,
-                f->useFrameNumber ? f->frameNumber : frameIndex);
-
-//   TRACE(
-//       "AFHDS3 [CMD QUEUE] cmd: 0x%02x frameType 0x%02x, useFrameNumber %d "
-//       "frame Number %d size %d",
-//       f->command, f->frameType, f->useFrameNumber, f->frameNumber,
-//       f->payloadSize);
-
-  if (!f->useFrameNumber) frameIndex++;
+  if (f->useFrameNumber) {
+    trsp.putFrame(f->command, f->frameType, &f->payload, f->payloadSize, f->frameNumber);
+  } else {
+    putFrame(f->command, f->frameType, &f->payload, f->payloadSize);
+  }
   fifo.skip();
 
   return true;
@@ -295,12 +418,11 @@ bool Transport::processQueue()
 bool Transport::handleRetransmissions(bool& error)
 {
   if (operationState == State::AWAITING_RESPONSE) {
-    if (repeatCount++ < MAX_RETRIES_AFHDS3) {
+    if (repeatCount++ < maxResponseRetries) {
       error = false;
       return true; // re-send
     }
 
-//     TRACE("AFHDS3 [NO RESP]");
     error = true;
     return false;
   }
@@ -318,36 +440,60 @@ bool Transport::handleRetransmissions(bool& error)
 
 bool Transport::handleReply(uint8_t* buffer, uint8_t len)
 {
-  // TODO: check len...
+  if (len < 7) return true;
 
   AfhdsFrame* responseFrame = reinterpret_cast<AfhdsFrame*>(buffer);
+#if defined(RADIO_NB4)
+  if (responseFrame->frameType == REQUEST_GET_DATA &&
+      responseFrame->command == MODULE_READY && len == 7) {
+    // A MODULE_READY reply carries 2 when RF is enabled. The peer can query
+    // us before answering our own query.
+    // Queue the response with the peer's sequence; preserve our pending query.
+    acknowledgements.enqueueResponse(MODULE_READY, responseFrame->frameNumber, 2);
+    return true;
+  }
+  if (responseFrame->frameType == REQUEST_SET_EXPECT_DATA &&
+      (responseFrame->command == MODULE_STATE ||
+       responseFrame->command == MODULE_APPLY_CONFIG ||
+       responseFrame->command == TELEMETRY_DATA ||
+       responseFrame->command == COMMAND_RESULT)) {
+    // SET notifications of both types 2 and 3 are accepted. These
+    // command-table entries have no response builder: type 2 needs an
+    // empty DATA response, with the peer's sequence, instead of an ACK.
+    acknowledgements.enqueueResponse((COMMAND)responseFrame->command,
+                                     responseFrame->frameNumber, 0, false);
+  }
+#endif
   if (responseFrame->frameType == FRAME_TYPE::REQUEST_SET_EXPECT_ACK) {
 
     // check if such request is not queued
-    auto f = fifo.getCommand();
+    auto f = acknowledgements.getCommand();
     if (f && f->frameType == FRAME_TYPE::RESPONSE_ACK &&
-        f->frameNumber == responseFrame->frameNumber) {
+        f->frameNumber == responseFrame->frameNumber &&
+        f->command == responseFrame->command) {
 
       // absorb retransmission
       TRACE("ACK for frame %02X already queued", responseFrame->frameNumber);
       return true;
     }
 
-//     TRACE("AFHDS3 [SEND ACK] cmd %02X type %02X number %02X",
-//           responseFrame->command, responseFrame->frameType,
-//           responseFrame->frameNumber);
 
-    auto command = (enum COMMAND)responseFrame->command;
-    trsp.putFrame(command, FRAME_TYPE::RESPONSE_ACK, nullptr, 0,
-                  responseFrame->frameNumber);
-    sendBuffer();
-
+    // The mixer sends ACKs when TX is idle. A notification must neither
+    // truncate in-flight DMA nor overwrite the request retained for retry.
+    acknowledgements.enqueueACK((COMMAND)responseFrame->command,
+                                 responseFrame->frameNumber);
   } else if (responseFrame->frameType == FRAME_TYPE::RESPONSE_DATA ||
              responseFrame->frameType == FRAME_TYPE::RESPONSE_ACK) {
-
-    if (operationState == State::AWAITING_RESPONSE) {
-      operationState = State::IDLE;
+    if (operationState != State::AWAITING_RESPONSE ||
+        responseFrame->frameNumber != pendingIndex ||
+        responseFrame->command != pendingCommand) {
+#if defined(RADIO_NB4) && defined(SIMU)
+      ++diagnostics.unmatched;
+#endif
+      return true;
     }
+    if (responseFrame->frameType == RESPONSE_DATA || pendingType == REQUEST_SET_EXPECT_ACK)
+      operationState = State::IDLE;
   }
 
   return false;
@@ -356,8 +502,35 @@ bool Transport::handleReply(uint8_t* buffer, uint8_t len)
 bool Transport::processTelemetryData(uint8_t byte, uint8_t* rxBuffer,
                                      uint8_t& rxBufferCount, uint8_t maxSize)
 {
+#if defined(RADIO_NB4) && defined(SIMU)
+  ++diagnostics.rxBytes;
+  if (diagnostics.lastRxSize < sizeof(diagnostics.lastRx)) {
+    diagnostics.lastRx[diagnostics.lastRxSize++] = byte;
+  } else {
+    memmove(diagnostics.lastRx, diagnostics.lastRx + 1, sizeof(diagnostics.lastRx) - 1);
+    diagnostics.lastRx[sizeof(diagnostics.lastRx) - 1] = byte;
+  }
+#endif
   bool has_frame =
       trsp.processTelemetryData(byte, rxBuffer, rxBufferCount, maxSize);
+#if defined(RADIO_NB4) && defined(SIMU)
+  if (has_frame) {
+    const auto* frame = reinterpret_cast<const AfhdsFrame*>(rxBuffer);
+    ++diagnostics.rxFrames;
+    diagnostics.command = frame->command; diagnostics.type = frame->frameType;
+    diagnostics.sequence = frame->frameNumber;
+    diagnostics.value = rxBufferCount > 7 ? frame->value : 0;
+    if (frame->command == MODULE_APPLY_CONFIG &&
+        (frame->frameType == REQUEST_SET_EXPECT_DATA ||
+         frame->frameType == REQUEST_SET_EXPECT_ACK ||
+         frame->frameType == REQUEST_SET_NO_RESP)) {
+      ++diagnostics.bindRequests;
+      diagnostics.bindRequestType = frame->frameType;
+      diagnostics.bindRequestSize = rxBufferCount - 7;
+      diagnostics.bindRequestSequence = frame->frameNumber;
+    }
+  }
+#endif
   if (has_frame && handleReply(rxBuffer, rxBufferCount)) {
     rxBufferCount = 0;
     return false;

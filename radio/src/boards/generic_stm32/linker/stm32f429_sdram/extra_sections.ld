@@ -1,6 +1,11 @@
 
 INCLUDE section_ccm.ld
 
+.nb4_health (NOLOAD) :
+{
+  KEEP(*(.nb4_health))
+} > HEALTH
+
 /* Reserve stack space in CCM */
 .stack(NOLOAD) :
 {

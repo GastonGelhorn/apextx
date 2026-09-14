@@ -21,6 +21,10 @@
 
 #include "output_edit.h"
 
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_params.h"
+#endif
+
 #include "channel_bar.h"
 #include "curveedit.h"
 #include "curve_param.h"
@@ -118,7 +122,6 @@ void OutputEditWindow::buildBody(Window *form)
   FlexGridLayout grid(col_dsc, row_dsc, PAD_TINY);
   form->setFlexLayout();
 
-  int limit = (g_model.extendedLimits ? LIMIT_EXT_MAX : LIMIT_STD_MAX);
   LimitData *output = limitAddress(channel);
 
   // Name
@@ -128,6 +131,11 @@ void OutputEditWindow::buildBody(Window *form)
 
   // Offset
   new StaticText(line, rect_t{}, STR_LIMITS_HEADERS_SUBTRIM);
+#if defined(RADIO_NB4_FAMILY)
+
+  nb4ParamControl(line, rect_t{}, Nb4Param::ChannelSubtrim, {(uint8_t)channel});
+#else
+  int limit = (g_model.extendedLimits ? LIMIT_EXT_MAX : LIMIT_STD_MAX);
   auto off = new GVarNumberEdit(line, -LIMIT_STD_MAX, +LIMIT_STD_MAX,
                                 GET_SET_DEFAULT(output->offset), PREC1);
   off->setFastStep(20);
@@ -137,12 +145,18 @@ void OutputEditWindow::buildBody(Window *form)
       value = value * 128 / 25;
     return formatNumberAsString(value, PREC1);
   });
+#endif
 
   // Min
   line = form->newLine(grid);
   minText = new StaticText(line, rect_t{}, STR_MIN);
   etx_solid_bg(minText->getLvObj(), COLOR_THEME_ACTIVE_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
   etx_font(minText->getLvObj(), FONT_BOLD_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
+#if defined(RADIO_NB4_FAMILY)
+  minEdit = (GVarNumberEdit*)nb4ParamControl(line, rect_t{}, Nb4Param::ChannelTravelMin,
+                                             {(uint8_t)channel});
+  etx_font(minEdit->getLvObj(), FONT_BOLD_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
+#else
   minEdit = new GVarNumberEdit(line, -limit, 0,
                                GET_SET_DEFAULT(output->min), PREC1,
                                -LIMIT_STD_MAX, -limit);
@@ -154,11 +168,17 @@ void OutputEditWindow::buildBody(Window *form)
       value = value * 128 / 25;
     return formatNumberAsString(value, PREC1);
   });
+#endif
 
   // Max
   maxText = new StaticText(line, rect_t{}, STR_MAX);
   etx_solid_bg(maxText->getLvObj(), COLOR_THEME_ACTIVE_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
   etx_font(maxText->getLvObj(), FONT_BOLD_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
+#if defined(RADIO_NB4_FAMILY)
+  maxEdit = (GVarNumberEdit*)nb4ParamControl(line, rect_t{}, Nb4Param::ChannelTravelMax,
+                                             {(uint8_t)channel});
+  etx_font(maxEdit->getLvObj(), FONT_BOLD_INDEX, ETX_STATE_MINMAX_HIGHLIGHT);
+#else
   maxEdit = new GVarNumberEdit(line, 0, +limit,
                                GET_SET_DEFAULT(output->max), PREC1,
                                +LIMIT_STD_MAX, limit);
@@ -170,15 +190,20 @@ void OutputEditWindow::buildBody(Window *form)
       value = value * 128 / 25;
     return formatNumberAsString(value, PREC1);
   });
+#endif
 
   // Direction
   line = form->newLine(grid);
   new StaticText(line, rect_t{}, STR_INVERTED);
+#if defined(RADIO_NB4_FAMILY)
+  nb4ParamControl(line, rect_t{}, Nb4Param::ChannelReverse, {(uint8_t)channel});
+#else
   new ToggleSwitch(line, rect_t{}, GET_DEFAULT(output->revert),
                    [output, this](uint8_t newValue) {
                      output->revert = newValue;
                      SET_DIRTY();
                    });
+#endif
 
   // Curve
   new StaticText(line, rect_t{}, STR_CURVE);

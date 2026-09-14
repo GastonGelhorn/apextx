@@ -73,7 +73,6 @@ bool checkScreenshot_colorlcd(const BitmapBuffer* dc, const char* test)
   filename += '_' + std::to_string(LCD_W);
   filename += 'x' + std::to_string(LCD_H);
   filename += ".png";
-
   std::string fullpath = "images/color/" + filename;
 
   std::unique_ptr<BitmapBuffer> testPict(

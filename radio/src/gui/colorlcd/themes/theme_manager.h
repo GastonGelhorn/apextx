@@ -47,6 +47,8 @@ class ThemeFile
     ThemeFile& operator= (const ThemeFile& theme);
 
     void serialize();
+    bool isValid() const { return valid; }
+    bool isBuiltin() const { return builtin; }
 
     std::string getPath() { return path; }
     std::string getName() { return name; }
@@ -79,6 +81,8 @@ class ThemeFile
     static constexpr int INFO_LENGTH = 255;
 
   protected:
+    bool valid = true;
+    bool builtin = false;
     std::string path;
     std::string name;
     std::string author;
@@ -129,18 +133,18 @@ class ThemePersistance
 
     inline int getThemeIndex() {return currentTheme;}
     inline void setThemeIndex(int index) { currentTheme = index;}
-    inline bool isDefaultTheme() { if (currentTheme == 0) return true; else return false; }
+    inline bool isDefaultTheme() { auto t = getCurrentTheme(); return t && t->isBuiltin(); }
 
     inline ThemeFile* getCurrentTheme() 
     { 
-      if (currentTheme < (int)themes.size()) 
+      if (currentTheme >= 0 && currentTheme < (int)themes.size())
         return themes[currentTheme];
       return nullptr;
     }
 
     inline ThemeFile* getThemeByIndex(int index) 
     { 
-      if (index < (int) themes.size())
+      if (index >= 0 && index < (int) themes.size())
         return themes[index]; 
       return nullptr;
     }

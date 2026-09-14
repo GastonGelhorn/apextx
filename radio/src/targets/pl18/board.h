@@ -42,14 +42,23 @@
 #define APP_START_ADDRESS               (uint32_t)(FIRMWARE_ADDRESS + BOOTLOADER_SIZE)
 
 #define MB                              *1024*1024
-#define LUA_MEM_EXTRA_MAX               (2 MB)    // max allowed memory usage for Lua bitmaps (in bytes)
-#define LUA_MEM_MAX                     (6 MB)    // max allowed memory usage for complete Lua  (in bytes), 0 means unlimited
+#if defined(RADIO_NB4_FAMILY)
+#define LUA_MEM_EXTRA_MAX               (512 * 1024)
+#define LUA_MEM_MAX                     (1536 * 1024)
+#else
+#define LUA_MEM_EXTRA_MAX               (2 MB)
+#define LUA_MEM_MAX                     (6 MB)
+#endif
 
 #define BOOTLOADER_KEYS 0x42
 
 extern uint16_t sessionTimer;
 
+#if defined(RADIO_NB4_FAMILY)
+#define SLAVE_MODE()                    false
+#else
 #define SLAVE_MODE()                    (g_model.trainerData.mode == TRAINER_MODE_SLAVE)
+#endif
 
 // Board driver
 void boardInit();
@@ -64,7 +73,7 @@ void getCPUUniqueID(char * s);
     PCBREV_NV14 = 0,
     PCBREV_EL18 = 1,
   };
-  
+
   #define HAS_HARDWARE_OPTIONS
 
   typedef struct {
@@ -96,6 +105,10 @@ extern "C" void SDRAM_Init();
     else                                        \
       gpio_set(INTMODULE_PWR_GPIO);             \
   } while (0)
+#elif defined(RADIO_NB4)
+  #include "nb4_rf_controller.h"
+  #define INTERNAL_MODULE_ON()            nb4::Nb4RfController::setEnabled(true)
+  #define INTERNAL_MODULE_OFF()           nb4::Nb4RfController::setEnabled(false)
 #elif defined(RADIO_NB4P) || defined(RADIO_PL18U)
   #define INTERNAL_MODULE_ON()            gpio_clear(INTMODULE_PWR_GPIO)
   #define INTERNAL_MODULE_OFF()           gpio_set(INTMODULE_PWR_GPIO);
@@ -130,7 +143,7 @@ extern "C" void SDRAM_Init();
 #define NUM_TRIMS                       8
 #define DEFAULT_STICK_DEADZONE          2
 
-#if defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NV14_FAMILY) || defined(RADIO_NB4)
   #define BATTERY_WARN                  36 // 3.6V
   #define BATTERY_MIN                   35 // 3.5V
   #define BATTERY_MAX                   42 // 4.2V
@@ -143,6 +156,9 @@ extern "C" void SDRAM_Init();
 
 #if defined(RADIO_NV14_FAMILY)
   #define BATTERY_DIVIDER               3102 // = 2047 * 510k / (510k + 510k) * 10 / 3.3V
+#elif defined(RADIO_NB4)
+
+  #define BATTERY_DIVIDER               2954
 #elif defined(RADIO_NB4P)
   #define BATTERY_DIVIDER               3102 // = 2047 * 10k / (10k + 10k) * 10 / 3.3V
 #else
@@ -155,7 +171,11 @@ extern "C" {
 
 // Power driver
 #define SOFT_PWR_CTRL
+#if defined(RADIO_NB4)
+#define POWER_ON_DELAY              2000 // ms
+#else
 #define POWER_ON_DELAY               100 // ms
+#endif
 void pwrInit();
 void extModuleInit();
 uint32_t pwrCheck();
@@ -173,7 +193,7 @@ bool pwrOffPressed();
   #define pwrForcePressed() false
 #endif
 uint32_t pwrPressedDuration();;
-  
+
 const etx_serial_port_t* auxSerialGetPort(int port_nr);
 #define AUX_SERIAL_POWER_ON()
 #define AUX_SERIAL_POWER_OFF()
@@ -226,13 +246,30 @@ bool isBacklightEnabled();
 }
 #endif
 
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
-  #define IS_UCHARGER_ACTIVE()              gpio_read(UCHARGER_GPIO) ? (gpio_read(UCHARGER_CHARGE_END_GPIO) ? 0 : 1) : 1  
+#if defined(RADIO_NB4)
+
+  #define NB4_CHARGE_NONE                   0
+  #define NB4_CHARGE_BASE                   1
+  #define NB4_CHARGE_USB                    2
+  #define NB4_CHARGE_RAW()                  ((uint8_t)((gpio_read(UCHARGER_CHARGE_END_GPIO) ? 1 : 0) | \
+                                                       (gpio_read(UCHARGER_GPIO) ? 2 : 0)))
+  #define IS_UCHARGER_ACTIVE()              (NB4_CHARGE_RAW() == NB4_CHARGE_BASE || \
+                                             NB4_CHARGE_RAW() == NB4_CHARGE_USB)
+
+  uint8_t nb4UsbDiagBits();
+
+  uint8_t nb4ChargeSource();
+
+  bool nb4BatteryFull();
+#elif defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
+  #define IS_UCHARGER_ACTIVE()              gpio_read(UCHARGER_GPIO) ? (gpio_read(UCHARGER_CHARGE_END_GPIO) ? 0 : 1) : 1
 #else
   #define IS_UCHARGER_ACTIVE()              gpio_read(UCHARGER_GPIO) ? 1 : 0
 #endif
 
-#if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
+#if defined(RADIO_NB4)
+  #define IS_UCHARGER_CHARGE_END_ACTIVE()   (nb4BatteryFull() ? 1 : 0)
+#elif defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
   #define IS_UCHARGER_CHARGE_END_ACTIVE()   gpio_read(UCHARGER_CHARGE_END_GPIO) ? 0 : 1
 #else
   #define IS_UCHARGER_CHARGE_END_ACTIVE()   gpio_read(UCHARGER_CHARGE_END_GPIO) ? 1 : 0

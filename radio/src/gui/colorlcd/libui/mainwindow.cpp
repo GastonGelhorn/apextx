@@ -112,13 +112,15 @@ void MainWindow::setBackgroundImage(const char* fileName)
 
   // Try to load bitmap. If this fails backgroundBitmap will be NULL and default
   // will be loaded in update() method
-  backgroundBitmap =
+  backgroundBitmap = backgroundImageFileName.empty() ? nullptr :
       BitmapBuffer::loadBitmap(backgroundImageFileName.c_str(), BMP_RGB565);
 
+#if !defined(RADIO_NB4_FAMILY)
   if (!backgroundBitmap) {
     backgroundBitmap = BitmapBuffer::loadBitmap(
         THEMES_PATH "/EdgeTX/background.png", BMP_RGB565);
   }
+#endif
 
   if (backgroundBitmap) {
     lv_obj_move_background(backgroundBitmap->addCanvas(this));

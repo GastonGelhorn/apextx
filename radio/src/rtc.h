@@ -53,6 +53,7 @@ bool rtcIsValid();
 void rtcInit();
 void rtcSetTime(const struct gtm * tm);
 gtime_t gmktime (struct gtm *tm);
+gtime_t filltm(const gtime_t* timestamp, struct gtm* time);
 uint8_t rtcAdjust(uint16_t year, uint8_t mon, uint8_t day, uint8_t hour, uint8_t min, uint8_t sec);
 
 #if defined(__cplusplus) && !defined(SIMU)

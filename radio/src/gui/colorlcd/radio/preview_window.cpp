@@ -171,7 +171,7 @@ PreviewWindow::PreviewWindow(Window *window, rect_t rect,
   etx_obj_add_style(qm->getLvObj(), styles->bg_opacity_90, LV_PART_MAIN);
   auto sep = lv_obj_create(qm->getLvObj());
   etx_solid_bg(sep, COLOR_THEME_QM_FG_INDEX);
-  lv_obj_set_size(sep, LCD_W, PAD_THREE);
+  lv_obj_set_size(sep, lv_disp_get_hor_res(nullptr), PAD_THREE);
   auto mask = getBuiltinIcon(ICON_TOP_LOGO);
   new StaticIcon(qm, (QM_W - mask->width) / 2, 0, ICON_TOP_LOGO, COLOR_THEME_QM_FG_INDEX);
 

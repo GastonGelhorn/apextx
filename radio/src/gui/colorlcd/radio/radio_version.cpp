@@ -20,6 +20,9 @@
  */
 
 #include "radio_version.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "radio_diaganas.h"
+#endif
 
 #include "fw_version.h"
 #include "hal/module_port.h"
@@ -332,12 +335,20 @@ class VersionDialog : public BaseDialog
 #endif
 };
 
-#if VERSION_MAJOR == 2 && LCD_H == 272
+#if defined(RADIO_NB4)
+const std::string copyright_str = "(C) " BUILD_YEAR " ApexTX / EdgeTX";
+const std::string firmware_url = "https://github.com/GastonGelhorn/apextx";
+#elif defined(LCD_DUAL_ORIENTATION)
+/* lv_disp_get_ver_res(nullptr) is not a preprocessor constant. */
+const std::string copyright_str = "Copyright (C) " BUILD_YEAR " EdgeTX";
+const std::string firmware_url = "https://edgetx.org";
+#elif VERSION_MAJOR == 2 && LCD_H == 272
 const std::string copyright_str = "(C) " BUILD_YEAR " EdgeTX";
+const std::string firmware_url = "https://edgetx.org";
 #else
 const std::string copyright_str = "Copyright (C) " BUILD_YEAR " EdgeTX";
+const std::string firmware_url = "https://edgetx.org";
 #endif
-const std::string edgetx_url = "https://edgetx.org";
 
 RadioVersionPage::RadioVersionPage(PageDef& pageDef) :
     PageGroupItem(pageDef)
@@ -378,9 +389,10 @@ void RadioVersionPage::build(Window* window)
                  COLOR_THEME_SECONDARY1_INDEX, CENTERED);
 
   new StaticText(qrBox, {0, qh - QR_SZ - PAD_MEDIUM - EdgeTxStyles::STD_FONT_HEIGHT, LV_PCT(100), 0},
-                 edgetx_url, COLOR_THEME_SECONDARY1_INDEX, CENTERED);
+                 firmware_url, COLOR_THEME_SECONDARY1_INDEX, CENTERED);
 
-  new QRCode(qrBox, (qw - QR_SZ) / 2, qh - QR_SZ - PAD_MEDIUM, QR_SZ, edgetx_url);
+  new QRCode(qrBox, (qw - QR_SZ) / 2, qh - QR_SZ - PAD_MEDIUM, QR_SZ,
+             firmware_url);
 
   auto infoBox = new Window(window, {ix, iy, iw, ih});
   infoBox->padAll(PAD_SMALL);
@@ -416,12 +428,32 @@ void RadioVersionPage::build(Window* window)
   version += boardTouchType;
 #endif
 
+#if defined(RADIO_NB4)
+  version += nl;
+  version += "ApexTX: ";
+  version += APEXTX_VERSION;
+#endif
+
   new StaticText(infoBox, {0, 0, LV_PCT(100), LV_SIZE_CONTENT}, version);
 
   // Module and receivers versions
+#if defined(RADIO_NB4_FAMILY)
+  new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT * 2 - PAD_LARGE - PAD_SMALL * 2, LV_PCT(100), 0},
+                  STR_MODULES_RX_VERSION, [=]() {
+                    new VersionDialog();
+                    return 0;
+                  });
+
+  new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_LARGE - PAD_SMALL, LV_PCT(100), 0},
+                  STR_ANALOGS_BTN, [=]() {
+                    new RadioAnalogsDiagsViewPageGroup(QM_RADIO_VERSION);
+                    return 0;
+                  });
+#else
   new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_LARGE - PAD_SMALL, LV_PCT(100), 0},
                   STR_MODULES_RX_VERSION, [=]() {
                     new VersionDialog();
                     return 0;
                   });
+#endif
 }

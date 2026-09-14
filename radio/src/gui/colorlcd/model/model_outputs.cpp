@@ -91,7 +91,7 @@ class OutputLineButton : public ListLineButton
     checkEvents();
 
     lv_obj_update_layout(lvobj);
-  
+
     lv_obj_enable_style_refresh(true);
     lv_obj_refresh_style(lvobj, LV_PART_ANY, LV_STYLE_PROP_ANY);
 
@@ -157,6 +157,35 @@ class OutputLineButton : public ListLineButton
   static LAYOUT_VAL_SCALED(CH_BAR_WIDTH, 100)
   static LAYOUT_VAL_SCALED(CH_BAR_HEIGHT, 16)
   static LAYOUT_VAL_SCALED(BAR_XO, 17)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal BAR_X =
+      lvSub(LayoutVal{LCD_MAX_W, LCD_PHYS_W}, CH_BAR_WIDTH + BAR_XO);
+
+  static constexpr coord_t SRC_X = PAD_TINY;
+  static constexpr coord_t SRC_Y = 1;
+  static LAYOUT_VAL_SCALED(SRC_W, 80)
+  static constexpr LayoutVal SRC_H = lvSub(CH_LINE_H, PAD_MEDIUM);
+  static constexpr coord_t MIN_X = SRC_X + SRC_W + PAD_TINY;
+  static LAYOUT_SIZE_SCALED(MIN_Y, 4, 2)
+  static LAYOUT_VAL_SCALED(MIN_W, 52)
+  static constexpr coord_t MAX_X = MIN_X + MIN_W + PAD_TINY;
+  static constexpr LayoutVal MAX_Y = MIN_Y;
+  static LAYOUT_SIZE_SCALED(MAX_W, 52, 60)
+  /* Horizontal: after the maximum. Vertical: below it, on the second row. */
+  static constexpr LayoutVal OFF_X{(coord_t)(MAX_X + MAX_W.l + PAD_TINY),
+                                   (coord_t)(SRC_X + SRC_W + PAD_TINY)};
+  static LAYOUT_SIZE_SCALED(OFF_Y, 4, 24)
+  static LAYOUT_SIZE_SCALED(OFF_W, 44, 52)
+  static constexpr LayoutVal CTR_X = lvAdd(lvAdd(OFF_X, OFF_W), PAD_TINY);
+  static constexpr LayoutVal CTR_Y = OFF_Y;
+  static LAYOUT_VAL_SCALED(CTR_W, 60)
+  static constexpr LayoutVal REV_X = lvAdd(CTR_X, CTR_W + PAD_TINY);
+  static constexpr LayoutVal REV_Y = CTR_Y;
+  static LAYOUT_VAL_SCALED(REV_W, 16)
+  static constexpr LayoutVal CRV_X = lvAdd(REV_X, REV_W + PAD_TINY);
+  static constexpr LayoutVal CRV_Y = lvAdd(REV_Y, 1);
+#else
   static constexpr coord_t BAR_X = LCD_W - CH_BAR_WIDTH - BAR_XO;
 
   static constexpr coord_t SRC_X = PAD_TINY;
@@ -180,6 +209,7 @@ class OutputLineButton : public ListLineButton
   static LAYOUT_VAL_SCALED(REV_W, 16)
   static constexpr coord_t CRV_X = REV_X + REV_W + PAD_TINY;
   static constexpr coord_t CRV_Y = REV_Y + 1;
+#endif
 
  protected:
   int value = -10000;

@@ -39,8 +39,14 @@ class SwitchChoiceMenuToolbar : public MenuToolbar
               STR_MENU_TRIMS);
     addButton("LS", SWSRC_FIRST_LOGICAL_SWITCH, SWSRC_LAST_LOGICAL_SWITCH,
               nullptr, STR_MENU_LOGICAL_SWITCHES);
+#if defined(SURFACE_RADIO)
+
+    addButton("C", SWSRC_FIRST_FLIGHT_MODE, SWSRC_LAST_FLIGHT_MODE, nullptr,
+              STR_NB4_CONDITION);
+#else
     addButton("FM", SWSRC_FIRST_FLIGHT_MODE, SWSRC_LAST_FLIGHT_MODE, nullptr,
               STR_FLIGHT_MODE);
+#endif
     addButton(CHAR_TELEMETRY, SWSRC_FIRST_SENSOR, SWSRC_LAST_SENSOR,
               nullptr, STR_MENU_TELEMETRY);
 #if defined(DEBUG_LATENCY)

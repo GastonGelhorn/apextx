@@ -436,6 +436,10 @@ class AudioQueue {
     void flush();
     void pause(uint16_t tLen);
     void stopSD();
+#if defined(RADIO_NB4)
+    bool pauseFiles(); // nonblocking request; audio task closes its own files
+    void resumeFiles();
+#endif
     bool isPlaying(uint8_t id);
     bool isEmpty() const { return fragmentsFifo.empty(); };
     void wakeup();
@@ -572,8 +576,13 @@ void playModelName();
 #if defined(AUDIO)
   extern tmr10ms_t timeAutomaticPromptsSilence;
   void playModelEvent(uint8_t category, uint8_t index, event_t event=0);
-  #define PLAY_PHASE_OFF(phase)         playModelEvent(PHASE_AUDIO_CATEGORY, phase, AUDIO_EVENT_OFF)
-  #define PLAY_PHASE_ON(phase)          playModelEvent(PHASE_AUDIO_CATEGORY, phase, AUDIO_EVENT_ON)
+  #if defined(FLIGHT_MODES)
+    #define PLAY_PHASE_OFF(phase)       playModelEvent(PHASE_AUDIO_CATEGORY, phase, AUDIO_EVENT_OFF)
+    #define PLAY_PHASE_ON(phase)        playModelEvent(PHASE_AUDIO_CATEGORY, phase, AUDIO_EVENT_ON)
+  #else
+    #define PLAY_PHASE_OFF(phase)
+    #define PLAY_PHASE_ON(phase)
+  #endif
   #define PLAY_SWITCH_MOVED(sw)         playModelEvent(SWITCH_AUDIO_CATEGORY, sw)
   #define PLAY_LOGICAL_SWITCH_OFF(sw)   playModelEvent(LOGICAL_SWITCH_AUDIO_CATEGORY, sw, AUDIO_EVENT_OFF)
   #define PLAY_LOGICAL_SWITCH_ON(sw)    playModelEvent(LOGICAL_SWITCH_AUDIO_CATEGORY, sw, AUDIO_EVENT_ON)

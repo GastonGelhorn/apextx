@@ -22,8 +22,20 @@
 #include "diskio_spi_flash.h"
 #include "spi_flash.h"
 
+#include "hal.h"
+
+#if defined(RADIO_NB4) && !defined(BOOT)
+#include "nb4_health.h"
+#endif
+
 #if !defined(DISABLE_FLASH_FTL)
 #define USE_FLASH_FTL
+#endif
+
+#if defined(SPI_FLASH_RESERVED_BASE)
+  #define SPI_FLASH_DATA_BASE  ((uint32_t)(SPI_FLASH_RESERVED_BASE))
+#else
+  #define SPI_FLASH_DATA_BASE  ((uint32_t)0)
 #endif
 
 #if defined(USE_FLASH_FTL)
@@ -34,8 +46,7 @@ static bool frftlInitDone = false;
 
 static bool flashRead(uint32_t addr, uint8_t* buf, uint32_t len)
 {
-  flashSpiRead(addr, buf, len);
-  return true;
+  return flashSpiRead(SPI_FLASH_DATA_BASE + addr, buf, len) == len;
 }
 
 static bool flashWrite(uint32_t addr, const uint8_t *buf, uint32_t len)
@@ -43,9 +54,11 @@ static bool flashWrite(uint32_t addr, const uint8_t *buf, uint32_t len)
   uint32_t pageSize = flashSpiGetPageSize();
   if(len % pageSize != 0)
     return false;
-  
+
   while(len > 0) {
-    flashSpiWrite(addr, buf, pageSize);
+    if (flashSpiWrite(SPI_FLASH_DATA_BASE + addr, buf, pageSize) != pageSize) {
+      return false;
+    }
     len -= pageSize;
     buf += pageSize;
     addr += pageSize;
@@ -60,19 +73,17 @@ static bool flashWrite(uint32_t addr, const uint8_t *buf, uint32_t len)
 
 static bool flashErase(uint32_t addr)
 {
-  flashSpiErase(addr);
-  return true;
+  return flashSpiErase(SPI_FLASH_DATA_BASE + addr) == 0;
 }
 
 static bool flashBlockErase(uint32_t addr)
 {
-  flashSpiBlockErase(addr);
-  return true;
+  return flashSpiBlockErase(SPI_FLASH_DATA_BASE + addr) == 0;
 }
 
 static bool isFlashErased(uint32_t addr)
 {
-  return flashSpiIsErased(addr);
+  return flashSpiIsErased(SPI_FLASH_DATA_BASE + addr);
 }
 
 static const FrFTLOps _frftl_cb = {
@@ -98,12 +109,24 @@ static DSTATUS spi_flash_initialize(BYTE lun)
       return STA_NOINIT;
     }
   } else {
+#if defined(SPI_FLASH_USABLE_SIZE)
+    const uint32_t flashSize = SPI_FLASH_USABLE_SIZE;
+    if ((uint32_t)flashSpiGetSize() <
+        SPI_FLASH_DATA_BASE + flashSize) {
+
+      return STA_NOINIT;
+    }
+    if (!ftlInitWithSize(&_frftl, &_frftl_cb, flashSize)) {
+      return STA_NOINIT;
+    }
+#else
     int flashSize = flashSpiGetSize();
     int flashSizeMB = flashSize  / 1024 / 1024;
 
     if (!ftlInit(&_frftl, &_frftl_cb, flashSizeMB)) {
       return STA_NOINIT;
     }
+#endif
     frftlInitDone = true;
   }
 #endif
@@ -124,13 +147,13 @@ static DRESULT spi_flash_read(BYTE lun, BYTE * buff, DWORD sector, UINT count)
     if(!ftlRead(&_frftl, sector, (uint8_t*)buff)) {
       return RES_ERROR;
     }
- 
+
     buff += 512;
     sector++;
     count --;
   }
 #else
-  flashSpiRead((uint32_t)sector * 512, buff, count * 512);
+  flashSpiRead(SPI_FLASH_DATA_BASE + (uint32_t)sector * 512, buff, count * 512);
 #endif
 
   return RES_OK;
@@ -144,7 +167,7 @@ static DRESULT spi_flash_write(BYTE lun, const BYTE *buff, DWORD sector, UINT co
   }
 #else
   // write in page size
-  uint32_t address = (uint32_t)sector * 512;
+  uint32_t address = SPI_FLASH_DATA_BASE + (uint32_t)sector * 512;
   count <<= 1;
   while(count) {
     if (!flashSpiWrite(address, buff, 256)) {
@@ -203,7 +226,7 @@ static DRESULT spi_flash_ioctl(BYTE lun, BYTE ctrl, void *buff)
   return res;
 }
 
-void spiFlashDiskEraseAll()
+bool spiFlashDiskEraseAll()
 {
 #if defined(USE_FLASH_FTL)
   if (frftlInitDone) {
@@ -211,7 +234,26 @@ void spiFlashDiskEraseAll()
     frftlInitDone = false;
   }
 #endif
+#if defined(SPI_FLASH_RESERVED_BASE)
+
+  const uint32_t blockSize = 32768;
+  const uint32_t dataBytes = SPI_FLASH_USABLE_SIZE;
+  for (uint32_t off = 0; off < dataBytes; off += blockSize) {
+    if (flashSpiBlockErase(SPI_FLASH_DATA_BASE + off) != 0) return false;
+#if defined(RADIO_NB4) && !defined(BOOT)
+    nb4HealthBeat(NB4_TASK_UI);
+#endif
+  }
+  for (uint32_t off = 0; off < dataBytes; off += 4096) {
+    if (!flashSpiIsErased(SPI_FLASH_DATA_BASE + off)) return false;
+#if defined(RADIO_NB4) && !defined(BOOT)
+    nb4HealthBeat(NB4_TASK_UI);
+#endif
+  }
+#else
   flashSpiEraseAll();
+#endif
+  return true;
 }
 
 const diskio_driver_t spi_flash_diskio_driver = {

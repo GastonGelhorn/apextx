@@ -23,6 +23,8 @@
 #include "topbar.h"
 #include "view_main.h"
 #include "widget.h"
+#include "nb4_health.h"
+#include "nb4_home.h"
 
 WidgetsContainer* customScreens[MAX_CUSTOM_SCREENS] = {};
 
@@ -123,15 +125,50 @@ void LayoutFactory::deleteTopBarWidgets()
   ViewMain::instance()->getTopbar()->removeAllWidgets();
 }
 
+#if defined(RADIO_NB4_FAMILY)
+void LayoutFactory::nb4ApplyRacingHome()
+{
+  // Presentation is a radio preference. Retain every persisted model screen,
+  // including the previous primary screen, for lossless restoration.
+  g_eeGeneral.nb4Home = NB4_HOME_INSTRUMENTS;
+  storageDirty(EE_GENERAL);
+  loadCustomScreens();
+}
+#endif
+
 void LayoutFactory::loadDefaultLayout()
 {
   auto& screen = customScreens[0];
+#if defined(RADIO_NB4_FAMILY)
+  if (!screen && g_eeGeneral.nb4Home != NB4_HOME_PREVIOUS) {
+    auto view = ViewMain::instance();
+    screen = new Nb4HomeScreen(view, view->getRect());
+    view->addMainView(screen, 0);
+    view->updateTopbarVisibility();
+    return;
+  }
+#endif
 
   if (screen == nullptr && defaultLayout != nullptr) {
-    g_model.setScreenLayoutId(0, defaultLayout->getId());
+#if defined(RADIO_NB4_FAMILY)
+
+    const LayoutFactory* factory = getLayoutFactory("Layout1x1");
+    if (!factory) factory = defaultLayout;
+#else
+    const LayoutFactory* factory = defaultLayout;
+#endif
+
+    g_model.setScreenLayoutId(0, factory->getId());
 
     auto viewMain = ViewMain::instance();
-    screen = defaultLayout->create(viewMain, 0);
+    screen = factory->create(viewMain, 0);
+
+#if defined(RADIO_NB4_FAMILY)
+    if (screen) {
+      auto racing = WidgetFactory::getWidgetFactory("NB4Racing");
+      if (racing) screen->createWidget(0, racing);
+    }
+#endif
     //
     // TODO:
     // -> attach a few default widgets
@@ -154,6 +191,23 @@ void LayoutFactory::loadCustomScreens()
 
   unsigned i = 0;
   auto viewMain = ViewMain::instance();
+
+#if defined(RADIO_NB4_FAMILY)
+  if (lcdSetOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1))
+    viewMain->resizeToDisplay();
+  else
+    nb4RequestOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1, false);
+  {
+    customScreens[0] = new Nb4HomeScreen(viewMain, viewMain->getRect());
+    viewMain->addMainView(customScreens[0], 0);
+    i = 1;
+    if (nb4HealthRecovery()) {
+      viewMain->setCurrentMainView(0);
+      viewMain->updateTopbarVisibility();
+      return;
+    }
+  }
+#endif
 
   while (i < MAX_CUSTOM_SCREENS) {
     auto& screen = customScreens[i];
@@ -267,7 +321,7 @@ inline LayoutOptionValueEnum layoutValueEnumFromType(LayoutOption::Type type)
 
   case LayoutOption::Color:
     return LOV_Color;
-    
+
   default:
     return LOV_None;
   }
@@ -313,7 +367,7 @@ WidgetsContainer* LayoutFactory::load(Window* parent, int screenNum) const
 Layout::Layout(Window* parent, const LayoutFactory* factory,
                int screenNum, uint8_t zoneCount,
                uint8_t* zoneMap) :
-    WidgetsContainer(parent, {0, 0, LCD_W, LCD_H}, zoneCount),
+    WidgetsContainer(parent, {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}, zoneCount),
     factory(factory),
     decoration(new ViewMainDecoration(this)),
     zoneMap(zoneMap), screenNum(screenNum)

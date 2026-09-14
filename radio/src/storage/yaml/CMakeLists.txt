@@ -25,6 +25,10 @@ if((PCB STREQUAL X10) OR (PCB STREQUAL X12S) OR (PCB STREQUAL STM32H7S78_DK))
 elseif(PCB STREQUAL PL18)
   if(PCBREV STREQUAL NB4P)
     set(YAML_GEN_OUTPUT storage/yaml/yaml_datastructs_nb4p.cpp)
+  elseif(PCBREV STREQUAL NB4)
+    # Each display keeps its own generated descriptor because persistent screen
+    # geometry differs between NB4 and NB4P.
+    set(YAML_GEN_OUTPUT storage/yaml/yaml_datastructs_nb4.cpp)
   elseif(PCBREV STREQUAL NV14)
     set(YAML_GEN_OUTPUT storage/yaml/yaml_datastructs_nv14.cpp)
   elseif(PCBREV STREQUAL PL18U)
@@ -89,6 +93,9 @@ SET(YAML_NODES        "\"RadioData,ModelData,PartialModel\"")
 set(YAML_GEN_ARGS     myeeprom.h ${YAML_GEN_TEMPLATE} ${YAML_NODES} -DYAML_GENERATOR)
 
 AddCompilerFlags(YAML_GEN_ARGS)
+if(PCB STREQUAL "PL18" AND (PCBREV STREQUAL "NB4" OR PCBREV STREQUAL "NB4P"))
+  list(APPEND YAML_GEN_ARGS -std=c++17)
+endif()
 
 # Force to build 32 bit binaries (Fix for Apple Silicon M1 hosts)
 # TODO: find a way to detect APPLE & M1
@@ -113,4 +120,3 @@ set(SRC ${SRC} ${CMAKE_CURRENT_BINARY_DIR}/yaml_inputs.inc)
 
 # helper target for testing purposes
 add_custom_target(yaml_inputs DEPENDS ${HW_DESC_JSON} yaml_inputs.inc)
-

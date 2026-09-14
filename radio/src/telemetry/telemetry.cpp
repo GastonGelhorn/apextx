@@ -128,6 +128,9 @@ rxStatStruct *getRxStatLabels() {
 
     case MODULE_TYPE_CROSSFIRE:
     case MODULE_TYPE_GHOST:
+#if defined(AFHDS3)
+    case MODULE_TYPE_FLYSKY_AFHDS3:
+#endif
       rxStat.label = STR_RXSTAT_LABEL_RQLY;
       rxStat.unit = STR_RXSTAT_UNIT_PERCENT;
       rxStat.max = 100;
@@ -312,11 +315,13 @@ void telemetryWakeup()
   }
 #endif
 
+  bool checkConnection = false;
   static tmr10ms_t alarmsCheckTime = 0;
 #define SCHEDULE_NEXT_ALARMS_CHECK(seconds) \
   alarmsCheckTime = get_tmr10ms() + (100 * (seconds))
   if (int32_t(get_tmr10ms() - alarmsCheckTime) > 0) {
     SCHEDULE_NEXT_ALARMS_CHECK(1 /*second*/);
+    checkConnection = true;
 
     bool sensorLost = false;
     for (int i = 0; i < MAX_TELEMETRY_SENSORS; i++) {
@@ -355,34 +360,39 @@ void telemetryWakeup()
           SCHEDULE_NEXT_ALARMS_CHECK(10 /*seconds*/);
         }
       }
-
-      if (TELEMETRY_STREAMING()) {
-        if (telemetryState == TELEMETRY_INIT) {
-          AUDIO_TELEMETRY_CONNECTED();
-        } else if (telemetryState == TELEMETRY_KO) {
-          AUDIO_TELEMETRY_BACK();
+    }
+  }
+#if defined(RADIO_NB4)
+  // Receiver loss is independent of the low-signal warning repeat interval.
+  checkConnection = true;
+#endif
+  if (checkConnection && !g_model.disableTelemetryWarning) {
+    if (TELEMETRY_STREAMING()) {
+      if (telemetryState == TELEMETRY_INIT) {
+        AUDIO_TELEMETRY_CONNECTED();
+      } else if (telemetryState == TELEMETRY_KO) {
+        AUDIO_TELEMETRY_BACK();
 
 #if defined(CROSSFIRE)
-          // TODO: move to crossfire code
+        // TODO: move to crossfire code
 #if defined(HARDWARE_EXTERNAL_MODULE)
-          if (isModuleCrossfire(EXTERNAL_MODULE)) {
-            moduleState[EXTERNAL_MODULE].counter = CRSF_FRAME_MODELID;
-          }
+        if (isModuleCrossfire(EXTERNAL_MODULE)) {
+          moduleState[EXTERNAL_MODULE].counter = CRSF_FRAME_MODELID;
+        }
 #endif
 
 #if defined(HARDWARE_INTERNAL_MODULE)
-          if (isModuleCrossfire(INTERNAL_MODULE)) {
-            moduleState[INTERNAL_MODULE].counter = CRSF_FRAME_MODELID;
-          }
+        if (isModuleCrossfire(INTERNAL_MODULE)) {
+          moduleState[INTERNAL_MODULE].counter = CRSF_FRAME_MODELID;
+        }
 #endif
 #endif
-        }
-        telemetryState = TELEMETRY_OK;
-      } else if (telemetryState == TELEMETRY_OK) {
-        telemetryState = TELEMETRY_KO;
-        if (!isModuleInBeepMode()) {
-          AUDIO_TELEMETRY_LOST();
-        }
+      }
+      telemetryState = TELEMETRY_OK;
+    } else if (telemetryState == TELEMETRY_OK) {
+      telemetryState = TELEMETRY_KO;
+      if (!isModuleInBeepMode()) {
+        AUDIO_TELEMETRY_LOST();
       }
     }
   }
@@ -418,6 +428,9 @@ void telemetryInterrupt10ms()
 void telemetryReset()
 {
   telemetryData.clear();
+#if defined(RADIO_NB4) && defined(AFHDS3)
+  afhds3::resetReceiverTelemetry();
+#endif
 
   for (auto & telemetryItem : telemetryItems) {
     telemetryItem.clear();

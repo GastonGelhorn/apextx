@@ -90,7 +90,7 @@ static void _assign_lv_group(lv_group_t* g)
 }
 
 Keyboard::Keyboard(coord_t height) :
-    NavWindow(MainWindow::instance(), {0, LCD_H - height, LCD_W, height})
+    NavWindow(MainWindow::instance(), {0, lv_disp_get_ver_res(nullptr) - height, lv_disp_get_hor_res(nullptr), height})
 {
   lv_obj_set_parent(lvobj, lv_layer_top());  // the keyboard is always on top
 
@@ -107,7 +107,7 @@ Keyboard::Keyboard(coord_t height) :
   lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_ALL, this);
 
   lv_obj_set_pos(keyboard, 0, 0);
-  lv_obj_set_size(keyboard, LCD_W, height);
+  lv_obj_set_size(keyboard, lv_disp_get_hor_res(nullptr), height);
 
   // TODO: really needed ???
   lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
@@ -176,6 +176,10 @@ bool Keyboard::attachKeyboard()
 void Keyboard::setField(FormField* newField)
 {
   if (!attachKeyboard()) return;
+#if defined(RADIO_NB4_FAMILY)
+  setWidth(lv_disp_get_hor_res(nullptr));
+  lv_obj_set_width(keyboard, lv_disp_get_hor_res(nullptr));
+#endif
 
   lv_obj_t* obj = newField->getLvObj();
   if (obj) {
@@ -187,7 +191,7 @@ void Keyboard::setField(FormField* newField)
       lv_obj_get_coords(obj, &coords);
 
       // place keyboard bellow the field with some margin
-      setTop(max((coord_t)coords.y2 + 21, LCD_H - height()));
+      setTop(max<coord_t>((coord_t)coords.y2 + 21, lv_disp_get_ver_res(nullptr) - height()));
 
       // save scroll position
       scroll_pos = lv_obj_get_scroll_y(fieldContainer->getLvObj());

@@ -23,6 +23,7 @@
 
 #include "lz4/lz4.h"
 #include "edgetx_helpers.h"
+#include "nb4_health.h"
 
 LZ4BitmapBuffer::LZ4BitmapBuffer(uint8_t format) :
     BitmapBuffer(format, 0, 0, nullptr)
@@ -38,6 +39,9 @@ void LZ4BitmapBuffer::load(const LZ4Bitmap* lz4Data)
 
   uint32_t pixels = _width * _height;
   data = (uint16_t*)malloc(align32(pixels * sizeof(uint16_t)));
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  if (!data) nb4UiAssert(__FILE__, __LINE__);
+#endif
 
   LZ4_decompress_safe((const char*)lz4Data->data, (char*)data,
                       lz4Data->compressedSize, pixels * sizeof(uint16_t));
@@ -59,6 +63,9 @@ MaskBitmap* _decompressed_mask(const uint8_t* lz4_compressed)
 
   uint32_t pixels = width * height;
   MaskBitmap* raw = (MaskBitmap*)malloc(align32(pixels + 4));
+#if defined(RADIO_NB4_FAMILY)
+  if (!raw) nb4UiAssert(__FILE__, __LINE__);
+#endif
 
   raw->width = width;
   raw->height = height;
@@ -73,9 +80,11 @@ static const uint8_t mask_menu_favs[] __FLASH = {
 #include "mask_menu_favs.lbm"
 };
 
+#if !defined(RADIO_NB4_FAMILY)
 static const uint8_t mask_menu_model[] __FLASH = {
 #include "mask_menu_model.lbm"
 };
+#endif
 static const uint8_t mask_menu_notes[] __FLASH = {
 #include "mask_menu_notes.lbm"
 };
@@ -91,15 +100,19 @@ static const uint8_t mask_menu_theme[] __FLASH = {
 static const uint8_t mask_model_curves[] __FLASH = {
 #include "mask_model_curves.lbm"
 };
+#if !defined(RADIO_NB4_FAMILY)
 static const uint8_t mask_model_flight_modes[] __FLASH = {
 #include "mask_model_flight_modes.lbm"
 };
+#endif
 static const uint8_t mask_model_gvars[] __FLASH = {
 #include "mask_model_gvars.lbm"
 };
+#if !defined(RADIO_NB4_FAMILY)
 static const uint8_t mask_model_heli[] __FLASH = {
 #include "mask_model_heli.lbm"
 };
+#endif
 static const uint8_t mask_model_inputs[] __FLASH = {
 #include "mask_model_inputs.lbm"
 };
@@ -127,9 +140,11 @@ static const uint8_t mask_model_telemetry[] __FLASH = {
 static const uint8_t mask_model_usb[] __FLASH = {
 #include "mask_model_usb.lbm"
 };
+#if !defined(RADIO_NB4_FAMILY)
 static const uint8_t mask_menu_model_select[] __FLASH = {
 #include "mask_menu_model_select.lbm"  //TODO: someone may want to make proper icon
 };
+#endif
 static const uint8_t mask_monitor[] __FLASH = {
 #include "mask_monitor.lbm"
 };
@@ -160,9 +175,11 @@ static const uint8_t mask_radio_tools[] __FLASH = {
 static const uint8_t mask_radio_edit_theme[] __FLASH = {
 #include "mask_radio_edit_theme.lbm"
 };
+#if !defined(RADIO_NB4_FAMILY)
 static const uint8_t mask_radio_trainer[] __FLASH = {
 #include "mask_radio_trainer.lbm"
 };
+#endif
 static const uint8_t mask_radio_version[] __FLASH = {
 #include "mask_radio_version.lbm"
 };
@@ -376,17 +393,34 @@ static const uint8_t mask_btn_prev[] __FLASH = {
 #include "mask_btn_prev.lbm"
 };
 
+#if defined(RADIO_NB4_FAMILY)
+static const uint8_t mask_nb4_model_setup[] __FLASH = {
+#include "mask_nb4_model_setup.lbm"
+};
+static const uint8_t mask_nb4_outputs[] __FLASH = {
+#include "mask_nb4_outputs.lbm"
+};
+
+static const uint8_t mask_nb4_steering[] __FLASH = {
+#include "mask_nb4_steering.lbm"
+};
+static const uint8_t mask_nb4_throttle[] __FLASH = {
+#include "mask_nb4_throttle.lbm"
+};
+#endif
+
 static const uint8_t mask_top_logo[] __FLASH = {
 #include "mask_top_logo.lbm"
 };
 
 struct _BuiltinIcon {
+  EdgeTxIcon id;
   const uint8_t* lz4_compressed_bitmap;
 };
 
 #define BI(icon, mask) \
   {                    \
-    mask               \
+    icon, mask         \
   }
 
 // Note: Order must match EdgeTxIcon enum
@@ -398,15 +432,28 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_RADIO_SD_MANAGER, mask_radio_sd_browser),
     BI(ICON_RADIO_TOOLS, mask_radio_tools),
     BI(ICON_RADIO_GLOBAL_FUNCTIONS, mask_radio_global_functions),
+#if !defined(RADIO_NB4_FAMILY)
     BI(ICON_RADIO_TRAINER, mask_radio_trainer),
+#else
+    BI(ICON_RADIO_TRAINER, mask_radio_hardware),
+#endif
     BI(ICON_RADIO_HARDWARE, mask_radio_hardware),
     BI(ICON_RADIO_CALIBRATION, mask_radio_calibration),
     BI(ICON_RADIO_EDIT_THEME, mask_radio_edit_theme),
     BI(ICON_RADIO_VERSION, mask_radio_version),
+#if defined(RADIO_NB4_FAMILY)
+    BI(ICON_MODEL, mask_model_setup), // native car mask returned below
+#else
     BI(ICON_MODEL, mask_menu_model),
+#endif
     BI(ICON_MODEL_SETUP, mask_model_setup),
+#if !defined(RADIO_NB4_FAMILY)
     BI(ICON_MODEL_HELI, mask_model_heli),
     BI(ICON_MODEL_FLIGHT_MODES, mask_model_flight_modes),
+#else
+    BI(ICON_MODEL_HELI, mask_model_setup),
+    BI(ICON_MODEL_FLIGHT_MODES, mask_model_setup),
+#endif
     BI(ICON_MODEL_INPUTS, mask_model_inputs),
     BI(ICON_MODEL_MIXER, mask_model_mixer),
     BI(ICON_MODEL_NOTES, mask_menu_notes),
@@ -418,7 +465,11 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_MODEL_LUA_SCRIPTS, mask_model_lua_scripts),
     BI(ICON_MODEL_TELEMETRY, mask_model_telemetry),
     BI(ICON_MODEL_USB, mask_model_usb),
+#if defined(RADIO_NB4_FAMILY)
+    BI(ICON_MODEL_SELECT, mask_model_setup),
+#else
     BI(ICON_MODEL_SELECT, mask_menu_model_select),
+#endif
     BI(ICON_THEME, mask_menu_theme),
     BI(ICON_THEME_SETUP, mask_theme_setup),
     BI(ICON_THEME_VIEW1, mask_theme_view1),
@@ -506,12 +557,44 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_BTN_NEXT, mask_btn_next),
     BI(ICON_BTN_PREV, mask_btn_prev),
     BI(ICON_TOP_LOGO, mask_top_logo),
+#if defined(RADIO_NB4_FAMILY)
+    BI(ICON_NB4_MODEL_SETUP, mask_nb4_model_setup),
+    BI(ICON_NB4_OUTPUTS, mask_nb4_outputs),
+    BI(ICON_NB4_STEERING, mask_nb4_steering),
+    BI(ICON_NB4_THROTTLE, mask_nb4_throttle),
+#endif
 };
 
 static MaskBitmap* _builtinIconsDecompressed[EDGETX_ICONS_COUNT] = {0};
 
+int etxBuiltinIconMisalignedAt()
+{
+  for (unsigned i = 0; i < EDGETX_ICONS_COUNT; ++i)
+    if (_builtinIcons[i].id != (EdgeTxIcon)i) return (int)i;
+  return -1;
+}
+
 const MaskBitmap* getBuiltinIcon(EdgeTxIcon id)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (id == ICON_MODEL || id == ICON_MODEL_SELECT) {
+    struct CarMask { uint16_t width, height; uint8_t data[30 * 30]; };
+    static constexpr CarMask car = []() constexpr {
+      CarMask result{30, 30, {}};
+      for (int y = 0; y < 30; ++y) for (int x = 0; x < 30; ++x) {
+        bool roof = y >= 7 && y < 15 && x >= 10 - (y - 7) / 3 && x <= 19 + (y - 7) / 3;
+        bool body = y >= 15 && y <= 22 && x >= 4 && x <= 25;
+        bool wheels = y >= 22 && y <= 25 && ((x >= 5 && x <= 9) || (x >= 20 && x <= 24));
+        bool glass = y >= 9 && y <= 13 && x >= 11 && x <= 18;
+        bool lamps = y >= 17 && y <= 19 && ((x >= 6 && x <= 10) || (x >= 19 && x <= 23));
+        result.data[y * 30 + x] = (roof || body || wheels) && !glass && !lamps ? 255 : 0;
+      }
+      return result;
+    }();
+    return reinterpret_cast<const MaskBitmap*>(&car);
+  }
+#endif
+  if ((unsigned)id >= EDGETX_ICONS_COUNT) id = ICON_ERROR;
   // Icons are stored LZ4 compressed and de-compresssed on first use
   if (_builtinIconsDecompressed[id] == nullptr) {
     _builtinIconsDecompressed[id] =

@@ -178,6 +178,11 @@ class LayoutFactory
 
   // delete all custom screens from memory
   static void deleteCustomScreens();
+
+#if defined(RADIO_NB4_FAMILY)
+
+  static void nb4ApplyRacingHome();
+#endif
   // delete all top bar widgets from memory
   static void deleteTopBarWidgets();
 

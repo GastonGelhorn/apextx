@@ -24,7 +24,42 @@
 #include "sourcechoice.h"
 #include "switchchoice.h"
 
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_params.h"
+#endif
+
 #define SET_DIRTY()     storageDirty(EE_MODEL)
+
+#if defined(RADIO_NB4_FAMILY)
+
+static SetupLineDef setupLines[] = {
+  {
+    STR_DEF(STR_THROTTLEREVERSE),
+    [](Window* parent, coord_t x, coord_t y) {
+      nb4ParamControl(parent, {x, y, 0, 0}, Nb4Param::ThrottleReversed);
+    }
+  },
+  {
+    STR_DEF(STR_TTRACE),
+    [](Window* parent, coord_t x, coord_t y) {
+      nb4ParamControl(parent, {x, y, 0, 0}, Nb4Param::ThrottleTraceSource);
+    }
+  },
+  {
+    STR_DEF(STR_TTRIM),
+    [](Window* parent, coord_t x, coord_t y) {
+      nb4ParamControl(parent, {x, y, 0, 0}, Nb4Param::ThrottleTrimIdleOnly);
+    }
+  },
+  {
+    STR_DEF(STR_TTRIM_SW),
+    [](Window* parent, coord_t x, coord_t y) {
+      nb4ParamControl(parent, {x, y, 0, 0}, Nb4Param::ThrottleTrimSource);
+    }
+  },
+};
+
+#else
 
 static SetupLineDef setupLines[] = {
   {
@@ -71,6 +106,8 @@ static SetupLineDef setupLines[] = {
     }
   },
 };
+
+#endif  // RADIO_NB4_FAMILY
 
 ThrottleParams::ThrottleParams() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MODEL_SETTINGS, STR_THROTTLE_LABEL, setupLines, DIM(setupLines))
 {

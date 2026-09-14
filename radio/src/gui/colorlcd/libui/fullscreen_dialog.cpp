@@ -32,7 +32,7 @@
 FullScreenDialog::FullScreenDialog(
     uint8_t type, std::string title, std::string message, std::string action,
     const std::function<void(void)>& confirmHandler) :
-    Window(MainWindow::instance(), {0, 0, LCD_W, LCD_H}),
+    Window(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}),
     type(type),
     title(std::move(title)),
     message(std::move(message)),
@@ -54,7 +54,7 @@ FullScreenDialog::FullScreenDialog(
 
 void FullScreenDialog::build()
 {
-  auto div = new Window(this, {0, ALERT_FRAME_TOP, LCD_W, ALERT_FRAME_HEIGHT});
+  auto div = new Window(this, {0, ALERT_FRAME_TOP, lv_disp_get_hor_res(nullptr), ALERT_FRAME_HEIGHT});
   div->setWindowFlag(NO_FOCUS);
   etx_solid_bg(div->getLvObj(), COLOR_THEME_PRIMARY2_INDEX);
 
@@ -76,20 +76,20 @@ void FullScreenDialog::build()
   }
   new StaticText(this,
                  rect_t{ALERT_TITLE_LEFT, ALERT_TITLE_TOP,
-                        LCD_W - ALERT_TITLE_LEFT - PAD_MEDIUM,
-                        LCD_H - ALERT_TITLE_TOP - PAD_MEDIUM},
+                        lv_disp_get_hor_res(nullptr) - ALERT_TITLE_LEFT - PAD_MEDIUM,
+                        lv_disp_get_ver_res(nullptr) - ALERT_TITLE_TOP - PAD_MEDIUM},
                  t.c_str(), COLOR_THEME_WARNING_INDEX, FONT(XL));
 
   messageLabel =
       new StaticText(this,
                      rect_t{ALERT_MESSAGE_LEFT, ALERT_MESSAGE_TOP,
-                            LCD_W - ALERT_MESSAGE_LEFT - PAD_MEDIUM,
-                            LCD_H - ALERT_MESSAGE_TOP - PAD_MEDIUM},
+                            lv_disp_get_hor_res(nullptr) - ALERT_MESSAGE_LEFT - PAD_MEDIUM,
+                            lv_disp_get_ver_res(nullptr) - ALERT_MESSAGE_TOP - PAD_MEDIUM},
                      message.c_str(), COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));
 
   if (!action.empty()) {
     auto btn = new TextButton(
-        this, {(LCD_W - ONEBTN_W) / 2, LCD_H - ONEBTN_H - PAD_LARGE, ONEBTN_W, ONEBTN_H}, action.c_str(),
+        this, {(lv_disp_get_hor_res(nullptr) - ONEBTN_W) / 2, lv_disp_get_ver_res(nullptr) - ONEBTN_H - PAD_LARGE, ONEBTN_W, ONEBTN_H}, action.c_str(),
         [=]() {
           closeDialog();
           return 0;
@@ -99,7 +99,7 @@ void FullScreenDialog::build()
   } else {
     if (type == WARNING_TYPE_CONFIRM) {
       auto btn = new TextButton(
-          this, {LCD_W / 3 - TWOBTN_W / 2, LCD_H - TWOBTN_H - PAD_LARGE, TWOBTN_W, TWOBTN_H}, STR_CANCEL,
+          this, {lv_disp_get_hor_res(nullptr) / 3 - TWOBTN_W / 2, lv_disp_get_ver_res(nullptr) - TWOBTN_H - PAD_LARGE, TWOBTN_W, TWOBTN_H}, STR_CANCEL,
           [=]() {
             deleteLater();
             return 0;
@@ -107,7 +107,7 @@ void FullScreenDialog::build()
       etx_bg_color(btn->getLvObj(), COLOR_THEME_SECONDARY3_INDEX);
       etx_txt_color(btn->getLvObj(), COLOR_THEME_PRIMARY1_INDEX);
       btn = new TextButton(
-          this, {LCD_W * 2 / 3 - TWOBTN_W / 2, LCD_H - TWOBTN_H - PAD_LARGE, TWOBTN_W, TWOBTN_H}, STR_OK,
+          this, {lv_disp_get_hor_res(nullptr) * 2 / 3 - TWOBTN_W / 2, lv_disp_get_ver_res(nullptr) - TWOBTN_H - PAD_LARGE, TWOBTN_W, TWOBTN_H}, STR_OK,
           [=]() {
             closeDialog();
             return 0;

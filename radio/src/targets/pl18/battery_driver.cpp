@@ -25,9 +25,6 @@
 
 #define  __BATTERY_DRIVER_C__
 
-// Debug driver
-//#define BATTERY_DRIVER_DEBUG
-
 #define BATTERY_W 140
 #define BATTERY_H (LCD_H - 120)
 #define BATTERY_TOP ((LCD_H - BATTERY_H)/2)
@@ -487,7 +484,6 @@ void handle_battery_charge(uint32_t last_press_time)
     updateTime = timersGetMsTick();
     ledChargingInfo(chargeState);
 
-#if !defined(BATTERY_DRIVER_DEBUG)
     if(now > info_until) {
       info_until = 0;
       BACKLIGHT_DISABLE();
@@ -495,37 +491,11 @@ void handle_battery_charge(uint32_t last_press_time)
         lcdOff();
       }
     } else {
-#endif
       if (lcdInited) {
         lcdOn();
       }
       drawChargingInfo(chargeState);
-
-      // DEBUG INFO - TODO delete or replace with LVGL objects
-#if defined(BATTERY_DRIVER_DEBUG)
-      char buffer[1024];
-
-      sprintf(buffer, "%d,%d,%d,%d", uCharger.isChargerDetectionReady, uCharger.hasCharger, IS_UCHARGER_ACTIVE(), uCharger.chargerSamplingCount);
-      lcd->drawSizedText(100, 10, buffer, strlen(buffer), CENTERED | COLOR_THEME_PRIMARY2);
-    
-      sprintf(buffer, "%d,%d,%d,%d,%d,", uCharger.isChargingDetectionReady, uCharger.isChargeEnd, IS_UCHARGER_CHARGE_END_ACTIVE(), uCharger.chargingSamplingCount, uCharger.chargeEndSamplingCount);
-      lcd->drawSizedText(100, 40, buffer, strlen(buffer), CENTERED | COLOR_THEME_PRIMARY2);
-
-#if defined(WIRELESS_CHARGER)
-      sprintf(buffer, "%d,%d,%d,%d,%d", wCharger.isChargerDetectionReady, wCharger.hasCharger, IS_WCHARGER_ACTIVE(), wCharger.chargerSamplingCount, wCharger.isHighCurrent);
-      lcd->drawSizedText(100, 70, buffer, strlen(buffer), CENTERED | COLOR_THEME_PRIMARY2);
-    
-      sprintf(buffer, "%d,%d,%d,%d,%d,", wCharger.isChargingDetectionReady, wCharger.isChargeEnd, IS_WCHARGER_CHARGE_END_ACTIVE(), wCharger.chargingSamplingCount, wCharger.chargeEndSamplingCount);
-      lcd->drawSizedText(100, 100, buffer, strlen(buffer), CENTERED | COLOR_THEME_PRIMARY2);
-#endif
-
-      sprintf(buffer, "%d", isChargerActive());
-      lcd->drawSizedText(100, 130, buffer, strlen(buffer), CENTERED | COLOR_THEME_PRIMARY2);
-#endif
-#if !defined(BATTERY_DRIVER_DEBUG)
     }
-#endif
   }
 #endif
 }
-

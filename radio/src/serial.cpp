@@ -436,7 +436,7 @@ void serialInit(uint8_t port_nr, int mode)
   if (!port) return;
 
   if (state->port) {
-#if !defined(BOOT)
+#if !defined(BOOT) && !defined(RADIO_NB4_FAMILY)
     // Drop the trainer input before the driver context goes away
     sbusTrainerReleaseCtx(state->usart_ctx);
 #endif
@@ -575,7 +575,7 @@ void serialStop(uint8_t port_nr)
   if (!state) return;
 
   if (state->port) {
-#if !defined(BOOT)
+#if !defined(BOOT) && !defined(RADIO_NB4_FAMILY)
     // Drop the trainer input before the driver context goes away
     sbusTrainerReleaseCtx(state->usart_ctx);
 #endif

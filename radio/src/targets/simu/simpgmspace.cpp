@@ -307,6 +307,7 @@ uint32_t readTrims()
 }
 
 int usbPlugged() { return false; }
+bool usbStarted() { return false; }
 int getSelectedUsbMode() { return USB_JOYSTICK_MODE; }
 void setSelectedUsbMode(int mode) {}
 void delay_ms(uint32_t ms) { }
@@ -415,6 +416,7 @@ const etx_serial_driver_t null_drv = {
   .setReceiveCb = nullptr,
   .setIdleCb = nullptr,
   .setBaudrateCb = nullptr,
+  .setErrorCb = nullptr,
 };
 
 #if defined(AUX_SERIAL_PWR_GPIO)

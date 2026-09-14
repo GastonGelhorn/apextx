@@ -94,7 +94,7 @@ int stbc_eof(void *user)
 // callbacks for stb-image
 const stbi_io_callbacks stbCallbacks = {stbc_read, stbc_skip, stbc_eof};
 
-BitmapBuffer *BitmapBuffer::loadBitmap(const char *filename, BitmapFormats fmt)
+BitmapBuffer *BitmapBuffer::loadBitmap(const char *filename, BitmapFormats fmt, uint32_t maxPixels)
 {
   FRESULT result = f_open(&imgFile, filename, FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
@@ -102,7 +102,14 @@ BitmapBuffer *BitmapBuffer::loadBitmap(const char *filename, BitmapFormats fmt)
   }
 
   int x, y, nn;
-  stbi_info_from_callbacks(&stbCallbacks, &imgFile, &x, &y, &nn);
+#if defined(RADIO_NB4_FAMILY)
+  if (!maxPixels) maxPixels = lv_disp_get_hor_res(nullptr) * lv_disp_get_ver_res(nullptr);
+#endif
+  if (!stbi_info_from_callbacks(&stbCallbacks, &imgFile, &x, &y, &nn) ||
+      x <= 0 || y <= 0 || (maxPixels && uint64_t(x) * y > maxPixels)) {
+    f_close(&imgFile);
+    return nullptr;
+  }
   f_lseek(&imgFile, 0);
 
   int w, h, n;

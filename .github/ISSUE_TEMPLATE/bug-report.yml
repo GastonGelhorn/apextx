@@ -1,164 +1,70 @@
-name: 🐞 Bug
-description: File a bug report
-labels: ["bug 🪲", "triage"]
+name: Bug report
+description: Report a reproducible problem on the original Noble NB4
+title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
-
-        Please note that this is not the place to make feature requests or ask for
-        help. For this, please use the [Discord server](https://discord.gg/wF9wUKnZ6H) or [Discussion forum](https://github.com/EdgeTX/edgetx/discussions).
-  - type: checkboxes
-    attributes:
-      label: Is there an existing issue for this problem?
-      description: Please search to see if an issue already exists for the bug you encountered.
-      options:
-        - label: I have searched the existing issues
-          required: true
-  - type: dropdown
-    id: component-affected
-    attributes:
-      label: What part of EdgeTX is the focus of this bug?
-      description: Is it the radio firmware, companion software or something else?
-      options:
-        - Transmitter firmware
-        - Companion
-        - Simulator
-        - Build system
-        - Other (Please specify below)
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Current Behavior
-      description: A clean and concise description of what you're experiencing.
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Expected Behavior
-      description: What is it that you expected to happen?
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Steps To Reproduce
-      description: Steps to reproduce the behavior.
-      placeholder: |
-        1. Push throttle up.
-        2. Push throttle down.
-        3. Flick SWC on and off three times.
-        4. See error.
-    validations:
-      required: true
-  - type: dropdown
-    id: version
-    attributes:
-      label: Version
-      description: What version of EdgeTX software are you running?
-      options:
-        - 2.11.3
-        - 2.11.2
-        - 2.11.1
-        - 2.11.0
-        - 2.10.6
-        - 2.10.5
-        - 2.10.4
-        - 2.10.3
-        - 2.10.2
-        - 2.10.1
-        - 2.10.0
-        - 2.9.4
-        - 2.8.5
-        - Nightly (Please give date/commit below)
-        - Other (Please specify below)
-    validations:
-      required: true
-  - type: dropdown
-    id: transmitter
-    attributes:
-      label: Transmitter
-      description: |
-        What transmitter are you using? You can pick more than one if this is
-        affecting more than one transmitter.
-      multiple: true
-      options:
-        - BetaFPV LiteRadio3 Pro
-        - iFlight Commando8
-        - Fatfish F16
-        - Flysky EL18
-        - Flysky NB4+
-        - Flysky NV14
-        - Flysky PA01
-        - Flysky PL18/PL18EV
-        - Flysky ST16
-        - FrSky Q X7 / Q X7S (ACCST)
-        - FrSky Q X7 / Q X7S (ACCESS)
-        - FrSky X9D
-        - FrSky X9D+
-        - FrSky X9D+2019
-        - FrSky X9E / X9E Hall
-        - FrSky X9 Lite / Lite S
-        - FrSky X10 / X10S (ACCST)
-        - FrSky X10 Express / X10S Express (ACCESS)
-        - FrSky X12
-        - FrSky X-Lite / S / Pro
-        - HelloRadioSky V12
-        - HelloRadioSky V14
-        - HelloRadioSky V16
-        - Jumper T12
-        - Jumper T14
-        - Jumper T15
-        - Jumper T15 Pro
-        - Jumper T16
-        - Jumper T18
-        - Jumper T20/T20S
-        - Jumper T20 V2
-        - Jumper T-Lite
-        - Jumper T-Pro
-        - Jumper T-Pro V2
-        - RadioMaster Boxer
-        - RadioMaster GX12
-        - RadioMaster MT12
-        - RadioMaster Pocket
-        - RadioMaster T8
-        - RadioMaster TX12 / TX12MK2
-        - RadioMaster TX15
-        - RadioMaster TX16S / TX16SMK2
-        - RadioMaster TX16S MK3
-        - RadioMaster Zorro
-        - Other (Please specify below)
-    validations:
-      required: true
-  - type: dropdown
-    id: os-type
-    attributes:
-      label: "Operating System (OS)"
-      description: "If this relates to Companion or Simulator, what OSes are you are experiencing issues on?"
-      multiple: true
-      options:
-        - Linux
-        - macOS
-        - Windows
-    validations:
-      required: false
+        Please report only issues reproduced with ApexTX on the original FlySky Noble NB4. General EdgeTX issues belong in the upstream EdgeTX repository.
   - type: input
-    id: os-version
+    id: revision
     attributes:
-      label: "OS Version"
-      description: "If this relates to Companion or Simulator, what OS version does this relate to?"
-      placeholder: "i.e. 10, Ubuntu 20.04, Big Sur"
+      label: Firmware revision
+      description: Enter the release name or Git commit shown on the Version page.
+      placeholder: b3762f393
     validations:
-      required: false
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Steering or throttle
+        - User interface
+        - AFHDS3 or receiver binding
+        - Telemetry
+        - USB or storage
+        - Audio, power, or charging
+        - Build or flashing tools
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: receiver
+    attributes:
+      label: Receiver
+      description: Enter the receiver model when the problem involves RF or telemetry.
+      placeholder: Enter the exact AFHDS3 receiver model
   - type: textarea
+    id: behavior
     attributes:
-      label: Anything else?
-      description: |
-        Screenshots? References? Anything that will give us more context about the issue you are encountering!
-        This includes if you are running customised firmware or have made hardware modifications to the transmitter
-        which could have some bearing on the issue.
-
-        Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in.
+      label: Observed behavior
+      description: Describe what happened and what you expected instead.
     validations:
-      required: false
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Power on the transmitter.
+        2. Open ...
+        3. Move ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional evidence
+      description: Add logs, photos, videos, configuration details, or USB mode when relevant.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reproduced this on the original Noble NB4 with an unmodified ApexTX build.
+          required: true
+        - label: I searched the existing issues for the same problem.
+          required: true
+        - label: I removed serial numbers, OTP, calibration, factory dumps, credentials, and personal data.
+          required: true

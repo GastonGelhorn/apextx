@@ -1,0 +1,22 @@
+{
+  "Barlow-Regular.ttf": {
+    "source": "https://github.com/google/fonts/tree/main/ofl/barlow/Barlow-Regular.ttf",
+    "sha256": "95aa02c7c43096e0dd44d787ba6216864a67157e402adab59b35572e0c1577ea"
+  },
+  "Barlow-SemiBold.ttf": {
+    "source": "https://github.com/google/fonts/tree/main/ofl/barlow/Barlow-SemiBold.ttf",
+    "sha256": "86577cb32f8abe3673db53ca0f4221e6856751a4f6730c867e00f720f8bb1fc5"
+  },
+  "BarlowCondensed-SemiBold.ttf": {
+    "source": "https://github.com/google/fonts/tree/main/ofl/barlowcondensed/BarlowCondensed-SemiBold.ttf",
+    "sha256": "7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9"
+  },
+  "OFL.txt": {
+    "source": "https://github.com/google/fonts/tree/main/ofl/barlow/OFL.txt",
+    "sha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f"
+  },
+  "OFL-Condensed.txt": {
+    "source": "https://github.com/google/fonts/tree/main/ofl/barlowcondensed/OFL.txt",
+    "sha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f"
+  }
+}

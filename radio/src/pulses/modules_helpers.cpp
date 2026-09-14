@@ -45,6 +45,9 @@ bool isExternalAntennaEnabled()
 
 int8_t maxModuleChannels_M8(uint8_t moduleIdx)
 {
+#if defined(RADIO_NB4_FAMILY)
+  return isModuleAFHDS3(moduleIdx) ? MAX_OUTPUT_CHANNELS - 8 : -8;
+#else
   if (isExtraModule(moduleIdx)) {
     return MAX_EXTRA_MODULE_CHANNELS_M8;
   } else if (isModuleXJT(moduleIdx)) {
@@ -72,10 +75,20 @@ int8_t maxModuleChannels_M8(uint8_t moduleIdx)
   } else {
     return maxChannelsModules_M8[g_model.moduleData[moduleIdx].type];
   }
+#endif
 }
 
 int8_t sentModuleChannels(uint8_t idx)
 {
+#if defined(RADIO_NB4)
+  if (isModuleAFHDS3(idx))
+    return limit<int>(2, 8 + g_model.moduleData[idx].channelsCount,
+                      MAX_OUTPUT_CHANNELS);
+  return 0;
+#elif defined(RADIO_NB4_FAMILY)
+  return limit<int>(0, 8 + g_model.moduleData[idx].channelsCount,
+      MAX_OUTPUT_CHANNELS - min<unsigned>(MAX_OUTPUT_CHANNELS, g_model.moduleData[idx].channelsStart));
+#else
   if (isModuleCrossfire(idx))
     return CROSSFIRE_CHANNELS_COUNT;
   else if (isModuleGhost(idx))
@@ -86,6 +99,7 @@ int8_t sentModuleChannels(uint8_t idx)
     return 16;
   else
     return sentModulePXXChannels(idx);
+#endif
 }
 
 uint8_t getMaxRxNum(uint8_t idx)

@@ -50,6 +50,7 @@ class ThemeColorPreview : public Window
   void build()
   {
     clear();
+    if (colorList.empty()) return;
     setBoxWidth();
     int size = (boxWidth + BOX_MARGIN) * colorList.size() - BOX_MARGIN;
 #if LANDSCAPE
@@ -84,7 +85,7 @@ class ThemeColorPreview : public Window
     boxWidth =
         (width() - (colorList.size() - 1) * BOX_MARGIN) / colorList.size();
 #endif
-    boxWidth = min(boxWidth, MAX_BOX_WIDTH);
+    boxWidth = limit<int>(1, boxWidth, MAX_BOX_WIDTH);
   }
 };
 
@@ -308,7 +309,7 @@ class ColorEditPage : public Page
 #endif
 
     // page tabs
-    rect_t r = {LCD_W - 2 * (BUTTON_WIDTH + PAD_SMALL + 1) - EdgeTxStyles::MENU_HEADER_HEIGHT, PAD_MEDIUM, BUTTON_WIDTH, 0};
+    rect_t r = {lv_disp_get_hor_res(nullptr) - 2 * (BUTTON_WIDTH + PAD_SMALL + 1) - EdgeTxStyles::MENU_HEADER_HEIGHT, PAD_MEDIUM, BUTTON_WIDTH, 0};
     _tabs.emplace_back(new TextButton(window, r, "RGB", [=]() {
       setActiveColorBar(0);
       return 1;
@@ -382,7 +383,7 @@ class ThemeEditPage : public Page
 #endif
 
     // save and cancel
-    rect_t r = {LCD_W - (ColorEditPage::BUTTON_WIDTH + PAD_SMALL + 1) - EdgeTxStyles::MENU_HEADER_HEIGHT, PAD_MEDIUM, ColorEditPage::BUTTON_WIDTH, 0};
+    rect_t r = {lv_disp_get_hor_res(nullptr) - (ColorEditPage::BUTTON_WIDTH + PAD_SMALL + 1) - EdgeTxStyles::MENU_HEADER_HEIGHT, PAD_MEDIUM, ColorEditPage::BUTTON_WIDTH, 0};
     new TextButton(window, r, STR_DETAILS, [=]() {
       new ThemeDetailsDialog(_theme, [=](ThemeFile t) {
         _theme.setAuthor(t.getAuthor());
@@ -473,6 +474,8 @@ void ThemeSetupPage::checkEvents()
 
 void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
 {
+  auto selected = tp->getThemeByIndex(listBox->getSelected());
+  if (!selected) return;
   auto menu = new Menu(false);
 
   // you can't activate the active theme
@@ -486,7 +489,7 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
   }
 
   // you can't edit the default theme
-  if (listBox->getSelected() != 0) {
+  if (!selected->isBuiltin()) {
     menu->addLine(STR_EDIT, [=]() {
       auto themeIdx = listBox->getSelected();
       if (themeIdx < 0) return;
@@ -555,7 +558,7 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
   });
 
   // you can't delete the default theme or the currently active theme
-  if (listBox->getSelected() != 0 &&
+  if (!selected->isBuiltin() &&
       listBox->getSelected() != tp->getThemeIndex()) {
     menu->addLine(STR_DELETE, [=]() {
       new ConfirmDialog(STR_DELETE_THEME,

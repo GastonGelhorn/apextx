@@ -61,7 +61,7 @@ void SliderBase::update()
 void SliderBase::deleteLater(bool detach, bool trash)
 {
   if (!deleted()) {
-    if (tickPts) delete tickPts;
+    delete[] tickPts;
     Window::deleteLater(detach, trash);
   }
 }

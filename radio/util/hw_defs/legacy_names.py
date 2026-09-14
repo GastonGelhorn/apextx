@@ -813,7 +813,7 @@ LEGACY_NAMES = [
     },
     {
         "targets": {
-            "nb4p"
+            "nb4p", "nb4"
         },
         "inputs": {
             "ST": {

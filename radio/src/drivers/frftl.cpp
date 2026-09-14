@@ -1165,25 +1165,29 @@ static bool loadFTL(FrFTL* ftl)
   return false;
 }
 
-bool ftlInit(FrFTL* ftl, const FrFTLOps* cb, uint16_t flashSizeInMB)
+bool ftlInitWithSize(FrFTL* ftl, const FrFTLOps* cb,
+                     uint32_t flashSizeInBytes)
 {
-  // Check flash size
-  bool found = false;
-  for (const auto& size : supportedFlashSizes) {
-    if (flashSizeInMB == size) {
-      found = true;
-      break;
-    }
-  }
-  if (!found) {
+  if (flashSizeInBytes < BLOCK_SIZE ||
+      flashSizeInBytes % BLOCK_SIZE != 0) {
     return false;
   }
+
+  uint32_t physicalPageCount = flashSizeInBytes / PAGE_SIZE;
+  if (physicalPageCount > (uint32_t)UINT16_MAX + 1) return false;
+  if (physicalPageCount > UINT16_MAX) physicalPageCount = UINT16_MAX;
 
   memset(ftl, 0, sizeof(FrFTL));
   ftl->callbacks = cb;
   ftl->mttPhysicalPageNo = 0;
-  ftl->physicalPageCount = flashSizeInMB > 128 ? 65535 : flashSizeInMB * 1024 * 1024 / PAGE_SIZE;
-  ftl->ttPageCount = ftl->physicalPageCount / TT_RECORDS_PER_PAGE + (ftl->physicalPageCount % TT_RECORDS_PER_PAGE > 0 ? 1 : 0);
+  ftl->physicalPageCount = physicalPageCount;
+  ftl->ttPageCount =
+      ftl->physicalPageCount / TT_RECORDS_PER_PAGE +
+      (ftl->physicalPageCount % TT_RECORDS_PER_PAGE > 0 ? 1 : 0);
+  if (ftl->physicalPageCount <=
+      ftl->ttPageCount * RESERVED_PAGES_MULTIPLIER) {
+    return false;
+  }
   ftl->usableSectorCount =
       (ftl->physicalPageCount - ftl->ttPageCount * RESERVED_PAGES_MULTIPLIER) *
       SECTORS_PER_PAGE;
@@ -1205,6 +1209,21 @@ bool ftlInit(FrFTL* ftl, const FrFTLOps* cb, uint16_t flashSizeInMB)
   }
 
   return true;
+}
+
+bool ftlInit(FrFTL* ftl, const FrFTLOps* cb, uint16_t flashSizeInMB)
+{
+  bool found = false;
+  for (const auto& size : supportedFlashSizes) {
+    if (flashSizeInMB == size) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) return false;
+
+  return ftlInitWithSize(ftl, cb,
+                         (uint32_t)flashSizeInMB * 1024 * 1024);
 }
 
 void ftlDeInit(FrFTL* ftl)

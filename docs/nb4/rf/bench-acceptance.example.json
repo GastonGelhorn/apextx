@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "project_version": "0.1.0-alpha.1",
+  "target": "FlySky Noble NB4 (original)",
+  "receiver": {
+    "protocol": "AFHDS3",
+    "model": "REPLACE_WITH_EXACT_MODEL"
+  },
+  "tested_firmware": {
+    "project_version": "0.1.0-alpha.1",
+    "source_commit": "REPLACE_WITH_40_CHARACTER_COMMIT",
+    "source_tree_sha256": "REPLACE_WITH_TOOLS_NB4_SOURCE_DIGEST_OUTPUT",
+    "sha256": "REPLACE_WITH_64_CHARACTER_SHA256"
+  },
+  "test_date": "YYYY-MM-DD",
+  "tester": "project maintainer",
+  "tests": {
+    "flash_readback": {"passed": false, "notes": ""},
+    "boot_hold_2s": {"passed": false, "notes": ""},
+    "shutdown_release_required": {"passed": false, "notes": ""},
+    "steering_live": {"passed": false, "notes": ""},
+    "throttle_live": {"passed": false, "notes": ""},
+    "curve_live": {"passed": false, "notes": ""},
+    "bind": {"passed": false, "notes": ""},
+    "reconnect_tx_cycle": {"passed": false, "notes": ""},
+    "reconnect_rx_cycle": {"passed": false, "notes": ""},
+    "failsafe": {"passed": false, "notes": ""},
+    "rx_voltage": {"passed": false, "notes": ""},
+    "link_quality": {"passed": false, "notes": ""},
+    "telemetry_expires": {"passed": false, "notes": ""},
+    "rx_power_alarm": {"passed": false, "notes": ""},
+    "usb_serial_disconnect": {"passed": false, "notes": ""},
+    "usb_storage_disconnect": {"passed": false, "notes": ""},
+    "storage_persistence": {"passed": false, "notes": ""},
+    "audio": {"passed": false, "notes": ""},
+    "portrait_layout": {"passed": false, "notes": ""},
+    "landscape_layout": {"passed": false, "notes": ""}
+  }
+}

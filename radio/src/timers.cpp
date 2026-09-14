@@ -22,6 +22,8 @@
 #include "edgetx.h"
 #include "timers.h"
 #include "switches.h"
+#include "nb4_racing.h"
+#include "nb4_pit.h"
 
 volatile tmr10ms_t g_tmr10ms;
 
@@ -35,6 +37,9 @@ TimerState timersStates[TIMERS] = { { 0 } };
 
 void timerReset(uint8_t idx)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (idx == 0) nb4RaceNativeTimerReset();
+#endif
   TimerState & timerState = timersStates[idx];
   timerState.state = TMR_OFF; // is changed to RUNNING dep from mode
   timerState.val = g_model.timers[idx].start;
@@ -43,6 +48,9 @@ void timerReset(uint8_t idx)
 
 void timerSet(int idx, int val)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (idx == 0) nb4RaceNativeTimerReset();
+#endif
   TimerState & timerState = timersStates[idx];
   timerState.state = TMR_OFF; // is changed to RUNNING dep from mode
   timerState.val = val;
@@ -87,6 +95,38 @@ void evalTimers(int16_t throttle, uint8_t tick10ms)
     TimerState * timerState = &timersStates[i];
     uint32_t showElapsed = g_model.timers[i].showElapsed;
 
+#if defined(RADIO_NB4_FAMILY)
+    if ((i == 0 || (i == NB4_PIT_TIMER && nb4PitEnabled())) && nb4RaceTimerHeld()) continue;
+    if ((i == 0 || (i == NB4_PIT_TIMER && nb4PitEnabled())) && nb4RaceTimerOverride()) {
+      if (nb4RacePhase() != Nb4RacePhase::Running) continue;
+      timerMode = TMRMODE_ON; timerSwtch = 0;
+    }
+    // Start latched timers on the actual trigger edge, at native 10 ms cadence.
+    // Reset the fractional second too: no elapsed time leaks in from model load.
+    bool gate = getSwitch(timerSwtch);
+    if (timerState->state == TMR_OFF &&
+        ((timerMode == TMRMODE_START && gate) ||
+         (timerMode == TMRMODE_THR_START && gate && throttle > THR_TRG_TRESHOLD))) {
+      timerState->state = TMR_RUNNING;
+      timerState->cnt = timerState->sum = timerState->val_10ms = 0;
+    }
+    if (i == 0) {
+      bool active = timerMode == TMRMODE_START ? timerState->state != TMR_OFF :
+          gate && (timerMode == TMRMODE_ON ||
+                   (timerMode == TMRMODE_THR && throttle) ||
+                   (timerMode == TMRMODE_THR_REL && throttle) ||
+                   (timerMode == TMRMODE_THR_START && timerState->state != TMR_OFF));
+      // THR_REL is an engine-use timer. Preserve its proportional native clock.
+      static uint16_t relativeRemainder = 0;
+      uint8_t step = tick10ms;
+      if (timerMode == TMRMODE_THR_REL && active) {
+        relativeRemainder += unsigned(tick10ms) * min<unsigned>(128, throttle);
+        step = relativeRemainder / 128;
+        relativeRemainder %= 128;
+      } else if (timerMode != TMRMODE_THR_REL) relativeRemainder = 0;
+      nb4RaceTimerAdvance(active ? step : 0);
+    }
+#endif
     if (timerMode) {
       if ((timerState->state == TMR_OFF)
           && (timerMode != TMRMODE_THR_START)

@@ -35,6 +35,9 @@
 #include "slider.h"
 #include "key_shortcuts.h"
 #include "quick_menu_favorites.h"
+#if defined(RADIO_NB4)
+#include "nb4_car_state.h"
+#endif
 
 #define SET_DIRTY() storageDirty(EE_GENERAL)
 
@@ -190,7 +193,43 @@ class DateTimeWindow : public Window
 };
 
 #if defined(AUDIO)
+#if defined(RADIO_NB4)
+#if defined(ALL_LANGS)
+static const char* nb4AudioPlaybackTitle_FN() { return nb4Text("Reproducción", "Playback"); }
+static const char* nb4AudioTestTitle_FN() { return nb4Text("Prueba", "Test"); }
+#else
+static const char* nb4AudioPlaybackTitle = "Playback";
+static const char* nb4AudioTestTitle = "Test";
+#endif
+#endif
 static SetupLineDef soundPageSetupLines[] = {
+#if defined(RADIO_NB4)
+  {
+    STR_DEF(nb4AudioPlaybackTitle),
+    [](Window* parent, coord_t x, coord_t y) {
+      auto choice = new Choice(parent, {x, y, 0, 0}, 0, 1,
+          GET_DEFAULT(g_eeGeneral.nb4TonesOnly), [](int32_t value) {
+            g_eeGeneral.nb4TonesOnly = value;
+            audioQueue.stopAll();
+            SET_DIRTY();
+          });
+      choice->setTextHandler([](int value) {
+        return std::string(value ? nb4Text("Solo pitidos", "Tones only")
+                                 : nb4Text("Voces y pitidos", "Voice + tones"));
+      });
+    }
+  },
+  {
+    STR_DEF(nb4AudioTestTitle),
+    [](Window* parent, coord_t x, coord_t y) {
+      new TextButton(parent, {x, y, 0, 0}, nb4Text("Probar audio", "Test audio"), []() {
+        audioQueue.stopAll();
+        audioEvent(AU_TELEMETRY_CONNECTED);
+        return 0;
+      });
+    }
+  },
+#endif
   {
     // Beeps mode
     STR_DEF(STR_MODE),
@@ -339,8 +378,7 @@ static SetupLineDef hapticPageSetupLines[] = {
 };
 #endif
 
-static SetupLineDef alarmsPageSetupLines[] = {
-  {
+static const SetupLineDef batteryWarningLineDef = {
     // Battery warning
     STR_DEF(STR_BATTERYWARNING),
     [](Window* parent, coord_t x, coord_t y) {
@@ -348,8 +386,9 @@ static SetupLineDef alarmsPageSetupLines[] = {
                                 GET_SET_DEFAULT(g_eeGeneral.vBatWarn), PREC1);
       edit->setSuffix("V");
     }
-  },
-  {
+  };
+
+static const SetupLineDef inactivityAlarmLineDef = {
     // Inactivity alarm
     STR_DEF(STR_INACTIVITYALARM),
     [](Window* parent, coord_t x, coord_t y) {
@@ -379,7 +418,11 @@ static SetupLineDef alarmsPageSetupLines[] = {
         return formatNumberAsString(value, 0, 0, nullptr, suffix.c_str());
       });
     }
-  },
+  };
+
+static SetupLineDef alarmsPageSetupLines[] = {
+  batteryWarningLineDef,
+  inactivityAlarmLineDef,
   {
     // Alarms warning
     STR_DEF(STR_ALARMWARNING),
@@ -396,6 +439,7 @@ static SetupLineDef alarmsPageSetupLines[] = {
                        GET_SET_INVERTED(g_eeGeneral.disableRssiPoweroffAlarm));
     }
   },
+#if !defined(RADIO_NB4_FAMILY)
   {
     // Trainer shutdown alarm
     STR_DEF(STR_TRAINER_SHUTDOWN_ALARM),
@@ -404,6 +448,7 @@ static SetupLineDef alarmsPageSetupLines[] = {
                        GET_SET_INVERTED(g_eeGeneral.disableTrainerPoweroffAlarm));
     }
   },
+#endif
 };
 
 class BacklightPage : public SubPage
@@ -531,6 +576,7 @@ static SetupLineDef gpsPageSetupLines[] = {
       tz->setDisplayHandler([](int32_t tz) { return timezoneDisplay(tz); });
     }
   },
+#if !defined(RADIO_NB4) || defined(RTCLOCK)
   {
     // Adjust RTC (from telemetry)
     STR_DEF(STR_ADJUST_RTC),
@@ -538,6 +584,7 @@ static SetupLineDef gpsPageSetupLines[] = {
       new ToggleSwitch(parent, {x, y, 0, 0}, GET_SET_DEFAULT(g_eeGeneral.adjustRTC));
     }
   },
+#endif
   {
     // GPS format
     STR_DEF(STR_GPS_COORDS_FORMAT),
@@ -581,6 +628,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_model.radioGFDisabled);
     }
   },
+#if !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_MENUTRAINER),
     [](Window* parent, coord_t x, coord_t y) {
@@ -589,6 +637,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_model.radioTrainerDisabled);
     }
   },
+#endif
   {
     STR_DEF(STR_MODEL_MENU_TABS), nullptr,
   },
@@ -737,6 +786,32 @@ static coord_t addKeyLockLine(Window* window, coord_t y, coord_t col2, PaddingSi
 }
 #endif
 
+#if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
+static const SetupLineDef pwrOffDelayLineDef = {
+    // Pwr Off Delay
+    STR_DEF(STR_PWR_OFF_DELAY),
+    [](Window* parent, coord_t x, coord_t y) {
+      new Choice(
+          parent, {x, y, 0, 0}, STR_PWR_OFF_DELAYS, 0, 4,
+          [=]() -> int32_t { return pwrDelayFromYaml(g_eeGeneral.pwrOffSpeed); },
+          [=](int32_t newValue) {
+            g_eeGeneral.pwrOffSpeed = pwrDelayToYaml(newValue);
+            SET_DIRTY();
+          });
+    }
+};
+#endif
+#if defined(PWR_BUTTON_PRESS)
+static const SetupLineDef pwrAutoOffLineDef = {
+    STR_DEF(STR_PWR_AUTO_OFF),
+     [](Window* parent, coord_t x, coord_t y) {
+       auto edit = new NumberEdit(parent,{x, y, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, EdgeTxStyles::UI_ELEMENT_HEIGHT}, 0,
+           255, GET_SET_DEFAULT(g_eeGeneral.pwrOffIfInactive));
+       edit->setSuffix(" min");
+     }
+};
+#endif
+
 static SetupLineDef setupLines[] = {
   {
     // Have only one log per day
@@ -766,30 +841,10 @@ static SetupLineDef setupLines[] = {
     }
   },
 #if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
-  {
-    // Pwr Off Delay
-    STR_DEF(STR_PWR_OFF_DELAY),
-    [](Window* parent, coord_t x, coord_t y) {
-      new Choice(
-          parent, {x, y, 0, 0}, STR_PWR_OFF_DELAYS, 0, 4,
-          [=]() -> int32_t { return pwrDelayFromYaml(g_eeGeneral.pwrOffSpeed); },
-          [=](int32_t newValue) {
-            g_eeGeneral.pwrOffSpeed = pwrDelayToYaml(newValue);
-            SET_DIRTY();
-          });
-    }
-  },
+  pwrOffDelayLineDef,
 #endif
 #if defined(PWR_BUTTON_PRESS)
-  // Pwr Off If Inactive
-  {
-    STR_DEF(STR_PWR_AUTO_OFF),
-     [](Window* parent, coord_t x, coord_t y) {
-       auto edit = new NumberEdit(parent,{x, y, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, EdgeTxStyles::UI_ELEMENT_HEIGHT}, 0,
-           255, GET_SET_DEFAULT(g_eeGeneral.pwrOffIfInactive));
-       edit->setSuffix(" min");
-     }
-  },
+  pwrAutoOffLineDef,
 #endif
 #if defined(HAPTIC)
   {
@@ -963,6 +1018,7 @@ static SetupLineDef setupLines[] = {
     }
   },
 #endif
+#if !defined(RADIO_NB4_FAMILY)
   {
     // RX channel order
     STR_DEF(STR_DEF_CHAN_ORD),
@@ -981,6 +1037,7 @@ static SetupLineDef setupLines[] = {
       });
     }
   },
+#endif
   {
     // Stick mode
     STR_DEF(STR_MODE),
@@ -1004,6 +1061,69 @@ static SetupLineDef setupLines[] = {
   },
 };
 
+#if defined(RADIO_NB4_FAMILY)
+
+static SetupLineDef powerPageSetupLines[] = {
+#if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
+  pwrOffDelayLineDef,
+#endif
+#if defined(PWR_BUTTON_PRESS)
+  pwrAutoOffLineDef,
+#endif
+  batteryWarningLineDef,
+  inactivityAlarmLineDef,
+};
+
+void openRadioSetupSoundPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              soundPageSetupLines, DIM(soundPageSetupLines));
+}
+
+void openRadioSetupAlarmsPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              alarmsPageSetupLines, DIM(alarmsPageSetupLines));
+}
+
+void openRadioSetupHapticPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              hapticPageSetupLines, DIM(hapticPageSetupLines));
+}
+
+void openRadioSetupPowerPage(const char* subtitle)
+{
+  new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle,
+              powerPageSetupLines, DIM(powerPageSetupLines));
+}
+
+namespace {
+class Nb4DateTimeGpsPage : public SubPage
+{
+ public:
+  explicit Nb4DateTimeGpsPage(const char* subtitle) :
+      SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, subtitle, true)
+  {
+#if !defined(RADIO_NB4) || defined(RTCLOCK)
+    auto w = new DateTimeWindow(
+        body, {0, y, lv_disp_get_hor_res(nullptr) - PAD_SMALL * 2,
+               EdgeTxStyles::UI_ELEMENT_HEIGHT * 2 + PAD_TINY * 2 + PAD_MEDIUM});
+    y += w->height() + PAD_SMALL;
+#endif
+    SetupLine::showLines(body, y, EDT_X, PAD_SMALL, gpsPageSetupLines,
+                         DIM(gpsPageSetupLines));
+    enableRefresh();
+  }
+};
+}  // namespace
+
+void openRadioSetupDateTimePage(const char* subtitle)
+{
+  new Nb4DateTimeGpsPage(subtitle);
+}
+#endif  // RADIO_NB4_FAMILY
+
 RadioSetupPage::RadioSetupPage(PageDef& pageDef) : PageGroupItem(pageDef, PAD_TINY) {}
 
 #if VERSION_MAJOR > 2
@@ -1023,11 +1143,14 @@ void RadioSetupPage::build(Window* window)
   Window * w;
 
   // Date & time picker including labels
-  w = new DateTimeWindow(window, {0, y, LCD_W - padding * 2, EdgeTxStyles::UI_ELEMENT_HEIGHT * 2 + PAD_TINY * 2 + PAD_MEDIUM});
+#if !defined(RADIO_NB4) || defined(RTCLOCK)
+  w = new DateTimeWindow(window, {0, y, lv_disp_get_hor_res(nullptr) - padding * 2, EdgeTxStyles::UI_ELEMENT_HEIGHT * 2 + PAD_TINY * 2 + PAD_MEDIUM});
   y += w->height() + padding;
 
+#endif
+
   // Sub-pages
-  w = new SetupButtonGroup(window, {0, y, LCD_W - padding * 2, 0}, nullptr, BTN_COLS, PAD_TINY, {
+  w = new SetupButtonGroup(window, {0, y, lv_disp_get_hor_res(nullptr) - padding * 2, 0}, nullptr, BTN_COLS, PAD_TINY, {
 #if defined(AUDIO)
     {STR_DEF(STR_SOUND_LABEL), []() { new SubPage(ICON_RADIO_SETUP, STR_MAIN_MENU_RADIO_SETTINGS, STR_SOUND_LABEL, soundPageSetupLines, DIM(soundPageSetupLines)); }},
 #endif

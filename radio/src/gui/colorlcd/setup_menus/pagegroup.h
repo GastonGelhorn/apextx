@@ -135,7 +135,7 @@ class PageGroupHeaderBase : public Window
 
   bool hasSubMenu(QMPage n);
 
-  PageGroupItem* pageTab(uint8_t idx) const { return pages[idx]; }
+  PageGroupItem* pageTab(uint8_t idx) const { return idx < pages.size() ? pages[idx] : nullptr; }
   bool isCurrent(uint8_t idx) const { return currentIndex == idx; }
   uint8_t tabCount() const { return pages.size(); }
 

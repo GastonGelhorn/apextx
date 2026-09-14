@@ -236,10 +236,10 @@ void RadioToolsPage::rebuild(Window* window)
 
   std::list<ToolEntry> tools;
 
-#if defined(HARDWARE_INTERNAL_MODULE)
+#if defined(HARDWARE_INTERNAL_MODULE) && (defined(PXX2) || defined(MULTIMODULE))
   bool intSpecAnalyser = false;
 #endif
-#if defined(HARDWARE_EXTERNAL_MODULE)
+#if defined(HARDWARE_EXTERNAL_MODULE) && (defined(PXX2) || defined(MULTIMODULE))
   bool extSpecAnalyser = false;
 #endif
 
@@ -283,12 +283,12 @@ void RadioToolsPage::rebuild(Window* window)
   if (isModelGPSSensorPresent())
     tools.emplace_back(ToolEntry{STR_GPS_MODEL_LOCATOR, "", run_gpstool});
 
-#if defined(HARDWARE_INTERNAL_MODULE)
+#if defined(HARDWARE_INTERNAL_MODULE) && (defined(PXX2) || defined(MULTIMODULE))
   if (intSpecAnalyser)
     tools.emplace_back(ToolEntry{STR_SPECTRUM_ANALYSER_INT, "", run_spektrum_int});
 #endif
 
-#if defined(HARDWARE_EXTERNAL_MODULE)
+#if defined(HARDWARE_EXTERNAL_MODULE) && (defined(PXX2) || defined(MULTIMODULE))
   if (extSpecAnalyser)
     tools.emplace_back(ToolEntry{STR_SPECTRUM_ANALYSER_EXT, "", run_spektrum_ext});
 #endif

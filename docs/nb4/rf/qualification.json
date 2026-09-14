@@ -1,0 +1,71 @@
+{
+  "status": "development",
+  "ambiguous": false,
+  "board_revision": "NB4-original",
+  "candidate": "USART6",
+  "framing": "addressless_slip",
+  "frame_address": 0,
+  "uart_inverted": false,
+  "cadence_us": 5000,
+  "response_timeout_us": 30000,
+  "timing_basis": "EdgeTX AFHDS3 5 ms scheduler period with five retries",
+  "bench_acceptance": null,
+  "electrical": {
+    "boot": [
+      {
+        "line": "PD11",
+        "mode": "output_push_pull",
+        "level": "low",
+        "delay_after_us": 0
+      },
+      {
+        "line": "PI8",
+        "mode": "output_push_pull",
+        "level": "high",
+        "delay_after_us": 0
+      }
+    ],
+    "enable": [
+      {
+        "line": "PD11",
+        "mode": "output_push_pull",
+        "level": "high",
+        "delay_after_us": 0
+      },
+      {
+        "line": "PI8",
+        "mode": "output_push_pull",
+        "level": "high",
+        "delay_after_us": 0
+      }
+    ],
+    "disable": [
+      {
+        "line": "PD11",
+        "mode": "output_push_pull",
+        "level": "low",
+        "delay_after_us": 0
+      },
+      {
+        "line": "PI8",
+        "mode": "output_push_pull",
+        "level": "high",
+        "delay_after_us": 0
+      }
+    ],
+    "shutdown": [
+      {
+        "line": "PD11",
+        "mode": "output_push_pull",
+        "level": "low",
+        "delay_after_us": 0
+      },
+      {
+        "line": "PI8",
+        "mode": "output_push_pull",
+        "level": "high",
+        "delay_after_us": 0
+      }
+    ]
+  }
+}

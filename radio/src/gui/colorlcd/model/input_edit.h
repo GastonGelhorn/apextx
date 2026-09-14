@@ -33,8 +33,16 @@ class InputEditWindow : public Page
   void previewUpdate() { updatePreview = true; }
 
   static LAYOUT_SIZE(CURVE_W_LANDSCAPE, 138, 120)
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr LayoutVal INPUT_EDIT_CURVE_WIDTH{
+      (coord_t)LAYOUT_SCALE(CURVE_W_LANDSCAPE.l), (coord_t)LAYOUT_SCALE(176)};
+  static constexpr LayoutVal INPUT_EDIT_CURVE_HEIGHT{
+      INPUT_EDIT_CURVE_WIDTH.l, (coord_t)LAYOUT_SCALE(132)};
+#else
   static LAYOUT_ORIENTATION_SCALED(INPUT_EDIT_CURVE_WIDTH, CURVE_W_LANDSCAPE, 176)
   static LAYOUT_ORIENTATION(INPUT_EDIT_CURVE_HEIGHT, INPUT_EDIT_CURVE_WIDTH, LAYOUT_SCALE(132))
+#endif
 
  protected:
   uint8_t input;

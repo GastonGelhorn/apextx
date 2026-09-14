@@ -120,6 +120,18 @@ void logsWrite();
 
 void sdInit();
 void sdMount();
+
+FRESULT nb4StorageMountResult();
+bool nb4MountFailureIsMissingFilesystem(FRESULT result);
+
+bool nb4RequestFilesystemCreation();
+
+uint32_t nb4FilesystemCreationRequests();
+
+#if defined(SIMU)
+
+void simuFatfsSetNextMountResult(FRESULT result);
+#endif
 void sdDone();
 uint32_t sdMounted();
 
@@ -128,6 +140,36 @@ uint32_t sdGetSize();
 uint32_t sdGetFreeSectors();
 uint32_t sdGetFreeKB();
 bool sdIsFull();
+// Keep settings-save headroom even when an optional file is about to be created.
+#if defined(RADIO_NB4)
+constexpr uint32_t SD_MIN_FREE_KB = 256;
+constexpr uint32_t SD_ALLOCATION_UNIT_BYTES = 512;
+#elif defined(SPI_FLASH)
+constexpr uint32_t SD_MIN_FREE_KB = 2 * 1024;
+constexpr uint32_t SD_ALLOCATION_UNIT_BYTES = 4096;
+#else
+constexpr uint32_t SD_MIN_FREE_KB = 50 * 1024;
+constexpr uint32_t SD_ALLOCATION_UNIT_BYTES = 4096;
+#endif
+constexpr uint32_t sdFreeKBFromSectors(uint32_t sectors)
+{
+  return uint64_t(sectors) * FF_MAX_SS / 1024;
+}
+constexpr bool sdSpaceAvailable(uint32_t freeKB, uint32_t fileBytes)
+{
+  // Round to the FAT allocation unit and leave one unit for directory metadata.
+  const uint64_t requiredBytes =
+      ((uint64_t(fileBytes) + SD_ALLOCATION_UNIT_BYTES - 1) /
+       SD_ALLOCATION_UNIT_BYTES) *
+          SD_ALLOCATION_UNIT_BYTES +
+      (fileBytes ? SD_ALLOCATION_UNIT_BYTES : 0);
+  return uint64_t(freeKB) * 1024 >=
+         uint64_t(SD_MIN_FREE_KB) * 1024 + requiredBytes;
+}
+inline bool sdHasSpaceFor(uint32_t fileBytes)
+{
+  return sdSpaceAvailable(sdGetFreeKB(), fileBytes);
+}
 
 const char * sdCheckAndCreateDirectory(const char * path);
 

@@ -110,7 +110,8 @@ class BitmapBuffer
                       uint8_t opacity = 0);
 
   static BitmapBuffer* loadBitmap(const char* filename,
-                                  BitmapFormats fmt = BMP_INVALID);
+                                  BitmapFormats fmt = BMP_INVALID,
+                                  uint32_t maxPixels = 0);
 
   void resizeToLVGL(coord_t w, coord_t h);
 

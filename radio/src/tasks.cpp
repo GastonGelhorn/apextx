@@ -31,8 +31,12 @@
 #include "pdm_wav_recorder.h"
 
 #include "tasks.h"
+#include "nb4_health.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_home.h"
+#include "nb4_history.h"
+#endif
 #include "tasks/mixer_task.h"
-
 
 #if defined(COLORLCD)
 #include "startup_shutdown.h"
@@ -48,7 +52,12 @@ TASK_DEFINE_STACK(audioStack, AUDIO_STACK_SIZE);
 
 mutex_handle_t audioMutex;
 
-#define MENU_TASK_PERIOD (50)  // 50ms
+#if defined(RADIO_NB4_FAMILY)
+
+#define MENU_TASK_PERIOD (20)
+#else
+#define MENU_TASK_PERIOD (50)
+#endif
 
 #if defined(COLORLCD) && defined(CLI)
 bool perMainEnabled = true;
@@ -56,6 +65,10 @@ bool perMainEnabled = true;
 
 static void menusTask()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4HealthInit();
+  if (keysGetState(KEY_EXIT)) nb4HealthRequestRecovery();
+#endif
 #if defined(COLORLCD)
   LvglWrapper::instance();
 #endif
@@ -63,6 +76,9 @@ static void menusTask()
   edgeTxInit();
 
   mixerTaskInit();
+#if defined(RADIO_NB4_FAMILY)
+  nb4StorageStart();
+#endif
 
 #if defined(PWR_BUTTON_PRESS)
   while (task_running()) {
@@ -81,11 +97,16 @@ static void menusTask()
 #if defined(COLORLCD) && defined(CLI)
     if (perMainEnabled) {
       perMain();
+      nb4HealthBeat(NB4_TASK_UI);
     }
 #else
     perMain();
+    nb4HealthBeat(NB4_TASK_UI);
 #endif
     DEBUG_TIMER_STOP(debugTimerPerMain);
+#if defined(RADIO_NB4_FAMILY)
+    nb4ProcessOrientation();
+#endif
 
     sleep_until(&next_tick, MENU_TASK_PERIOD);
     resetForcePowerOffRequest();
@@ -134,6 +155,7 @@ static timer_handle_t _timer10ms = TIMER_INITIALIZER;
 static void _timer_10ms_cb(timer_handle_t* h)
 {
   per10ms();
+  nb4HealthBeat(NB4_TASK_TIMER);
 }
 
 static void timer10msStart()

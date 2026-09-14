@@ -41,7 +41,7 @@ void TopBarPersistentData::clearZone(int idx)
 
 void TopBarPersistentData::clear()
 {
-  for (int i = 0; i < MAX_TOPBAR_ZONES; i += 1)
+  for (int i = 0; i < VISIBLE_TOPBAR_ZONES; i += 1)
     clearZone(i);
 }
 
@@ -136,10 +136,10 @@ void SetupTopBarWidgetsPage::onEvent(event_t event)
 constexpr uint32_t TOPBAR_REFRESH = 1000 / 10; // 10 Hz
 
 TopBar::TopBar(Window * parent) :
-  WidgetsContainer(parent, {0, 0, LCD_W, EdgeTxStyles::MENU_HEADER_HEIGHT}, MAX_TOPBAR_ZONES)
+  WidgetsContainer(parent, {0, 0, lv_disp_get_hor_res(nullptr), EdgeTxStyles::MENU_HEADER_HEIGHT}, VISIBLE_TOPBAR_ZONES)
 {
   setWindowFlag(NO_FOCUS);
-  etx_solid_bg(lvobj, COLOR_THEME_SECONDARY1_INDEX);
+  etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
   headerIcon = new HeaderIcon(parent, ICON_EDGETX, [=]() { ViewMain::instance()->openMenu(); });
 }
@@ -162,7 +162,7 @@ rect_t TopBar::getZone(unsigned int index) const
 
   coord_t size = ((g_model.topbarWidgetWidth[index] - 1) * (TOPBAR_ZONE_WIDTH + PAD_TINY) + TOPBAR_ZONE_WIDTH);
 
-  if ((x + size) > LCD_W) size = LCD_W - x;
+  if ((x + size) > lv_disp_get_hor_res(nullptr)) size = lv_disp_get_hor_res(nullptr) - x;
 
   return {x, PAD_THREE, size, TOPBAR_ZONE_HEIGHT};
 }

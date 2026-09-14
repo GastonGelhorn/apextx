@@ -29,6 +29,7 @@
 #endif
 
 #include "edgetx.h"
+#include "nb4_history.h"
 #include "io/frsky_firmware_update.h"
 #include "hal/adc_driver.h"
 #include "hal/switch_driver.h"
@@ -213,6 +214,11 @@ void per10ms()
   }
 #endif
 
+#if defined(RADIO_NB4) && !defined(SIMU)
+
+  if (!mixerTaskRunning()) adcRead();
+#endif
+
   if (keysPollingCycle()) {
     inactivityTimerReset(ActivitySource::Keys);
   }
@@ -258,6 +264,12 @@ void per10ms()
 
 FlightModeData *flightModeAddress(uint8_t idx)
 {
+#if !defined(FLIGHT_MODES)
+  // There is deliberately only one base slot on the NB4 family.  It stores
+  // trims/GVars; it is not a user-selectable flight mode.
+  (void)idx;
+  idx = 0;
+#endif
   return &g_model.flightModeData[idx];
 }
 
@@ -275,7 +287,6 @@ USBJoystickChData *usbJChAddress(uint8_t idx)
 {
   return &g_model.usbJoystickCh[idx];
 }
-
 
 void memswap(void * a, void * b, uint8_t size)
 {
@@ -328,6 +339,10 @@ void generalDefaultUILanguage()
 void generalDefault()
 {
   memclear(&g_eeGeneral, sizeof(g_eeGeneral));
+#if defined(RADIO_NB4_FAMILY)
+  extern void nb4VisualDefaults();
+  nb4VisualDefaults();
+#endif
 
 #if defined(COLORLCD)
   g_eeGeneral.blOffBright = 20;
@@ -375,7 +390,6 @@ void generalDefault()
   g_eeGeneral.templateSetup = DEFAULT_TEMPLATE_SETUP;
 #endif
 
-
   g_eeGeneral.backlightMode = e_backlight_mode_all;
   g_eeGeneral.lightAutoOff = 2;
   g_eeGeneral.inactivityTimer = 10;
@@ -386,12 +400,14 @@ void generalDefault()
   g_eeGeneral.wavVolume = 2;
   g_eeGeneral.backgroundVolume = 1;
 
+#if !defined(RADIO_NB4_FAMILY)
   auto controls = adcGetMaxInputs(ADC_INPUT_MAIN);
   for (int i = 0; i < controls; ++i) {
     g_eeGeneral.trainer.mix[i].mode = 2;
     g_eeGeneral.trainer.mix[i].srcChn = inputMappingChannelOrder(i);
     g_eeGeneral.trainer.mix[i].studWeight = 100;
   }
+#endif
 
 #if defined(PCBX9E)
   const int8_t defaultName[] = { 20, -1, -18, -1, -14, -9, -19 };
@@ -404,6 +420,11 @@ void generalDefault()
 
 #if defined(PXX2)
   setDefaultOwnerId();
+#endif
+
+#if defined(RADIO_NB4)
+
+  g_eeGeneral.disableRtcWarning = 1;
 #endif
 
 #if defined(RADIOMASTER_RTF_RELEASE)
@@ -547,6 +568,13 @@ trim_t getRawTrimValue(uint8_t phase, uint8_t idx)
 
 int getTrimValue(uint8_t phase, uint8_t idx)
 {
+#if !defined(FLIGHT_MODES)
+  (void)phase;
+  const trim_t trim = getRawTrimValue(0, idx);
+  return (trim.mode == TRIM_MODE_NONE || trim.mode == TRIM_MODE_3POS)
+             ? 0
+             : trim.value;
+#else
   int result = 0;
   for (uint8_t i=0; i<MAX_FLIGHT_MODES; i++) {
     trim_t v = getRawTrimValue(phase, idx);
@@ -567,10 +595,18 @@ int getTrimValue(uint8_t phase, uint8_t idx)
     }
   }
   return 0;
+#endif
 }
 
 bool setTrimValue(uint8_t phase, uint8_t idx, int trim)
 {
+#if !defined(FLIGHT_MODES)
+  (void)phase;
+  trim_t& value = flightModeAddress(0)->trim[idx];
+  if (value.mode == TRIM_MODE_NONE || value.mode == TRIM_MODE_3POS)
+    return false;
+  value.value = trim;
+#else
   for (uint8_t i=0; i<MAX_FLIGHT_MODES; i++) {
     trim_t & v = flightModeAddress(phase)->trim[idx];
     if (v.mode == TRIM_MODE_NONE || v.mode == TRIM_MODE_3POS)
@@ -588,6 +624,7 @@ bool setTrimValue(uint8_t phase, uint8_t idx, int trim)
       break;
     }
   }
+#endif
   storageDirty(EE_MODEL);
   return true;
 }
@@ -645,7 +682,6 @@ void resetBacklightTimeout()
 #endif
   lightOffCounter = (autoOff*250) << 1;
 }
-
 
 #if defined(MULTIMODULE)
 void checkMultiLowPower()
@@ -1109,6 +1145,13 @@ void flightReset(uint8_t check)
 void edgeTxClose(uint8_t shutdown)
 {
   TRACE("edgeTxClose");
+#if defined(RADIO_NB4_FAMILY)
+  auto storageWait = time_get_ms();
+  while (!nb4StorageQuiesce()) {
+    if (time_get_ms() - storageWait > 2000) return;
+    sleep_ms(1);
+  }
+#endif
 
   watchdogSuspend(2000/*20s*/);
   suspendI2CTasks = true;
@@ -1174,6 +1217,9 @@ void edgeTxResume()
 
   suspendI2CTasks = false;
   if (!sdMounted()) sdInit();
+#if defined(RADIO_NB4_FAMILY)
+  nb4StorageResume();
+#endif
 
   luaInitMainState();
 #if defined(COLORLCD) && defined(LUA)
@@ -1191,6 +1237,9 @@ void edgeTxResume()
   ViewMain::instance()->show();
 #endif
 
+#if defined(RADIO_NB4)
+  audioQueue.resumeFiles();
+#endif
   referenceSystemAudioFiles();
 }
 
@@ -1819,7 +1868,9 @@ uint32_t pwrCheck()
 #if defined(COLORLCD)
         bool usbConfirmed = !usbPlugged() || getSelectedUsbMode() == USB_UNSELECTED_MODE;
         bool modelConnectedConfirmed = !TELEMETRY_STREAMING() || g_eeGeneral.disableRssiPoweroffAlarm;
+#if !defined(RADIO_NB4_FAMILY)
         bool trainerConfirmed = !isTrainerConnected();
+#endif
 #endif
 #if defined(SHUTDOWN_CONFIRMATION)
         while (1)
@@ -1880,20 +1931,20 @@ uint32_t pwrCheck()
           }
           else if (!modelConnectedConfirmed) {
             message = STR_MODEL_STILL_POWERED;
-            closeCondition = []() {
-              tmr10ms_t startTime = getTicks();
-              while (!TELEMETRY_STREAMING()) {
-                if (getTicks() - startTime > TELEMETRY_CHECK_DELAY10ms) break;
-              }
-              return !TELEMETRY_STREAMING() || g_eeGeneral.disableRssiPoweroffAlarm;
+            closeCondition = [lostAt = getTicks()]() mutable {
+              if (TELEMETRY_STREAMING()) lostAt = getTicks();
+              return (tmr10ms_t)(getTicks() - lostAt) > TELEMETRY_CHECK_DELAY10ms ||
+                     g_eeGeneral.disableRssiPoweroffAlarm;
             };
           }
+#if !defined(RADIO_NB4_FAMILY)
           else if (!trainerConfirmed && !g_eeGeneral.disableTrainerPoweroffAlarm) {
             message = STR_TRAINER_STILL_CONNECTED;
             closeCondition = [](){
               return !isTrainerConnected();
             };
           }
+#endif
 
           // TODO: abort dialog condition (here, RSSI lost / USB connected)
           if (confirmationDialog(STR_MODEL_SHUTDOWN, message, false, closeCondition)) {
@@ -2008,12 +2059,19 @@ bool radioTrainerEnabled() {
   return FEATURE_ENABLED(radioTrainerDisabled);
 }
 
-// Model menu tab state
 bool modelHeliEnabled() {
+#if !defined(HELI)
+  return false;
+#else
   return FEATURE_ENABLED(modelHeliDisabled);
+#endif
 }
 bool modelFMEnabled() {
+#if !defined(FLIGHT_MODES)
+  return false;
+#else
   return FEATURE_ENABLED(modelFMDisabled);
+#endif
 }
 bool modelCurvesEnabled() {
   return FEATURE_ENABLED(modelCurvesDisabled);

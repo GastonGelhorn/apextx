@@ -68,4 +68,22 @@ enum QMPage {
   QM_TOOLS_LS_MON,
   QM_TOOLS_STATS,
   QM_TOOLS_DEBUG,
+
+  QM_MODEL_NB4_RACING,
+
+  QM_MODEL_NB4_STEERING,
+  QM_MODEL_NB4_THROTTLE,
 };
+
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_model_compat.h"
+inline bool nb4PageAllowed(QMPage page)
+{
+  if (!nb4ModelBlocked()) return true;
+  return !((page >= QM_MODEL_SETUP && page <= QM_MODEL_NOTES) ||
+           (page >= QM_UI_SCREEN1 && page <= QM_UI_ADD_PG) ||
+           page == QM_MODEL_NB4_RACING || page == QM_MODEL_NB4_STEERING ||
+           page == QM_MODEL_NB4_THROTTLE || page == QM_TOOLS_APPS ||
+           page == QM_TOOLS_RESET);
+}
+#endif

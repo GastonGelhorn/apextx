@@ -26,6 +26,7 @@
 #include "os/task.h"
 
 #include "edgetx.h"
+#include "nb4_health.h"
 #include "switches.h"
 #include "hal/usb_driver.h"
 
@@ -199,7 +200,12 @@ void mixerTask()
 
       // we are the main actor to reset the watchdog timer
       // so let's do it here.
+      nb4HealthBeat(NB4_TASK_MIXER);
+#if defined(RADIO_NB4_FAMILY)
+      if (nb4HealthSupervisor()) WDG_RESET();
+#else
       WDG_RESET();
+#endif
 
       t0 = timersGetUsTick() - t0;
       if (t0 > maxMixerDuration)

@@ -126,6 +126,7 @@ static SetupLineDef setupLines[] = {
       new BatCalEdit(parent, {x, y, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, 0});
     }
   },
+#if !defined(RADIO_NB4) || defined(RTCLOCK)
   {
     // RTC Batt check enable
     STR_DEF(STR_RTC_CHECK),
@@ -141,6 +142,7 @@ static SetupLineDef setupLines[] = {
           "", "V");
     }
   },
+#endif
   {
     // ADC filter
     STR_DEF(STR_JITTER_FILTER),
@@ -186,7 +188,7 @@ void RadioHardwarePage::build(Window* window)
   new SerialConfigWindow(window, grid);
 
   // Calibration
-  new SetupButtonGroup(window, {0, 0, LCD_W - padding * 2, 0}, STR_INPUTS, BTN_COLS, PAD_ZERO, {
+  new SetupButtonGroup(window, {0, 0, lv_disp_get_hor_res(nullptr) - padding * 2, 0}, STR_INPUTS, BTN_COLS, PAD_ZERO, {
     {STR_DEF(STR_MENUCALIBRATION), []() { new RadioCalibrationPage(); }},
     {STR_DEF(STR_STICKS), []() { new HWInputDialog<HWSticks>(STR_STICKS); }},
     {STR_DEF(STR_POTS), []() { new HWInputDialog<HWPots>(STR_POTS, HWPots::POTS_WINDOW_WIDTH); }},
@@ -197,7 +199,7 @@ void RadioHardwarePage::build(Window* window)
   });
 
   // Debugs
-  new SetupButtonGroup(window, {0, 0, LCD_W - padding * 2, 0}, STR_DEBUG, FS_BTN_COLS, PAD_ZERO, {
+  new SetupButtonGroup(window, {0, 0, lv_disp_get_hor_res(nullptr) - padding * 2, 0}, STR_DEBUG, FS_BTN_COLS, PAD_ZERO, {
     {STR_DEF(STR_ANALOGS_BTN), [=]() { new RadioAnalogsDiagsViewPageGroup(qmPageId); }},
     {STR_DEF(STR_KEYS_BTN), []() { new RadioKeyDiagsPage(); }},
 #if defined(FUNCTION_SWITCHES)

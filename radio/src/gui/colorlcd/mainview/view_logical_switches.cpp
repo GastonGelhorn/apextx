@@ -249,7 +249,7 @@ void LogicalSwitchesViewPage::build(Window* window)
 {
   window->padAll(PAD_ZERO);
 
-  coord_t xo = (LCD_W - (BTN_MATRIX_COL * (BTN_WIDTH + PAD_TINY) - PAD_TINY)) / 2;
+  coord_t xo = (lv_disp_get_hor_res(nullptr) - (BTN_MATRIX_COL * (BTN_WIDTH + PAD_TINY) - PAD_TINY)) / 2;
   coord_t yo = PAD_TINY;
 
   // Footer

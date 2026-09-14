@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+---
+summary:
+  name: ApexTX Light
+  author: ApexTX
+  info: High-contrast light palette
+colors:
+  PRIMARY1: 0x102A3A
+  PRIMARY2: 0xFFFFFF
+  PRIMARY3: 0x102A3A
+  SECONDARY1: 0x0B4F82
+  SECONDARY2: 0xD6E8F2
+  SECONDARY3: 0xF2F6F8
+  FOCUS: 0x0072CE
+  EDIT: 0x007A2E
+  ACTIVE: 0xFFC400
+  WARNING: 0xD00000
+  DISABLED: 0x68737D
+  QM_BG: 0x102A3A
+  QM_FG: 0xFFFFFF

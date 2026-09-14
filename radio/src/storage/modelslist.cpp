@@ -759,10 +759,10 @@ std::string ModelMap::getBulletLabelString(ModelCell *curmod, const char *noresu
   replace_all(lbls, ",", "\u2022");
   unEscapeCSV(lbls);
 
-  if(lbls.size() == 0) {
+  if (lbls.empty()) {
     return noresults;
   }
-  if(lbls.size() > LABEL_TRUNCATE_LENGTH) {
+  if (lbls.size() > static_cast<std::string::size_type>(LABEL_TRUNCATE_LENGTH)) {
     lbls = lbls.substr(0, LABEL_TRUNCATE_LENGTH);
     lbls += "...";
   }
@@ -1324,8 +1324,85 @@ bool ModelsList::load()
  * @return const char* Error String on failure
  */
 
+#if defined(RADIO_NB4_FAMILY)
+namespace {
+template<typename... Args>
+void appendLabelYaml(std::string& bytes, const char* format, Args... args)
+{
+  const int count = snprintf(nullptr, 0, format, args...);
+  if (count < 0) return;
+  const auto offset = bytes.size();
+  bytes.resize(offset + count + 1);
+  snprintf(&bytes[offset], count + 1, format, args...);
+  bytes.resize(offset + count);
+}
+}
+std::string ModelsList::serialize(LabelsVector newOrder)
+{
+  std::string bytes;
+  // Save current selection
+  bytes += "Labels:\r\n";
+
+  std::string cursel = modelslabels.getCurrentLabel();
+  if(newOrder.empty())
+    newOrder = modelslabels.getLabels();
+  for (auto &lbl : newOrder) {
+    appendLabelYaml(bytes, "  \"%s\":\r\n", lbl.c_str());
+    if (modelslabels.isLabelFiltered(lbl))
+      appendLabelYaml(bytes, "    selected: true\r\n", lbl.c_str());
+  }
+
+  // Save current sort order
+  appendLabelYaml(bytes, "Sort: %d\r\n", modelslabels.sortOrder());
+
+  bytes += "Models:\r\n";
+  for (auto &model : modelslist) {
+    bytes += "  ";
+    bytes += model->modelFilename;
+    bytes += ":\r\n";
+
+    bytes += "    hash: \"";
+    bytes += model->modelFinfoHash;
+    bytes += "\"\r\n";
+
+    bytes += "    name: \"";
+    bytes += model->modelName;
+    bytes += "\"\r\n";
+
+    for (int i = 0; i < NUM_MODULES; i++) {
+      if (model->modelId[i])
+        appendLabelYaml(bytes, "    " MODULE_ID_STR ": %u\r\n", i,
+                 (unsigned int)model->modelId[i]);
+      if (model->moduleData[i].type)
+        appendLabelYaml(bytes, "    " MODULE_TYPE_STR ": %u\r\n", i,
+                 (unsigned int)model->moduleData[i].type);
+      if (model->moduleData[i].subType)
+        appendLabelYaml(bytes, "    " MODULE_RFPROTOCOL_STR ": %u\r\n", i,
+                 (unsigned int)model->moduleData[i].subType);
+    }
+
+    appendLabelYaml(bytes, "    labels: \"%s\"\r\n", ModelMap::toCSV(modelslabels.getLabelsByModel(model)).c_str());
+
+#if LEN_BITMAP_NAME > 0
+    bytes += "    bitmap: \"";
+    bytes += model->modelBitmap;
+    bytes += "\"\r\n";
+#endif
+    bytes += "    lastopen: ";
+    bytes += std::to_string(model->lastOpened).c_str();
+    bytes += "\r\n";
+  }
+
+  bytes += "\r\n";
+  return bytes;
+}
+#endif
+
 const char *ModelsList::save(LabelsVector newOrder)
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4FlushSettings();
+#endif
   FRESULT result =
       f_open(&file, LABELSLIST_YAML_PATH, FA_CREATE_ALWAYS | FA_WRITE);
   if (result != FR_OK) return "Couldn't open labels.yml for writing";

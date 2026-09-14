@@ -7,7 +7,10 @@ option(LUA_ALLOCATOR_TRACER "Trace Lua memory (de)allocations to debug port (als
 option(USB_SERIAL "Enable USB serial (CDC)" OFF)
 
 set(ARCH ARM)
-add_definitions(-DSTM32 -DLUA_INPUTS -DVARIO)
+add_definitions(-DSTM32 -DLUA_INPUTS)
+if(NOT NB4_CAR_ONLY)
+  add_definitions(-DVARIO)
+endif()
 
 set(LINKER_DIR ${RADIO_SRC_DIR}/boards/generic_stm32/linker)
 add_link_options(-L${LINKER_DIR} -L${LINKER_DIR}/${TARGET_LINKER_DIR})

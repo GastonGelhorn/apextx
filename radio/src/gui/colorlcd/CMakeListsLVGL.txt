@@ -201,6 +201,27 @@ set(LVGL_SRC_DIR thirdparty/lvgl/src)
 list(TRANSFORM LVGL_SOURCES_MINIMAL PREPEND ${LVGL_SRC_DIR}/)
 list(TRANSFORM LVGL_SOURCES PREPEND ${LVGL_SRC_DIR}/)
 
+if(PCBREV MATCHES "^NB4P?$")
+  # EdgeTX's LVGL fork dereferences empty cells when shrinking a table. Build a
+  # guarded copy, leaving the pinned submodule untouched and reproducible.
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${LVGL_SRC_DIR}/widgets/lv_table.c" NB4_TABLE_SOURCE)
+  foreach(CELL_INDEX i idx)
+    string(REPLACE "if(table->cell_data[${CELL_INDEX}]->user_data)"
+      "if(table->cell_data[${CELL_INDEX}] && table->cell_data[${CELL_INDEX}]->user_data)"
+      NB4_TABLE_SOURCE "${NB4_TABLE_SOURCE}")
+  endforeach()
+  file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/nb4_lv_table.c" CONTENT "${NB4_TABLE_SOURCE}" @ONLY)
+  set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/nb4_lv_table.c" PROPERTIES
+    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/${LVGL_SRC_DIR}/widgets")
+  list(REMOVE_ITEM LVGL_SOURCES ${LVGL_SRC_DIR}/widgets/lv_table.c)
+  list(APPEND LVGL_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/nb4_lv_table.c")
+  list(REMOVE_ITEM LVGL_SOURCES ${LVGL_SRC_DIR}/misc/lv_mem.c)
+  list(APPEND LVGL_SOURCES gui/colorlcd/nb4_lv_mem.c)
+  # The home screen gauge (see LV_USE_METER in lv_conf.h).
+  list(APPEND LVGL_SOURCES ${LVGL_SRC_DIR}/extra/widgets/meter/lv_meter.c
+    ${LVGL_SRC_DIR}/extra/widgets/chart/lv_chart.c)
+endif()
+
 foreach(LVGL_FILE ${LVGL_SOURCES})
   SET_SOURCE_FILES_PROPERTIES(${LVGL_FILE} PROPERTIES COMPILE_FLAGS -O3)
 endforeach()

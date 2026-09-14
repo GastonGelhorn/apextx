@@ -20,6 +20,10 @@
  */
 
 #include "quick_menu.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_routes.h"
+#include "nb4_car_state.h"
+#endif
 
 #include "model_select.h"
 #include "edgetx.h"
@@ -145,6 +149,9 @@ class QuickSubMenu
 
   uint8_t onPress(int n)
   {
+#if defined(RADIO_NB4_FAMILY)
+    if (!nb4PageAllowed(items[n].qmPage)) return 0;
+#endif
     if (items[n].pageAction == PAGE_CREATE) {
       quickMenu->getTopMenu()->clearFocus();
       int pgIdx = getPageNumber(n);
@@ -201,6 +208,17 @@ class QuickSubMenu
 
 //-----------------------------------------------------------------------------
 
+#if defined(LCD_RUNTIME_LAYOUT)
+static const void* nb4QuickMenuStrings()
+{
+#if defined(ALL_LANGS)
+  return (const void*)currentLangStrings;
+#else
+  return nullptr;
+#endif
+}
+#endif
+
 QuickMenu* QuickMenu::instance = nullptr;
 QMPage QuickMenu::curPage = QM_NONE;
 EdgeTxIcon QuickMenu::curIcon = EDGETX_ICONS_COUNT;
@@ -209,6 +227,12 @@ QuickMenu* QuickMenu::openQuickMenu(std::function<void()> cancelHandler,
             std::function<void(bool close)> selectHandler,
             PageGroupBase* pageGroup, QMPage curPage)
 {
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  if (instance && (instance->builtLandscape != lcdIsLandscape() ||
+                   instance->builtStrings != nb4QuickMenuStrings()))
+    instance->deleteLater();  // pone instance a nullptr
+#endif
   if (!instance) {
     instance = new QuickMenu();
   }
@@ -223,11 +247,33 @@ void QuickMenu::shutdownQuickMenu()
 }
 
 QuickMenu::QuickMenu() :
-    NavWindow(MainWindow::instance(), {0, 0, LCD_W, LCD_H})
+    NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)})
 {
   setWindowFlag(OPAQUE);
+#if defined(LCD_RUNTIME_LAYOUT)
+  builtLandscape = lcdIsLandscape();
+  builtStrings = nb4QuickMenuStrings();
+#endif
 
-  Window* w = new Window(this, {QM_X, QM_Y, QM_W, QM_H});
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  unsigned entries = 0;
+  for (int i = 0; qmTopItems[i].icon != EDGETX_ICONS_COUNT; i += 1)
+    if (qmTopItems[i].pageAction == QM_ACTION &&
+        (!qmTopItems[i].enabled || qmTopItems[i].enabled()))
+      entries += 1;
+  const int cols = QM_MAIN_COLS;
+  const int rows = limit(1, (int)((entries + cols - 1) / cols), (int)QM_MAIN_ROWS);
+  const coord_t mainH = lcdIsLandscape() ? GRP_H_L(rows) : GRP_H_P(rows);
+  const coord_t qmH = mainH + EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_MEDIUM * 2;
+  const coord_t qmY = (lcdHeight - qmH) / 2;
+#else
+  const coord_t mainH = QM_MAIN_H;
+  const coord_t qmH = QM_H;
+  const coord_t qmY = QM_Y;
+#endif
+
+  Window* w = new Window(this, {QM_X, qmY, QM_W, qmH});
 
   etx_obj_add_style(w->getLvObj(), styles->bg_opacity_90, LV_PART_MAIN);
   etx_bg_color(w->getLvObj(), COLOR_THEME_QM_BG_INDEX);
@@ -236,8 +282,14 @@ QuickMenu::QuickMenu() :
   etx_solid_bg(sep, COLOR_THEME_QM_FG_INDEX);
   lv_obj_set_size(sep, QM_W, PAD_THREE);
 
+#if defined(RADIO_NB4_FAMILY)
+  auto mask = getBuiltinIcon(ICON_TOP_LOGO);
+  new StaticIcon(w, (QM_W - mask->width) / 2, 0, ICON_TOP_LOGO,
+                 COLOR_THEME_QM_FG_INDEX);
+#else
   auto mask = getBuiltinIcon(ICON_TOP_LOGO);
   new StaticIcon(w, (QM_W - mask->width) / 2, 0, ICON_TOP_LOGO, COLOR_THEME_QM_FG_INDEX);
+#endif
 
   new ButtonBase(
     w, {0, 0, QM_W, EdgeTxStyles::UI_ELEMENT_HEIGHT},
@@ -248,7 +300,7 @@ QuickMenu::QuickMenu() :
     },
     window_create);
 
-  auto box = new Window(w, {QM_MAIN_X, QM_MAIN_Y, QM_MAIN_W, QM_MAIN_H});
+  auto box = new Window(w, {QM_MAIN_X, QM_MAIN_Y, QM_MAIN_W, mainH});
 
   mainMenu = new QuickMenuGroup(box);
 
@@ -338,6 +390,9 @@ void QuickMenu::selected()
 
 void QuickMenu::openPage(QMPage page)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (!nb4PageAllowed(page)) return;
+#endif
   for (int i = FIRST_SEARCH_IDX; qmTopItems[i].icon != EDGETX_ICONS_COUNT; i += 1) {
     if (qmTopItems[i].pageAction == QM_ACTION) {
       if (qmTopItems[i].qmPage == page) {

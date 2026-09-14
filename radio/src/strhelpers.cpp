@@ -766,8 +766,12 @@ char *getSourceString(char (&destRef)[L], mixsrc_t idx, bool defaultOnly)
     idx -= MIXSRC_FIRST_LOGICAL_SWITCH;
     getSwitchPositionName(dest, idx + SWSRC_FIRST_LOGICAL_SWITCH, defaultOnly);
   } else if (idx <= MIXSRC_LAST_TRAINER) {
+#if !defined(RADIO_NB4_FAMILY)
     idx -= MIXSRC_FIRST_TRAINER;
     strAppendStringWithIndex(dest, STR_PPM_TRAINER, idx + 1);
+#else
+    strAppend(dest, "--");
+#endif
   } else if (idx <= MIXSRC_LAST_CH) {
     auto ch = idx - MIXSRC_FIRST_CH;
     if (!defaultOnly && g_model.limitData[ch].name[0] != '\0') {

@@ -618,6 +618,15 @@ static void stm32_serial_set_idle_cb(void* ctx, void (*on_idle)(void*), void* pa
   stm32_usart_set_idle_irq(st->sp->usart, enabled);
 }
 
+static void stm32_serial_set_error_cb(void* ctx, void (*on_error)())
+{
+  auto st = (stm32_serial_state*)ctx;
+  if (!st || !st->sp) return;
+
+  st->callbacks.on_error = on_error;
+  stm32_usart_set_error_irq(st->sp->usart, on_error != nullptr);
+}
+
 const etx_serial_driver_t STM32SerialDriver = {
   .init = stm32_serial_init,
   .deinit = stm32_serial_deinit,
@@ -638,4 +647,5 @@ const etx_serial_driver_t STM32SerialDriver = {
   .setReceiveCb = nullptr, // TODO
   .setIdleCb = stm32_serial_set_idle_cb,
   .setBaudrateCb = nullptr,
+  .setErrorCb = stm32_serial_set_error_cb,
 };

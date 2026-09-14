@@ -24,7 +24,11 @@
 #include <stdint.h>
 #include "hal.h"
 
+#if defined(RADIO_NB4)
+#define AFHDS_MAX_PULSES 364
+#else
 #define AFHDS_MAX_PULSES 128
+#endif
 
 // max number of transitions measured so far 290 + 10%
 // TODO: define as a function of MAX_PULSES

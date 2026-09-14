@@ -363,10 +363,31 @@ static uint32_t apply_calibration(const CalibData* calib, uint32_t v)
 {
   // Simu uses normed inputs
 #if !defined(SIMU)
-  // Apply calibration relative to mid-point
+  // Apply calibration relative to mid-point.
+  //
+  // A span far below the nominal ~1008 counts means the axis was never taken to
+  // both stops while calibrating. EdgeTX's floor of 100 lets the gain reach 10x,
+  // which on a surface radio turns ADC noise and inter-channel bleed into
+  // full-scale output: the two axes are converted back to back on the same scan,
+  // and the trigger rests at centre, so the bleed lands where it is felt.
+  //
+  // SCOPE. This raised floor is ours, and it belongs where the evidence is. It
+  // was applied to EVERY board, which is a behaviour change for radios we have
+  // never measured -a genuinely short-travel pot on an aircraft radio may well
+  // need more than 4x-. Guarded to surface radios; everyone else keeps EdgeTX's
+  // floor unchanged.
+  //
+  // NOT COVERED BY A TEST, and it cannot be: this whole function is behind
+  // `#if !defined(SIMU)`, so the native suite never reaches it. It needs the
+  // radio: calibrate one axis over a short span and check the other stays put.
+#if defined(SURFACE_RADIO)
+  constexpr int16_t MIN_CALIB_SPAN = RESX / 4;
+#else
+  constexpr int16_t MIN_CALIB_SPAN = 100;
+#endif
   int32_t s = v - 2 * calib->mid;
   s = s * (int32_t)RESX /
-      (max((int16_t)100, (s > 0 ? calib->spanPos : calib->spanNeg)));
+      (max(MIN_CALIB_SPAN, (s > 0 ? calib->spanPos : calib->spanNeg)));
 
   // Translate back in range
   s += 2 * RESX;

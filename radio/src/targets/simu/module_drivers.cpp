@@ -45,7 +45,13 @@ void extmoduleSendNextFramePxx1(void const*, unsigned short) {}
 void extmoduleSendNextFrameSoftSerial(void const*, unsigned short, bool) {}
 void extmoduleSendNextFramePpm(void*, unsigned short, unsigned short, bool) {}
 
-bool trainer_dsc_available() { return true; }
+bool trainer_dsc_available() {
+#if defined(RADIO_NB4_FAMILY)
+  return false;
+#else
+  return true;
+#endif
+}
 void trainer_init_dsc_out() {}
 void trainer_init_dsc_in() {}
 void trainer_stop_dsc() {}
@@ -89,8 +95,9 @@ static void sendBuffer(void*, const uint8_t*, uint32_t) {}
 static bool txCompleted(void*) { return true; }
 static void waitForTxCompleted(void*) {}
 static int getByte(void*,uint8_t*) { return -1; }
+static void setErrorCb(void*, void (*)()) {}
 
-const etx_serial_driver_t _fakeSerialDriver = {
+[[maybe_unused]] const etx_serial_driver_t _fakeSerialDriver = {
     .init = init,
     .deinit = deinit,
     .sendByte = sendByte,
@@ -110,6 +117,7 @@ const etx_serial_driver_t _fakeSerialDriver = {
     .setReceiveCb = nullptr,
     .setIdleCb = nullptr,
     .setBaudrateCb = nullptr,
+    .setErrorCb = setErrorCb,
 };
 
 #if defined(HARDWARE_EXTERNAL_MODULE)

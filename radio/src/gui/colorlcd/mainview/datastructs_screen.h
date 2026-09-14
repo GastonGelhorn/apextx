@@ -197,7 +197,20 @@ static LAYOUT_VAL_SCALED(TOPBAR_ZONE_WIDTH, 74)
 #else
 static LAYOUT_VAL_SCALED(TOPBAR_ZONE_WIDTH, 70)
 #endif
-static constexpr int MAX_TOPBAR_ZONES = (LCD_W - MENU_HEADER_BUTTONS_LEFT - 1 + TOPBAR_ZONE_WIDTH / 2) / TOPBAR_ZONE_WIDTH;
+static constexpr int TOPBAR_ZONES_FOR_WIDTH(int w)
+{
+  return (w - MENU_HEADER_BUTTONS_LEFT - 1 + TOPBAR_ZONE_WIDTH / 2) / TOPBAR_ZONE_WIDTH;
+}
+
+#if defined(RADIO_NB4)
+
+static constexpr int MAX_TOPBAR_ZONES = TOPBAR_ZONES_FOR_WIDTH(480);
+
+#define VISIBLE_TOPBAR_ZONES  TOPBAR_ZONES_FOR_WIDTH(LCD_W)
+#else
+static constexpr int MAX_TOPBAR_ZONES = TOPBAR_ZONES_FOR_WIDTH(LCD_W);
+#define VISIBLE_TOPBAR_ZONES  MAX_TOPBAR_ZONES
+#endif
 
 struct TopBarPersistentData {
   ZonePersistentData zones[MAX_TOPBAR_ZONES] FUNC(widget_is_active);

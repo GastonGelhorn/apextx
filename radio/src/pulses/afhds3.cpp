@@ -34,9 +34,14 @@
 #include "hal/module_driver.h"
 #include "hal/module_port.h"
 
+#if defined(RADIO_NB4)
+#include "targets/pl18/nb4_rf_controller.h"
+#endif
+
 #define SET_DIRTY() storageDirty(EE_MODEL)
 
 #define checkDirtyFlag(dirtyCmd) (cfg->others.dirtyFlag & ((uint32_t) 1 << dirtyCmd))
+
 #define clearDirtyFlag(dirtyCmd) (cfg->others.dirtyFlag &= ~((uint32_t) 1 << dirtyCmd))
 
 #define FAILSAFE_HOLD 1
@@ -53,6 +58,11 @@ extern uint16_t  sns_RFCurrentPower;
 int32_t getChannelValue(uint8_t channel);
 void processFlySkyAFHDS3Sensor(const uint8_t * packet, uint8_t type);
 void processFlySkySensor(const uint8_t * packet, uint8_t type);
+
+#if defined(RADIO_NB4)
+#include "afhds3_nb4.h"
+static const char* nb4RfText(const char* es, const char* en) { return g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's' ? es : en; }
+#endif
 
 namespace afhds3
 {
@@ -200,7 +210,6 @@ PACK(struct ModuleVersion
   uint32_t rfVersion;
 });
 
-
 PACK(struct ReceiverVersion
 {
 uint32_t ProductNumber;
@@ -250,13 +259,21 @@ class ProtoState
    /**
     * Sends prepared buffers
     */
-   void sendFrame() { trsp.sendBuffer(); }
+   void sendFrame()
+   {
+#if defined(RADIO_NB4)
+     if (hardFaulted) return;
+#endif
+     trsp.sendBuffer();
+   }
 
    /**
     * Gets actual module status into provided buffer
     * @param statusText target buffer for status
     */
    void getStatusString(char* statusText) const;
+
+   bool isConnected();
 
    /**
     * Sends stop command to prevent any further module operations
@@ -268,6 +285,18 @@ class ProtoState
    void applyConfigFromModel();
 
    bool fifoFull() { return trsp.fifoFull(); }
+#if defined(RADIO_NB4) && defined(SIMU)
+   void getDiagnostics(Nb4TransportDiagnostics& result) const {
+     result = trsp.getDiagnostics();
+     result.receiverStored = nb4Config.bound;
+     result.receiverLearned = nb4ReceivedConfig;
+     result.twoWay = moduleData && moduleData->afhds3.telemetry;
+   }
+#endif
+#if defined(RADIO_NB4)
+   BindPhase getBindPhase();
+   Nb4ReceiverTelemetry receiverTelemetry;
+#endif
    uint16_t RFCurrentPower;
 
   protected:
@@ -298,10 +327,33 @@ class ProtoState
 
     void clearFrameData();
 
-    bool isConnected();
     bool hasTelemetry();
 
     Transport trsp;
+
+#if defined(RADIO_NB4)
+    bool hardFaulted;
+    enum class Nb4Stage : uint8_t { Ready, Standby, Pages, Bind, Run, Active, Failed };
+    Nb4Stage nb4Stage = Nb4Stage::Ready;
+    Nb4RfConfig nb4Config;
+    uint8_t nb4Page = 0;
+    uint8_t nb4Pending = 0;
+    uint8_t nb4ReadyTries = 0;
+    uint32_t nb4AppliedModelKey = 0;
+    bool nb4Binding = false;
+    bool nb4BindMode = false;
+    bool nb4ReceivedConfig = false;
+    tmr10ms_t nb4LastPoll = 0;
+    tmr10ms_t nb4BindStarted = 0;
+    const char* nb4Error = nullptr;
+    void setupNb4Frame();
+    bool parseNb4Data(const AfhdsFrame* frame, uint8_t length);
+    void parseNb4Telemetry(const uint8_t* data, unsigned size);
+    void nb4Request(COMMAND command, uint8_t* payload = nullptr, uint8_t size = 0,
+                    FRAME_TYPE type = REQUEST_GET_DATA);
+    void nb4Fail(const char* message);
+
+#endif
 
     /**
      * Index of the module
@@ -373,22 +425,103 @@ static const uint16_t AFHDS3_POWER[] = {56, 68, 80, 96, 108, 120, 132};
 
 //Static collection of afhds3 object instances by module
 static ProtoState protoState[MAX_MODULES];
+bool containsData(FRAME_TYPE frameType);
 
 void getStatusString(uint8_t module, char* buffer)
 {
   return protoState[module].getStatusString(buffer);
 }
 
+bool isConnected(uint8_t module)
+{
+  return protoState[module].isConnected();
+}
+
+#if defined(RADIO_NB4)
+BindPhase getBindPhase(uint8_t module)
+{
+  return module < MAX_MODULES ? protoState[module].getBindPhase() : BindPhase::Failed;
+}
+
+BindPhase ProtoState::getBindPhase()
+{
+  // Opening the dialog precedes the mixer consuming the new bind mode. A
+  // connection or error from the previous operation must not finish this one.
+  if (getModuleMode(module_index) != MODULE_MODE_BIND || !nb4Binding)
+    return BindPhase::Preparing;
+  if (nb4Error || hardFaulted || nb4::Nb4RfController::getFault() != nb4::Nb4RfFault::None)
+    return BindPhase::Failed;
+  if (isConnected()) return BindPhase::Connected;
+  if (nb4ReceivedConfig)
+    return moduleData->afhds3.telemetry ? BindPhase::Confirming : BindPhase::ManualFinish;
+  return nb4Stage == Nb4Stage::Active ? BindPhase::Searching : BindPhase::Preparing;
+}
+
+#if defined(SIMU)
+void getDiagnostics(uint8_t module, Nb4TransportDiagnostics& result)
+{
+  result = {};
+  if (module < MAX_MODULES) protoState[module].getDiagnostics(result);
+}
+#endif
+
+Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module)
+{
+  return module < MAX_MODULES ? protoState[module].receiverTelemetry : Nb4ReceiverTelemetry{};
+}
+
+void resetReceiverTelemetry()
+{
+  for (auto& protocol : protoState) protocol.receiverTelemetry = {};
+}
+
+#endif
+
 //friends function that can access telemetry parsing method
 void processTelemetryData(void* ctx, uint8_t data, uint8_t* buffer, uint8_t* len)
 {
   auto mod_st = (etx_module_state_t*)ctx;
   auto p_state = (ProtoState*)mod_st->user_data;
-  p_state->processTelemetryData(data, buffer, len);
+  if (p_state) p_state->processTelemetryData(data, buffer, len);
 }
 
 void ProtoState::getStatusString(char* buffer) const
 {
+#if defined(RADIO_NB4)
+  switch (nb4::Nb4RfController::getFault()) {
+    case nb4::Nb4RfFault::UartError:
+      strcpy(buffer, nb4RfText("Error de UART RF", "RF UART error")); return;
+    case nb4::Nb4RfFault::UartInitFailed:
+      strcpy(buffer, nb4RfText("No se pudo iniciar UART RF", "RF UART initialization failed")); return;
+    case nb4::Nb4RfFault::UnqualifiedProfile:
+      strcpy(buffer, nb4RfText("Perfil RF no disponible", "RF profile unavailable")); return;
+    case nb4::Nb4RfFault::InvalidElectricalSequence:
+      strcpy(buffer, nb4RfText("Error de activación RF", "RF activation error")); return;
+    default: break;
+  }
+  if (nb4Error) { strcpy(buffer, nb4Error); return; }
+  if (nb4Stage == Nb4Stage::Pages) {
+    snprintf(buffer, 64, nb4RfText("Configurando RF %u/4", "Configuring RF %u/4"), nb4Page + 1);
+    return;
+  }
+  if (nb4Binding && !nb4ReceivedConfig && state == STATE_SYNC_DONE) {
+    strcpy(buffer, nb4RfText("Guardando receptor", "Saving receiver")); return;
+  }
+  if (nb4Binding && nb4ReceivedConfig && !moduleData->afhds3.telemetry) {
+    strcpy(buffer, nb4RfText("Receptor guardado. Finaliza.", "Receiver saved. Finish.")); return;
+  }
+  if (nb4Stage == Nb4Stage::Active && !nb4Binding && !nb4Config.bound) {
+    strcpy(buffer, nb4RfText("Sin receptor enlazado", "No bound receiver")); return;
+  }
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+  if (g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's') {
+    static const char* const spanish[] = {"Sin preparar", "Error hardware", "Vinculando", "Desconectado", "Conectado", "En espera",
+      "Espera de firmware", "Actualizando", "Actualizando RX", "Fallo al actualizar RX", "Probando", "Preparado"};
+    strcpy(buffer, state <= ModuleState::STATE_READY ? spanish[state] : "Desconocido"); return;
+  }
+#endif
   strcpy(buffer, state <= ModuleState::STATE_READY ? moduleStateText[state]
                                                    : "Unknown");
 }
@@ -405,6 +538,10 @@ void ProtoState::processTelemetryData(uint8_t byte, uint8_t* buffer, uint8_t* le
 
 bool ProtoState::isConnected()
 {
+#if defined(RADIO_NB4)
+  if (nb4Error || !nb4Config.bound || nb4Stage != Nb4Stage::Active ||
+      (nb4Binding && (!nb4ReceivedConfig || !moduleData->afhds3.telemetry))) return false;
+#endif
   return this->state == ModuleState::STATE_SYNC_DONE;
 }
 
@@ -417,7 +554,7 @@ bool ProtoState::hasTelemetry()
 }
 
 uint8_t ibus_type[SES_NPT_NB_MAX_PORTS] = {SES_NPT_IBUS1_IN};
-void setIbusType(uint8_t* ibus_type_buf) 
+void setIbusType(uint8_t* ibus_type_buf)
 {
   for(uint8_t i = 0; i< SES_NPT_NB_MAX_PORTS; i++) {
    if (ibus_type_buf[i] == afhds3::SES_NPT_IBUS2 || ibus_type_buf[i] == afhds3::SES_NPT_IBUS2_HUB_PORT) {
@@ -430,16 +567,29 @@ void setIbusType(uint8_t* ibus_type_buf)
 
 void ProtoState::setupFrame()
 {
+#if defined(RADIO_NB4)
+  if (nb4::Nb4RfController::servicePendingFault()) {
+    hardFaulted = true;
+    mixerSchedulerSetPeriod(module_index, 0);
+    return;
+  }
+#endif
+#if defined(RADIO_NB4)
+  setupNb4Frame();
+  return;
+#endif
   bool trsp_error = false;
   if (trsp.handleRetransmissions(trsp_error)) return;
 
   if (trsp_error) {
+    // A missing response restarts the AFHDS3 handshake on the same transport.
+    // It is normal while the receiver is off and must not permanently disable
+    // RF or require a cold boot. Hardware UART/DMA errors are handled separately.
     this->state = ModuleState::STATE_NOT_READY;
     clearFrameData();
   }
 
   if (this->state == ModuleState::STATE_NOT_READY) {
-//     TRACE("AFHDS3 [GET MODULE READY]");
     trsp.putFrame(COMMAND::MODULE_READY, FRAME_TYPE::REQUEST_GET_DATA);
     return;
   }
@@ -451,7 +601,6 @@ void ProtoState::setupFrame()
 
   if (moduleMode == ::ModuleSettingsMode::MODULE_MODE_BIND) {
     if (state != STATE_BINDING) {
-//       TRACE("AFHDS3 [BIND]");
       applyConfigFromModel();
 
       trsp.putFrame(COMMAND::MODULE_SET_CONFIG,
@@ -479,12 +628,10 @@ void ProtoState::setupFrame()
     if (modelID != newModelID)
     {
       if (this->state != ModuleState::STATE_STANDBY) {
-//         TRACE("AFHDS3 [Model ID Changed] Switch to STATE_STANDBY");
         auto mode = (uint8_t)MODULE_MODE_E::STANDBY;
         trsp.putFrame(COMMAND::MODULE_MODE, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, &mode, 1);
         return;
       } else {
-//         TRACE("AFHDS3 [Model ID Changed] Set ModelID to %d", newModelID);
         modelID = newModelID;
         trsp.putFrame(COMMAND::MODEL_ID, FRAME_TYPE::REQUEST_SET_EXPECT_DATA,
                        &modelID, 1);
@@ -528,14 +675,23 @@ void ProtoState::setupFrame()
     if (cmd == COMMAND::VIRTUAL_FAILSAFE) {
       Config_u* cfg = this->getConfig();
       uint8_t len =_phyMode_channels[cfg->v0.PhyMode];
+#if defined(RADIO_NB4)
+      len = min<uint8_t>(len, sentModuleChannels(module_index));
+#endif
       if (!hasTelemetry()) {
           uint16_t failSafe[AFHDS3_MAX_CHANNELS + 1] = {
           ((AFHDS3_MAX_CHANNELS << 8) | CHANNELS_DATA_MODE::FAIL_SAFE), 0};
+#if defined(RADIO_NB4)
+          failSafe[0] = (len << 8) | CHANNELS_DATA_MODE::FAIL_SAFE;
+#endif
           setFailSafe((int16_t*)(&failSafe[1]), len);
-//           TRACE("AFHDS ONE WAY FAILSAFE");
           trsp.putFrame(COMMAND::CHANNELS_FAILSAFE_DATA,
                    FRAME_TYPE::REQUEST_SET_NO_RESP, (uint8_t*)failSafe,
+#if defined(RADIO_NB4)
+                   len * 2 + 2);
+#else
                    AFHDS3_MAX_CHANNELS * 2 + 2);
+#endif
       }
       else if( isConnected() ){
           uint8_t data[AFHDS3_MAX_CHANNELS*2 + 3] = { (uint8_t)(RX_CMD_FAILSAFE_VALUE&0xFF), (uint8_t)((RX_CMD_FAILSAFE_VALUE>>8)&0xFF), (uint8_t)(2*len)};
@@ -554,7 +710,6 @@ void ProtoState::setupFrame()
   auto *cfg = this->getConfig();
   if (checkDirtyFlag(DC_RX_CMD_TX_PWR))
   {
-//     TRACE("AFHDS3 [RX_CMD_TX_PWR] %d", AFHDS3_POWER[moduleData->afhds3.rfPower] / 4);
     uint8_t data[] = { (uint8_t)(RX_CMD_TX_PWR&0xFF), (uint8_t)((RX_CMD_TX_PWR>>8)&0xFF), 2,
                        (uint8_t)(AFHDS3_POWER[moduleData->afhds3.rfPower]&0xFF),  (uint8_t)((AFHDS3_POWER[moduleData->afhds3.rfPower]>>8)&0xFF)};
     trsp.putFrame(COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data));
@@ -584,6 +739,339 @@ void ProtoState::setupFrame()
   }
 }
 
+#if defined(RADIO_NB4)
+void ProtoState::nb4Request(COMMAND command, uint8_t* payload, uint8_t size,
+                            FRAME_TYPE type)
+{
+  nb4Pending = command;
+  trsp.putFrame(command, type, payload, size);
+}
+
+void ProtoState::nb4Fail(const char* message)
+{
+  nb4Error = message;
+  nb4Stage = Nb4Stage::Failed;
+  nb4Pending = 0xff; // Send standby on the mixer task, not from the RX task.
+  cfg.others.isConnected = false;
+  cfg.others.lastUpdated = get_tmr10ms();
+  trsp.clear();
+}
+
+void ProtoState::setupNb4Frame()
+{
+  const auto now = get_tmr10ms();
+  const bool bind = getModuleMode(module_index) == MODULE_MODE_BIND;
+  if (cfg.version != (Nb4RfConfig::enhanced() ? 1 : 0)) {
+    nb4Config.load(cfg);
+    applyConfigFromModel();
+    clearFrameData();
+    nb4Stage = Nb4Stage::Ready;
+    nb4Pending = nb4Page = nb4ReadyTries = 0;
+    nb4ReceivedConfig = false;
+    nb4Error = nullptr;
+  }
+  if (bind != nb4BindMode) {
+    // Also handles cancellation during a page/retry. Old replies can no longer
+    // advance the new operation because Transport checks command and sequence.
+    nb4BindMode = nb4Binding = bind;
+    nb4ReceivedConfig = false;
+    nb4Error = nullptr;
+    nb4Pending = nb4Page = nb4ReadyTries = 0;
+    nb4BindStarted = now;
+    if (bind) receiverTelemetry = {};
+    clearFrameData();
+    nb4Config.load(cfg);
+    applyConfigFromModel();
+    nb4Stage = Nb4Stage::Ready;
+    state = STATE_NOT_READY;
+  }
+
+  // Two-way binding needs a confirmed connection, not just a saved identity.
+  // One-way has no connection feedback and deliberately waits for manual exit.
+  if (nb4Binding && !isConnected() &&
+      (!nb4ReceivedConfig || moduleData->afhds3.telemetry) &&
+      nb4Stage != Nb4Stage::Failed && (tmr10ms_t)(now - nb4BindStarted) > 3000)
+    nb4Fail(nb4ReceivedConfig ?
+              nb4RfText("Receptor sin confirmar", "Receiver not confirmed") :
+              nb4RfText("Tiempo de enlace agotado", "Bind timed out"));
+
+  if (nb4Stage == Nb4Stage::Failed) {
+    if (nb4Pending == 0xff) {
+      uint8_t mode = STANDBY;
+      trsp.putFrame(MODULE_MODE, REQUEST_SET_NO_RESP, &mode, 1);
+      nb4Pending = 0;
+    } else trsp.skipFrame();
+    return;
+  }
+
+  bool error = false;
+  if (trsp.waiting() && trsp.handleRetransmissions(error)) return;
+  if (error) {
+    if (nb4Stage == Nb4Stage::Ready && ++nb4ReadyTries < 100) {
+      // Give the internal module time to boot before declaring a UART timeout.
+      trsp.clear();
+      nb4Pending = 0;
+    }
+    // A state poll timing out while driving must not stop channel streaming.
+    // Configuration failures, however, must never be reported as a bind.
+    else if (nb4Stage == Nb4Stage::Active &&
+             (nb4Pending == MODULE_STATE || nb4Pending == SEND_COMMAND)) {
+      trsp.clear();
+      nb4Pending = 0;
+      state = STATE_SYNC_RUNNING;
+      cfg.others.isConnected = false;
+    } else {
+      nb4Fail(nb4RfText("El módulo RF no responde", "RF module not responding"));
+      return;
+    }
+  }
+
+  uint8_t mode;
+  switch (nb4Stage) {
+    case Nb4Stage::Ready:
+      nb4Request(MODULE_READY);
+      return;
+    case Nb4Stage::Standby:
+      mode = STANDBY;
+      nb4Request(MODULE_MODE, &mode, 1, REQUEST_SET_EXPECT_DATA);
+      return;
+    case Nb4Stage::Pages: {
+      uint8_t page[170];
+      auto length = nb4Config.page(nb4Page, nb4Binding, cfg, page);
+      nb4Request(MODULE_SET_CONFIG, page, length, REQUEST_SET_EXPECT_DATA);
+      return;
+    }
+    case Nb4Stage::Bind:
+      // Normal-bind operation: four 0x04 pages with operation=1, followed
+      // by an empty 0x05 (not legacy MODE=2).
+      nb4Request(MODULE_APPLY_CONFIG, nullptr, 0, REQUEST_SET_EXPECT_DATA);
+      return;
+    case Nb4Stage::Run:
+      mode = nb4NormalMode;
+      nb4Request(MODULE_MODE, &mode, 1, REQUEST_SET_EXPECT_DATA);
+      return;
+    default: break;
+  }
+
+  constexpr uint32_t outputOptions = (1u << DC_RX_CMD_GET_VERSION) - 1;
+  if (!nb4Binding && ((cfg.others.dirtyFlag & outputOptions) ||
+                     nb4AppliedModelKey != Nb4RfConfig::modelKey())) {
+    // Persist actual output options and apply the official update pages.
+    applyConfigFromModel();
+    nb4AppliedModelKey = Nb4RfConfig::modelKey();
+    nb4Config.save(cfg);
+    cfg.others.dirtyFlag &= ~outputOptions;
+    if (nb4Config.bound) {
+      nb4Stage = Nb4Stage::Standby;
+      nb4Page = 0;
+      uint8_t standby = STANDBY;
+      nb4Request(MODULE_MODE, &standby, 1, REQUEST_SET_EXPECT_DATA);
+      return;
+    }
+  }
+
+  if (isConnected() && sensorCalibration()) {
+    nb4Pending = SEND_COMMAND;
+    return;
+  }
+
+  if ((tmr10ms_t)(now - nb4LastPoll) >= 20) {
+    nb4LastPoll = now;
+    nb4Request(MODULE_STATE);
+  } else if (nb4Config.bound && !nb4Binding) {
+    if (++cmdCount >= 500) {
+      cmdCount = 0;
+      int16_t failsafe[AFHDS3_MAX_CHANNELS + 1]{};
+      const auto channels = setFailSafe(failsafe + 1, sentModuleChannels(module_index));
+      failsafe[0] = (channels << 8) | CHANNELS_DATA_MODE::FAIL_SAFE;
+      trsp.putFrame(CHANNELS_FAILSAFE_DATA, REQUEST_SET_NO_RESP,
+                    (uint8_t*)failsafe, 2 + channels * 2);
+    } else sendChannelsData();
+  } else trsp.skipFrame();
+}
+
+bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
+{
+  if (frame->frameType == REQUEST_GET_DATA && frame->command == MODULE_SET_CONFIG) {
+    // The peer requests a page with one byte. Reply with page index +
+    // contents, omitting the SET operation byte.
+    // This is independent of our pending handshake/configuration request.
+    if (length == 8 && frame->value < 4) {
+      uint8_t page[170];
+      const auto size = nb4Config.page(frame->value, false, cfg, page);
+      trsp.queueResponse(MODULE_SET_CONFIG, frame->frameNumber, page + 1, size - 1);
+    }
+    return true;
+  }
+  // Parser inserts address for addressless SLIP; exclude header, checksum, END.
+  if (length < 7 || !containsData((FRAME_TYPE)frame->frameType)) return true;
+  const unsigned size = length - 7;
+  const uint8_t* data = &frame->value;
+  const bool reply = frame->frameType == RESPONSE_DATA;
+  const bool notification = frame->frameType == REQUEST_SET_EXPECT_DATA ||
+                            frame->frameType == REQUEST_SET_EXPECT_ACK ||
+                            frame->frameType == REQUEST_SET_NO_RESP;
+
+  if (frame->command == SEND_COMMAND && reply) {
+    nb4Pending = 0;
+    return true; // Application result follows separately as command 0x0d.
+  }
+  if (frame->command == COMMAND_RESULT && notification)
+    return size < 4 || data[3] > size - 4;
+
+  if (frame->command == MODULE_APPLY_CONFIG && notification) {
+    // A short 0x05 reply is only a page mask. Only the full bind notification
+    // contains the learned identity. Ignore late notifications after cancel.
+    if (getModuleMode(module_index) == MODULE_MODE_BIND && nb4Binding &&
+        (nb4Stage == Nb4Stage::Bind || nb4Stage == Nb4Stage::Active) &&
+        nb4Config.acceptReceiver(data, size, cfg)) {
+      nb4ReceivedConfig = true;
+      cfg.others.isConnected = isConnected();
+      cfg.others.lastUpdated = get_tmr10ms();
+    }
+    return true;
+  }
+  if (frame->command == MODULE_STATE && size == 1 && (reply || notification)) {
+    if (data[0] == STATE_HW_TEST) {
+      state = STATE_HW_TEST;
+      nb4Fail(nb4RfText("Modo de prueba RF inesperado", "Unexpected RF test mode"));
+      return true;
+    }
+    if (data[0] <= STATE_READY) state = (ModuleState)data[0];
+    if (reply) nb4Pending = 0;
+    cfg.others.isConnected = isConnected();
+    cfg.others.lastUpdated = get_tmr10ms();
+    return true;
+  }
+
+  if (reply && frame->command == nb4Pending) {
+    nb4Pending = 0;
+    if (size != 1) {
+      nb4Fail(nb4RfText("Respuesta RF incompleta", "Incomplete RF response"));
+      return true;
+    }
+    switch (frame->command) {
+      case MODULE_READY:
+        if (data[0] != MODULE_STATUS_READY) {
+          if (++nb4ReadyTries >= 100)
+            nb4Fail(nb4RfText("Módulo RF no preparado", "RF module not ready"));
+        } else {
+          state = STATE_READY;
+          nb4Stage = Nb4Stage::Standby;
+          applyConfigFromModel();
+        }
+        break;
+      case MODULE_MODE:
+        if (data[0] != SUCCESS) {
+          nb4Fail(nb4RfText("Modo RF rechazado", "RF mode rejected"));
+        } else if (nb4Stage == Nb4Stage::Standby) {
+          state = STATE_STANDBY;
+          nb4Page = 0;
+          nb4AppliedModelKey = Nb4RfConfig::modelKey();
+          nb4Stage = nb4Binding || nb4Config.bound ? Nb4Stage::Pages : Nb4Stage::Active;
+        } else if (nb4Stage == Nb4Stage::Run) {
+          state = STATE_SYNC_RUNNING;
+          nb4Stage = Nb4Stage::Active;
+          if (cfg.version) setIbusType(cfg.v1.NewPortTypes);
+          else memset(ibus_type, SES_NPT_IBUS1_IN, sizeof(ibus_type));
+        }
+        break;
+      case MODULE_SET_CONFIG: {
+        // Each status is recorded, and the complete low nibble is tested
+        // only after the batch. Page 0 resets the batch: the module returns
+        // 0xf8, not a cumulative mask of 1.
+        if (++nb4Page == 4) {
+          if ((data[0] & 0x0f) != 0x0f) {
+            nb4Fail(nb4RfText("Configuración RF rechazada", "RF configuration rejected"));
+          } else {
+            nb4Stage = nb4Binding ? Nb4Stage::Bind : Nb4Stage::Run;
+            cfg.others.dirtyFlag = 0;
+          }
+        }
+        break;
+      }
+      case MODULE_APPLY_CONFIG:
+        if ((data[0] & 0x0f) != 0x0f) {
+          nb4Fail(nb4RfText("Enlace RF rechazado", "RF bind rejected"));
+        } else {
+          nb4Stage = Nb4Stage::Active;
+          if (state != STATE_SYNC_DONE) state = STATE_BINDING;
+        }
+        break;
+      default: break;
+    }
+    return true;
+  }
+  if (frame->command == TELEMETRY_DATA && size >= 1 && notification)
+    parseNb4Telemetry(data, size);
+  // Unsupported legacy commands must not interpret arbitrary NB4 bytes as cfg.
+  return true;
+}
+
+void ProtoState::parseNb4Telemetry(const uint8_t* data, unsigned size)
+{
+  // The NB4 module uses both 0x22 and 0x23 telemetry containers. Receiver
+  // identity is encoded by the built-in sensor instance, not by the container:
+  // 0=RX supply, 1=link quality, 2=RSSI, 3=noise and 4=SNR. Observed
+  // traffic places the first four records in 0x22 packets.
+  if ((data[0] != 0x22 && data[0] != 0x23) ||
+      !moduleData->afhds3.telemetry || !nb4Config.bound)
+    return;
+
+  bool ibus2 = false;
+  for (auto port : ibus_type)
+    ibus2 |= port == SES_NPT_IBUS2 || port == SES_NPT_IBUS2_HUB_PORT;
+  for (unsigned offset = 1; offset < size;) {
+    const auto* record = data + offset;
+    const unsigned length = record[0];
+    if (length < 4 || length > size - offset) break;
+    const uint8_t type = record[1], instance = record[2];
+    if (type == 0xff) break;
+    const unsigned bytes = length - 3;
+    const bool builtin = (instance & 0x80) != 0;
+    const uint8_t builtinIndex = instance & 0x7f;
+    if (builtin && (type == 0 || type == 0xfe || type == 0xfc || type == 0xfb || type == 0xfa)) {
+      if (bytes == 1 || bytes == 2) {
+        const unsigned value = record[3] | (bytes == 2 ? record[4] << 8 : 0);
+        if (type == 0 && builtinIndex == 0 && bytes == 2 && value != 0xffff) {
+          receiverTelemetry.voltageMv = value * 10;
+          receiverTelemetry.voltageTime = get_tmr10ms();
+          receiverTelemetry.voltageAvailable = true;
+          setTelemetryValue(PROTOCOL_TELEMETRY_FLYSKY_IBUS, 0x1000, 0, 0x80,
+                            value, UNIT_VOLTS, 2);
+        } else if (type == 0xfe && builtinIndex == 1 && value <= 100) {
+          receiverTelemetry.quality = value;
+          receiverTelemetry.qualityTime = get_tmr10ms();
+          receiverTelemetry.qualityAvailable = true;
+          telemetryData.rssi.set(value);
+          // Zero quality is still a received packet, not a missing receiver.
+          telemetryStreaming = TELEMETRY_TIMEOUT10ms;
+          setTelemetryValue(PROTOCOL_TELEMETRY_FLYSKY_IBUS, type, 0, 0x80,
+                            value, UNIT_PERCENT, 0);
+        } else if (((type == 0xfc && builtinIndex == 2) ||
+                    (type == 0xfb && builtinIndex == 3) ||
+                    (type == 0xfa && builtinIndex == 4)) &&
+                   bytes == 2 && value != 0xffff) {
+          const int signedValue = type == 0xfa ? int(value) : -int(value);
+          const int rounded = (signedValue + (signedValue >= 0 ? 2 : -2)) / 4;
+          setTelemetryValue(PROTOCOL_TELEMETRY_FLYSKY_IBUS, type, 0, 0x80,
+                            rounded, type == 0xfa ? UNIT_DB : UNIT_DBM, 0);
+        }
+      }
+    } else if (type != 0xfe && (bytes == 1 || bytes == 2 || bytes == 4 ||
+                               (type == 0x56 && bytes >= 7))) {
+      // Existing decoders expect a 16-bit sensor type in place of length.
+      uint8_t packet[TELEMETRY_RX_PACKET_SIZE];
+      memcpy(packet, record, length);
+      packet[0] = 0;
+      if (ibus2) ::processFlySkyIbus2AFHDS3Sensor(packet, bytes);
+      else ::processFlySkyAFHDS3Sensor(packet, bytes);
+    }
+    offset += length;
+  }
+}
+#endif
+
 uint8_t get_current_rfpower_level( uint8_t module )
 {
   int16_t diff_min = protoState[module].RFCurrentPower-rfpowerTable[0];
@@ -606,6 +1094,21 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
 {
   module_index = moduleIndex;
   trsp.init(buffer, mod_st, fAddr);
+#if defined(RADIO_NB4)
+  hardFaulted = false;
+  receiverTelemetry = {};
+  nb4Stage = Nb4Stage::Ready;
+  nb4Pending = nb4Page = nb4ReadyTries = 0;
+  nb4AppliedModelKey = Nb4RfConfig::modelKey();
+  nb4Binding = nb4BindMode = nb4ReceivedConfig = false;
+  nb4Error = nullptr;
+  nb4LastPoll = nb4BindStarted = get_tmr10ms();
+  resetConfig(0);
+  nb4Config.load(cfg);
+  rx_state = false;
+  RFCurrentPower = Nb4RfConfig::get16(nb4Config.receiver + 0x8b);
+
+#endif
 
   //clear local vars because it is member of union
   moduleData = &g_model.moduleData[module_index];
@@ -617,7 +1120,6 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
 
 void ProtoState::clearFrameData()
 {
-//   TRACE("AFHDS3 clearFrameData");
   trsp.clear();
 
   cmdCount = 0;
@@ -676,10 +1178,12 @@ void ProtoState::requestInfoAndRun(bool send)
 void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
 {
   AfhdsFrame* responseFrame = reinterpret_cast<AfhdsFrame*>(rxBuffer);
+#if defined(RADIO_NB4)
+  if (parseNb4Data(responseFrame, rxBufferCount)) return;
+#endif
   if (containsData((enum FRAME_TYPE) responseFrame->frameType)) {
     switch (responseFrame->command) {
       case COMMAND::MODULE_READY:
-//         TRACE("AFHDS3 [MODULE_READY] %02X", responseFrame->value);
         if (responseFrame->value == MODULE_STATUS_READY) {
           setState(ModuleState::STATE_READY);
           // requestInfoAndRun();
@@ -689,23 +1193,17 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
         }
         break;
       case COMMAND::MODULE_GET_CONFIG: {
-//        modelcfgGet = false;
-//         TRACE("AFHDS3 [MODULE_GET_CONFIG]");
         size_t len = min<size_t>(sizeof(cfg.buffer), rxBufferCount);
         std::memcpy((void*) cfg.buffer, &responseFrame->value, len);
         moduleData->afhds3.emi = cfg.v0.EMIStandard;
         moduleData->afhds3.telemetry = cfg.v0.IsTwoWay;
         moduleData->afhds3.phyMode = cfg.v0.PhyMode;
         cfg.others.ExternalBusType = cfg.v0.ExternalBusType;
-//         TRACE("PhyMode %d, emi %d", moduleData->afhds3.phyMode, moduleData->afhds3.emi);
         SET_DIRTY();
         cfg.others.lastUpdated = get_tmr10ms();
       } break;
       case COMMAND::MODULE_VERSION:
         std::memcpy((void*) &version, &responseFrame->value, sizeof(version));
-//         TRACE("AFHDS3 [MODULE_VERSION] Product %d, HW %d, BOOT %d, FW %d",
-//               version.productNumber, version.hardwareVersion,
-//               version.bootloaderVersion, version.firmwareVersion);
         break;
       case COMMAND::MODULE_RFPOWER:
         {  uint8_t* value = &responseFrame->value;
@@ -713,7 +1211,6 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
         }
         break;
       case COMMAND::MODULE_STATE:
-//        TRACE("AFHDS3 [MODULE_STATE] %02X", responseFrame->value);
         setState((ModuleState)responseFrame->value);
         if(STATE_SYNC_DONE == (ModuleState)responseFrame->value){
           if( !this->rx_state )
@@ -736,7 +1233,6 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
         }
         break;
       case COMMAND::MODULE_MODE:
-//         TRACE("AFHDS3 [MODULE_MODE] %02X", responseFrame->value);
         if (responseFrame->value != CMD_RESULT::SUCCESS) {
           setState(ModuleState::STATE_NOT_READY);
         }
@@ -749,15 +1245,9 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
         if (responseFrame->value != CMD_RESULT::SUCCESS) {
           setState(ModuleState::STATE_NOT_READY);
         }
-//         TRACE("AFHDS3 [MODULE_SET_CONFIG], %02X", responseFrame->value);
         break;
       case COMMAND::MODEL_ID:
-//         TRACE("AFHDS3 [MODEL_ID]");
         if (responseFrame->value == CMD_RESULT::SUCCESS) {
-//         TRACE("Enqueue get config");
-//          trsp.enqueue(COMMAND::MODULE_GET_CONFIG, FRAME_TYPE::REQUEST_GET_DATA);
-//          trsp.enqueue(COMMAND::MODULE_GET_CONFIG, FRAME_TYPE::REQUEST_GET_DATA);
-//          modelcfgGet = true;
         }
         break;
       case COMMAND::TELEMETRY_DATA:
@@ -766,10 +1256,11 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
 
         if (telemetry[0] == 0x22) {
           telemetry++;
-          while (telemetry < rxBuffer + rxBufferCount) {
+          auto* telemetryEnd = rxBuffer + rxBufferCount - 2;
+          while (telemetry < telemetryEnd) {
 
             uint8_t len = telemetry[0];
-            if (len < 4 || telemetry + len > rxBuffer + rxBufferCount)
+            if (len < 4 || telemetry + len > telemetryEnd)
             {
               break;
             }
@@ -844,13 +1335,13 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
             }break;
           case RX_CMD_CODE_IBUS2_SET_PARAM:
             {
-              uint8_t len = *data++;            
+              uint8_t len = *data++;
               ::Ibus2ParamCheck(data, len);
             }
             break;
           case RX_CMD_CODE_IBUS2_GET_PARAM:
             {
-              uint8_t len = *data++;            
+              uint8_t len = *data++;
               ::Ibus2ParamCheck(data, len);
               // cfg->others.calibData[IBUS2_SENSOR_IBC] = getIbus2IbcState();
               // DIRTY_CMD(cfg, DC_RX_CMD_CLEAR_IBC);
@@ -859,7 +1350,6 @@ void ProtoState::parseData(uint8_t* rxBuffer, uint8_t rxBufferCount)
         default:
           break;
         }
-//         TRACE("AFHDS3 [CMD Result] Cmd: %X, Result: %d, DirtyFlag: %X", cmd_code, result, cfg->others.dirtyFlag);
       } break;
     }
   }
@@ -913,8 +1403,8 @@ bool ProtoState::sensorCalibration() {
   static short last_ibc_v = cfg->others.calibData[IBUS2_SENSOR_IBC];
   if (last_ibc_v != cfg->others.calibData[IBUS2_SENSOR_IBC] ) {
     if (timersGetMsTick() - ibc_update_tick > 2000) { // 2-second check
-      ibc_update_tick = timersGetMsTick();  
-      last_ibc_v = cfg->others.calibData[IBUS2_SENSOR_IBC]; 
+      ibc_update_tick = timersGetMsTick();
+      last_ibc_v = cfg->others.calibData[IBUS2_SENSOR_IBC];
       ::flySkyIbus2CalibIBC(data, &len, cfg->others.calibData[IBUS2_SENSOR_IBC]);
       trsp.putFrame( COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, len);
       return true;
@@ -939,7 +1429,6 @@ bool ProtoState::syncSettings()
   // Sync settings when dirty flag is set
   if (checkDirtyFlag(DC_RX_CMD_TX_PWR))
   {
-//     TRACE("AFHDS3 [RX_CMD_TX_PWR] %d", AFHDS3_POWER[moduleData->afhds3.rfPower] / 4);
     uint8_t data[] = { (uint8_t)(RX_CMD_TX_PWR&0xFF), (uint8_t)((RX_CMD_TX_PWR>>8)&0xFF), 2,
                        (uint8_t)(AFHDS3_POWER[moduleData->afhds3.rfPower]&0xFF),  (uint8_t)((AFHDS3_POWER[moduleData->afhds3.rfPower]>>8)&0xFF)};
     trsp.putFrame(COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data));
@@ -949,7 +1438,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_RSSI_CHANNEL_SETUP))
   {
-//     TRACE("AFHDS3 [RX_CMD_RSSI_CHANNEL_SETUP]");
     uint8_t data[] = { (uint8_t)(RX_CMD_RSSI_CHANNEL_SETUP&0xFF), (uint8_t)((RX_CMD_RSSI_CHANNEL_SETUP>>8)&0xFF), 1, cfg->v1.SignalStrengthRCChannelNb };
     trsp.putFrame(COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data));
     return true;
@@ -957,14 +1445,12 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_OUT_PWM_PPM_MODE))
   {
-//     TRACE("AFHDS3 [RX_CMD_OUT_PWM_PPM_MODE]");
     uint8_t data[] = { (uint8_t)(RX_CMD_OUT_PWM_PPM_MODE&0xFF), (uint8_t)((RX_CMD_OUT_PWM_PPM_MODE>>8)&0xFF), 1, cfg->v0.AnalogOutput };
     trsp.putFrame(COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data));
     return true;
   }
   if (checkDirtyFlag(DC_RX_CMD_FREQUENCY_V0))
   {
-//     TRACE("AFHDS3 [RX_CMD_FREQUENCY_V0]");
     uint16_t Frequency = ((cfg->v0.PWMFrequency.Synchronized<<15)| cfg->v0.PWMFrequency.Frequency);
     uint8_t data[] = { (uint8_t)(RX_CMD_FREQUENCY_V0&0xFF), (uint8_t)((RX_CMD_FREQUENCY_V0>>8)&0xFF), 2,
                         (uint8_t)(Frequency&0xFF), (uint8_t)((Frequency>>8)&0xFF) };
@@ -974,7 +1460,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_PORT_TYPE_V1))
   {
-//     TRACE("AFHDS3 [RX_CMD_PORT_TYPE_V1]");
     uint8_t data[] = { (uint8_t)(RX_CMD_PORT_TYPE_V1&0xFF), (uint8_t)((RX_CMD_PORT_TYPE_V1>>8)&0xFF), 4, 0, 0, 0, 0 };
     setIbusType(cfg->v1.NewPortTypes);
     // If pure is upgraded from multiple ibus2 to ibus2 hub
@@ -994,7 +1479,7 @@ bool ProtoState::syncSettings()
             }
         }
     }
-    
+
     std::memcpy(&data[3], tempPortTypes, SES_NPT_NB_MAX_PORTS);
     trsp.putFrame(COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data));
     return true;
@@ -1002,7 +1487,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_FREQUENCY_V1))
   {
-//     TRACE("AFHDS3 [RX_CMD_FREQUENCY_V1]");
     uint8_t data[32 + 3 + 3] = { (uint8_t)(RX_CMD_FREQUENCY_V1&0xFF), (uint8_t)((RX_CMD_FREQUENCY_V1>>8)&0xFF), 32+3};
     data[3] = 0;
     std::memcpy(&data[4], &cfg->v1.PWMFrequenciesV1.PWMFrequencies[0], 32);
@@ -1015,7 +1499,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_FREQUENCY_V1_2))
   {
-//     TRACE("AFHDS3 [RX_CMD_FREQUENCY_V1_2]");
     uint8_t data[32 + 3 + 3] = { (uint8_t)(RX_CMD_FREQUENCY_V1_2&0xFF), (uint8_t)((RX_CMD_FREQUENCY_V1_2>>8)&0xFF), 32+3};
     data[3] = 1;
     std::memcpy(&data[4], &cfg->v1.PWMFrequenciesV1.PWMFrequencies[16], 32);
@@ -1027,7 +1510,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_BUS_TYPE_V0))
   {
-//     TRACE("AFHDS3 [RX_CMD_BUS_TYPE_V0]");
     bool onlySupportIBUSOut = (1==receiver_type(rx_version.ProductNumber));
 
     if (onlySupportIBUSOut && cfg->others.ExternalBusType == EB_BT_IBUS1_IN)
@@ -1041,7 +1523,6 @@ bool ProtoState::syncSettings()
 
   if (checkDirtyFlag(DC_RX_CMD_BUS_TYPE_V0_2))
   {
-//     TRACE("AFHDS3 [RX_CMD_BUS_TYPE_V0]");
     bool onlySupportIBUSOut = (1==receiver_type(rx_version.ProductNumber));
 
     if (onlySupportIBUSOut && cfg->others.ExternalBusType == EB_BT_IBUS1_IN)
@@ -1064,7 +1545,6 @@ bool ProtoState::syncSettings()
         bus_dir = BUS_OUT;
     else
         bus_dir = BUS_IN;
-//     TRACE("AFHDS3 [RX_CMD_IBUS_DIRECTION]");
     uint8_t data[4] = { (uint8_t)(RX_CMD_IBUS_DIRECTION&0xFF), (uint8_t)((RX_CMD_IBUS_DIRECTION>>8)&0xFF), 1, bus_dir };
     trsp.putFrame( COMMAND::SEND_COMMAND, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, data, sizeof(data) );
     return true;
@@ -1076,8 +1556,13 @@ bool ProtoState::syncSettings()
 
 void ProtoState::sendChannelsData()
 {
+#if defined(RADIO_NB4)
+  uint8_t channels_start = 0;
+  uint8_t channelsCount = sentModuleChannels(module_index);
+#else
   uint8_t channels_start = moduleData->channelsStart;
   uint8_t channelsCount = 8 + moduleData->channelsCount;
+#endif
   uint8_t channels_last = channels_start + channelsCount;
 
   int16_t buffer[AFHDS3_MAX_CHANNELS + 1] = {0};
@@ -1086,9 +1571,14 @@ void ProtoState::sendChannelsData()
   header[0] = CHANNELS_DATA_MODE::CHANNELS;
 
   uint8_t channels = _phyMode_channels[cfg.v0.PhyMode];
+#if defined(RADIO_NB4)
+  // The NB4 product contract is the active model range, not the maximum of the
+  // selected AFHDS3 PHY. Do not advertise or pack silent channels above it.
+  channels = min<uint8_t>(channelsCount, MAX_OUTPUT_CHANNELS - channels_start);
+#endif
   header[1] = channels;
 
-  for (uint8_t channel = channels_start, index = 1; channel < channels_last;
+  for (uint8_t channel = channels_start, index = 1; channel < channels_last && channel < MAX_OUTPUT_CHANNELS && index <= AFHDS3_MAX_CHANNELS;
        channel++, index++) {
     int16_t channelValue = convert(::getChannelValue(channel));
     buffer[index] = channelValue;
@@ -1100,7 +1590,6 @@ void ProtoState::sendChannelsData()
 
 void ProtoState::stop()
 {
-//   TRACE("AFHDS3 STOP");
   auto mode = (uint8_t)MODULE_MODE_E::STANDBY;
   trsp.putFrame(COMMAND::MODULE_MODE, FRAME_TYPE::REQUEST_SET_EXPECT_DATA, &mode, 1);
 }
@@ -1135,6 +1624,14 @@ void ProtoState::applyConfigFromModel()
 
   if (version != cfg.version) {
     resetConfig(version);
+#if defined(RADIO_NB4)
+    nb4Config.load(cfg);
+    clearFrameData();
+    nb4Stage = Nb4Stage::Ready;
+    nb4Pending = nb4Page = nb4ReadyTries = 0;
+    nb4ReceivedConfig = false;
+    nb4Error = nullptr;
+#endif
   }
 
   if (cfg.version == 1) {
@@ -1200,11 +1697,16 @@ inline int16_t ProtoState::convert(int channelValue)
 uint8_t ProtoState::setFailSafe(int16_t* target, uint8_t rfchannelsCount )
 {
   int16_t pulseValue = 0;
+#if defined(RADIO_NB4)
+  uint8_t channels_start = 0;
+  uint8_t channelsCount = sentModuleChannels(module_index);
+#else
   uint8_t channels_start = moduleData->channelsStart;
   uint8_t channelsCount = 8 + moduleData->channelsCount;
+#endif
   uint8_t channels_last = channels_start + channelsCount;
   std::memset(target, 0, 2*rfchannelsCount );
-  for (uint8_t channel = channels_start, i=0; i<rfchannelsCount && channel < channels_last; channel++, i++) {
+  for (uint8_t channel = channels_start, i=0; i<rfchannelsCount && channel < channels_last && channel < MAX_OUTPUT_CHANNELS; channel++, i++) {
     if (moduleData->failsafeMode == FAILSAFE_CUSTOM) {
       if(FAILSAFE_CHANNEL_HOLD==g_model.failsafeChannels[channel]){
         pulseValue = FAILSAFE_HOLD_VALUE;
@@ -1226,8 +1728,12 @@ uint8_t ProtoState::setFailSafe(int16_t* target, uint8_t rfchannelsCount )
     }
     target[i] = pulseValue;
   }
-  //return max channels because channel count can not be change after bind
+#if defined(RADIO_NB4)
+  return channelsCount;
+#else
+  // Return max channels because channel count cannot change after bind.
   return (uint8_t) (AFHDS3_MAX_CHANNELS);
+#endif
 }
 
 Config_u* getConfig(uint8_t module)
@@ -1253,6 +1759,13 @@ static void* initModule(uint8_t module)
 {
   etx_module_state_t* mod_st = nullptr;
   etx_serial_init params(_uartParams);
+#if defined(RADIO_NB4)
+  const auto& framing = nb4::nb4RfSelectedFraming();
+  uint16_t period = framing.cadenceUs;
+  uint8_t fAddr = framing.frameAddress;
+  mod_st = nb4::Nb4RfController::startTransport(module, params);
+  if (!mod_st) return nullptr;
+#else
   uint16_t period = AFHDS3_UART_COMMAND_TIMEOUT * 1000;
   uint8_t fAddr = (module == INTERNAL_MODULE ? DeviceAddress::IRM301
                                              : DeviceAddress::FRM303)
@@ -1282,6 +1795,7 @@ static void* initModule(uint8_t module)
   }
 
   if (!mod_st) return nullptr;
+#endif
 
   auto p_state = &protoState[module];
   p_state->init(module, pulsesGetModuleBuffer(module), mod_st, fAddr);
@@ -1295,7 +1809,12 @@ static void* initModule(uint8_t module)
 static void deinitModule(void* ctx)
 {
   auto mod_st = (etx_module_state_t*)ctx;
+#if defined(RADIO_NB4)
+  if (auto p_state = (ProtoState*)mod_st->user_data) p_state->receiverTelemetry = {};
+  nb4::Nb4RfController::stopTransport(mod_st);
+#else
   modulePortDeInit(mod_st);
+#endif
 }
 
 static void sendPulses(void* ctx, uint8_t* buffer, int16_t* channels,
@@ -1307,6 +1826,7 @@ static void sendPulses(void* ctx, uint8_t* buffer, int16_t* channels,
 
   auto mod_st = (etx_module_state_t*)ctx;
   auto p_state = (ProtoState*)mod_st->user_data;
+  if (!p_state) return; // UART fault may have released the serial context.
   p_state->setupFrame();
   p_state->sendFrame();
 }
@@ -1315,7 +1835,7 @@ static bool txCompleted(void* ctx)
 {
   auto mod_st = (etx_module_state_t*)ctx;
   auto p_state = (ProtoState*)mod_st->user_data;
-  return !p_state->fifoFull();
+  return p_state && !p_state->fifoFull();
 }
 
 etx_proto_driver_t ProtoDriver = {

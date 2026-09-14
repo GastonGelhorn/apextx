@@ -220,7 +220,7 @@ class GVarHeader : public Window
 {
  public:
   GVarHeader(Window* parent) :
-      Window(parent, {0, 0, LCD_W, HDR_H})
+      Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), HDR_H})
   {
     padAll(PAD_ZERO);
     etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
@@ -501,8 +501,8 @@ class GVarEditWindow : public Page
 
     setProperties();
     lv_obj_set_height(window->getLvObj(),
-                      LCD_H - lv_obj_get_height(header->getLvObj()));
-    lv_obj_set_height(lvobj, LCD_H);
+                      lv_disp_get_ver_res(nullptr) - lv_obj_get_height(header->getLvObj()));
+    lv_obj_set_height(lvobj, lv_disp_get_ver_res(nullptr));
   }
 };
 

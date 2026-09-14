@@ -44,3 +44,7 @@ class ModelTelemetryPage : public PageGroupItem
   void editSensor(uint8_t index);
   void buildSensorList(int8_t focusSensorIndex = -1);
 };
+
+void openTelemetryAlarmsPage();
+
+std::string getSensorCustomValue(uint8_t sensor, int32_t value, LcdFlags flags);

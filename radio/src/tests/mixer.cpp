@@ -121,8 +121,59 @@ TEST_F(MixerTest, throttleInvert)
   EXPECT_EQ(channelOutputs[THR_CHAN], -1024);
 }
 
+#if defined(SURFACE_RADIO)
+TEST_F(MixerTest, centredTriggerIgnoresNoiseThroughTheDeadZone)
+{
+  // A surface radio's trigger rests at CENTRE, so the throttle axis is the one
+  // that needs a dead zone. EdgeTX excludes it because an aircraft throttle
+  // rests at a stop, and that exclusion is why bleed from the steering wheel
+  // (the two axes are converted back to back on the same ADC scan) used to
+  // reach the servo as a percent or so of throttle whenever the wheel turned.
+  g_eeGeneral.stickDeadZone = 2;  // 2 << (2 - 1) = 4 counts of +-1024
+  for (int noise = -4; noise <= 4; ++noise) {
+    anaSetFiltered(inputMappingConvertMode(THR_STICK), noise);
+    evalMixes(1);
+    EXPECT_EQ(channelOutputs[THR_CHAN], 0) << "noise of " << noise << " counts";
+  }
+
+  // And the dead zone rescales rather than clipping, so full travel survives.
+  anaSetFiltered(inputMappingConvertMode(THR_STICK), 1024);
+  evalMixes(1);
+  EXPECT_EQ(channelOutputs[THR_CHAN], 1024);
+  anaSetFiltered(inputMappingConvertMode(THR_STICK), -1024);
+  evalMixes(1);
+  EXPECT_EQ(channelOutputs[THR_CHAN], -1024);
+}
+
+TEST_F(MixerTest, steeringSweepLeavesTheThrottleChannelAlone)
+{
+  // The reported symptom was the throttle reading +1% one way and -1% the
+  // other past roughly half wheel travel. Most of that is analogue and only
+  // the bench can prove it, but the software half produces an identical
+  // symptom: a crossed default input, or a mix pointing at the wrong source.
+  const uint8_t steering = inputMappingConvertMode(0);
+  anaSetFiltered(inputMappingConvertMode(THR_STICK), 0);
+  for (int wheel = -1024; wheel <= 1024; wheel += 32) {
+    anaSetFiltered(steering, wheel);
+    evalMixes(1);
+    EXPECT_EQ(channelOutputs[THR_CHAN], 0) << "wheel at " << wheel;
+  }
+}
+#endif
+
 TEST_F(TrimsTest, throttleTrim)
 {
+  // This test measures trim, not the dead zone. On a surface radio the throttle
+  // axis now honours stickDeadZone (its trigger rests at centre), and the dead
+  // zone rescales mid-travel values by a couple of counts, which would mask what
+  // is under test here. MixerTest.centredTriggerIgnoresNoiseThroughTheDeadZone
+  // covers the dead zone itself.
+  // The field itself only exists where STICK_DEAD_ZONE is defined
+  // (datastructs_private.h:1214), so this line has to be guarded like the field:
+  // without the guard, gtests stopped building for every board without it.
+#if defined(STICK_DEAD_ZONE)
+  g_eeGeneral.stickDeadZone = 0;
+#endif
   g_model.thrTrim = 1;
   // stick max + trim max
   anaSetFiltered(inputMappingConvertMode(THR_STICK), +1024);
@@ -658,6 +709,7 @@ TEST_F(MixerTest, RecursiveAddChannel)
   EXPECT_EQ(chans[1], 0);
 }
 
+#if defined(FLIGHT_MODES)
 TEST_F(MixerTest, RecursiveAddChannelAfterInactivePhase)
 {
   if (switchGetMaxAllSwitches() < 4) return;
@@ -685,8 +737,10 @@ TEST_F(MixerTest, RecursiveAddChannelAfterInactivePhase)
   EXPECT_EQ(chans[0], CHANNEL_MAX/2);
   EXPECT_EQ(chans[1], CHANNEL_MAX);
 }
+#endif
 
 
+#if defined(FLIGHT_MODES)
 TEST_F(MixerTest, SlowOnPhase)
 {
   g_model.flightModeData[1].swtch = SWSRC_FIRST_SWITCH;
@@ -708,6 +762,7 @@ TEST_F(MixerTest, SlowOnPhase)
   mixerCurrentFlightMode = 1;
   CHECK_SLOW_MOVEMENT(0, -1, 250, 500);
 }
+#endif
 
 TEST_F(MixerTest, SlowOnSwitchSource)
 {
@@ -734,6 +789,7 @@ TEST_F(MixerTest, SlowOnSwitchSource)
   CHECK_SLOW_MOVEMENT(0, +1, 500, 500);
 }
 
+#if defined(FLIGHT_MODES)
 TEST_F(MixerTest, SlowOnPhasePrec10ms)
 {
   g_model.flightModeData[1].swtch = SWSRC_FIRST_SWITCH;
@@ -756,6 +812,7 @@ TEST_F(MixerTest, SlowOnPhasePrec10ms)
   mixerCurrentFlightMode = 1;
   CHECK_SLOW_MOVEMENT(0, -1, 25, 50);
 }
+#endif
 
 TEST_F(MixerTest, SlowOnSwitchSourcePrec10ms)
 {
@@ -1029,6 +1086,7 @@ TEST(Trainer, UnpluggedTest)
   CHECK_DELAY(0, 5000);
 }
 
+#if defined(FLIGHT_MODES)
 TEST_F(MixerTest, flightModeTransition)
 {
   int sw;
@@ -1080,6 +1138,7 @@ TEST_F(MixerTest, flightModeOverflow)
   simuSetSwitch(0, 1);
   CHECK_FLIGHT_MODE_TRANSITION(0, 1000, 1024, 1024);
 }
+#endif
 
 TEST_F(TrimsTest, throttleTrimWithCrossTrims)
 {

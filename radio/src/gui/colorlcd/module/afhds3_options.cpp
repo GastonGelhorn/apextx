@@ -37,7 +37,9 @@ static const char* const _v0_pwmfreq_types[] = { STR_ANALOG_SERVO, STR_DIGITAL_S
 static const uint16_t _v1_index2pwmvalue[] = {50, 333, 2, 1, 50};
 static const uint16_t _v0_index2pwmvalue[] = {50, 333, 50};
 static uint16_t _v1_pwmvalue_type[2][32] = {0xff};
+#if !defined(RADIO_NB4)
 static uint8_t channel_num[]={18, 10, 18, 8, 12};
+#endif
 
 struct PWMfrequencyChoice : public Window {
   PWMfrequencyChoice(Window* parent, uint8_t moduleIdx, uint8_t channelIdx);
@@ -132,7 +134,11 @@ AFHDS3_Options::AFHDS3_Options(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
   header->setTitle(title);
 
   title = "AFHDS3 (";
+#if defined(RADIO_NB4)
+  title += "NB4";
+#else
   title += (moduleIdx == INTERNAL_MODULE ? "INRM301" : "FRM303");
+#endif
   title += ")";
   header->setTitle2(title);
 
@@ -140,6 +146,11 @@ AFHDS3_Options::AFHDS3_Options(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
 
   FlexGridLayout grid(col_dsc, row_dsc, PAD_TINY);
 
+#if defined(RADIO_NB4)
+  const uint8_t outputChannels = sentModuleChannels(moduleIdx);
+#else
+  const uint8_t outputChannels = channel_num[cfg->v1.PhyMode];
+#endif
   if (cfg->version == 0) {
     auto vCfg = &cfg->v0;
 
@@ -170,7 +181,7 @@ AFHDS3_Options::AFHDS3_Options(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
                GET_SET_AND_SYNC(cfg, cfg->others.ExternalBusType, afhds3::DirtyConfig::DC_RX_CMD_BUS_TYPE_V0));
   } else {
     auto vCfg = &cfg->v1;
-    for (uint8_t i = 0; i < channel_num[vCfg->PhyMode]; i++) {
+    for (uint8_t i = 0; i < outputChannels; i++) {
       std::string temp_str = STR_CH;
       temp_str += " " + std::to_string(i+1);
       auto line = body->newLine(grid);
@@ -260,13 +271,13 @@ AFHDS3_Options::AFHDS3_Options(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
   new StaticText(line, rect_t{}, STR_SIGNAL_OUTPUT);
   std::vector<std::string> signed_strength_ch;
   signed_strength_ch.emplace_back(STR_OFF);
-  for (int i = 0; i < channel_num[cfg->v1.PhyMode]; i++) {
+  for (int i = 0; i < outputChannels; i++) {
     std::string temstr = STR_CH;
     temstr += " " + std::to_string(i + 1);
     signed_strength_ch.emplace_back(temstr);
   }
   new Choice(line, rect_t{}, signed_strength_ch,
-               0, channel_num[cfg->v1.PhyMode],
+               0, outputChannels,
                [=] { return cfg->v1.SignalStrengthRCChannelNb==0xff?0:cfg->v1.SignalStrengthRCChannelNb+1; },
                [=](int32_t newValue) {
                   newValue?cfg->v1.SignalStrengthRCChannelNb = newValue-1:cfg->v1.SignalStrengthRCChannelNb=0xff;

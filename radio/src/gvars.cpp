@@ -26,6 +26,13 @@ uint8_t gvarLastChanged = 0;
 
 uint8_t getGVarFlightMode(uint8_t fm, uint8_t gv) // TODO change params order to be consistent!
 {
+#if !defined(FLIGHT_MODES)
+  // Surface-only radios keep GVars in the single base data slot.  Ignore any
+  // stale phase reference imported from an older/generic EdgeTX model.
+  (void)fm;
+  (void)gv;
+  return 0;
+#else
   for (uint8_t i=0; i<MAX_FLIGHT_MODES; i++) {
     if (fm == 0) return 0;
     int16_t val = GVAR_VALUE(gv, fm);
@@ -35,6 +42,7 @@ uint8_t getGVarFlightMode(uint8_t fm, uint8_t gv) // TODO change params order to
     fm = result;
   }
   return 0;
+#endif
 }
 
 int16_t getGVarValue(int8_t gv, int8_t fm)

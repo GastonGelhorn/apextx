@@ -21,6 +21,7 @@
 
 // #include "hal.h"
 #include "edgetx.h"
+#include "nb4_model_compat.h"
 
 #include "mixer_scheduler.h"
 #include "heartbeat_driver.h"
@@ -92,7 +93,9 @@ uint8_t* pulsesGetModuleBuffer(uint8_t module)
 }
 
 ModuleState moduleState[NUM_MODULES];
+#if !defined(RADIO_NB4_FAMILY)
 TrainerPulsesData trainerPulsesData __DMA_NO_CACHE;
+#endif
 
 void pulsesStart()
 {
@@ -265,7 +268,9 @@ void setModuleMode(int moduleIndex, ModuleSettingsMode mode)
 
 uint8_t getModuleType(uint8_t module)
 {
+#if defined(HARDWARE_INTERNAL_MODULE) || defined(HARDWARE_EXTERNAL_MODULE)
   uint8_t type = g_model.moduleData[module].type;
+#endif
 
 #if defined(HARDWARE_INTERNAL_MODULE)
   if (module == INTERNAL_MODULE && isInternalModuleAvailable(type)) {
@@ -287,6 +292,9 @@ uint8_t getModuleType(uint8_t module)
 //
 uint8_t getRequiredProtocol(uint8_t module)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (nb4ModelBlocked()) return PROTOCOL_CHANNELS_NONE;
+#endif
   uint8_t protocol = PROTOCOL_CHANNELS_UNINITIALIZED;
 
   switch (getModuleType(module)) {

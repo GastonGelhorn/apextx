@@ -20,6 +20,7 @@
  */
 
 #include "edgetx.h"
+#include "nb4_health.h"
 #include "hal/rotary_encoder.h"
 #include "os/time.h"
 
@@ -27,6 +28,9 @@
 #include "etx_lv_theme.h"
 
 #include "view_main.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_routes.h"
+#endif
 #include "keyboard_base.h"
 
 LvglWrapper* LvglWrapper::_instance = nullptr;
@@ -74,6 +78,10 @@ static bool evt_to_indev_data(event_t evt, lv_indev_data_t *data)
 
   switch(key) {
 
+#if defined(RADIO_NB4_FAMILY)
+  case KEY_UP: data->key = LV_KEY_PREV; break;
+  case KEY_DOWN: data->key = LV_KEY_NEXT; break;
+#endif
   case KEY_ENTER:
     data->key = LV_KEY_ENTER;
     break;
@@ -123,6 +131,18 @@ static void keyboardDriverRead(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
   if (isEvent()) { // event waiting
     event_t evt = getEvent();
+#if defined(RADIO_NB4_FAMILY)
+    if (EVT_KEY_MASK(evt) == KEY_MENU || EVT_KEY_MASK(evt) == KEY_BIND) {
+      if (IS_KEY_FIRST(evt)) {
+        if (EVT_KEY_MASK(evt) == KEY_MENU) nb4OpenSettingsModal();
+        else nb4OpenQuickAccessModal();
+      }
+      data->state = LV_INDEV_STATE_RELEASED;
+      backup_kb_data(data);
+      return;
+    }
+#endif
+
 
     if ((evt & _MSK_KEY_FLAGS) == _MSK_KEY_LONG_BRK) {
       data->state = LV_INDEV_STATE_RELEASED;
@@ -360,6 +380,9 @@ LvglWrapper* LvglWrapper::instance()
 
 void LvglWrapper::run()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4HealthAssertUi();
+#endif
 #if defined(SIMU)
   static uint32_t last_tick = 0;
   uint32_t tick = time_get_ms();

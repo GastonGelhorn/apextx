@@ -98,7 +98,7 @@ CurveRenderer::CurveRenderer(Window* parent, const rect_t& rect,
 
 CurveRenderer::~CurveRenderer()
 {
-  if (lnPoints) delete lnPoints;
+  if (lnPoints) delete[] lnPoints;
 }
 
 void CurveRenderer::update()

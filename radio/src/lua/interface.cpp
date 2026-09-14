@@ -26,6 +26,9 @@
 #include <algorithm>
 
 #include "edgetx.h"
+#include "nb4_health.h"
+#include "nb4_model_compat.h"
+#include "nb4_lua_alloc.h"
 #include "custom_allocator.h"
 
 #include "lua_api.h"
@@ -1268,6 +1271,7 @@ static bool resumeLua(bool init, bool allowLcdUsage)
 
 bool luaTask(bool allowLcdUsage)
 {
+  if ((nb4HealthRecovery() || nb4ModelBlocked())) return false;
   bool init = false;
   bool scriptWasRun = false;
  
@@ -1332,9 +1336,12 @@ uint32_t luaGetMemUsed(lua_State * L)
 
 void luaInitMainState()
 {
+  if ((nb4HealthRecovery() || nb4ModelBlocked())) return;
   if (mainState != nullptr) return;
 
-#if defined(USE_CUSTOM_ALLOCATOR)
+#if defined(RADIO_NB4_FAMILY)
+  mainState = lua_newstate(nb4LuaAlloc, nullptr);
+#elif defined(USE_CUSTOM_ALLOCATOR)
   mainState = lua_newstate(custom_l_alloc, nullptr);   //we use our own allocator!
 #elif defined(LUA_ALLOCATOR_TRACER)
   memclear(&lsScriptsTrace, sizeof(lsScriptsTrace));
@@ -1358,6 +1365,10 @@ void luaInitMainState()
 
 void luaInit()
 {
+  if ((nb4HealthRecovery() || nb4ModelBlocked())) {
+    luaState = INTERPRETER_PANIC;
+    return;
+  }
   TRACE("luaInit");
 
   if (luaState != INTERPRETER_PANIC) {

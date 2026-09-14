@@ -17,7 +17,6 @@ set(HAPTIC YES)
 set(GUI_DIR colorlcd)
 set(BITMAPS_DIR 480x272)
 set(TARGET_DIR pl18)
-set(RTC_BACKUP_RAM YES)
 set(PPM_LIMITS_SYMETRICAL YES)
 set(USB_SERIAL ON CACHE BOOL "Enable USB serial (CDC)")
 set(HARDWARE_EXTERNAL_MODULE YES)
@@ -82,15 +81,48 @@ elseif(PCBREV STREQUAL NV14)
     set(DEFAULT_INTERNAL_MODULE FLYSKY_AFHDS2A CACHE STRING "Default internal module")
 elseif(PCBREV STREQUAL NB4P)
   set(FLAVOUR nb4p)
-  add_definitions(-DRADIO_NB4P)
+  add_definitions(-DRADIO_NB4P -DRADIO_NB4_FAMILY)
+  # The Noble surface-radio family does not expose aircraft functions. NB4P is
+  # the historical upstream target name for the NB4+, not a separate firmware
+  # edition.
+  set(HELI OFF CACHE BOOL "Heli menu" FORCE)
+  set(FLIGHT_MODES OFF CACHE BOOL "Flight Modes" FORCE)
   set(ROTARY_ENCODER YES)
   set(LED_STRIP ON)
   set(AFHDS3 ON)
   set(KEY_DRIVER nb4p_key_driver.cpp)
+  set(USE_RTC_CLOCK OFF)
+  set(TRANSLATIONS "ES")
+  set(RADIO_LANG_SET EN ES)
 
-  # Defines internal modules for PL18 via UART7
-  set(INTERNAL_MODULES MULTI;AFHDS3;CRSF CACHE STRING "Internal modules")
-  set(DEFAULT_INTERNAL_MODULE MULTIMODULE CACHE STRING "Default internal module")
+  # NB4 and NB4P share the same surface-radio product defaults.
+  set(INTERNAL_MODULES AFHDS3 CACHE STRING "Internal modules" FORCE)
+  set(DEFAULT_INTERNAL_MODULE FLYSKY_AFHDS3 CACHE STRING "Default internal module" FORCE)
+elseif(PCBREV STREQUAL NB4)
+  # The target revision selects the original NB4 display and hardware drivers.
+  set(FLAVOUR nb4)
+  add_definitions(-DRADIO_NB4 -DRADIO_NB4_FAMILY)
+  # Runtime orientation is enabled for both Noble targets in nb4_car.cmake.
+  option(NB4_LANDSCAPE "NB4: use the 480x320 simulator layout" OFF)
+  if(NB4_LANDSCAPE)
+    add_definitions(-DRADIO_NB4_LANDSCAPE)
+  endif()
+  set(ROTARY_ENCODER YES)
+  # The original NB4 uses the same four-pixel RGB LED output as the NB4P.
+  set(LED_STRIP ON)
+  set(AFHDS3 ON)
+  set(KEY_DRIVER nb4_key_driver.cpp)
+  # No LSE oscillator or retained calendar supply is available on this board.
+  set(USE_RTC_CLOCK OFF)
+
+  # RF is configured by nb4_car.cmake after both candidates have been declared.
+  # No UART or shared electrical line is assigned here.
+
+  # Spanish is the factory language and English remains selectable at runtime.
+  set(HELI OFF CACHE BOOL "Heli menu" FORCE)
+  set(FLIGHT_MODES OFF CACHE BOOL "Flight Modes" FORCE)
+  set(TRANSLATIONS "ES")
+  set(RADIO_LANG_SET EN ES)
 elseif(PCBREV STREQUAL PL18EV)
   set(FLAVOUR pl18ev)
   add_definitions(-DRADIO_PL18EV -DUSE_HATS_AS_KEYS)
@@ -113,6 +145,10 @@ else()
   set(DEFAULT_INTERNAL_MODULE MULTIMODULE CACHE STRING "Default internal module")
 endif()
 
+if(PCBREV MATCHES "^NB4P?$")
+  include(${CMAKE_CURRENT_LIST_DIR}/nb4_car.cmake)
+endif()
+
 set(BITMAPS_TARGET bm480_bitmaps)
 set(FONTS_TARGET x12_fonts)
 set(LCD_DRIVER lcd_driver.cpp)
@@ -133,8 +169,12 @@ add_definitions(
 set(SDRAM ON)
 
 add_definitions(-DPWR_BUTTON_${PWR_BUTTON})
-add_definitions(-DCROSSFIRE_NATIVE)
-add_definitions(-DHARDWARE_EXTERNAL_MODULE)
+if(NOT NB4_CAR_ONLY)
+  add_definitions(-DCROSSFIRE_NATIVE)
+endif()
+if(HARDWARE_EXTERNAL_MODULE)
+  add_definitions(-DHARDWARE_EXTERNAL_MODULE)
+endif()
 
 if(PREFER_SDIO)
   if(HAS_SDIO)
@@ -149,6 +189,15 @@ endif()
 if(USE_RTC_CLOCK)
   message("-- RTC Clock enabled")
   add_definitions(-DRTCLOCK)
+endif()
+
+# Backup SRAM is valid only when RTC initialization enables its clock and power.
+# Resolve this after the board revision has selected USE_RTC_CLOCK.
+if(USE_RTC_CLOCK)
+  set(RTC_BACKUP_RAM YES)
+else()
+  set(RTC_BACKUP_RAM NO)
+  message("-- Backup SRAM disabled because the RTC clock is unavailable")
 endif()
 
 if(WIRELESS_CHARGER)
@@ -232,8 +281,19 @@ add_library(board OBJECT EXCLUDE_FROM_ALL
 )
 set(FIRMWARE_SRC ${FIRMWARE_SRC} $<TARGET_OBJECTS:board>)
 
+if(NB4_CAR_ONLY)
+  get_target_property(NB4_BOARD_SOURCES board SOURCES)
+  list(REMOVE_ITEM NB4_BOARD_SOURCES targets/common/arm/stm32/trainer_driver.cpp)
+  set_property(TARGET board PROPERTY SOURCES ${NB4_BOARD_SOURCES})
+endif()
+
 if(PCBREV STREQUAL NB4P)
   target_sources(board PRIVATE ${TARGET_SRC_DIR}/nb4p_switch_driver.cpp)
+elseif(PCBREV STREQUAL NB4)
+  target_sources(board PRIVATE ${TARGET_SRC_DIR}/nb4_switch_driver.cpp)
+  # The NB4 application initializes SDRAM directly instead of relying on the
+  # bootloader to leave it configured.
+  target_sources(board PRIVATE targets/common/arm/stm32/sdram_driver.cpp)
 endif()
 
 if(USE_VS1053B)
@@ -249,17 +309,18 @@ if(LED_STRIP)
   target_sources(board PRIVATE targets/common/arm/stm32/stm32_ws2812.cpp)
 endif()
 
-
 set(FIRMWARE_SRC
   ${FIRMWARE_SRC}
   bootloader/loadboot.cpp
 )
 
-set(SRC ${SRC}
-  io/frsky_firmware_update.cpp
-  io/multi_firmware_update.cpp
-  io/multi_protolist.cpp
-)
+if(NOT NB4_CAR_ONLY)
+  set(SRC ${SRC}
+    io/frsky_firmware_update.cpp
+    io/multi_firmware_update.cpp
+    io/multi_protolist.cpp
+  )
+endif()
 
 if (MULTIMODULE)
   add_definitions(-DMULTI_PROTOLIST)

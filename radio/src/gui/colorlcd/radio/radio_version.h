@@ -30,5 +30,10 @@ class RadioVersionPage: public PageGroupItem
 
   void build(Window * window) override;
 
+#if defined(RADIO_NB4_FAMILY)
+
+  static LAYOUT_VAL_SCALED(QR_SZ, 104)
+#else
   static LAYOUT_VAL_SCALED(QR_SZ, 150)
+#endif
 };

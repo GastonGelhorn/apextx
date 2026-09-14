@@ -83,7 +83,10 @@ static inline void check_struct()
 #elif defined(RADIO_V12)
   CHKSIZE(RadioData, 1177);
 #elif defined(COLORLCD)
-  #if defined(IMU)
+  #if defined(RADIO_NB4_FAMILY)
+
+    CHKSIZE(RadioData, 1077);
+  #elif defined(IMU)
     CHKSIZE(RadioData, 1060);
   #else
     CHKSIZE(RadioData, 1059);
@@ -107,8 +110,15 @@ static inline void check_struct()
 #elif defined(PCBX7) || defined(PCBXLITE) || defined(PCBX9LITE) || defined(RADIO_T14) || defined(RADIO_T12MAX)
   CHKSIZE(ModelData, 6329);
 #elif defined(PCBPL18)
-  #if defined(RADIO_NB4P) || defined(RADIO_NV14_FAMILY)
-    CHKSIZE(ModelData, 6875);
+  #if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
+
+    #if defined(RADIO_NB4)
+      CHKSIZE(ModelData, 6304);
+    #elif defined(RADIO_NB4P)
+      CHKSIZE(ModelData, 6106);
+    #else
+      CHKSIZE(ModelData, 6875);
+    #endif
   #else
     CHKSIZE(ModelData, 6877);
   #endif

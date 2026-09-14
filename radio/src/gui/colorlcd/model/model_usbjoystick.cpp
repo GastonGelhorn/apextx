@@ -341,7 +341,12 @@ class USBChannelEditWindow : public Page
 
     m_simModeLine = form->newLine(grid);
     new StaticText(m_simModeLine, rect_t{}, STR_USBJOYSTICK_CH_SIM);
-    new Choice(m_simModeLine, rect_t{}, STR_VUSBJOYSTICK_CH_SIM, 0,
+    new Choice(m_simModeLine, rect_t{}, STR_VUSBJOYSTICK_CH_SIM,
+#if defined(RADIO_NB4_FAMILY)
+               USBJOYS_SIM_ACCELERATOR,
+#else
+               0,
+#endif
                USBJOYS_SIM_LAST, GET_DEFAULT(cch->param),
                SET_VALUE_WUPDATE(cch->param));
 

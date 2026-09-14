@@ -20,11 +20,20 @@
  */
 
 #include "edgetx.h"
+
+#if defined(RADIO_NB4_FAMILY)
+#include "model_nb4_racing.h"
+#include "model_nb4_axis.h"
+#endif
 #include "pagegroup.h"
 #include "model_curves.h"
+#if defined(FLIGHT_MODES)
 #include "model_flightmodes.h"
+#endif
 #include "model_gvars.h"
+#if defined(HELI)
 #include "model_heli.h"
+#endif
 #include "model_inputs.h"
 #include "model_logical_switches.h"
 #include "model_mixer_scripts.h"
@@ -46,25 +55,60 @@
 #include "view_statistics.h"
 #include "view_logical_switches.h"
 #include "view_channels.h"
+#if defined(RADIO_NB4_FAMILY)
+
+#define ICON_CAR_MODEL_SETUP ICON_NB4_MODEL_SETUP
+#define ICON_CAR_OUTPUTS     ICON_NB4_OUTPUTS
+#else
+#define ICON_CAR_MODEL_SETUP ICON_MODEL_SETUP
+#define ICON_CAR_OUTPUTS     ICON_MODEL_OUTPUTS
+#endif
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_home.h"
+#include "menu.h"
+#include "radio_calibration.h"
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+
+static const char* nb4SteeringTitle() { return nb4Text("Dirección", "Steering"); }
+static const char* nb4ThrottleTitle() { return nb4Text("Gas y freno", "Throttle & brake"); }
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+static bool nb4OffCarousel() { return false; }
+#define NB4_OFF_CAROUSEL(guard) nb4OffCarousel
+#else
+#define NB4_OFF_CAROUSEL(guard) guard
+#endif
 
 #if VERSION_MAJOR == 2
 
 PageDef modelMenuItems[] = {
-  { ICON_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
+  { ICON_CAR_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
+#if defined(RADIO_NB4_FAMILY)
+  // Not ICON_MODEL_SETUP: that mask is a plane inside a gear, and sharing it
+  // with "Model settings" right next door left two identical 30 px gears in
+  // adjacent 33 px carousel slots. A stopwatch is what this page governs.
+  { ICON_STATS_TIMERS, STR_DEF(STR_NB4_RACING), STR_DEF(STR_NB4_RACING), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
+
+  { ICON_NB4_STEERING, nb4SteeringTitle, nb4SteeringTitle, PAGE_CREATE, QM_MODEL_NB4_STEERING, [](PageDef& pageDef) { return new ModelNb4SteeringPage(pageDef); }},
+  { ICON_NB4_THROTTLE, nb4ThrottleTitle, nb4ThrottleTitle, PAGE_CREATE, QM_MODEL_NB4_THROTTLE, [](PageDef& pageDef) { return new ModelNb4ThrottlePage(pageDef); }},
+#endif
 #if defined(FLIGHT_MODES)
   { ICON_MODEL_FLIGHT_MODES, STR_DEF(STR_QM_FLIGHT_MODES), STR_DEF(STR_MENUFLIGHTMODES), PAGE_CREATE, QM_MODEL_FLIGHTMODES, [](PageDef& pageDef) { return new ModelFlightModesPage(pageDef); }, modelFMEnabled},
 #endif
-  { ICON_MODEL_INPUTS, STR_DEF(STR_QM_INPUTS), STR_DEF(STR_MENUINPUTS), PAGE_CREATE, QM_MODEL_INPUTS, [](PageDef& pageDef) { return new ModelInputsPage(pageDef); }},
-  { ICON_MODEL_MIXER, STR_DEF(STR_QM_MIXES), STR_DEF(STR_MIXES), PAGE_CREATE, QM_MODEL_MIXES, [](PageDef& pageDef) { return new ModelMixesPage(pageDef); }},
-  { ICON_MODEL_OUTPUTS, STR_DEF(STR_QM_OUTPUTS), STR_DEF(STR_MENULIMITS), PAGE_CREATE, QM_MODEL_OUTPUTS, [](PageDef& pageDef) { return new ModelOutputsPage(pageDef); }},
+  { ICON_MODEL_INPUTS, STR_DEF(STR_QM_INPUTS), STR_DEF(STR_MENUINPUTS), PAGE_CREATE, QM_MODEL_INPUTS, [](PageDef& pageDef) { return new ModelInputsPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
+  { ICON_MODEL_MIXER, STR_DEF(STR_QM_MIXES), STR_DEF(STR_MIXES), PAGE_CREATE, QM_MODEL_MIXES, [](PageDef& pageDef) { return new ModelMixesPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
+  { ICON_CAR_OUTPUTS, STR_DEF(STR_QM_OUTPUTS), STR_DEF(STR_MENULIMITS), PAGE_CREATE, QM_MODEL_OUTPUTS, [](PageDef& pageDef) { return new ModelOutputsPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
   { ICON_MODEL_CURVES, STR_DEF(STR_QM_CURVES), STR_DEF(STR_MENUCURVES), PAGE_CREATE, QM_MODEL_CURVES, [](PageDef& pageDef) { return new ModelCurvesPage(pageDef); }, modelCurvesEnabled},
 #if defined(GVARS)
   { ICON_MODEL_GVARS, STR_DEF(STR_QM_GLOBAL_VARS), STR_DEF(STR_MENU_GLOBAL_VARS), PAGE_CREATE, QM_MODEL_GVARS, [](PageDef& pageDef) { return new ModelGVarsPage(pageDef); }, modelGVEnabled},
 #endif
-  { ICON_MODEL_LOGICAL_SWITCHES, STR_DEF(STR_QM_LOGICAL_SW), STR_DEF(STR_MENULOGICALSWITCHES), PAGE_CREATE, QM_MODEL_LS, [](PageDef& pageDef) { return new ModelLogicalSwitchesPage(pageDef); }, modelLSEnabled},
+  { ICON_MODEL_LOGICAL_SWITCHES, STR_DEF(STR_QM_LOGICAL_SW), STR_DEF(STR_MENULOGICALSWITCHES), PAGE_CREATE, QM_MODEL_LS, [](PageDef& pageDef) { return new ModelLogicalSwitchesPage(pageDef); }, NB4_OFF_CAROUSEL(modelLSEnabled)},
   { ICON_MODEL_SPECIAL_FUNCTIONS, STR_DEF(STR_QM_SPEC_FUNC), STR_DEF(STR_MENUCUSTOMFUNC), PAGE_CREATE, QM_MODEL_SF, [](PageDef& pageDef) { return new SpecialFunctionsPage(pageDef); }, modelSFEnabled},
 #if defined(LUA_MODEL_SCRIPTS)
-  { ICON_MODEL_LUA_SCRIPTS, STR_DEF(STR_QM_CUSTOM_LUA), STR_DEF(STR_MENUCUSTOMSCRIPTS), PAGE_CREATE, QM_MODEL_SCRIPTS, [](PageDef& pageDef) { return new ModelMixerScriptsPage(pageDef); }, modelCustomScriptsEnabled},
+  { ICON_MODEL_LUA_SCRIPTS, STR_DEF(STR_QM_CUSTOM_LUA), STR_DEF(STR_MENUCUSTOMSCRIPTS), PAGE_CREATE, QM_MODEL_SCRIPTS, [](PageDef& pageDef) { return new ModelMixerScriptsPage(pageDef); }, NB4_OFF_CAROUSEL(modelCustomScriptsEnabled)},
 #endif
   { ICON_MODEL_TELEMETRY, STR_DEF(STR_QM_TELEM), STR_DEF(STR_MENUTELEMETRY), PAGE_CREATE, QM_MODEL_TELEMETRY, [](PageDef& pageDef) { return new ModelTelemetryPage(pageDef); }, modelTelemetryEnabled},
   { ICON_MODEL_NOTES, STR_DEF(STR_MAIN_MENU_MODEL_NOTES), STR_DEF(STR_MAIN_MENU_MODEL_NOTES), PAGE_CREATE, QM_MODEL_NOTES, [](PageDef& pageDef) { return new ModelNotesPage(pageDef); }, modelHasNotes},
@@ -77,7 +121,9 @@ PageDef radioMenuItems[] = {
   { ICON_RADIO_SETUP, STR_DEF(STR_QM_RADIO_SETTINGS), STR_DEF(STR_MAIN_RADIO_SETTINGS), PAGE_CREATE, QM_RADIO_SETUP, [](PageDef& pageDef) { return new RadioSetupPage(pageDef); }},
   { ICON_RADIO_EDIT_THEME, STR_DEF(STR_QM_THEMES), STR_DEF(STR_MAIN_MENU_THEMES), PAGE_CREATE, QM_UI_THEMES, [](PageDef& pageDef) { return new ThemeSetupPage(pageDef); }, radioThemesEnabled},
   { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_QM_GLOB_FUNC), STR_DEF(STR_MENUSPECIALFUNCS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new GlobalFunctionsPage(pageDef); }, radioGFEnabled},
+#if !defined(RADIO_NB4_FAMILY)
   { ICON_RADIO_TRAINER, STR_DEF(STR_QM_TRAINER), STR_DEF(STR_MENUTRAINER), PAGE_CREATE, QM_RADIO_TRAINER, [](PageDef& pageDef) { return new RadioTrainerPage(pageDef); }, radioTrainerEnabled},
+#endif
   { ICON_RADIO_HARDWARE, STR_DEF(STR_QM_HARDWARE), STR_DEF(STR_HARDWARE), PAGE_CREATE, QM_RADIO_HARDWARE, [](PageDef& pageDef) { return new RadioHardwarePage(pageDef); }},
   { ICON_RADIO_VERSION, STR_DEF(STR_QM_ABOUT), STR_DEF(STR_MAIN_MENU_ABOUT_EDGETX), PAGE_CREATE, QM_RADIO_VERSION, [](PageDef& pageDef) { return new RadioVersionPage(pageDef); }},
   { EDGETX_ICONS_COUNT }
@@ -105,6 +151,13 @@ PageDef statsMenuItems[] = {
   { EDGETX_ICONS_COUNT }
 };
 
+#if defined(RADIO_NB4_FAMILY)
+
+static const char* nb4RaceMenuTitle() { return nb4Text("Carrera", "Race"); }
+
+static const char* nb4CalibrationTitle() { return nb4Text("Calibrar", "Calibrate"); }
+#endif
+
 QMTopDef qmTopItems[] = {
   { ICON_MODEL_SELECT, STR_DEF(STR_QM_MANAGE_MODELS), STR_DEF(STR_MANAGE_MODELS), QM_ACTION, QM_MANAGE_MODELS, nullptr, []() { QuickMenu::selected(); new ModelLabelsWindow(); }},
   { ICON_MODEL_NOTES, STR_DEF(STR_MAIN_MENU_MODEL_NOTES), STR_DEF(STR_MAIN_MENU_MODEL_NOTES), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_MODEL_NOTES); }, modelHasNotes},
@@ -114,14 +167,16 @@ QMTopDef qmTopItems[] = {
       new ChannelsViewMenu();
     }
   },
-  { ICON_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_MODEL_SETUP); }},
+  { ICON_CAR_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_MODEL_SETUP); }},
   { ICON_RADIO_SETUP, STR_DEF(STR_QM_RADIO_SETTINGS), STR_DEF(STR_MAIN_RADIO_SETTINGS), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_RADIO_SETUP); }},
   { ICON_THEME, STR_DEF(STR_MAIN_MENU_SCREEN_SETTINGS), STR_DEF(STR_MAIN_MENU_SCREEN_SETTINGS), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage((QMPage)(QM_UI_SCREEN1 + ViewMain::instance()->getCurrentMainView())); }},
   { ICON_TOOLS_RESET, STR_DEF(STR_QM_RESET), STR_DEF(STR_QM_RESET), QM_ACTION, QM_TOOLS_RESET, nullptr,
     []() {
       QuickMenu::selected();
       Menu* resetMenu = new Menu();
+#if !defined(RADIO_NB4_FAMILY)
       resetMenu->addLine(STR_RESET_FLIGHT, []() { flightReset(); });
+#endif
       resetMenu->addLine(STR_RESET_TIMER1, []() { timerReset(0); });
       resetMenu->addLine(STR_RESET_TIMER2, []() { timerReset(1); });
       resetMenu->addLine(STR_RESET_TIMER3, []() { timerReset(2); });
@@ -130,6 +185,25 @@ QMTopDef qmTopItems[] = {
   },
   { ICON_STATS, STR_DEF(STR_QM_STATS), STR_DEF(STR_MAIN_MENU_STATISTICS), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_TOOLS_STATS); }},
   { ICON_RADIO_VERSION, STR_DEF(STR_QM_ABOUT), STR_DEF(STR_MAIN_MENU_ABOUT_EDGETX), QM_ACTION, QM_NONE, nullptr, []() { QuickMenu::openPage(QM_RADIO_VERSION); }},
+#if defined(RADIO_NB4_FAMILY)
+
+  { ICON_STATS_TIMERS, nb4RaceMenuTitle, nb4RaceMenuTitle, QM_ACTION, QM_NONE, nullptr,
+    []() {
+      QuickMenu::selected();
+      Menu* raceMenu = new Menu();
+      raceMenu->addLine(nb4Text("Crono y vueltas", "Timers & laps"), []() { nb4OpenSection(Nb4Section::Chrono); });
+      raceMenu->addLine(nb4Text("Boxes", "Pit"), []() { nb4OpenSection(Nb4Section::Pit); });
+      raceMenu->addLine(nb4Text("Telemetría", "Telemetry"), []() { nb4OpenSection(Nb4Section::Telemetry); });
+      raceMenu->addLine(nb4Text("Registro de mangas", "Race history"), []() { nb4OpenSection(Nb4Section::History); });
+      raceMenu->addLine(nb4Text("Copias y restauración", "Backup & restore"), []() { nb4OpenSection(Nb4Section::Backup); });
+    }
+  },
+#endif
+#if defined(RADIO_NB4_FAMILY)
+
+  { ICON_RADIO_CALIBRATION, nb4CalibrationTitle, STR_DEF(STR_MENUCALIBRATION), QM_ACTION, QM_NONE, nullptr,
+    []() { QuickMenu::selected(); new RadioCalibrationPage(); }},
+#endif
   // Not displayed - search / run only
   { ICON_MODEL, STR_DEF(STR_QM_MODEL_SETUP), STR_DEF(STR_MAIN_MENU_MODEL_SETTINGS), QM_SUBMENU, QM_NONE, modelMenuItems},
   { ICON_RADIO, STR_DEF(STR_QM_RADIO_SETUP), STR_DEF(STR_MAIN_MENU_RADIO_SETTINGS), QM_SUBMENU, QM_NONE, radioMenuItems},
@@ -157,21 +231,30 @@ PageDef favoritesMenuItems[] = {
 };
 
 PageDef modelMenuItems[] = {
-  { ICON_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
+  { ICON_CAR_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
+#if defined(RADIO_NB4_FAMILY)
+  // Not ICON_MODEL_SETUP: that mask is a plane inside a gear, and sharing it
+  // with "Model settings" right next door left two identical 30 px gears in
+  // adjacent 33 px carousel slots. A stopwatch is what this page governs.
+  { ICON_STATS_TIMERS, STR_DEF(STR_NB4_RACING), STR_DEF(STR_NB4_RACING), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
+
+  { ICON_NB4_STEERING, nb4SteeringTitle, nb4SteeringTitle, PAGE_CREATE, QM_MODEL_NB4_STEERING, [](PageDef& pageDef) { return new ModelNb4SteeringPage(pageDef); }},
+  { ICON_NB4_THROTTLE, nb4ThrottleTitle, nb4ThrottleTitle, PAGE_CREATE, QM_MODEL_NB4_THROTTLE, [](PageDef& pageDef) { return new ModelNb4ThrottlePage(pageDef); }},
+#endif
 #if defined(FLIGHT_MODES)
   { ICON_MODEL_FLIGHT_MODES, STR_DEF(STR_QM_FLIGHT_MODES), STR_DEF(STR_MENUFLIGHTMODES), PAGE_CREATE, QM_MODEL_FLIGHTMODES, [](PageDef& pageDef) { return new ModelFlightModesPage(pageDef); }, modelFMEnabled},
 #endif
-  { ICON_MODEL_INPUTS, STR_DEF(STR_QM_INPUTS), STR_DEF(STR_MENUINPUTS), PAGE_CREATE, QM_MODEL_INPUTS, [](PageDef& pageDef) { return new ModelInputsPage(pageDef); }},
-  { ICON_MODEL_MIXER, STR_DEF(STR_QM_MIXES), STR_DEF(STR_MIXES), PAGE_CREATE, QM_MODEL_MIXES, [](PageDef& pageDef) { return new ModelMixesPage(pageDef); }},
-  { ICON_MODEL_OUTPUTS, STR_DEF(STR_QM_OUTPUTS), STR_DEF(STR_MENULIMITS), PAGE_CREATE, QM_MODEL_OUTPUTS, [](PageDef& pageDef) { return new ModelOutputsPage(pageDef); }},
+  { ICON_MODEL_INPUTS, STR_DEF(STR_QM_INPUTS), STR_DEF(STR_MENUINPUTS), PAGE_CREATE, QM_MODEL_INPUTS, [](PageDef& pageDef) { return new ModelInputsPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
+  { ICON_MODEL_MIXER, STR_DEF(STR_QM_MIXES), STR_DEF(STR_MIXES), PAGE_CREATE, QM_MODEL_MIXES, [](PageDef& pageDef) { return new ModelMixesPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
+  { ICON_CAR_OUTPUTS, STR_DEF(STR_QM_OUTPUTS), STR_DEF(STR_MENULIMITS), PAGE_CREATE, QM_MODEL_OUTPUTS, [](PageDef& pageDef) { return new ModelOutputsPage(pageDef); }, NB4_OFF_CAROUSEL(nullptr)},
   { ICON_MODEL_CURVES, STR_DEF(STR_QM_CURVES), STR_DEF(STR_MENUCURVES), PAGE_CREATE, QM_MODEL_CURVES, [](PageDef& pageDef) { return new ModelCurvesPage(pageDef); }, modelCurvesEnabled},
 #if defined(GVARS)
   { ICON_MODEL_GVARS, STR_DEF(STR_QM_GLOBAL_VARS), STR_DEF(STR_MENU_GLOBAL_VARS), PAGE_CREATE, QM_MODEL_GVARS, [](PageDef& pageDef) { return new ModelGVarsPage(pageDef); }, modelGVEnabled},
 #endif
-  { ICON_MODEL_LOGICAL_SWITCHES, STR_DEF(STR_QM_LOGICAL_SW), STR_DEF(STR_MENULOGICALSWITCHES), PAGE_CREATE, QM_MODEL_LS, [](PageDef& pageDef) { return new ModelLogicalSwitchesPage(pageDef); }, modelLSEnabled},
+  { ICON_MODEL_LOGICAL_SWITCHES, STR_DEF(STR_QM_LOGICAL_SW), STR_DEF(STR_MENULOGICALSWITCHES), PAGE_CREATE, QM_MODEL_LS, [](PageDef& pageDef) { return new ModelLogicalSwitchesPage(pageDef); }, NB4_OFF_CAROUSEL(modelLSEnabled)},
   { ICON_MODEL_SPECIAL_FUNCTIONS, STR_DEF(STR_QM_SPEC_FUNC), STR_DEF(STR_MENUCUSTOMFUNC), PAGE_CREATE, QM_MODEL_SF, [](PageDef& pageDef) { return new SpecialFunctionsPage(pageDef); }, modelSFEnabled},
 #if defined(LUA_MODEL_SCRIPTS)
-  { ICON_MODEL_LUA_SCRIPTS, STR_DEF(STR_QM_CUSTOM_LUA), STR_DEF(STR_MENUCUSTOMSCRIPTS), PAGE_CREATE, QM_MODEL_SCRIPTS, [](PageDef& pageDef) { return new ModelMixerScriptsPage(pageDef); }, modelCustomScriptsEnabled},
+  { ICON_MODEL_LUA_SCRIPTS, STR_DEF(STR_QM_CUSTOM_LUA), STR_DEF(STR_MENUCUSTOMSCRIPTS), PAGE_CREATE, QM_MODEL_SCRIPTS, [](PageDef& pageDef) { return new ModelMixerScriptsPage(pageDef); }, NB4_OFF_CAROUSEL(modelCustomScriptsEnabled)},
 #endif
   { ICON_MODEL_TELEMETRY, STR_DEF(STR_QM_TELEM), STR_DEF(STR_MENUTELEMETRY), PAGE_CREATE, QM_MODEL_TELEMETRY, [](PageDef& pageDef) { return new ModelTelemetryPage(pageDef); }, modelTelemetryEnabled},
   { ICON_MODEL_NOTES, STR_DEF(STR_MAIN_MENU_MODEL_NOTES), STR_DEF(STR_MAIN_MENU_MODEL_NOTES), PAGE_CREATE, QM_MODEL_NOTES, [](PageDef& pageDef) { return new ModelNotesPage(pageDef); }, modelHasNotes},
@@ -181,7 +264,9 @@ PageDef modelMenuItems[] = {
 PageDef radioMenuItems[] = {
   { ICON_RADIO_SETUP, STR_DEF(STR_QM_RADIO_SETTINGS), STR_DEF(STR_MAIN_RADIO_SETTINGS), PAGE_CREATE, QM_RADIO_SETUP, [](PageDef& pageDef) { return new RadioSetupPage(pageDef); }},
   { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_QM_GLOB_FUNC), STR_DEF(STR_MENUSPECIALFUNCS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new GlobalFunctionsPage(pageDef); }, radioGFEnabled},
+#if !defined(RADIO_NB4_FAMILY)
   { ICON_RADIO_TRAINER, STR_DEF(STR_QM_TRAINER), STR_DEF(STR_MENUTRAINER), PAGE_CREATE, QM_RADIO_TRAINER, [](PageDef& pageDef) { return new RadioTrainerPage(pageDef); }, radioTrainerEnabled},
+#endif
   { ICON_RADIO_HARDWARE, STR_DEF(STR_QM_HARDWARE), STR_DEF(STR_HARDWARE), PAGE_CREATE, QM_RADIO_HARDWARE, [](PageDef& pageDef) { return new RadioHardwarePage(pageDef); }},
   { ICON_RADIO_VERSION, STR_DEF(STR_QM_ABOUT), STR_DEF(STR_MAIN_MENU_ABOUT_EDGETX), PAGE_CREATE, QM_RADIO_VERSION, [](PageDef& pageDef) { return new RadioVersionPage(pageDef); }},
   { EDGETX_ICONS_COUNT }

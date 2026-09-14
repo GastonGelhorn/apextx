@@ -127,7 +127,12 @@ uint16_t simu_get_analog(uint8_t idx)
   return 0;
 }
 
-void simuQueueAudio(const uint8_t*, uint32_t) {}
+uint32_t simuTestNonSilentAudioSamples = 0;
+void simuQueueAudio(const uint8_t* data, uint32_t length) {
+  const auto* samples = reinterpret_cast<const audio_data_t*>(data);
+  for (uint32_t i = 0; i < length / sizeof(audio_data_t); ++i)
+    if (samples[i] != AUDIO_DATA_SILENCE) ++simuTestNonSilentAudioSamples;
+}
 
 static char _stringResult[200];
 

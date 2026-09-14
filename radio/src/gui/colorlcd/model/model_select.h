@@ -40,6 +40,26 @@ class ModelLabelsWindow : public Page
   static LAYOUT_VAL_SCALED(LAYOUT_BTN_YO, 6)
   static constexpr coord_t MDLS_Y = PAD_BORDER;
   static constexpr coord_t LABELS_X = PAD_BORDER;
+#if defined(LCD_RUNTIME_LAYOUT)
+
+  static constexpr coord_t LAND_W = LCD_MAX_W, LAND_H = LCD_PHYS_W;
+  static constexpr coord_t PORT_W = LCD_PHYS_W, PORT_H = LCD_PHYS_H;
+
+  static constexpr LayoutVal MDLS_H{
+      LAND_H - EdgeTxStyles::MENU_HEADER_HEIGHT - 60,
+      PORT_H - EdgeTxStyles::MENU_HEADER_HEIGHT - 162};
+  static constexpr LayoutVal LABELS_Y{PAD_SMALL, MDLS_Y + MDLS_H.p + PAD_SMALL};
+  static constexpr LayoutVal LABELS_WIDTH{152,
+                                          PORT_W - PAD_SMALL * 2};
+  static constexpr LayoutVal LABELS_HEIGHT{
+      LAND_H - EdgeTxStyles::MENU_HEADER_HEIGHT -
+          EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_SMALL * 2 - PAD_MEDIUM,
+      92};
+  static constexpr LayoutVal SORT_BUTTON_W{LABELS_WIDTH.l, LAYOUT_SCALE(120)};
+  static constexpr LayoutVal MDLS_X{LABELS_WIDTH.l + PAD_BORDER, PAD_SMALL};
+  static constexpr LayoutVal MDLS_W{LAND_W - LABELS_WIDTH.l - PAD_BORDER,
+                                    PORT_W - PAD_MEDIUM};
+#else
   static LAYOUT_ORIENTATION(MDLS_H, LCD_H - EdgeTxStyles::MENU_HEADER_HEIGHT - PAD_SMALL * 2, LAYOUT_SCALE(219))
   static LAYOUT_ORIENTATION(LABELS_Y, PAD_SMALL, MDLS_Y + MDLS_H + PAD_SMALL)
   static LAYOUT_ORIENTATION(LABELS_WIDTH, LCD_W * 131 / 480, LCD_W - PAD_SMALL * 2)
@@ -47,6 +67,7 @@ class ModelLabelsWindow : public Page
   static LAYOUT_ORIENTATION(SORT_BUTTON_W, LABELS_WIDTH, LAYOUT_SCALE(120))
   static LAYOUT_ORIENTATION(MDLS_X, LABELS_WIDTH + PAD_BORDER, PAD_SMALL)
   static LAYOUT_ORIENTATION(MDLS_W, LCD_W - LABELS_WIDTH - PAD_BORDER, LCD_W - PAD_MEDIUM)
+#endif
 
  protected:
   ModelsSortBy sort = DEFAULT_MODEL_SORT;

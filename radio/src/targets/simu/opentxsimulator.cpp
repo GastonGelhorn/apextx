@@ -180,6 +180,7 @@ static const etx_serial_driver_t simulator_host_drv = {
   .setReceiveCb = nullptr,
   .setIdleCb = nullptr,
   .setBaudrateCb = nullptr,
+  .setErrorCb = nullptr,
 };
 
 

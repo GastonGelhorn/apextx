@@ -22,6 +22,7 @@
 #include "model_select.h"
 
 #include "edgetx.h"
+
 #include "model_templates.h"
 #include "standalone_lua.h"
 #include "etx_lv_theme.h"
@@ -29,21 +30,45 @@
 #include "view_channels.h"
 #include "screen_setup.h"
 
+static bool modelListIsFull()
+{
+  if (modelslist.size() < (size_t)MAX_MODELS) return false;
+  new MessageDialog(STR_WARNING, STR_TOO_MANY_MODELS);
+  return true;
+}
+
 inline tmr10ms_t getTicks() { return g_tmr10ms; }
 
 struct ModelButtonLayout {
+#if defined(LCD_RUNTIME_LAYOUT)
+  LayoutVal width;
+  LayoutVal height;
+#else
   uint16_t width;
   uint16_t height;
+#endif
   bool hasImage;
   uint16_t font;
   uint16_t columns;
 };
 
+#if defined(LCD_RUNTIME_LAYOUT)
+
+static constexpr LayoutVal L0_W =
+    lvDiv(lvSub(ModelLabelsWindow::MDLS_W, PAD_OUTLINE * 3), 2);
+static constexpr LayoutVal L0_H = lvDiv(lvMul(L0_W, 11), 20);
+static constexpr LayoutVal L1_W =
+    lvDiv(lvSub(ModelLabelsWindow::MDLS_W, PAD_OUTLINE * 4), 3);
+static constexpr LayoutVal L1_H = lvDiv(lvMul(L1_W, 11), 20);
+static constexpr LayoutVal L3_W =
+    lvSub(ModelLabelsWindow::MDLS_W, PAD_OUTLINE * 2);
+#else
 static constexpr coord_t L0_W = (ModelLabelsWindow::MDLS_W - PAD_OUTLINE * 3) / 2;
 static constexpr coord_t L0_H = L0_W * 11 / 20;
 static constexpr coord_t L1_W = (ModelLabelsWindow::MDLS_W - PAD_OUTLINE * 4) / 3;
 static constexpr coord_t L1_H = L1_W * 11 / 20;
 static constexpr coord_t L3_W = ModelLabelsWindow::MDLS_W - PAD_OUTLINE * 2;
+#endif
 
 ModelButtonLayout modelLayouts[] = {
     {L0_W, L0_H, true, FONT(STD), 2},
@@ -407,6 +432,8 @@ class ModelsPageBody : public Window
 
   void duplicateModel(ModelCell *model)
   {
+    if (modelListIsFull()) return;
+
     new ConfirmDialog(
         STR_DUPLICATE_MODEL,
         std::string(model->modelName, sizeof(model->modelName)).c_str(), [=] {
@@ -631,6 +658,8 @@ void ModelLabelsWindow::onPressPGDN() { onPressPG(true); }
 
 void ModelLabelsWindow::newModel()
 {
+  if (modelListIsFull()) return;
+
   // Save current
   storageFlushCurrentModel();
   storageCheck(true);
@@ -702,7 +731,7 @@ void ModelLabelsWindow::buildHead(Window *hdr)
 
 #if !PORTRAIT
   // new model button
-  new TextButton(hdr, {LCD_W - PageGroup::PAGE_GROUP_BACK_BTN_W - NEW_BTN_W - PAD_LARGE, PAD_MEDIUM, NEW_BTN_W, EdgeTxStyles::UI_ELEMENT_HEIGHT}, STR_NEW, [=]() {
+  new TextButton(hdr, {lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_BACK_BTN_W - NEW_BTN_W - PAD_LARGE, PAD_MEDIUM, NEW_BTN_W, EdgeTxStyles::UI_ELEMENT_HEIGHT}, STR_NEW, [=]() {
     auto menu = new Menu();
     menu->setTitle(STR_CREATE_NEW);
     menu->addLine(STR_NEW_MODEL, [=]() { newModel(); });
@@ -753,7 +782,7 @@ void ModelLabelsWindow::buildBody(Window *window)
 
 #if PORTRAIT
   // new model button
-  new TextButton(window, {LCD_W - NEW_BTN_W - PAD_LARGE, LABELS_Y + LABELS_HEIGHT + PAD_SMALL, NEW_BTN_W, EdgeTxStyles::UI_ELEMENT_HEIGHT}, STR_NEW, [=]() {
+  new TextButton(window, {lv_disp_get_hor_res(nullptr) - NEW_BTN_W - PAD_LARGE, LABELS_Y + LABELS_HEIGHT + PAD_SMALL, NEW_BTN_W, EdgeTxStyles::UI_ELEMENT_HEIGHT}, STR_NEW, [=]() {
     auto menu = new Menu();
     menu->setTitle(STR_CREATE_NEW);
     menu->addLine(STR_NEW_MODEL, [=]() { newModel(); });

@@ -118,6 +118,16 @@ void ModuleChannelRange::update()
 {
   ChannelRange::update();
 
+#if defined(RADIO_NB4)
+  if (isModuleAFHDS3(moduleIdx)) {
+    // NB4 always sends a contiguous CH1..CHn car packet. Expose only n.
+    g_model.moduleData[moduleIdx].channelsStart = 0;
+    chStart->setValue(1);
+    chStart->enable(false);
+    updateEnd();
+  }
+#endif
+
 #if defined(DSMP)
   if (isModuleDSMP(moduleIdx)) {
     // Disable Ch start, module asume starting in Ch1
@@ -181,6 +191,7 @@ uint8_t ModuleChannelRange::getChannelsMax()
   return maxModuleChannels(moduleIdx);
 }
 
+#if !defined(RADIO_NB4_FAMILY)
 TrainerChannelRange::TrainerChannelRange(Window* parent) : ChannelRange(parent)
 {
   build();
@@ -215,3 +226,4 @@ uint8_t TrainerChannelRange::getChannelsUsed()
 uint8_t TrainerChannelRange::getChannelsMin() { return MIN_TRAINER_CHANNELS; }
 
 uint8_t TrainerChannelRange::getChannelsMax() { return MAX_TRAINER_CHANNELS; }
+#endif

@@ -301,6 +301,10 @@ set(SRC
   vario.cpp
   )
 
+if(NB4_CAR_ONLY)
+  list(REMOVE_ITEM SRC vario.cpp)
+endif()
+
 set(FIRMWARE_TARGET_SRC
   ${FIRMWARE_TARGET_SRC}
   # keys_driver.cpp
@@ -319,6 +323,10 @@ if(DSM2)
     ${PULSES_SRC}
     dsm2.cpp
     )
+endif()
+
+if(NB4_CAR_ONLY)
+  list(REMOVE_ITEM PULSES_SRC ppm.cpp)
 endif()
 
 if(DSMP)

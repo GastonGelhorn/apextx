@@ -83,7 +83,11 @@ enum USBJoystickCC {
 };
 
 #define USBJ_BUTTON_SIZE 32
+#if defined(RADIO_NB4_FAMILY)
+#define USBJ_MAX_JOYSTICK_CHANNELS 8
+#else
 #define USBJ_MAX_JOYSTICK_CHANNELS 26
+#endif
 
 #ifdef __cplusplus
 extern "C" {

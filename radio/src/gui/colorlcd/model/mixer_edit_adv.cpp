@@ -21,7 +21,9 @@
 
 #include "mixer_edit_adv.h"
 
+#if defined(FLIGHT_MODES)
 #include "fm_matrix.h"
+#endif
 #include "mixes.h"
 #include "numberedit.h"
 #include "edgetx.h"
@@ -68,12 +70,14 @@ void MixEditAdvanced::buildBody(Window* form)
     new Choice(line, rect_t{}, STR_VMLTPX, 0, 2, GET_SET_DEFAULT(mix->mltpx));
   }
 
+#if defined(FLIGHT_MODES)
   // Flight modes
   if (modelFMEnabled()) {
     line = form->newLine(grid);
     new StaticText(line, rect_t{}, STR_FLMODE);
     new FMMatrix<MixData>(line, rect_t{}, mix);
   }
+#endif
 
   // Trim
   line = form->newLine(grid);

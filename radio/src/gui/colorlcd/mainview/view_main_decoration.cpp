@@ -109,7 +109,7 @@ static bool canTrimShow(int idx)
 
 rect_t ViewMainDecoration::getMainZone() const
 {
-  coord_t x = 0, w = LCD_W, h = LCD_H;
+  coord_t x = 0, w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
   coord_t bh = 0;
 
   if (showSliders) {
@@ -201,8 +201,9 @@ void ViewMainDecoration::createSliders(Window* ml, Window* mr, Window* bl, Windo
     auto rightPots = layoutBox(mr, LV_ALIGN_RIGHT_MID, LV_FLEX_FLOW_COLUMN);
     rightPots->setHeight(MainViewSlider::VERTICAL_SLIDERS_HEIGHT);
 
-    coord_t lsh = (IS_POT_AVAILABLE(pot + 2)) ? MainViewSlider::VERTICAL_SLIDERS_HEIGHT / 2 : MainViewSlider::VERTICAL_SLIDERS_HEIGHT;
-    coord_t rsh = (IS_POT_AVAILABLE(pot + 3)) ? MainViewSlider::VERTICAL_SLIDERS_HEIGHT / 2 : MainViewSlider::VERTICAL_SLIDERS_HEIGHT;
+    coord_t vsh = (coord_t)MainViewSlider::VERTICAL_SLIDERS_HEIGHT;
+    coord_t lsh = (IS_POT_AVAILABLE(pot + 2)) ? vsh / 2 : vsh;
+    coord_t rsh = (IS_POT_AVAILABLE(pot + 3)) ? vsh / 2 : vsh;
 
     if (IS_POT_AVAILABLE(pot)) {
       sliders[pot] = new MainViewVerticalSlider(leftPots, rect_t{0, 0, MainViewSlider::SLIDER_BAR_SIZE, lsh}, pot);

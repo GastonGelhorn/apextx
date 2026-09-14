@@ -51,10 +51,17 @@ class MainViewSlider : public Window
   static LAYOUT_VAL_SCALED_ODD(SLIDER_ICON_SIZE, 15)
   static constexpr coord_t SLIDER_BAR_SIZE = SLIDER_ICON_SIZE + 2;
   static LAYOUT_VAL_SCALED(SLIDER_TICK_SPACING, 4)
+#if defined(LCD_RUNTIME_LAYOUT)
+  static constexpr LayoutVal HORIZONTAL_SLIDERS_WIDTH = lvAdd(SLIDER_SIZE, SLIDER_BAR_SIZE);
+  static constexpr LayoutVal VERTICAL_SLIDERS_HEIGHT = lvAdd(SLIDER_SIZE, SLIDER_BAR_SIZE);
+  static constexpr coord_t MASK_SHORT_DIM = SLIDER_ICON_SIZE - PAD_TINY;
+  static constexpr LayoutVal MASK_LONG_DIM = lvAdd(SLIDER_SIZE, 1);
+#else
   static constexpr coord_t HORIZONTAL_SLIDERS_WIDTH = SLIDER_SIZE + SLIDER_BAR_SIZE;
   static constexpr coord_t VERTICAL_SLIDERS_HEIGHT = SLIDER_SIZE + SLIDER_BAR_SIZE;
   static constexpr coord_t MASK_SHORT_DIM = SLIDER_ICON_SIZE - PAD_TINY;
   static constexpr coord_t MASK_LONG_DIM = SLIDER_SIZE + 1;
+#endif
 
  protected:
   uint8_t potIdx;

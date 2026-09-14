@@ -25,6 +25,7 @@
 
 #include "color_picker.h"
 #include "layout.h"
+#include "nb4_home.h"
 #include "edgetx.h"
 #include "topbar.h"
 #include "view_main.h"
@@ -125,6 +126,12 @@ void ScreenSetupPage::update(uint8_t index)
 
 void ScreenSetupPage::build(Window* window)
 {
+#if defined(RADIO_NB4_FAMILY)
+  if (customScreenIndex == 0) {
+    nb4BuildAppearance(window);
+    return;
+  }
+#endif
   window->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO);
 
   FlexGridLayout grid(line_col_dsc, line_row_dsc);
@@ -288,7 +295,7 @@ void ScreenAddPage::build(Window* window)
   std::string s = replaceAll(STR_QM_ADD_SCREEN, "\n", " ");
 
   new TextButton(window,
-                 rect_t{LCD_W / 2 - ADD_TXT_W / 2, window->height() / 2 - EdgeTxStyles::UI_ELEMENT_HEIGHT, ADD_TXT_W, EdgeTxStyles::UI_ELEMENT_HEIGHT},
+                 rect_t{lv_disp_get_hor_res(nullptr) / 2 - ADD_TXT_W / 2, window->height() / 2 - EdgeTxStyles::UI_ELEMENT_HEIGHT, ADD_TXT_W, EdgeTxStyles::UI_ELEMENT_HEIGHT},
                  s, [this]() -> uint8_t {
                     int newIdx = 1;
                     for (; newIdx < MAX_CUSTOM_SCREENS; newIdx += 1)
