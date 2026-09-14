@@ -19,10 +19,10 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         self.assertIn(version, (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertIn(version, (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
-    def test_release_workflow_uses_qualified_public_build(self) -> None:
+    def test_release_workflow_builds_the_shipped_rf_route(self) -> None:
         workflow = (ROOT / ".github/workflows/release.yml").read_text(
             encoding="utf-8")
-        self.assertIn("-DNB4_RF_PROFILE=QUALIFIED", workflow)
+        self.assertIn("-DNB4_RF_PROFILE=RECOVERED_USART6", workflow)
         self.assertIn("-DAPEXTX_PUBLIC_RELEASE=ON", workflow)
         self.assertIn("SHA256SUMS", workflow)
         self.assertIn("actions/attest-build-provenance", workflow)

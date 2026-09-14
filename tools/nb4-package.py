@@ -51,7 +51,7 @@ def create(args):
         raise ValueError("This package must be built for NB4")
     profile_match = re.search(
         r"^NB4_RF_PROFILE:STRING=(UNQUALIFIED|CANDIDATE_USART3|"
-        r"CANDIDATE_USART6|RECOVERED_USART6|QUALIFIED)$", cache, re.M)
+        r"CANDIDATE_USART6|RECOVERED_USART6)$", cache, re.M)
     if not profile_match:
         raise ValueError("Unknown NB4 RF build profile")
     rf_profile = profile_match[1]
@@ -59,38 +59,32 @@ def create(args):
     generated = (ROOT / "radio/src/targets/pl18/nb4_rf_qualified.cmake").read_text()
     candidate = re.search(r'^set\(NB4_RF_QUALIFIED_CANDIDATE "(USART3|USART6)"\)$', generated, re.M)
     framing = re.search(r'^set\(NB4_RF_QUALIFIED_FRAMING "(ADDRESSED_SLIP|ADDRESSLESS_SLIP)"\)$', generated, re.M)
-    acceptance_hash = re.search(r'^set\(NB4_RF_BENCH_ACCEPTANCE_SHA256 "([0-9a-f]*)"\)$', generated, re.M)
-    release_qualified = bool(re.search(
-        r'^set\(NB4_RF_RELEASE_QUALIFIED TRUE\)$', generated, re.M))
     nm = re.search(r"^CMAKE_NM:FILEPATH=(.+)$", cache, re.M)
     size_tool = re.search(r"^CMAKE_SIZE_UTIL:INTERNAL=(.+)$", cache, re.M)
-    if not all((candidate, framing, acceptance_hash, nm, size_tool)):
+    descriptor_status = json.loads(
+        (ROOT / "docs/nb4/rf/qualification.json").read_text(encoding="utf-8")
+    ).get("status", "unknown")
+    if not all((candidate, framing, nm, size_tool)):
         raise ValueError("Generated RF descriptor is incomplete")
     if args.release != PROJECT_VERSION:
         raise ValueError(
             f"Package version {args.release!r} does not match APEXTX_VERSION "
             f"{PROJECT_VERSION!r}")
-    if public_image and (
-            rf_profile != "QUALIFIED" or not release_qualified or
-            not acceptance_hash[1]):
+    # A published package must still come from a clean tree with the RF route
+    # this firmware ships and a passing native test report. Nothing here
+    # certifies a hardware session; that is the installer's own risk, stated
+    # in the README.
+    if public_image and rf_profile != "RECOVERED_USART6":
         raise ValueError(
-            "Public packages require a release-qualified RF profile and "
-            "physical acceptance evidence")
+            "Public packages must use the RECOVERED_USART6 RF route")
     if public_image and source_dirty:
         raise ValueError("Public packages require a clean source tree")
     if public_image and (tests is None or int(tests.get("tests", 0)) <= 0 or
                          int(tests.get("failures", 0)) +
                          int(tests.get("errors", 0)) != 0):
         raise ValueError("Public packages require a passing native test report")
-    verify_profile = {
-        "UNQUALIFIED": "UNQUALIFIED",
-        "CANDIDATE_USART3": "CANDIDATE_USART3",
-        "CANDIDATE_USART6": "CANDIDATE_USART6",
-        "RECOVERED_USART6": "RECOVERED_USART6",
-        "QUALIFIED": f"QUALIFIED_{candidate[1]}",
-    }[rf_profile]
-    verify_framing = framing[1] if rf_profile in (
-        "RECOVERED_USART6", "QUALIFIED") else "UNKNOWN"
+    verify_profile = rf_profile
+    verify_framing = framing[1] if rf_profile == "RECOVERED_USART6" else "UNKNOWN"
     verify_command = [
         str(ROOT / "tools/nb4-verify-firmware.py"),
         "--elf", str(build / "firmware.elf"),
@@ -143,12 +137,6 @@ def create(args):
             log = evidence / name
             if log.is_file():
                 copies[f"validation/{name}"] = log
-    qualification = json.loads(
-        (ROOT / "docs/nb4/rf/qualification.json").read_text(encoding="utf-8"))
-    acceptance = qualification.get("bench_acceptance")
-    if acceptance:
-        acceptance_source = ROOT / "docs/nb4/rf" / acceptance["path"]
-        copies[f"validation/rf/{acceptance_source.name}"] = acceptance_source
     if baseline:
         copies["rollback/firmware.bin"] = baseline / "firmware.bin"
     for relative, source in copies.items():
@@ -179,21 +167,19 @@ def create(args):
         "fonts": ["Roboto", "Barlow Condensed"],
         "orientations": [[320, 480], [480, 272]], "outputChannels": 8,
         "rf": f"AFHDS3; {rf_profile}; {verify_framing}",
-        "qualification": {
-            "status": "RELEASE" if release_qualified else "DEVELOPMENT",
+        # What this package can honestly claim: it compiled, its automated
+        # tests passed, and nothing certifies a hardware session.
+        "verification": {
+            "rfDescriptorStatus": descriptor_status,
             "publicImage": public_image,
             "installed": False,
-            "benchAcceptanceSha256": acceptance_hash[1] or None,
             "nativeTests": int(tests.get("tests", 0)) if tests is not None else None,
             "nativeFailures": (
                 int(tests.get("failures", 0)) + int(tests.get("errors", 0))
                 if tests is not None else None
             ),
             "screenshots": "Offscreen native LVGL simulator; synthetic inputs explicitly seeded by tests",
-            "physicalResults": (
-                "Hash-bound passing acceptance record"
-                if acceptance_hash[1] else "Not yet recorded"
-            ),
+            "hardwareChecklist": "Not certified; see docs/nb4/rf/BENCH_ACCEPTANCE.md",
         },
         "memoryBytes": {
             "current": size(build / "firmware.elf"),

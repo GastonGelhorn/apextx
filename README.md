@@ -61,10 +61,37 @@ not been validated on hardware. NB4 Pro and NB4 Pro+ require separate board
 ports and are not supported. See the [Noble compatibility and feature
 matrix](docs/nb4/COMPATIBILITY.md).
 
+## Before you install
+
+ApexTX is unofficial firmware. It is not made by, endorsed by or supported by
+FlySky, and installing it replaces the factory firmware on the transmitter.
+
+Read this before flashing anything:
+
+- **There is no warranty.** The GNU GPL version 2 under which this is published
+  disclaims one explicitly, and that is not a formality here. You are
+  responsible for what happens to your radio and to your car.
+- **You can leave the radio needing recovery.** An interrupted first
+  installation is recovered through the STM32 ROM DFU, which means opening the
+  case to reach an internal button. Back up the original contents first, as
+  [FLASH.md](docs/nb4/FLASH.md) describes.
+- **The AFHDS3 route was worked out experimentally.** FlySky publishes no
+  specification for the NB4's internal module, so the port, pins, timing and
+  framing were determined by testing. It works on the radios it has been tried
+  on. It has not been through any formal qualification.
+- **Nobody certifies the release binaries.** The archives attached to a release
+  are built by GitHub Actions from the tagged source and nothing more. There is
+  a hardware checklist in the documentation, but no automated step enforces it,
+  so treat a release as a build that compiled and passed its automated tests.
+- **Check what you are allowed to transmit.** Radio regulations differ by
+  country. Complying with the ones that apply to you is your responsibility.
+- **Test before you drive.** Check failsafe with the wheels off the ground,
+  every time you change firmware or rebind.
+
 ## Project status
 
 The firmware is under active development and is tested on an original Noble
-NB4. The maintained configuration uses the recovered USART6 AFHDS3 route and
+NB4. The maintained configuration uses the USART6 AFHDS3 route and
 English firmware strings; English and Spanish voice packs can coexist on the
 expanded storage volume.
 
@@ -95,7 +122,7 @@ details, and validation:
 - [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
-- [Physical release acceptance](docs/nb4/rf/BENCH_ACCEPTANCE.md)
+- [Hardware checklist before a release](docs/nb4/rf/BENCH_ACCEPTANCE.md)
 - [Release process](docs/nb4/RELEASE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)

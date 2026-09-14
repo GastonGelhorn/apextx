@@ -201,7 +201,7 @@ TEST(Nb4Afhds3, WithoutAddressTheReceiverFillsTheGapAfterChecking)
 
 #endif  // AFHDS3
 
-#if defined(RADIO_NB4) && defined(AFHDS3) && (defined(NB4_RF_PROFILE_RECOVERED_LAB) || defined(NB4_RF_PROFILE_QUALIFIED))
+#if defined(RADIO_NB4) && defined(AFHDS3) && (defined(NB4_RF_PROFILE_RECOVERED_LAB))
 #include "pulses/afhds3.h"
 #include "pulses/afhds3_nb4.h"
 #include "targets/pl18/nb4_rf_controller.h"

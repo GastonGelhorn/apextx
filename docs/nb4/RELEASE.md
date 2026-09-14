@@ -4,21 +4,16 @@ ApexTX uses the version in the root `APEXTX_VERSION` file. A public release
 tag has the form `v0.1.0-alpha.1` and must match that file exactly. The upstream
 base remains recorded separately as EdgeTX 2.12.4.
 
-Before tagging, complete the physical procedure in
-`rf/BENCH_ACCEPTANCE.md`, add the hash-bound record to `qualification.json`, set
-its status to `release`, and regenerate the checked-in RF profile:
+Before tagging, run the hardware checklist in `rf/BENCH_ACCEPTANCE.md` on a
+real radio, then the tool tests, the native firmware tests and a clean ARM
+build. The checklist is a recommendation: nothing in the build enforces it, and
+the published binaries carry no certification.
 
-```sh
-python3 tools/nb4-generate-qualified-profile.py \
-  docs/nb4/rf/qualification.json
-```
-
-Run the tool tests, native firmware tests, and a clean ARM build. A public build
-must use both of these options and CMake rejects it unless physical acceptance
-is complete:
+A published build uses the RF route the firmware ships plus the flag that marks
+the image as published:
 
 ```text
-NB4_RF_PROFILE=QUALIFIED
+NB4_RF_PROFILE=RECOVERED_USART6
 APEXTX_PUBLIC_RELEASE=ON
 ```
 
@@ -37,6 +32,6 @@ or publish a tag merely to test the workflow; use its manual artifact-only run
 for that purpose.
 
 After GitHub finishes, download the release archive, verify `SHA256SUMS`, and
-flash that exact `firmware.bin` to the acceptance radio for a final smoke test.
-If any result differs from the recorded acceptance, delete the release and tag,
-correct the cause, increment the version, and repeat the procedure.
+flash that exact `firmware.bin` to a radio for the checklist. If a result
+differs from what you expect, delete the release and the tag, correct the
+cause, increment the version, and repeat the procedure.

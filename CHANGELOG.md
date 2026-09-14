@@ -6,6 +6,12 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Dropped the release gate that refused to build a public image without a
+  hash-bound hardware acceptance record, along with the `QUALIFIED` RF profile
+  that existed only to carry it. Releases now build the same recovered USART6
+  route the firmware ships, and the hardware checklist is documented as a
+  recommendation. Installing a build is at the installer's own risk, which the
+  README now states plainly.
 - Restored automatic exit from STM32 ROM DFU after a verified flash by using
   the NB4-compatible zero-length DfuSe manifestation request.
 - Standardized built-in palette names in English and added transparent

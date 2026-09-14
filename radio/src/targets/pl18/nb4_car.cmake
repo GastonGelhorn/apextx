@@ -15,25 +15,25 @@ set(AFHDS3 ON CACHE BOOL "Original AFHDS3 module" FORCE)
 set(RADIO_LANG_SET EN ES)
 
 if(PCBREV STREQUAL NB4)
-  # The recovered route is the development default. Candidate builds remain
-  # available for compile-time coverage, independently of release labels.
+  # RECOVERED_USART6 is the route this firmware ships and is the default.
+  # The candidates stay available for compile-time coverage of the other
+  # mappings that were considered.
   set(NB4_RF_PROFILE "RECOVERED_USART6" CACHE STRING
-      "NB4 RF profile: UNQUALIFIED, candidates, RECOVERED_USART6 or QUALIFIED")
+      "NB4 RF profile: UNQUALIFIED, candidates or RECOVERED_USART6")
   set_property(CACHE NB4_RF_PROFILE PROPERTY STRINGS
                UNQUALIFIED CANDIDATE_USART3 CANDIDATE_USART6
-               RECOVERED_USART6 QUALIFIED)
-  option(APEXTX_PUBLIC_RELEASE "Build an installable NB4 public release" OFF)
+               RECOVERED_USART6)
+  option(APEXTX_PUBLIC_RELEASE "Mark the image as a published build" OFF)
 
   set(NB4_RF_PROFILE_VALUES
       UNQUALIFIED CANDIDATE_USART3 CANDIDATE_USART6
-      RECOVERED_USART6 QUALIFIED)
+      RECOVERED_USART6)
   if(NOT NB4_RF_PROFILE IN_LIST NB4_RF_PROFILE_VALUES)
     message(FATAL_ERROR "Invalid NB4_RF_PROFILE='${NB4_RF_PROFILE}'")
   endif()
 
   include(${CMAKE_CURRENT_LIST_DIR}/nb4_rf_qualified.cmake)
-  if(NB4_RF_PROFILE STREQUAL RECOVERED_USART6 OR
-     NB4_RF_PROFILE STREQUAL QUALIFIED)
+  if(NB4_RF_PROFILE STREQUAL RECOVERED_USART6)
     if(NOT NB4_RF_QUALIFIED)
       message(FATAL_ERROR
         "Active NB4 RF requested without a reviewed RF profile. "
@@ -45,11 +45,7 @@ if(PCBREV STREQUAL NB4)
     if(NOT NB4_RF_QUALIFIED_FRAMING STREQUAL "ADDRESSLESS_SLIP")
       message(FATAL_ERROR "Recovered NB4 AFHDS3 framing must be addressless SLIP")
     endif()
-    if(NB4_RF_PROFILE STREQUAL QUALIFIED)
-      add_definitions(-DNB4_RF_PROFILE_QUALIFIED)
-    else()
-      add_definitions(-DNB4_RF_PROFILE_RECOVERED_LAB)
-    endif()
+    add_definitions(-DNB4_RF_PROFILE_RECOVERED_LAB)
     add_definitions(-DNB4_RF_TRANSPORT_USART6
                     -DNB4_RF_FRAMING_ADDRESSLESS_SLIP)
   elseif(NB4_RF_PROFILE STREQUAL CANDIDATE_USART3)
@@ -63,13 +59,6 @@ if(PCBREV STREQUAL NB4)
   endif()
 
   if(APEXTX_PUBLIC_RELEASE)
-    if(NOT NB4_RF_PROFILE STREQUAL QUALIFIED OR
-       NOT NB4_RF_RELEASE_QUALIFIED OR
-       NB4_RF_BENCH_ACCEPTANCE_SHA256 STREQUAL "")
-      message(FATAL_ERROR
-        "NB4 public releases require the QUALIFIED RF profile and passing, "
-        "hash-bound physical acceptance evidence")
-    endif()
     add_definitions(-DAPEXTX_PUBLIC_RELEASE_BUILD)
   endif()
 

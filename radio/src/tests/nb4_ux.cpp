@@ -1714,7 +1714,7 @@ TEST(Nb4Ux, AudioPageSelectsPlaybackModeAndOffersAPreview)
 #endif
 }  // namespace
 
-#if defined(RADIO_NB4) && defined(AFHDS3) && (defined(NB4_RF_PROFILE_RECOVERED_LAB) || defined(NB4_RF_PROFILE_QUALIFIED))
+#if defined(RADIO_NB4) && defined(AFHDS3) && (defined(NB4_RF_PROFILE_RECOVERED_LAB))
 TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
 {
   using namespace afhds3;

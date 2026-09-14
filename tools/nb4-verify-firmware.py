@@ -20,8 +20,6 @@ MARKERS = {
     "CANDIDATE_USART3": "nb4_rf_linked_usart3",
     "CANDIDATE_USART6": "nb4_rf_linked_usart6",
     "RECOVERED_USART6": "nb4_rf_linked_usart6",
-    "QUALIFIED_USART3": "nb4_rf_linked_usart3",
-    "QUALIFIED_USART6": "nb4_rf_linked_usart6",
 }
 FRAMING_MARKERS = {
     "UNKNOWN": "nb4_rf_framing_unqualified",

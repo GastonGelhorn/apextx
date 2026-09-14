@@ -23,7 +23,7 @@ On the radio, verify:
 - Race timing, lap input, assignments, audio, storage, and emergency shutdown
   work with and without an attached USB cable.
 
-The checked-in RF profile remains `development` until the complete physical
-record described in `rf/BENCH_ACCEPTANCE.md` passes. A public build is rejected
-unless that record is present, hash-bound, and selected through the `QUALIFIED`
-RF profile.
+The AFHDS3 route this firmware ships was determined experimentally rather than
+from a published specification, which is why the checked-in RF descriptor is
+still marked `development`. `rf/BENCH_ACCEPTANCE.md` lists what to check on a
+real radio before tagging a version. Nothing in the build enforces it.

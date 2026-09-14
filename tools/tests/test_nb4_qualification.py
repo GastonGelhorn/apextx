@@ -61,39 +61,7 @@ class Nb4QualificationTest(unittest.TestCase):
                 "disable": step,
                 "shutdown": step,
             },
-            "bench_acceptance": None,
         }
-
-    def _acceptance(self, *, passed: bool = True) -> dict[str, str]:
-        test_names = (
-            "flash_readback", "boot_hold_2s", "shutdown_release_required",
-            "steering_live", "throttle_live", "curve_live", "bind",
-            "reconnect_tx_cycle", "reconnect_rx_cycle", "failsafe",
-            "rx_voltage", "link_quality", "telemetry_expires",
-            "rx_power_alarm", "usb_serial_disconnect",
-            "usb_storage_disconnect", "storage_persistence", "audio",
-            "portrait_layout", "landscape_layout",
-        )
-        report = {
-            "schema_version": 1,
-            "project_version": "0.1.0-alpha.1",
-            "target": "FlySky Noble NB4 (original)",
-            "receiver": {"protocol": "AFHDS3", "model": "test receiver"},
-            "tested_firmware": {
-                "project_version": "0.1.0-alpha.1",
-                "source_commit": "a" * 40,
-                "source_tree_sha256": source_digest(ROOT),
-                "sha256": hashlib.sha256(b"tested firmware").hexdigest(),
-            },
-            "test_date": "2026-09-14",
-            "tester": "test maintainer",
-            "tests": {name: {"passed": passed, "notes": "test fixture"}
-                      for name in test_names},
-        }
-        return self._evidence(
-            "bench-acceptance.json",
-            (json.dumps(report, sort_keys=True) + "\n").encode(),
-        )
 
     def _run(self, data: dict[str, object]) -> subprocess.CompletedProcess[str]:
         manifest = self.directory / "qualification.json"
@@ -138,9 +106,12 @@ class Nb4QualificationTest(unittest.TestCase):
         header, cmake = self._generate(self._base())
         self.assertIn("kNb4RfCandidateUsart6", header)
         self.assertIn("Nb4RfFraming::AddresslessSlip", header)
-        self.assertIn("\n  false,\n  \"NB4-test\"", header)
-        self.assertIn('set(NB4_RF_RELEASE_QUALIFIED FALSE)', cmake)
+        self.assertIn('"NB4-test"', header)
+        self.assertIn('set(NB4_RF_QUALIFIED TRUE)', cmake)
         self.assertIn('set(NB4_RF_QUALIFIED_FRAMING "ADDRESSLESS_SLIP")', cmake)
+        # Nothing in the descriptor claims a hardware session any more.
+        self.assertNotIn('RELEASE_QUALIFIED', cmake)
+        self.assertNotIn('BENCH_ACCEPTANCE', cmake)
 
     def test_checked_in_recovered_profile_is_valid(self) -> None:
         manifest = ROOT / "docs/nb4/rf/qualification.json"
@@ -151,15 +122,10 @@ class Nb4QualificationTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("status=development", result.stdout)
 
-    def test_invalid_status_and_hash_mismatch_are_rejected(self) -> None:
+    def test_an_invalid_descriptor_is_rejected(self) -> None:
         invalid_status = self._base()
         invalid_status["status"] = "unknown"
         self.assertNotEqual(self._run(invalid_status).returncode, 0)
-
-        mismatch = self._base()
-        mismatch["status"] = "release"
-        mismatch["bench_acceptance"] = dict(self._acceptance(), sha256="0" * 64)
-        self.assertNotEqual(self._run(mismatch).returncode, 0)
 
         wrong_route = self._base()
         wrong_route["candidate"] = "USART3"
@@ -168,21 +134,6 @@ class Nb4QualificationTest(unittest.TestCase):
         undefined_selector = self._base()
         undefined_selector["electrical"]["boot"][1]["level"] = "low"
         self.assertNotEqual(self._run(undefined_selector).returncode, 0)
-
-    def test_release_requires_passing_physical_acceptance(self) -> None:
-        release = self._base()
-        release["status"] = "release"
-        self.assertNotEqual(self._run(release).returncode, 0)
-        release["bench_acceptance"] = self._acceptance()
-        accepted = self._run(release)
-        self.assertEqual(accepted.returncode, 0, accepted.stderr)
-        self.assertIn("status=release", accepted.stdout)
-
-    def test_release_rejects_a_failed_physical_test(self) -> None:
-        release = self._base()
-        release["status"] = "release"
-        release["bench_acceptance"] = self._acceptance(passed=False)
-        self.assertNotEqual(self._run(release).returncode, 0)
 
     def test_flash_script_leaves_dfu_without_rewriting_after_readback(self) -> None:
         script = (ROOT / "tools/nb4-flash.sh").read_text(encoding="utf-8")

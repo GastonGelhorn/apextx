@@ -9,7 +9,6 @@
   "cadence_us": 5000,
   "response_timeout_us": 30000,
   "timing_basis": "EdgeTX AFHDS3 5 ms scheduler period with five retries",
-  "bench_acceptance": null,
   "electrical": {
     "boot": [
       {

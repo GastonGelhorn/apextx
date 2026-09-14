@@ -19,7 +19,6 @@ enum class Nb4RfBuildProfile : uint8_t {
   CandidateUsart3,
   CandidateUsart6,
   RecoveredUsart6,
-  Qualified,
 };
 
 enum class Nb4RfClockBus : uint8_t {
@@ -119,7 +118,6 @@ constexpr uint16_t nb4RfResponseRetries(const Nb4RfFramingProfile& profile)
 
 struct Nb4QualifiedHardwareProfile {
   bool qualified;
-  bool releaseQualified;
   const char* boardRevision;
   Nb4RfTransportDescriptor transport;
   Nb4RfElectricalSequence boot;
@@ -127,7 +125,6 @@ struct Nb4QualifiedHardwareProfile {
   Nb4RfElectricalSequence disable;
   Nb4RfElectricalSequence shutdown;
   Nb4RfFramingProfile framing;
-  const char* benchAcceptanceSha256;
 };
 
 struct Nb4RfHal {
@@ -166,7 +163,7 @@ inline bool nb4RfApplyElectricalSequence(const Nb4RfElectricalSequence& sequence
 
 namespace nb4 {
 
-#if defined(NB4_RF_PROFILE_QUALIFIED) || defined(NB4_RF_PROFILE_RECOVERED_LAB)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
 static_assert(kNb4QualifiedHardwareProfile.qualified,
               "Active RF build requires a generated evidence profile");
 static_assert(kNb4QualifiedHardwareProfile.framing.cadenceUs > 0 &&
@@ -175,7 +172,7 @@ static_assert(kNb4QualifiedHardwareProfile.framing.cadenceUs > 0 &&
                 kNb4QualifiedHardwareProfile.framing.responseTimeoutUs %
                     kNb4QualifiedHardwareProfile.framing.cadenceUs ==
                   0,
-              "Qualified RF timing must be positive and exactly representable");
+              "Active RF timing must be positive and exactly representable");
   #if defined(NB4_RF_TRANSPORT_USART3)
 static_assert(kNb4QualifiedHardwareProfile.transport.candidate ==
                 Nb4RfCandidate::Usart3Pb10Pb11,
@@ -185,7 +182,7 @@ static_assert(kNb4QualifiedHardwareProfile.transport.candidate ==
                 Nb4RfCandidate::Usart6Pc6Pc7,
               "Generated RF transport and CMake route disagree");
   #else
-static_assert(false, "Qualified RF build has no transport");
+static_assert(false, "Active RF build has no transport");
   #endif
   #if defined(NB4_RF_FRAMING_ADDRESSED_SLIP)
 static_assert(kNb4QualifiedHardwareProfile.framing.framing ==
@@ -196,15 +193,13 @@ static_assert(kNb4QualifiedHardwareProfile.framing.framing ==
                 Nb4RfFraming::AddresslessSlip,
               "Generated RF framing and CMake framing disagree");
   #else
-static_assert(false, "Qualified RF build has no framing");
+static_assert(false, "Active RF build has no framing");
   #endif
 #endif
 
 constexpr Nb4RfBuildProfile nb4RfBuildProfile()
 {
-#if defined(NB4_RF_PROFILE_QUALIFIED)
-  return Nb4RfBuildProfile::Qualified;
-#elif defined(NB4_RF_PROFILE_RECOVERED_LAB)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   return Nb4RfBuildProfile::RecoveredUsart6;
 #elif defined(NB4_RF_PROFILE_CANDIDATE_USART3)
   return Nb4RfBuildProfile::CandidateUsart3;
@@ -217,7 +212,7 @@ constexpr Nb4RfBuildProfile nb4RfBuildProfile()
 
 constexpr const Nb4RfTransportDescriptor& nb4RfSelectedTransport()
 {
-#if defined(NB4_RF_PROFILE_QUALIFIED) || defined(NB4_RF_PROFILE_RECOVERED_LAB)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   return kNb4QualifiedHardwareProfile.transport;
 #elif defined(NB4_RF_PROFILE_CANDIDATE_USART3)
   return kNb4RfCandidateUsart3;
@@ -230,7 +225,7 @@ constexpr const Nb4RfTransportDescriptor& nb4RfSelectedTransport()
 
 constexpr const Nb4RfFramingProfile& nb4RfSelectedFraming()
 {
-#if defined(NB4_RF_PROFILE_QUALIFIED) || defined(NB4_RF_PROFILE_RECOVERED_LAB)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   return kNb4QualifiedHardwareProfile.framing;
 #else
   // Candidate builds stay fail-closed even after a profile has been generated.
@@ -242,7 +237,7 @@ constexpr const Nb4RfFramingProfile& nb4RfSelectedFraming()
 
 constexpr bool nb4RfProfileCanTransmit()
 {
-#if defined(NB4_RF_PROFILE_QUALIFIED) || defined(NB4_RF_PROFILE_RECOVERED_LAB)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   return kNb4QualifiedHardwareProfile.qualified &&
          kNb4QualifiedHardwareProfile.transport.candidate !=
            Nb4RfCandidate::Unqualified &&

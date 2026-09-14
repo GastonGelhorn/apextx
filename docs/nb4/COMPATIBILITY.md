@@ -43,9 +43,9 @@ NB4+ changes the panel to IPS, uses USB-C and a 4.35 V battery system, and has
 its own product identity.
 
 The source already accounts for several board differences. The NB4+ target
-uses a different key driver, haptic output, battery scaling, and the original
-USART3 internal-RF route. The qualified original NB4 port uses its recovered
-USART6 route. Those differences are enough to make cross-flashing unsafe.
+uses a different key driver, haptic output, battery scaling, and a USART3
+internal-RF route. The original NB4 uses the USART6 route this firmware ships.
+Those differences are enough to make cross-flashing unsafe.
 
 A first NB4+ hardware qualification must verify:
 
@@ -119,5 +119,6 @@ channel modes.
 - [Noble Pro+ downloads, transmitter firmware, and charge-control firmware](https://www.flysky-cn.com/noble-nb4-pro-downloads)
 - [Noble Pro+ firmware release notes](https://www.flysky-cn.com/s/Release_Notes_for_Noble_NB4_Pro_transmitter_firmware-20250918.pdf)
 
-Official packages and extracted payloads used during research are not
-redistributed by this repository.
+No FlySky firmware, resources or other proprietary material is redistributed
+by this repository. The links above are FlySky's own public product pages,
+cited for the published specifications.

@@ -1,40 +1,54 @@
-# Physical release acceptance
+# Hardware checklist before a release
 
-Every public ApexTX firmware must be backed by a physical acceptance
-record for an original Noble NB4 and an AFHDS3 receiver. Passing native tests
-and compiling the firmware are necessary, but they do not prove that the RF
-module, controls, USB transitions, storage, and power behavior work together on
-the actual radio.
+Passing the native tests and compiling the firmware do not prove that the RF
+module, controls, USB transitions, storage and power behaviour work together on
+a real radio. This checklist is what to run on an original Noble NB4 with an
+AFHDS3 receiver before tagging a version.
 
-Copy `bench-acceptance.example.json` to a versioned file such as
-`bench-acceptance-0.1.0-alpha.1.json`. Build and flash the candidate, record its
-source commit, firmware SHA-256, and the output of
-`python3 tools/nb4_source_digest.py` before testing. Change a result to `true`
-only after observing it on hardware. Notes should describe the setup or a useful
-measurement without containing a transmitter serial number, USB serial, OTP,
-factory calibration, device identifier, or private firmware dump.
+It is a recommendation, not a gate. Nothing in the build or the release
+workflow checks that it was done, and the published binaries carry no
+certification. Whoever installs a build accepts that risk, as the
+[README](../../../README.md) states.
 
-The source-tree digest covers the CMake and radio build inputs, including
-submodule revisions. It excludes the generated qualification descriptor so the
-passing record can be added without changing the implementation it certifies.
+Run the whole list on the exact `firmware.bin` that the release workflow
+produced, not on a local build, and record what you observed somewhere you can
+find later. If a result differs from what you expect, delete the release and
+the tag, fix the cause, raise the version and start again.
 
-The complete checklist covers verified DFU readback, two-second power-on hold,
-safe shutdown, live steering and throttle, the curve editor, binding and both
-reconnection directions, failsafe, receiver voltage and link quality,
-telemetry expiration and the receiver-off alarm, both USB modes, persistent
-storage, audio, and both screen orientations.
+## Power and installation
 
-After every result passes, calculate the record SHA-256 and reference it from
-`qualification.json`:
+1. The DFU write reads back byte for byte and the radio leaves DFU on its own.
+2. A two-second hold powers the radio on, from the battery and from the base.
+3. Shutdown needs the button released first, and the radio stays off with the
+   base attached and with USB attached.
 
-```json
-"bench_acceptance": {
-  "path": "bench-acceptance-0.1.0-alpha.1.json",
-  "sha256": "..."
-}
-```
+## Controls
 
-Set `status` to `release`, regenerate the qualified profile, and run the full
-validation suite. The generator rejects missing, modified, incomplete, or
-failed acceptance evidence. CMake also rejects `APEXTX_PUBLIC_RELEASE=ON` unless
-that release-qualified profile is selected.
+4. Steering and throttle move live, the correct side and the correct channel.
+5. The curve editor redraws while a point is dragged.
+6. Trims, assignments and the grip keys do what the assignment page says.
+
+## Receiver and RF
+
+7. Binding completes and the receiver connects.
+8. The link returns on its own after the transmitter is power cycled.
+9. The link returns on its own after the receiver is power cycled.
+10. Failsafe moves the servos where the model configured them, checked by
+    switching the receiver off with the wheels clear of the ground.
+11. Receiver voltage and link quality read plausibly and track reality.
+12. Telemetry values are marked stale when the link drops rather than freezing.
+13. The receiver-off alarm fires.
+
+## Radio
+
+14. Serial USB connects and disconnects without freezing the interface.
+15. Storage USB connects and disconnects without losing data.
+16. Settings, models and lap history survive a power cycle.
+17. Audio plays, in both the tones-only and voice modes.
+18. Portrait and landscape both lay out without clipping.
+
+## Notes to keep out of any record you publish
+
+Never include a transmitter serial number, a USB serial, OTP contents, factory
+calibration, a device identifier or a firmware dump. Describe the setup and the
+measurement, not the radio's identity.

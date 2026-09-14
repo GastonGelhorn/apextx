@@ -1,7 +1,7 @@
 # Noble NB4 firmware
 
 This tree contains the maintained EdgeTX port for the original FlySky Noble NB4.
-The target is `PCB=PL18`, `PCBREV=NB4` and uses the recovered AFHDS3 hardware
+The target is `PCB=PL18`, `PCBREV=NB4` and uses the NB4 AFHDS3 hardware
 profile for USART6.
 
 The interface supports English and Spanish. Source code, comments, tests, build

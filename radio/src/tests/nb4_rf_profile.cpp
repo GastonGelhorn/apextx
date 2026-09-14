@@ -86,7 +86,7 @@ TEST(Nb4RfProfile, CandidateDescriptorsAreIndependentAndExact)
 
 TEST(Nb4RfProfile, InactiveDevelopmentProfilesAreFailClosed)
 {
-#if defined(NB4_RF_PROFILE_RECOVERED_LAB) || defined(NB4_RF_PROFILE_QUALIFIED)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   EXPECT_TRUE(nb4::nb4RfProfileCanTransmit());
   EXPECT_EQ(nb4::nb4RfSelectedTransport().candidate,
             nb4::Nb4RfCandidate::Usart6Pc6Pc7);
@@ -106,7 +106,7 @@ TEST(Nb4RfProfile, UartErrorsAreDeferredOutOfInterruptContext)
   EXPECT_TRUE(nb4::Nb4RfController::servicePendingFault());
   EXPECT_EQ(nb4::Nb4RfController::getFault(), nb4::Nb4RfFault::UartError);
   EXPECT_FALSE(nb4::Nb4RfController::servicePendingFault());
-#if defined(NB4_RF_PROFILE_RECOVERED_LAB) || defined(NB4_RF_PROFILE_QUALIFIED)
+#if defined(NB4_RF_PROFILE_RECOVERED_LAB)
   EXPECT_TRUE(nb4::Nb4RfController::prepare());
   EXPECT_EQ(nb4::Nb4RfController::getFault(), nb4::Nb4RfFault::None);
 #endif

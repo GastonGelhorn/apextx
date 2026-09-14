@@ -8,7 +8,6 @@ namespace nb4 {
 
 inline constexpr Nb4QualifiedHardwareProfile kNb4QualifiedHardwareProfile = {
   true,
-  false,
   "NB4-original",
   kNb4RfCandidateUsart6,
   {
@@ -64,7 +63,6 @@ inline constexpr Nb4QualifiedHardwareProfile kNb4QualifiedHardwareProfile = {
     2,
   },
   {Nb4RfFraming::AddresslessSlip, 0, false, 5000, 30000},
-  "",
 };
 
 }  // namespace nb4
