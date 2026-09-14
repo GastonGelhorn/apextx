@@ -124,9 +124,16 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
+          version="${GITHUB_REF_NAME#v}"
+          # A semantic pre-release version carries a hyphen. Mark those as
+          # pre-releases so an alpha is never presented as the latest build
+          # someone should install.
+          prerelease=()
+          case "$version" in *-*) prerelease=(--prerelease);; esac
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "ApexTX ${GITHUB_REF_NAME#v}" \
-            --generate-notes
+            --title "ApexTX $version" \
+            --generate-notes "${prerelease[@]}"
