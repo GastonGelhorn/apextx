@@ -534,7 +534,12 @@ class BacklightPage : public SubPage
 #endif
 
     // Flash beep
+#if defined(RADIO_NB4_FAMILY)
+    // "Alarm" alone does not say what it does: it flashes the backlight.
+    setupLine(STR_NB4_FLASH_ON_ALARM, [=](Window* parent, coord_t x, coord_t y) {
+#else
     setupLine(STR_ALARM, [=](Window* parent, coord_t x, coord_t y) {
+#endif
           new ToggleSwitch(parent, {x, y, 0, 0}, GET_SET_DEFAULT(g_eeGeneral.alarmsFlash));
         });
 

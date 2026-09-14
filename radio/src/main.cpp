@@ -31,6 +31,7 @@
 
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_racing.h"
+#include "nb4_routes.h"
 #include "nb4_health.h"
 #include "storage/sdcard_yaml.h"
 #endif
@@ -454,6 +455,8 @@ void guiMain(event_t evt)
 #endif
 
 #if defined(RADIO_NB4_FAMILY)
+  // A setting chosen from a boot alert opens once the main loop owns the UI.
+  nb4RunDeferredRoute();
   // Collect the newest control positions before this frame is rendered.
   // Rendering first adds one complete UI cycle to the instrument latency.
   MainWindow::instance()->run();

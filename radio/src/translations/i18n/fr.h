@@ -1936,3 +1936,6 @@
 #define TR_NB4_PALETTE_ACCENT "Palette"
 #define TR_NB4_RECOVERY "RECOVERY"
 #define TR_NB4_LUA_DISABLED "Lua disabled"
+#define TR_NB4_GO_TO "Go to %s"
+#define TR_NB4_SKIP_FOR_NOW "Skip for now"
+#define TR_NB4_FLASH_ON_ALARM "Flash on alarm"

@@ -517,6 +517,9 @@
 #define STR_NB4_PALETTE_ACCENT currentLangStrings->STR_NB4_PALETTE_ACCENT
 #define STR_NB4_RECOVERY currentLangStrings->STR_NB4_RECOVERY
 #define STR_NB4_LUA_DISABLED currentLangStrings->STR_NB4_LUA_DISABLED
+#define STR_NB4_GO_TO currentLangStrings->STR_NB4_GO_TO
+#define STR_NB4_SKIP_FOR_NOW currentLangStrings->STR_NB4_SKIP_FOR_NOW
+#define STR_NB4_FLASH_ON_ALARM currentLangStrings->STR_NB4_FLASH_ON_ALARM
 #define STR_ACTIVE currentLangStrings->STR_ACTIVE
 #define STR_ADD_ALL_TRIMS_TO_SUBTRIMS currentLangStrings->STR_ADD_ALL_TRIMS_TO_SUBTRIMS
 #define STR_ALIGN_LABEL currentLangStrings->STR_ALIGN_LABEL

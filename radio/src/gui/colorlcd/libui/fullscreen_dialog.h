@@ -101,4 +101,7 @@ class FullScreenDialog : public Window
   StaticText* messageLabel = nullptr;
 
   void build();
+#if defined(RADIO_NB4_FAMILY)
+  void buildNb4();
+#endif
 };

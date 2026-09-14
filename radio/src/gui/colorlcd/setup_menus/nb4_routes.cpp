@@ -742,6 +742,59 @@ bool nb4RouteIsOpenable(const Nb4Route& route)
   return !route.available || route.available();
 }
 
+const Nb4Route* nb4RouteByPath(const char* path)
+{
+  if (!path) return nullptr;
+  for (const auto& r : routes)
+    if (strcmp(r.path, path) == 0) return &r;
+  return nullptr;
+}
+
+namespace {
+
+const char* pendingRoute = nullptr;
+
+bool sameText(const char* a, const char* b) { return a && b && strcmp(a, b) == 0; }
+
+}  // namespace
+
+const Nb4AlertLink* nb4AlertLink(const char* title, const char* message)
+{
+  static const Nb4AlertLink receiver = {"settings/receiver_rf/module", NB4_STR(RECEIVER)};
+  static const Nb4AlertLink safety = {"settings/car/safety", NB4_STR(SAFETY)};
+  static const Nb4AlertLink sound = {"settings/sound_alerts/sound", NB4_STR(SOUND)};
+  static const Nb4AlertLink storage = {"settings/system/storage", NB4_STR(STORAGE)};
+  static const Nb4AlertLink hardware = {"settings/system/hardware", NB4_STR(HARDWARE)};
+  static const Nb4AlertLink theme = {"settings/display/theme", NB4_STR(THEME)};
+
+  const Nb4AlertLink* link = nullptr;
+  if (sameText(title, STR_FAILSAFEWARN))
+    link = &receiver;
+  else if (sameText(title, STR_THROTTLE_UPPERCASE) || sameText(title, STR_SWITCHWARN))
+    link = &safety;  // Pre-flight checks own both warnings
+  else if (sameText(title, STR_ALARMSWARN))
+    link = &sound;
+  else if (sameText(title, STR_SD_CARD) || sameText(title, STR_STORAGE_WARNING))
+    link = &storage;
+  else if (sameText(title, STR_BATTERY) && sameText(message, STR_WARN_RTC_BATTERY_LOW))
+    link = &hardware;  // The RTC battery check lives on the hardware page
+  else if (sameText(title, STR_WARNING))
+    link = &theme;  // A theme file that failed to load
+  if (!link) return nullptr;
+  const Nb4Route* route = nb4RouteByPath(link->path);
+  return route && nb4RouteIsOpenable(*route) ? link : nullptr;
+}
+
+void nb4DeferRoute(const char* path) { pendingRoute = path; }
+
+bool nb4RunDeferredRoute()
+{
+  const char* path = pendingRoute;
+  if (!path) return false;
+  pendingRoute = nullptr;
+  return nb4OpenRoute(path);
+}
+
 bool nb4OpenRoute(const char* path)
 {
   if (!path) return false;

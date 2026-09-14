@@ -1938,3 +1938,6 @@
 #define TR_NB4_PALETTE_ACCENT "Paleta"
 #define TR_NB4_RECOVERY "RECUPERACIÓN"
 #define TR_NB4_LUA_DISABLED "Lua apagado"
+#define TR_NB4_GO_TO "Ir a %s"
+#define TR_NB4_SKIP_FOR_NOW "Omitir por ahora"
+#define TR_NB4_FLASH_ON_ALARM "Destello con la alarma"
