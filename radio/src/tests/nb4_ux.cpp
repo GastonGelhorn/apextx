@@ -3379,7 +3379,7 @@ const RouteDestination kDestinations[] = {
     {"settings/controls/general", "Atraso switches"},
     {"settings/controls/shortcuts", "Asignar pulsando"},
     {"settings/controls/quick_access", "Configurar acceso rápido"},
-    {"settings/controls/monitor", "Monitor de entradas/salidas"},
+    {"settings/controls/monitor", "Monitor"},
     {"settings/telemetry/sensors", "Sensores"},
 
     {"settings/telemetry/alerts", "Alarmas"},
@@ -3425,7 +3425,7 @@ const RouteDestination kDestinations[] = {
     {"settings/advanced/outputs", "Ampliar límites"},
     {"settings/advanced/curves", "CURVAS"},
     {"settings/advanced/logic", "Lógica"},
-    {"settings/advanced/automation", "Funciones especiales del modelo"},
+    {"settings/advanced/automation", "Automatización"},
 
     {"settings/advanced/variables", "Variables del modelo (GVAR)"},
 
@@ -4697,7 +4697,9 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
     memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
     currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
     nb4QuickAccessReset();
-    for (const char* section : {"menu", "quick", "car", "controls", "race", "display", "system"}) {
+    for (const char* section : {"menu", "quick", "car", "controls", "race",
+                                "telemetry", "models", "display", "sound_alerts",
+                                "system", "advanced"}) {
       SCOPED_TRACE(section);
       if (!strcmp(section, "menu")) nb4OpenSettingsModal();
       else if (!strcmp(section, "quick")) nb4OpenQuickAccessModal();
@@ -4725,8 +4727,21 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
             EXPECT_LE(labelBounds.y2, tileBounds.y2) << lv_label_get_text(obj);
             EXPECT_GE(labelBounds.x1, tileBounds.x1) << lv_label_get_text(obj);
             EXPECT_LE(labelBounds.x2, tileBounds.x2) << lv_label_get_text(obj);
+            lv_point_t required;
+            lv_txt_get_size(&required, lv_label_get_text(obj),
+                            lv_obj_get_style_text_font(obj, LV_PART_MAIN),
+                            lv_obj_get_style_text_letter_space(obj, LV_PART_MAIN),
+                            lv_obj_get_style_text_line_space(obj, LV_PART_MAIN),
+                            lv_obj_get_content_width(obj), LV_TEXT_FLAG_NONE);
+            EXPECT_LE(required.y, lv_obj_get_content_height(obj))
+                << lv_label_get_text(obj);
             const auto foreground = lv_color_to32(lv_obj_get_style_text_color(obj, 0));
-            const auto background = lv_color_to32(lv_obj_get_style_bg_color(parent, 0));
+            auto surface = parent;
+            while (surface &&
+                   lv_obj_get_style_bg_opa(surface, LV_PART_MAIN) == LV_OPA_TRANSP)
+              surface = lv_obj_get_parent(surface);
+            ASSERT_NE(surface, nullptr);
+            const auto background = lv_color_to32(lv_obj_get_style_bg_color(surface, 0));
             EXPECT_GE(contrastRatio(foreground, background), 4.5) << lv_label_get_text(obj);
           }
         }
@@ -4734,6 +4749,58 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
       };
       inspect(Layer::back()->getLvObj());
       ASSERT_GE(tiles.size(), 2u);
+      std::set<lv_coord_t> rows;
+      std::map<lv_coord_t, unsigned> columns;
+      lv_coord_t expectedSize = -1;
+      for (auto tile : tiles) {
+        lv_area_t bounds;
+        lv_obj_get_coords(tile, &bounds);
+        const auto width = lv_area_get_width(&bounds);
+        const auto height = lv_area_get_height(&bounds);
+        EXPECT_EQ(width, height);
+        if (expectedSize < 0) expectedSize = width;
+        EXPECT_EQ(width, expectedSize);
+        rows.insert(bounds.y1);
+        columns[bounds.y1] += 1;
+        EXPECT_EQ(lv_obj_get_style_bg_opa(tile, LV_PART_MAIN), LV_OPA_TRANSP);
+        lv_obj_t* badge = nullptr;
+        std::set<uint32_t> glyphColours;
+        std::set<uint32_t> artworkColours;
+        std::function<void(lv_obj_t*)> inspectArtwork = [&](lv_obj_t* obj) {
+          if (lv_obj_has_class(obj, &lv_img_class) &&
+              lv_obj_get_style_img_recolor_opa(obj, LV_PART_MAIN) > LV_OPA_MIN)
+            glyphColours.insert(lv_color_to32(
+                lv_obj_get_style_img_recolor(obj, LV_PART_MAIN)));
+          if (lv_obj_get_style_bg_opa(obj, LV_PART_MAIN) == LV_OPA_COVER) {
+            artworkColours.insert(lv_color_to32(
+                lv_obj_get_style_bg_color(obj, LV_PART_MAIN)));
+            artworkColours.insert(lv_color_to32(
+                lv_obj_get_style_bg_grad_color(obj, LV_PART_MAIN)));
+          }
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+            inspectArtwork(lv_obj_get_child(obj, i));
+        };
+        inspectArtwork(tile);
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(tile); ++i) {
+          auto child = lv_obj_get_child(tile, i);
+          if (!lv_obj_has_class(child, &lv_img_class) &&
+              !lv_obj_has_class(child, &lv_label_class) &&
+              lv_obj_get_width(child) == lv_obj_get_height(child) &&
+              lv_obj_get_style_bg_opa(child, LV_PART_MAIN) == LV_OPA_COVER)
+            badge = child;
+        }
+        ASSERT_NE(badge, nullptr);
+        EXPECT_EQ(lv_obj_get_width(badge), 34);
+        EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
+                  lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
+        EXPECT_EQ(glyphColours.size(), 2u);
+        EXPECT_GE(artworkColours.size(), 2u);
+      }
+      EXPECT_LE(rows.size(), 3u);
+      for (const auto& row : columns) EXPECT_LE(row.second, 4u);
+      auto grid = lv_obj_get_parent(lv_obj_get_parent(tiles.front()));
+      EXPECT_FALSE(lv_obj_has_flag(grid, LV_OBJ_FLAG_SCROLLABLE));
+      EXPECT_TRUE(lv_obj_has_state(tiles.front(), LV_STATE_FOCUSED));
       lv_area_t first, second;
       lv_obj_get_coords(tiles[0], &first); lv_obj_get_coords(tiles[1], &second);
       EXPECT_EQ(first.y1, second.y1) << "Submenus must have two usable columns";

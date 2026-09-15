@@ -85,6 +85,7 @@ class QuickMenuButton : public ButtonBase
                   std::function<uint8_t(void)> pressHandler,
                   std::function<bool(void)> visibleHandler) :
       ButtonBase(parent, {}, pressHandler, etx_quick_button_create),
+      iconId(icon),
       visibleHandler(std::move(visibleHandler))
   {
     iconPtr = new StaticIcon(this, (QuickMenuGroup::QM_BUTTON_WIDTH - QuickMenuGroup::QM_ICON_SIZE) / 2, PAD_SMALL, icon, COLOR_THEME_QM_FG_INDEX);
@@ -113,6 +114,78 @@ class QuickMenuButton : public ButtonBase
     setWidth(width);
     textPtr->setWidth(width - 1);
     iconPtr->setPos((width - QuickMenuGroup::QM_ICON_SIZE) / 2, PAD_SMALL);
+  }
+
+  // Compact app-style tile used by the ApexTX navigation dialogs.  The
+  // coloured square is the visual control; the full cell remains the touch
+  // target and carries its label below the icon.
+  void useAppTile(coord_t size, lv_color_t accent, lv_color_t detail) {
+    constexpr coord_t badgeSize = 34;
+    constexpr coord_t labelTop = badgeSize + 1;
+
+    setSize(size, size);
+    padAll(PAD_ZERO);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP,
+                            LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP,
+                            LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(lvobj, 0, LV_PART_MAIN);
+
+    badgePtr = new Window(this, {(size - badgeSize) / 2, 0,
+                                 badgeSize, badgeSize});
+    badgePtr->setWindowFlag(OPAQUE);
+    badgePtr->padAll(PAD_ZERO);
+    lv_obj_t* badge = badgePtr->getLvObj();
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE |
+                                LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_set_style_radius(badge, 10, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(badge, lv_color_lighten(accent, LV_OPA_20),
+                              LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(badge,
+                                   lv_color_darken(detail, LV_OPA_20),
+                                   LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(badge, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(badge, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(badge, 2,
+                                  LV_PART_MAIN | LV_STATE_USER_1);
+    lv_obj_set_style_border_color(badge, lv_color_white(),
+                                  LV_PART_MAIN | LV_STATE_USER_1);
+    lv_obj_move_to_index(badge, 0);
+
+    shadowPtr = new StaticIcon(this, 0, 0, iconId,
+                               COLOR_THEME_QM_BG_INDEX);
+    shadowPtr->center(size + 2, badgeSize + 2);
+    lv_obj_set_style_img_recolor(shadowPtr->getLvObj(), lv_color_black(),
+                                 LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(shadowPtr->getLvObj(), LV_OPA_COVER,
+                                     LV_PART_MAIN);
+    lv_obj_set_style_opa(shadowPtr->getLvObj(), LV_OPA_30, LV_PART_MAIN);
+    lv_obj_move_to_index(shadowPtr->getLvObj(), 1);
+
+    iconPtr->center(size, badgeSize);
+    lv_obj_set_style_img_recolor(iconPtr->getLvObj(), lv_color_white(),
+                                 LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(iconPtr->getLvObj(), LV_OPA_COVER,
+                                     LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(iconPtr->getLvObj(), lv_color_white(),
+                                 LV_PART_MAIN | LV_STATE_USER_1);
+
+    textPtr->setPos(0, labelTop);
+    textPtr->setSize(size, size - labelTop);
+    etx_font(textPtr->getLvObj(), FONT_XS_INDEX);
+    lv_label_set_long_mode(textPtr->getLvObj(), LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(textPtr->getLvObj(), 0, LV_PART_MAIN);
+    lv_point_t required;
+    lv_txt_get_size(&required, lv_label_get_text(textPtr->getLvObj()),
+                    lv_obj_get_style_text_font(textPtr->getLvObj(), LV_PART_MAIN),
+                    lv_obj_get_style_text_letter_space(textPtr->getLvObj(), LV_PART_MAIN),
+                    0, size, LV_TEXT_FLAG_NONE);
+    if (required.y > size - labelTop)
+      etx_font(textPtr->getLvObj(), FONT_XXS_INDEX);
+    etx_txt_color(textPtr->getLvObj(), COLOR_THEME_QM_FG_INDEX,
+                  LV_PART_MAIN | LV_STATE_USER_1);
   }
 #endif
 
@@ -150,6 +223,10 @@ class QuickMenuButton : public ButtonBase
       lv_obj_add_state(textPtr->getLvObj(), LV_STATE_USER_1);
     if (iconPtr && iconPtr->getLvObj())
       lv_obj_add_state(iconPtr->getLvObj(), LV_STATE_USER_1);
+#if defined(RADIO_NB4_FAMILY)
+    if (badgePtr && badgePtr->getLvObj())
+      lv_obj_add_state(badgePtr->getLvObj(), LV_STATE_USER_1);
+#endif
   }
 
   void setDeFocused()
@@ -158,6 +235,10 @@ class QuickMenuButton : public ButtonBase
       lv_obj_clear_state(textPtr->getLvObj(), LV_STATE_USER_1);
     if (iconPtr && iconPtr->getLvObj())
       lv_obj_clear_state(iconPtr->getLvObj(), LV_STATE_USER_1);
+#if defined(RADIO_NB4_FAMILY)
+    if (badgePtr && badgePtr->getLvObj())
+      lv_obj_clear_state(badgePtr->getLvObj(), LV_STATE_USER_1);
+#endif
   }
 
   bool isVisible() {
@@ -167,7 +248,12 @@ class QuickMenuButton : public ButtonBase
   }
 
  protected:
+  EdgeTxIcon iconId;
   StaticIcon* iconPtr = nullptr;
   StaticText* textPtr = nullptr;
+#if defined(RADIO_NB4_FAMILY)
+  Window* badgePtr = nullptr;
+  StaticIcon* shadowPtr = nullptr;
+#endif
   std::function<bool(void)> visibleHandler = nullptr;
 };

@@ -444,7 +444,8 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
       {"settings/controls/shortcuts", "display"},
       {"settings/controls/quick_access", "display"},
       {"settings/sound_alerts/lights", "display"},
-      {"settings/connectivity/usb", "system"}}) {
+      {"settings/connectivity/usb", "system"},
+      {"settings/system/help", "help"}}) {
     const auto route = nb4RouteById(nb4RouteId(move.first));
     ASSERT_NE(route, nullptr);
     EXPECT_STREQ(route->path, move.first);
@@ -457,9 +458,20 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
     EXPECT_STREQ(race[i]->path + strlen("settings/race/"), expected[i]);
   unsigned count;
   const auto sections = nb4Sections(&count);
-  const char* expectedSections[] = {"steering", "throttle_brake", "car", "controls", "receiver_rf", "race", "telemetry", "models", "display", "sound_alerts", "system", "advanced"};
-  ASSERT_EQ(count, 12u);
+  const char* expectedSections[] = {"steering", "throttle_brake", "car", "controls", "receiver_rf", "race", "telemetry", "models", "display", "sound_alerts", "system", "help", "advanced"};
+  ASSERT_EQ(count, 13u);
   for (unsigned i = 0; i < count; ++i) EXPECT_STREQ(sections[i].id, expectedSections[i]);
+  unsigned rootEntries = 0;
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route* sectionRoutes[32];
+    const unsigned sectionCount = nb4RoutesOfSection(sections[i].id, sectionRoutes, 32);
+    unsigned visible = 0;
+    for (unsigned r = 0; r < sectionCount && r < 32; ++r)
+      if (nb4RouteInSettings(*sectionRoutes[r])) visible += 1;
+    EXPECT_LE(visible, 12u) << sections[i].id;
+    if (!sections[i].parent && visible) rootEntries += 1;
+  }
+  EXPECT_LE(rootEntries, 12u);
 #if !defined(BLUETOOTH)
   EXPECT_EQ(nb4RouteByPath("settings/connectivity/bluetooth"), nullptr);
 #endif

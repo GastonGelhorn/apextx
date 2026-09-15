@@ -8,6 +8,7 @@
 
 #if defined(RADIO_NB4_FAMILY)
 
+#include <algorithm>
 #include <string.h>
 #include <vector>
 
@@ -385,7 +386,7 @@ const Nb4Route routes[] = {
 #endif
     AV("settings/system/diagnostics", NB4_STR(DIAGNOSTICS), []() { page(QM_TOOLS_DEBUG); }, Recovery, "system/diagnostics", UX_HELP_SYSTEM, true),
     AV("settings/system/about", NB4_STR(ABOUT), []() { page(QM_RADIO_VERSION); }, Recovery, "system/about", UX_HELP_SYSTEM, true),
-    AV("settings/system/help", NB4_STR(HELP), []() { nb4OpenHelp(); }, Recovery, "system/help", UX_HELP_INDEX, false),
+    IN("settings/system/help", NB4_STR(HELP), []() { nb4OpenHelp(); }, Recovery, "system/help", UX_HELP_INDEX, false, "help"),
 
     // --- Advanced
     AV("settings/advanced/features", NB4_STR(UX_ENABLED_FEATURES), openNb4ModelFeatures, ModelData, "advanced/features", UX_HELP_FEATURES, true),
@@ -431,6 +432,7 @@ const Nb4Section2 sections[] = {
     {"display", NB4_STR(DISPLAY), ICON_THEME},
     {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_RADIO_SETUP},
     {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
+    {"help", NB4_STR(HELP), ICON_RADIO_VERSION},
     {"advanced", NB4_STR(UX_ADVANCED_SETUP), ICON_MODEL_MIXER, "car"},
 };
 
@@ -438,38 +440,203 @@ const Nb4Section2 sections[] = {
 
 namespace {
 
-constexpr int GRID_COLS = 4;
+constexpr unsigned GRID_COLS = 4;
+constexpr unsigned GRID_ROWS = 3;
+constexpr coord_t TILE_MAX = 76;
 
-constexpr lv_coord_t TILE_H = 90;
+struct AppTileColors {
+  lv_color_t base;
+  lv_color_t detail;
+};
+
+AppTileColors appTileColors(const char* key)
+{
+  // Dark-mode variants of the familiar iOS app colours.  Keeping a colour
+  // family per destination makes an item recognisable in both its canonical
+  // menu and Quick access.
+  if (!key) return {lv_color_hex(0x636366), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "car/safety"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "car/presets"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0x30D158)};
+  if (strstr(key, "car/notes"))
+    return {lv_color_hex(0xFFD60A), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "car/advanced"))
+    return {lv_color_hex(0xBF5AF2), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "controls/assignments"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "controls/channels"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x30D158)};
+  if (strstr(key, "controls/general"))
+    return {lv_color_hex(0x636366), lv_color_hex(0xBF5AF2)};
+  if (strstr(key, "controls/monitor"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0xBF5AF2)};
+  if (strstr(key, "telemetry/sensors"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "telemetry/alerts"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0x30D158)};
+  if (strstr(key, "race/history"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "race/pit"))
+    return {lv_color_hex(0xFF9F0A), lv_color_hex(0xFF453A)};
+  if (strstr(key, "race/statistics"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "race/setup"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0xFF375F)};
+  if (strstr(key, "race/resets"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "models/templates"))
+    return {lv_color_hex(0xBF5AF2), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "display/brightness") || strstr(key, "sound_alerts/lights"))
+    return {lv_color_hex(0xFFD60A), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "display/appearance"))
+    return {lv_color_hex(0xBF5AF2), lv_color_hex(0xFF375F)};
+  if (strstr(key, "display/screens"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "display/top_bar"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x30D158)};
+  if (strstr(key, "controls/shortcuts"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "controls/quick_access"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0xBF5AF2)};
+  if (strstr(key, "sound_alerts/alerts"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "sound_alerts/sound"))
+    return {lv_color_hex(0xBF5AF2), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "sound_alerts/haptic"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "connectivity/usb"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0x30D158)};
+  if (strstr(key, "system/backup_restore"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "system/reset"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "system/general"))
+    return {lv_color_hex(0x636366), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "system/power"))
+    return {lv_color_hex(0xFF9F0A), lv_color_hex(0xFFD60A)};
+  if (strstr(key, "system/hardware"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0xBF5AF2)};
+  if (strstr(key, "system/calibration"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "system/storage"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x30D158)};
+  if (strstr(key, "system/update"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "system/date_time_location"))
+    return {lv_color_hex(0xFF9F0A), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "system/diagnostics"))
+    return {lv_color_hex(0x636366), lv_color_hex(0x30D158)};
+  if (strstr(key, "system/about"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "steering"))
+    return {lv_color_hex(0x0A84FF), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "throttle_brake"))
+    return {lv_color_hex(0xFF9F0A), lv_color_hex(0xFF453A)};
+  if (strstr(key, "receiver_rf"))
+    return {lv_color_hex(0xBF5AF2), lv_color_hex(0xFF375F)};
+  if (strstr(key, "telemetry"))
+    return {lv_color_hex(0x30D158), lv_color_hex(0x64D2FF)};
+  if (strstr(key, "race"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "controls"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x5E5CE6)};
+  if (strstr(key, "models"))
+    return {lv_color_hex(0xFF375F), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "display"))
+    return {lv_color_hex(0x64D2FF), lv_color_hex(0x5E5CE6)};
+  if (strstr(key, "sound_alerts"))
+    return {lv_color_hex(0xAF52DE), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "reset"))
+    return {lv_color_hex(0xFF453A), lv_color_hex(0xFF9F0A)};
+  if (strstr(key, "help"))
+    return {lv_color_hex(0x32ADE6), lv_color_hex(0x30D158)};
+  if (strstr(key, "system"))
+    return {lv_color_hex(0x636366), lv_color_hex(0x0A84FF)};
+  if (strstr(key, "advanced"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0xBF5AF2)};
+  if (strstr(key, "car"))
+    return {lv_color_hex(0x5E5CE6), lv_color_hex(0xFF375F)};
+  return {lv_color_hex(0x0A84FF), lv_color_hex(0x30D158)};
+}
 
 uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
 {
   if (!strcmp(route.destination, "steering")) return ICON_NB4_STEERING;
   if (!strcmp(route.destination, "throttle_brake")) return ICON_NB4_THROTTLE;
+  if (!strcmp(route.path, "settings/car/general")) return ICON_NB4_MODEL_SETUP;
+  if (!strcmp(route.path, "settings/car/safety")) return ICON_MODEL_SPECIAL_FUNCTIONS;
+  if (!strcmp(route.path, "settings/car/presets")) return ICON_MODEL_FLIGHT_MODES;
+  if (!strcmp(route.path, "settings/car/notes")) return ICON_MODEL_NOTES;
+  if (!strcmp(route.path, "settings/car/advanced")) return ICON_MODEL_MIXER;
   if (!strcmp(route.path, "settings/controls/trims")) return ICON_NB4_OUTPUTS;
+  if (!strcmp(route.path, "settings/controls/assignments")) return ICON_MODEL_INPUTS;
+  if (!strcmp(route.path, "settings/controls/channels")) return ICON_MODEL_OUTPUTS;
+  if (!strcmp(route.path, "settings/controls/general")) return ICON_RADIO_HARDWARE;
+  if (!strcmp(route.path, "settings/controls/monitor")) return ICON_MONITOR;
+  if (!strcmp(route.path, "settings/telemetry/track_view")) return ICON_MODEL_TELEMETRY;
+  if (!strcmp(route.path, "settings/telemetry/sensors")) return ICON_STATS_ANALOGS;
+  if (!strcmp(route.path, "settings/telemetry/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
   if (!strcmp(route.path, "settings/race/history")) return ICON_STATS;
   if (!strcmp(route.path, "settings/race/timer_laps")) return ICON_STATS_TIMERS;
   if (!strcmp(route.path, "settings/race/pit")) return ICON_RADIO_TOOLS;
   if (!strcmp(route.path, "settings/race/statistics")) return ICON_STATS_ANALOGS;
   if (!strcmp(route.path, "settings/race/setup")) return ICON_MODEL_SETUP;
+  if (!strcmp(route.path, "settings/race/timers")) return ICON_STATS_TIMERS;
   if (!strcmp(route.path, "settings/race/resets")) return ICON_TOOLS_RESET;
+  if (!strcmp(route.path, "settings/models/management")) return ICON_MODEL_SELECT;
+  if (!strcmp(route.path, "settings/models/templates")) return ICON_TOOLS_APPS;
+  if (!strcmp(route.path, "settings/display/brightness")) return ICON_THEME_VIEW1;
+  if (!strcmp(route.path, "settings/display/appearance")) return ICON_RADIO_EDIT_THEME;
+  if (!strcmp(route.path, "settings/display/screens")) return ICON_THEME;
+  if (!strcmp(route.path, "settings/display/top_bar")) return ICON_THEME_SETUP;
+  if (!strcmp(route.path, "settings/controls/shortcuts")) return ICON_RADIO_HARDWARE;
+  if (!strcmp(route.path, "settings/controls/quick_access")) return ICON_QM_FAVORITES;
+  if (!strcmp(route.path, "settings/sound_alerts/lights")) return ICON_THEME_VIEW2;
+  if (!strcmp(route.path, "settings/sound_alerts/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
+  if (!strcmp(route.path, "settings/sound_alerts/sound")) return ICON_RADIO_SETUP;
+  if (!strcmp(route.path, "settings/sound_alerts/haptic")) return ICON_RADIO_TRAINER;
+  if (!strcmp(route.path, "settings/connectivity/usb")) return ICON_MODEL_USB;
+  if (!strcmp(route.path, "settings/connectivity/bluetooth")) return ICON_RADIO_TRAINER;
+  if (!strcmp(route.path, "settings/system/backup_restore")) return ICON_MODEL_NOTES;
+  if (!strcmp(route.path, "settings/system/reset")) return ICON_TOOLS_RESET;
+  if (!strcmp(route.path, "settings/system/general")) return ICON_RADIO_SETUP;
+  if (!strcmp(route.path, "settings/system/power")) return ICON_STATS_ANALOGS;
+  if (!strcmp(route.path, "settings/system/hardware")) return ICON_RADIO_HARDWARE;
+  if (!strcmp(route.path, "settings/system/calibration")) return ICON_RADIO_CALIBRATION;
+  if (!strcmp(route.path, "settings/system/storage")) return ICON_RADIO_SD_MANAGER;
+  if (!strcmp(route.path, "settings/system/update")) return ICON_RADIO_TOOLS;
+  if (!strcmp(route.path, "settings/system/date_time_location")) return ICON_STATS_TIMERS;
+  if (!strcmp(route.path, "settings/system/diagnostics")) return ICON_STATS_DEBUG;
+  if (!strcmp(route.path, "settings/system/about")) return ICON_RADIO_VERSION;
+  if (!strcmp(route.path, "settings/system/help")) return ICON_RADIO_VERSION;
+  if (!strcmp(route.path, "settings/advanced/features")) return ICON_MODEL_SETUP;
+  if (!strcmp(route.path, "settings/advanced/input_preferences")) return ICON_MODEL_INPUTS;
+  if (!strcmp(route.path, "settings/advanced/inputs")) return ICON_MODEL_INPUTS;
+  if (!strcmp(route.path, "settings/advanced/mixes")) return ICON_MODEL_MIXER;
+  if (!strcmp(route.path, "settings/advanced/outputs")) return ICON_MODEL_OUTPUTS;
+  if (!strcmp(route.path, "settings/advanced/logic")) return ICON_MODEL_LOGICAL_SWITCHES;
+  if (!strcmp(route.path, "settings/advanced/automation")) return ICON_MODEL_SPECIAL_FUNCTIONS;
+  if (!strcmp(route.path, "settings/advanced/variables")) return ICON_MODEL_GVARS;
+  if (!strcmp(route.path, "settings/advanced/scripts")) return ICON_MODEL_LUA_SCRIPTS;
   return fallback;
 }
 
 class Nb4GridModal : public BaseDialog
 {
  public:
-  Nb4GridModal(const char* title, unsigned tiles, bool branded = false, unsigned columns = GRID_COLS) :
-      BaseDialog(title, true, gridWidth(), gridHeight(tiles)), columns(columns)
+  Nb4GridModal(const char* title, unsigned tiles) :
+      BaseDialog(title, true, gridWidth(), gridHeight(tiles))
   {
     setScopeText(""); // Category grids contain destinations with different scopes.
-    if (branded)
-      useBrandHeader();
-    else
-      useSectionHeader();
+    useBrandHeader();
     form->setFlexLayout(LV_FLEX_FLOW_ROW_WRAP, PAD_SMALL, gridWidth(),
                         LV_SIZE_CONTENT);
     form->padAll(PAD_SMALL);
+    lv_obj_set_flex_align(form->getLvObj(), LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(form->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(form->getLvObj(), LV_SCROLLBAR_MODE_OFF);
 
     etx_solid_bg(form->getLvObj(), COLOR_THEME_QM_BG_INDEX);
     if (lv_obj_t* content = lv_obj_get_parent(form->getLvObj()))
@@ -481,10 +648,19 @@ class Nb4GridModal : public BaseDialog
   bool setHelpHandler(std::function<void()>) override { return false; }
 
   void tile(uint8_t icon, const char* label, bool openable,
-            std::function<void()> action, const char* reason = nullptr)
+            std::function<void()> action, const char* reason = nullptr,
+            const char* colorKey = nullptr)
   {
+    const coord_t size = tileSize();
+    const coord_t column = columnWidth();
+    auto slot = new Window(form, {0, 0, column, size});
+    slot->padAll(PAD_ZERO);
+    lv_obj_clear_flag(slot->getLvObj(),
+                      LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_opa(slot->getLvObj(), LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(slot->getLvObj(), 0, LV_PART_MAIN);
     QuickMenuButton* btn = new QuickMenuButton(
-        form, (EdgeTxIcon)icon, label,
+        slot, (EdgeTxIcon)icon, label,
         [this, action, openable, title = std::string(label), reason]() {
           if (openable) {
 
@@ -503,12 +679,9 @@ class Nb4GridModal : public BaseDialog
     // Keep unavailable options focusable so their explanation can be read.
     if (!openable) lv_obj_set_style_opa(btn->getLvObj(), LV_OPA_50, 0);
 
-    // PaddingSize is a style token, not a pixel count. Measure resolved values.
-    lv_obj_update_layout(form->getLvObj());
-    const coord_t available = lv_obj_get_content_width(form->getLvObj());
-    const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
-    btn->setTileWidth((available - (columns - 1) * gap) / columns);
-    lv_obj_set_height(btn->getLvObj(), TILE_H);
+    const auto colors = appTileColors(colorKey ? colorKey : label);
+    btn->useAppTile(size, colors.base, colors.detail);
+    btn->setPos((column - size) / 2, 0);
     tiles.push_back(btn);
   }
 
@@ -534,7 +707,6 @@ class Nb4GridModal : public BaseDialog
 
  private:
   std::vector<QuickMenuButton*> tiles;
-  unsigned columns;
 
  public:
   void populate(std::function<void()> action, bool watch = false) {
@@ -545,16 +717,9 @@ class Nb4GridModal : public BaseDialog
       quickSignature = quickSignature * 31 + g_eeGeneral.nb4QuickAccess[i];
     rebuild();
   }
-  void separator() {
-    auto line = new Window(form, {0, 0, LV_PCT(100), 8});
-    lv_obj_set_style_border_side(line->getLvObj(), LV_BORDER_SIDE_TOP, 0);
-    lv_obj_set_style_border_width(line->getLvObj(), 1, 0);
-    etx_border_color(line->getLvObj(), COLOR_THEME_PRIMARY3_INDEX);
-  }
   void configure(std::function<void()> action) {
-    auto button = new TextButton(form, {0, 0, LV_PCT(100), 44},
-      STR_NB4_CONFIGURE_QUICK_ACCESS, [action] { action(); return 0; });
-    button->setWrap();
+    tile(ICON_QM_FAVORITES, STR_NB4_CONFIGURE_QUICK_ACCESS, true,
+         std::move(action), nullptr, "settings/controls/quick_access");
   }
 
  private:
@@ -573,6 +738,31 @@ class Nb4GridModal : public BaseDialog
   static lv_coord_t gridHeight(unsigned)
   {
     return (lv_coord_t)(lv_disp_get_ver_res(nullptr) * 0.96);
+  }
+
+  coord_t tileSize() const
+  {
+    // Four columns by three rows is the complete viewport contract.  Derive
+    // one square size from both axes so rotation cannot introduce scrolling.
+    lv_obj_update_layout(form->getLvObj());
+    const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
+    const coord_t availableWidth = lv_obj_get_content_width(form->getLvObj());
+    const coord_t byWidth =
+        (availableWidth - (GRID_COLS - 1) * gap) / GRID_COLS;
+    const coord_t availableHeight =
+        gridHeight(0) - EdgeTxStyles::UI_ELEMENT_HEIGHT - 2 * PAD_SMALL;
+    const coord_t byHeight =
+        (availableHeight - (GRID_ROWS - 1) * gap) / GRID_ROWS;
+    return std::max<coord_t>(EdgeTxStyles::UI_ELEMENT_HEIGHT,
+                             std::min({TILE_MAX, byWidth, byHeight}));
+  }
+
+  coord_t columnWidth() const
+  {
+    lv_obj_update_layout(form->getLvObj());
+    const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
+    const coord_t availableWidth = lv_obj_get_content_width(form->getLvObj());
+    return (availableWidth - (GRID_COLS - 1) * gap) / GRID_COLS;
   }
 };
 
@@ -622,7 +812,7 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
 void nb4OpenQuickAccessModal()
 {
   nb4QuickAccessNormalize();
-  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS, NB4_QUICK_ACCESS_COUNT, true);
+  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS, NB4_QUICK_ACCESS_COUNT);
   modal->populate([modal] {
   for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
     const Nb4Route* route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
@@ -633,7 +823,8 @@ void nb4OpenQuickAccessModal()
     }
     icon = routeIcon(*route, icon);
     modal->tile(icon, nb4QuickAccessLabel(*route).c_str(), nb4RouteIsOpenable(*route),
-                [route] { nb4OpenRoute(route->path); }, nb4StrOrNull(route->reason));
+                [route] { nb4OpenRoute(route->path); },
+                nb4StrOrNull(route->reason), route->path);
   }
   modal->configure([] { nb4OpenRoute("settings/controls/quick_access"); });
   }, true);
@@ -686,24 +877,22 @@ void nb4OpenSettingsSection(const char* id)
   // These categories already have one editor with its own tabs, not submenus.
   const char* direct = !strcmp(id, "steering") ? "settings/steering/travel" :
     !strcmp(id, "throttle_brake") ? "settings/throttle_brake/travel" :
-    !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" : nullptr;
+    !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" :
+    !strcmp(id, "help") ? "settings/system/help" : nullptr;
   if (direct) { nb4OpenRoute(direct); return; }
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(id, views, 32);
-  const unsigned columns = lv_disp_get_hor_res(nullptr) >
-                           lv_disp_get_ver_res(nullptr) ? 3 : 2;
-  auto modal = new Nb4GridModal(section->label(), n, false, columns);
+  auto modal = new Nb4GridModal(section->label(), n);
   modal->populate([modal, section] {
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(section->id, views, 32);
   for (unsigned v = 0; v < n && v < 32; ++v) {
     const auto route = views[v];
     if (!nb4RouteInSettings(*route)) continue;
-    if (!strcmp(route->path, "settings/race/resets")) modal->separator();
     modal->tile(routeIcon(*route, section->icon), route->label(),
                 nb4RouteIsOpenable(*route),
                 [route] { nb4OpenRoute(route->path); },
-                nb4StrOrNull(route->reason));
+                nb4StrOrNull(route->reason), route->path);
   }
   });
 }
@@ -711,7 +900,7 @@ void nb4OpenSettingsSection(const char* id)
 void nb4OpenSettingsModal()
 {
   nb4QuickAccessNormalize();
-  auto modal = new Nb4GridModal(STR_NB4_SETTINGS, 12, true);
+  auto modal = new Nb4GridModal(STR_NB4_SETTINGS, 12);
   modal->populate([modal] {
   for (const auto& section : sections) {
     if (section.parent) continue;
@@ -723,7 +912,7 @@ void nb4OpenSettingsModal()
     if (!visible) continue;
     const auto sec = &section;
     modal->tile(sec->icon, sec->label(), sectionHasSomethingOpenable(sec->id),
-                [sec] { nb4OpenSettingsSection(sec->id); });
+                [sec] { nb4OpenSettingsSection(sec->id); }, nullptr, sec->id);
   }
   });
 }
