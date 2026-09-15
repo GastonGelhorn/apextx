@@ -85,7 +85,7 @@ static inline void check_struct()
 #elif defined(COLORLCD)
   #if defined(RADIO_NB4_FAMILY)
 
-    CHKSIZE(RadioData, 1077);
+    CHKSIZE(RadioData, 1110);
   #elif defined(IMU)
     CHKSIZE(RadioData, 1060);
   #else
@@ -113,9 +113,9 @@ static inline void check_struct()
   #if defined(RADIO_NB4_FAMILY) || defined(RADIO_NV14_FAMILY)
 
     #if defined(RADIO_NB4)
-      CHKSIZE(ModelData, 6304);
+      CHKSIZE(ModelData, 6305);
     #elif defined(RADIO_NB4P)
-      CHKSIZE(ModelData, 6106);
+      CHKSIZE(ModelData, 6107);
     #else
       CHKSIZE(ModelData, 6875);
     #endif

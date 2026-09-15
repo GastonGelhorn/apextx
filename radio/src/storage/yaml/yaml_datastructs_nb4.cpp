@@ -304,6 +304,11 @@ static const struct YamlNode struct_unsigned_8[] = {
   YAML_UNSIGNED( "val", 8 ),
   YAML_END
 };
+static const struct YamlNode struct_unsigned_32[] = {
+  YAML_IDX,
+  YAML_UNSIGNED( "val", 32 ),
+  YAML_END
+};
 static const struct YamlNode struct_QuickMenuPage[] = {
   YAML_IDX,
   YAML_ENUM("shortcut", 8, enum_QMPage, NULL),
@@ -403,6 +408,8 @@ static const struct YamlNode struct_RadioData[] = {
   YAML_UNSIGNED( "nb4Orientation", 8 ),
   YAML_UNSIGNED( "nb4Accent", 8 ),
   YAML_ARRAY("nb4Cards", 8, 28, struct_unsigned_8, NULL),
+  YAML_UNSIGNED( "nb4QuickAccessVersion", 8 ),
+  YAML_ARRAY("nb4QuickAccess", 32, 8, struct_unsigned_32, NULL),
   YAML_UNSIGNED( "nb4LedMode", 8 ),
   YAML_UNSIGNED( "nb4LedColor", 8 ),
   YAML_UNSIGNED( "labelSingleSelect", 1 ),
@@ -939,6 +946,7 @@ static const struct YamlNode struct_ModelData[] = {
   YAML_PADDING( 2 ),
   YAML_STRUCT("nb4Racing", 136, struct_Nb4RacingData, NULL),
   YAML_ARRAY("nb4Bindings", 8, 12, struct_unsigned_8, NULL),
+  YAML_UNSIGNED( "nb4ScreenVersion", 8 ),
   YAML_ARRAY("nb4RfSettings", 8, 196, struct_unsigned_8, NULL),
   YAML_END
 };
@@ -969,3 +977,4 @@ const YamlNode* get_partialmodel_nodes()
 {
    return &__PartialModel_root_node;
 }
+

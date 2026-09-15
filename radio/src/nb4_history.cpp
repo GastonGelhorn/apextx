@@ -20,8 +20,13 @@
 namespace {
 constexpr const char* directory = "/LOGS/NB4";
 enum SlotState : uint8_t { Empty, Reserved, Pending, Failed };
-struct Slot { std::atomic<uint8_t> state{Empty}; Nb4RaceRecord record{}; };
+struct Slot {
+  std::atomic<uint8_t> state{Empty};
+  std::atomic<uint32_t> token{0}, savedId{0};
+  Nb4RaceRecord record{};
+};
 Slot slots[2];
+std::atomic<uint32_t> sessionSequence{0};
 std::atomic<Nb4HistoryStatus> status{Nb4HistoryStatus::Idle};
 std::atomic<bool> retry{false}, logRequested{false};
 // One UI request, one completed immutable reply. Producers never wait.
@@ -221,17 +226,35 @@ bool nb4HistoryCanReserve() { for (auto& slot : slots) if (slot.state.load() == 
 int nb4HistoryReserve() {
   for (unsigned i = 0; i < 2; ++i) {
     uint8_t empty = Empty;
-    if (slots[i].state.compare_exchange_strong(empty, Reserved)) return i;
+    if (slots[i].state.compare_exchange_strong(empty, Reserved)) {
+      slots[i].token.store(0);
+      slots[i].savedId.store(0);
+      return i;
+    }
   }
   status.store(Nb4HistoryStatus::Full); return -1;
 }
 void nb4HistoryRelease(int i) { if (i >= 0 && i < 2 && slots[i].state.load() == Reserved) slots[i].state.store(Empty); }
-void nb4HistoryPublish(int i, const Nb4RaceRecord& record) {
-  if (i < 0 || i >= 2) return;
+uint32_t nb4HistoryPublish(int i, const Nb4RaceRecord& record) {
+  if (i < 0 || i >= 2) return 0;
+  uint32_t token = sessionSequence.fetch_add(1) + 1;
+  if (!token) token = sessionSequence.fetch_add(1) + 1;
   slots[i].record = record;
+  slots[i].token.store(token);
+  slots[i].savedId.store(0);
   for (auto& c : slots[i].record.model) if (c && uint8_t(c) < 32) c = ' ';
   slots[i].state.store(Pending, std::memory_order_release);
   status.store(Nb4HistoryStatus::Pending);
+  return token;
+}
+uint32_t nb4HistorySavedId(uint32_t token) {
+  if (!token) return 0;
+  for (const auto& slot : slots) {
+    if (slot.token.load() != token) continue;
+    const auto id = slot.savedId.load(std::memory_order_acquire);
+    if (slot.token.load() == token) return id;
+  }
+  return 0;
 }
 unsigned nb4HistoryPending() { unsigned n = 0; for (auto& s : slots) if (s.state.load() >= Pending) ++n; return n; }
 Nb4HistoryStatus nb4HistoryStatus() { return status.load(); }
@@ -271,6 +294,8 @@ void nb4StorageProcess() {
     }
     status.store(Nb4HistoryStatus::Saving);
     auto result = saveRecord(slot.record);
+    if (result == FR_OK)
+      slot.savedId.store(slot.record.id, std::memory_order_release);
     status.store(result == FR_OK ? Nb4HistoryStatus::Saved : Nb4HistoryStatus::Failed);
     slot.state.store(result == FR_OK ? Empty : Failed, std::memory_order_release);
   }

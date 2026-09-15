@@ -25,7 +25,8 @@ enum class Nb4HistoryStatus : uint8_t { Idle, Pending, Saving, Saved, Unavailabl
 bool nb4HistoryCanReserve();
 int nb4HistoryReserve();
 void nb4HistoryRelease(int slot);
-void nb4HistoryPublish(int slot, const Nb4RaceRecord& record);
+uint32_t nb4HistoryPublish(int slot, const Nb4RaceRecord& record);
+uint32_t nb4HistorySavedId(uint32_t sessionToken);
 unsigned nb4HistoryPending();
 Nb4HistoryStatus nb4HistoryStatus();
 void nb4HistoryRetry();

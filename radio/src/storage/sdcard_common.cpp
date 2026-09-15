@@ -27,6 +27,9 @@
 #include "model_init.h"
 #include "nb4_model_compat.h"
 #include "nb4_history.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_home.h"
+#endif
 #include "tasks/mixer_task.h"
 
 #include "hal/abnormal_reboot.h"
@@ -219,6 +222,9 @@ const char* loadModel(const char* filename, bool alarms, const char* filePath)
     storageCheck(true);
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  if (!error) nb4MigrateHome(checkedPath);
+#endif
   postModelLoad(error ? false : alarms);
   return error;
 }

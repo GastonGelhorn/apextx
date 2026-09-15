@@ -958,6 +958,7 @@ PACK(struct ModelData {
   Nb4RacingData nb4Racing;
   // Optional YAML extension: absent fields keep the native physical controls.
   uint8_t nb4Bindings[12];
+  uint8_t nb4ScreenVersion;
 #if defined(RADIO_NB4)
   // Versioned receiver identity and PWM options, persisted independently per car.
   uint8_t nb4RfSettings[196];
@@ -1204,6 +1205,8 @@ PACK(struct RadioData {
 
   NOBACKUP(uint8_t nb4Accent);
   NOBACKUP(uint8_t nb4Cards[28]);
+  NOBACKUP(uint8_t nb4QuickAccessVersion);
+  NOBACKUP(uint32_t nb4QuickAccess[8]);
 
   NOBACKUP(uint8_t nb4LedMode);
   NOBACKUP(uint8_t nb4LedColor);

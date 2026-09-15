@@ -7,6 +7,7 @@
 #if defined(RADIO_NB4_FAMILY)
 // Validation precedes deserialization, so incompatible files remain untouched.
 const char* nb4ValidateModelFile(const char* path);
+const char* nb4InspectModelFile(const char* path); // Read-only template validation.
 const char* nb4ValidateModelText(const char* text, size_t length);
 bool nb4ModelBlocked();
 const char* nb4ModelCompatibilityIssue();

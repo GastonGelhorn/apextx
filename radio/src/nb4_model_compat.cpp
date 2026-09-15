@@ -84,6 +84,8 @@ struct ModelCheck {
   void value(const char* value, unsigned length) {
     std::string v(value, length);
     const char* key = keys[level];
+    if (!level && !strcmp(key, "nb4ScreenVersion") && outside(v, 1))
+      fail("Newer home screen version requires review");
     if (contains("swashR") && v != "0" && !v.empty()) fail("Helicopter setup requires review");
     if (contains("varioData") && !strcmp(key, "source") && v != "0" && !v.empty()) fail("Variometer requires review");
     if (contains("trainerData") && !strcmp(key, "mode") && v != "0" && !v.empty()) fail("Trainer setup requires review");
@@ -187,6 +189,14 @@ const char* nb4ValidateModelFile(const char* path)
   issue = check.error;
   blocked.store(issue != nullptr, std::memory_order_release);
   return issue ? issue : readError;
+}
+const char* nb4InspectModelFile(const char* path)
+{
+  ModelCheck check;
+  const auto error = readYamlFile(path, &calls, &check, nullptr);
+  check.finish();
+  if (!error && !check.hasModelData) check.fail("Model data missing");
+  return error ? error : check.error;
 }
 bool nb4ModelBlocked() { return blocked.load(std::memory_order_acquire); }
 const char* nb4ModelCompatibilityIssue() { return issue; }

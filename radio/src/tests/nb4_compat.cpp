@@ -8,6 +8,8 @@
 #include "nb4_model_compat.h"
 #include "nb4_car_state.h"
 #include "nb4_racing.h"
+#include "nb4_home.h"
+#include "nb4_routes.h"
 #include "storage/sdcard_yaml.h"
 #include "storage/sdcard_common.h"
 #include "storage/modelslist.h"
@@ -361,6 +363,7 @@ TEST(Nb4Compatibility, AcceptsCarModelsAndNamesThatLookLikeSources)
 TEST(Nb4Compatibility, DetectsUnsupportedDataBeforeDeserialization)
 {
   const char* files[] = {
+    "nb4ScreenVersion: 2\n",
     "moduleData:\n  0:\n    type: TYPE_CROSSFIRE\n",
     "moduleData:\n  0:\n    type: TYPE_FLYSKY_AFHDS3\n    channelsCount: 12\n",
 #if defined(RADIO_NB4)
@@ -384,6 +387,83 @@ TEST(Nb4Compatibility, DetectsUnsupportedDataBeforeDeserialization)
     ,"customFn:\n  0:\n    def: -1,-100,1\n    func: OVERRIDE_CHANNEL\n"
   };
   for (auto text : files) EXPECT_NE(nb4ValidateModelText(text, strlen(text)), nullptr);
+}
+
+TEST(Nb4Compatibility, HomeMigrationBacksUpHiddenScreenAndNeverChangesOtherScreens)
+{
+  nb4FlushSettings();
+  ScopedFatfsRoot fatfs("nb4-home-migration");
+  std::filesystem::create_directories(fatfs.root / "MODELS");
+  SYSTEM_RESET(); MODEL_RESET(); nb4AcceptNewCarModel();
+  g_model.resetScreenData();
+  g_model.setScreenLayoutId(0, "Layout1x1");
+  g_model.getScreenLayoutData(0)->setWidgetName(0, "Value");
+  g_model.setScreenLayoutId(1, "Layout2x1");
+  g_model.getScreenLayoutData(1)->setWidgetName(1, "NB4Battery");
+  g_model.limitData[0].min = 321;
+  ASSERT_EQ(writeModelYaml("old.yml"), nullptr);
+  const auto original = readRaw((fatfs.root / "MODELS/old.yml").string());
+  simuFatfsSetFaults(0, 0);
+  EXPECT_FALSE(nb4MigrateHome("/MODELS/old.yml"));
+  simuFatfsSetFaults(0);
+  EXPECT_EQ(g_model.nb4ScreenVersion, 0);
+  EXPECT_STREQ(g_model.getScreenLayoutId(0), "Layout1x1");
+  EXPECT_FALSE(std::filesystem::exists(fatfs.root / "MODELS/old.yml.pre-apextx-home"));
+
+  {
+    std::ofstream conflicting(fatfs.root / "MODELS/old.yml.pre-apextx-home");
+    conflicting << "unrelated backup";
+  }
+  EXPECT_FALSE(nb4MigrateHome("/MODELS/old.yml"));
+  EXPECT_EQ(g_model.nb4ScreenVersion, 0);
+  std::filesystem::remove(fatfs.root / "MODELS/old.yml.pre-apextx-home");
+
+  simuFatfsSetRenameFault(1);
+  EXPECT_FALSE(nb4MigrateHome("/MODELS/old.yml"));
+  simuFatfsSetRenameFault(0);
+  EXPECT_EQ(g_model.nb4ScreenVersion, 0);
+  EXPECT_TRUE(nb4MigrateHome("/MODELS/old.yml"));
+  EXPECT_EQ(readRaw((fatfs.root / "MODELS/old.yml.pre-apextx-home").string()), original);
+  EXPECT_EQ(g_model.nb4ScreenVersion, 1);
+  EXPECT_STREQ(g_model.getScreenLayoutId(0), "ApexTXRacing");
+  EXPECT_STREQ(g_model.getScreenLayoutData(0)->getWidgetName(0), "ApexSteering");
+  EXPECT_STREQ(g_model.getScreenLayoutId(1), "Layout2x1");
+  EXPECT_STREQ(g_model.getScreenLayoutData(1)->getWidgetName(1), "NB4Battery");
+  EXPECT_EQ(g_model.limitData[0].min, 321);
+
+  // Reopening a migrated model must retain customized/empty zones.
+  g_model.getScreenLayoutData(0)->clearZone(1);
+  ASSERT_EQ(writeModelYaml("old.yml"), nullptr);
+  MODEL_RESET(); g_model.resetScreenData();
+  ASSERT_EQ(readModelYaml("old.yml", reinterpret_cast<uint8_t*>(&g_model), sizeof(g_model)), nullptr);
+  EXPECT_TRUE(nb4MigrateHome("/MODELS/old.yml"));
+  EXPECT_FALSE(g_model.getScreenLayoutData(0)->hasWidget(1));
+  EXPECT_STREQ(g_model.getScreenLayoutId(1), "Layout2x1");
+  EXPECT_EQ(readRaw((fatfs.root / "MODELS/old.yml.pre-apextx-home").string()), original);
+}
+
+TEST(Nb4Compatibility, QuickAccessPersistsStableIdsOrderEmptySlotsAndLegacyPreferences)
+{
+  nb4FlushSettings();
+  ScopedFatfsRoot fatfs("nb4-quick-roundtrip");
+  std::filesystem::create_directories(fatfs.root / "RADIO");
+  SYSTEM_RESET();
+  g_eeGeneral.nb4UiVersion = NB4_UI_VERSION;
+  g_eeGeneral.nb4Cards[0] = 17;
+  nb4QuickAccessReset();
+  ASSERT_TRUE(nb4QuickAccessSet(2, 0));
+  const auto original0 = g_eeGeneral.nb4QuickAccess[0];
+  const auto original1 = g_eeGeneral.nb4QuickAccess[1];
+  nb4QuickAccessMove(0, 1);
+  ASSERT_EQ(writeGeneralSettings(), nullptr);
+  SYSTEM_RESET();
+  ASSERT_EQ(loadRadioSettingsYaml(true), nullptr);
+  nb4QuickAccessNormalize();
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccessVersion, 2);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], original1);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[1], original0);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[2], 0u);
+  EXPECT_EQ(g_eeGeneral.nb4Cards[0], 17);
 }
 
 TEST(Nb4CarState, SeparatesDrivingCommandFromReversedServoOutput)

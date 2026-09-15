@@ -83,6 +83,55 @@ TEST(Nb4RaceSession, WaitsForNativeStartAndFreezesAtLapLimit) {
   EXPECT_STREQ(view.records[0].model, "SRX8 'Rally'");
   EXPECT_EQ(view.records[0].times[0], 101u);
 }
+
+TEST(Nb4History, ResultReceiptNeverPointsToAnEarlierRunOnSaveFailure) {
+  StorageFixture fixture;
+  finishOneRun();
+  const auto firstToken = nb4RaceResultToken();
+  EXPECT_NE(firstToken, 0u);
+  EXPECT_EQ(nb4HistorySavedId(firstToken), 0u);
+  nb4StorageProcess();
+  const auto firstId = nb4HistorySavedId(firstToken);
+  ASSERT_NE(firstId, 0u);
+  finishOneRun();
+  const auto secondToken = nb4RaceResultToken();
+  EXPECT_NE(firstToken, secondToken);
+  simuFatfsSetFaults(0, 0);
+  nb4StorageProcess();
+  EXPECT_EQ(nb4HistorySavedId(secondToken), 0u);
+  simuFatfsSetFaults(0);
+  nb4HistoryRetry(); nb4StorageProcess();
+  const auto secondId = nb4HistorySavedId(secondToken);
+  EXPECT_GT(secondId, firstId);
+  const auto record = readHistory(secondId);
+  ASSERT_EQ(record.count, 1);
+  EXPECT_EQ(record.records[0].id, secondId);
+}
+
+TEST(Nb4History, ZeroLapResultsGetTheirOwnReceiptsAndResetDoesNotExposeOldRuns) {
+  StorageFixture fixture;
+  uint32_t previousId = 0;
+  for (unsigned run = 0; run < 3; ++run) {
+    ASSERT_TRUE(nb4RaceStart()); tick(1);
+    ASSERT_TRUE(nb4RaceFinish()); tick(1);
+    EXPECT_EQ(nb4RacingLaps(), 0);
+    const auto receipt = nb4RaceResultToken();
+    ASSERT_NE(receipt, 0u);
+    EXPECT_EQ(nb4HistorySavedId(receipt), 0u);
+    nb4StorageProcess();
+    const auto id = nb4HistorySavedId(receipt);
+    EXPECT_GT(id, previousId);
+    auto detail = readHistory(id);
+    ASSERT_EQ(detail.count, 1);
+    EXPECT_EQ(detail.records[0].id, id);
+    EXPECT_EQ(detail.records[0].laps, 0);
+    EXPECT_EQ(detail.records[0].best, 0u);
+    previousId = id;
+  }
+  nb4RacingReset();
+  EXPECT_EQ(nb4RaceResultToken(), 0u);
+  EXPECT_EQ(nb4HistorySavedId(0), 0u);
+}
 TEST(Nb4RaceSession, ManualCommandsUseNativeTimerWithoutEditingConfiguration) {
   StorageFixture fixture;
   g_model.timers[0].mode = TMRMODE_THR_START;
