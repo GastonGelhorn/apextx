@@ -23,8 +23,17 @@ struct Nb4ControlLatency {
   uint16_t minUs;
   uint16_t maxUs;
   uint16_t averageUs;
+  uint32_t rawMaxUs; // Includes preemption/debugger outliers
   uint32_t frames;   // Cycles that carried channel positions
   uint32_t ignored;  // Cycles whose measurement was discarded as implausible
+};
+
+struct Nb4TouchLatency {
+  uint32_t lastUs;
+  uint32_t averageUs;
+  uint32_t maxUs;
+  uint32_t samples;
+  uint32_t missedFrames;
 };
 
 // The mixer cycle has just read the controls. Starts the measurement.
@@ -41,11 +50,19 @@ void nb4LatencySent();
 Nb4ControlLatency nb4LatencyRead();
 void nb4LatencyReset();
 
+// Touch IRQ to the first subsequently presented frame. This measures the UI
+// path on the radio; it deliberately does not run LVGL from the interrupt.
+void nb4TouchLatencyPressed(uint32_t interruptAtUs);
+void nb4TouchLatencyFrameQueued();
+void nb4TouchLatencyPresented();
+Nb4TouchLatency nb4TouchLatencyRead();
+
 // A measurement longer than this is discarded rather than recorded: the radio
 // was preempted, or a debugger stopped it, and one such outlier would sit in
 // the maximum for the rest of the session. One mixer period is already far
 // longer than the path being measured.
 constexpr uint16_t Nb4LatencyPlausibleUs = 5000;
+constexpr uint32_t Nb4TouchLatencyPlausibleUs = 250000;
 
 // The radio reads the microsecond tick. Tests substitute a clock they drive,
 // because the simulator's tick does not advance.

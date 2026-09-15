@@ -248,15 +248,21 @@ void DebugViewPage::build(Window* window)
 
   // Mixer data
   static std::string pad_STR_MS = " " + std::string(STR_MS);
-  static std::string pad_STR_PERIOD = std::string(STR_PERIOD) + ": ";
   new StaticText(line, rect_t{}, STR_TMIXMAXMS);
   new DynamicNumber<uint16_t>(
       line, rect_t{}, [] { return DURATION_MS_PREC2(maxMixerDuration); },
       COLOR_THEME_PRIMARY1_INDEX, PREC2, nullptr, pad_STR_MS.c_str());
 
+  // Keep each diagnostic line to one declared grid row. Runtime rotation can
+  // make an NB4 landscape page use the portrait-compiled two-column grid; a
+  // third child would otherwise spill into an undeclared row and leave a large
+  // blank area.
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, STR_PERIOD);
   new DynamicNumber<uint16_t>(
           line, rect_t{}, [] { return getMixerSchedulerPeriod() / 1000; },
-          COLOR_THEME_PRIMARY1_INDEX, 0, pad_STR_PERIOD.c_str(), pad_STR_MS.c_str());
+          COLOR_THEME_PRIMARY1_INDEX, 0, nullptr, pad_STR_MS.c_str());
 
 #if defined(RADIO_NB4_FAMILY)
   line = window->newLine(grid);
@@ -265,11 +271,9 @@ void DebugViewPage::build(Window* window)
   // Sampling the controls to handing the frame carrying them to the module.
   // docs/nb4/LATENCY.md says what this covers and what it leaves out.
   new StaticText(line, rect_t{}, STR_NB4_CONTROL_LATENCY);
-#if PORTRAIT
   line = window->newLine(grid2);
   line->padAll(PAD_ZERO);
   line->padLeft(PAD_LARGE);
-#endif
   new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
                                 [] { return nb4LatencyRead().minUs; },
                                 STR_NB4_MIN);
@@ -278,6 +282,34 @@ void DebugViewPage::build(Window* window)
                                 STR_NB4_AVERAGE_C834);
   new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
                                 [] { return nb4LatencyRead().maxUs; },
+                                STR_NB4_MAX);
+
+  // Preserve the stable figures above while making long stalls visible rather
+  // than silently filtering them out of the diagnostics page.
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, ">5 ms");
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4LatencyRead().ignored; });
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, STR_NB4_MAX);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4LatencyRead().rawMaxUs; });
+
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, STR_TOUCH_PANEL);
+  line = window->newLine(grid2);
+  line->padAll(PAD_ZERO);
+  line->padLeft(PAD_LARGE);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4TouchLatencyRead().lastUs; });
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4TouchLatencyRead().averageUs; },
+                                STR_NB4_AVERAGE_C834);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4TouchLatencyRead().maxUs; },
                                 STR_NB4_MAX);
 
   // The retained fault record, which nothing else reads. It survives a warm

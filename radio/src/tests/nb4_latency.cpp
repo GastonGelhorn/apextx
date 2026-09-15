@@ -55,6 +55,7 @@ TEST(Nb4Latency, MeasuresSamplingToHandoverForCyclesThatCarryChannels)
   EXPECT_EQ(stats.lastUs, 220);
   EXPECT_EQ(stats.minUs, 80);
   EXPECT_EQ(stats.maxUs, 220);
+  EXPECT_EQ(stats.rawMaxUs, 220u);
   EXPECT_EQ(stats.averageUs, (120 + 80 + 220) / 3);
   EXPECT_EQ(stats.ignored, 0u);
 }
@@ -84,6 +85,7 @@ TEST(Nb4Latency, AnImplausibleMeasurementIsCountedButNotRecorded)
   const auto stats = nb4LatencyRead();
   EXPECT_EQ(stats.frames, 1u) << "the outlier must not count as a frame";
   EXPECT_EQ(stats.ignored, 1u);
+  EXPECT_EQ(stats.rawMaxUs, Nb4LatencyPlausibleUs + 1u);
   EXPECT_EQ(stats.maxUs, 150) << "one preemption would own the maximum forever";
   EXPECT_EQ(stats.averageUs, 150);
 }
@@ -139,7 +141,36 @@ TEST(Nb4Latency, ResetClearsEverything)
   EXPECT_EQ(stats.minUs, 0);
   EXPECT_EQ(stats.maxUs, 0);
   EXPECT_EQ(stats.averageUs, 0);
+  EXPECT_EQ(stats.rawMaxUs, 0u);
   EXPECT_EQ(stats.ignored, 0u);
+}
+
+TEST(Nb4Latency, MeasuresTouchInterruptToPresentedFrame)
+{
+  Clock clock;
+  fakeNow = 100;
+  nb4TouchLatencyPressed(fakeNow);
+  fakeNow += 18000;
+  // An acknowledgement for an older frame must not complete this sample.
+  nb4TouchLatencyPresented();
+  EXPECT_EQ(nb4TouchLatencyRead().samples, 0u);
+  nb4TouchLatencyFrameQueued();
+  nb4TouchLatencyPresented();
+
+  auto stats = nb4TouchLatencyRead();
+  EXPECT_EQ(stats.samples, 1u);
+  EXPECT_EQ(stats.lastUs, 18000u);
+  EXPECT_EQ(stats.averageUs, 18000u);
+  EXPECT_EQ(stats.maxUs, 18000u);
+  EXPECT_EQ(stats.missedFrames, 0u);
+
+  nb4TouchLatencyPressed(fakeNow);
+  fakeNow += Nb4TouchLatencyPlausibleUs + 1;
+  nb4TouchLatencyFrameQueued();
+  nb4TouchLatencyPresented();
+  stats = nb4TouchLatencyRead();
+  EXPECT_EQ(stats.samples, 1u);
+  EXPECT_EQ(stats.missedFrames, 1u);
 }
 
 #endif  // RADIO_NB4_FAMILY

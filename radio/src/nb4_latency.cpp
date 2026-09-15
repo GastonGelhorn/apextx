@@ -21,6 +21,7 @@ volatile bool sampled = false;
 volatile uint16_t lastUs = 0;
 volatile uint16_t minUs = 0;
 volatile uint16_t maxUs = 0;
+volatile uint32_t rawMaxUs = 0;
 volatile uint32_t frames = 0;
 volatile uint32_t ignored = 0;
 
@@ -29,6 +30,15 @@ volatile uint32_t ignored = 0;
 volatile uint32_t sumUs = 0;
 volatile uint32_t counted = 0;
 constexpr uint32_t kRenormaliseAfter = 1u << 20;
+
+volatile bool touchPending = false;
+volatile bool touchFramePending = false;
+volatile uint32_t touchStartedAt = 0;
+volatile uint32_t touchLastUs = 0;
+volatile uint32_t touchMaxUs = 0;
+volatile uint32_t touchAverageUs = 0;
+volatile uint32_t touchSamples = 0;
+volatile uint32_t touchMissedFrames = 0;
 
 uint32_t (*clock)() = timersGetUsTick;
 
@@ -55,6 +65,7 @@ void nb4LatencySent()
   // Unsigned arithmetic, so a tick that wrapped between the two reads still
   // yields the elapsed count rather than a huge number.
   const uint32_t elapsed = clock() - sampledAt;
+  if (elapsed > rawMaxUs) rawMaxUs = elapsed;
   if (elapsed > Nb4LatencyPlausibleUs) {
     ignored = ignored + 1;
     return;
@@ -80,6 +91,7 @@ Nb4ControlLatency nb4LatencyRead()
   result.lastUs = lastUs;
   result.minUs = minUs;
   result.maxUs = maxUs;
+  result.rawMaxUs = rawMaxUs;
   result.frames = frames;
   result.ignored = ignored;
   const uint32_t n = counted;
@@ -92,8 +104,52 @@ void nb4LatencyReset()
   sampled = false;
   carriesChannels = false;
   lastUs = minUs = maxUs = 0;
+  rawMaxUs = 0;
   frames = ignored = 0;
   sumUs = counted = 0;
+  touchPending = false;
+  touchFramePending = false;
+  touchStartedAt = touchLastUs = touchMaxUs = touchAverageUs = 0;
+  touchSamples = touchMissedFrames = 0;
+}
+
+void nb4TouchLatencyPressed(uint32_t interruptAtUs)
+{
+  touchStartedAt = interruptAtUs;
+  touchPending = true;
+  touchFramePending = false;
+}
+
+void nb4TouchLatencyFrameQueued()
+{
+  if (touchPending) touchFramePending = true;
+}
+
+void nb4TouchLatencyPresented()
+{
+  // A panel acknowledgement may belong to a frame that was already in flight
+  // when the user pressed. Only complete the sample after a newer UI frame was
+  // actually queued with that press pending.
+  if (!touchPending || !touchFramePending) return;
+  touchPending = false;
+  touchFramePending = false;
+  const uint32_t elapsed = clock() - touchStartedAt;
+  if (elapsed > Nb4TouchLatencyPlausibleUs) {
+    ++touchMissedFrames;
+    return;
+  }
+  touchLastUs = elapsed;
+  if (elapsed > touchMaxUs) touchMaxUs = elapsed;
+  // An exponential running mean cannot overflow and continues to follow the
+  // unit after a long session. The first sample seeds it exactly.
+  touchAverageUs = touchSamples ? (touchAverageUs * 7 + elapsed) / 8 : elapsed;
+  ++touchSamples;
+}
+
+Nb4TouchLatency nb4TouchLatencyRead()
+{
+  return {touchLastUs, touchAverageUs, touchMaxUs, touchSamples,
+          touchMissedFrames};
 }
 
 void nb4LatencySetClock(uint32_t (*source)())
