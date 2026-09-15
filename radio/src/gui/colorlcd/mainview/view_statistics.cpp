@@ -27,6 +27,7 @@
 #include "tasks/mixer_task.h"
 #include "mixer_scheduler.h"
 #if defined(RADIO_NB4_FAMILY)
+#include "nb4_health.h"
 #include "nb4_latency.h"
 #endif
 #include "lua/lua_states.h"
@@ -266,6 +267,25 @@ void DebugViewPage::build(Window* window)
   new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
                                 [] { return nb4LatencyRead().maxUs; },
                                 STR_NB4_MAX);
+
+  // The retained fault record, which nothing else reads. It survives a warm
+  // reset, so this is what answers "why did the radio come up in recovery".
+  // A fault name is a diagnostic identifier, not prose, so it is not
+  // translated: it goes into a bug report as written.
+  Nb4HealthRecord previous;
+  if (nb4HealthPrevious(&previous)) {
+    static const char* const names[] = {"NONE",     "UI_ASSERT", "CPP_ALLOC",
+                                        "STACK",    "CPU",       "UI_STALL",
+                                        "TIMER_STALL"};
+    static char detail[40];
+    const char* name = previous.fault < DIM(names) ? names[previous.fault] : "?";
+    snprintf(detail, sizeof(detail), "%s %u", name, (unsigned)previous.detail);
+
+    line = window->newLine(grid);
+    line->padAll(PAD_TINY);
+    new StaticText(line, rect_t{}, STR_NB4_LAST_FAULT);
+    new StaticText(line, rect_t{}, detail);
+  }
 #endif
 
   line = window->newLine(grid);
