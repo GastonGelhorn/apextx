@@ -167,6 +167,16 @@ static void timer10msStart()
   timer_start(&_timer10ms);
 }
 
+bool isUiTask()
+{
+#if defined(FREE_RTOS) && !defined(SIMU)
+  return menusTaskId._rtos_handle &&
+         xTaskGetCurrentTaskHandle() == menusTaskId._rtos_handle;
+#else
+  return true;
+#endif
+}
+
 void tasksStart()
 {
   mutex_create(&audioMutex);

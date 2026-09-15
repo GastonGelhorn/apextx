@@ -25,12 +25,24 @@
 #include "lvgl/src/hal/lv_hal_tick.h"
 #include "os/sleep.h"
 #include "pwr.h"
+#include "tasks.h"
 #include "hal/watchdog_driver.h"
 #include "etx_lv_theme.h"
 
 static void _run_popup_dialog(const char* title, const char* msg,
                               const char* info = nullptr)
 {
+#if defined(RADIO_NB4_FAMILY)
+  // This runs a nested event loop until the dialog is dismissed, which is a
+  // hang on any task but the interface's. The mixer task can reach here
+  // through a special function that plays audio, holding the mixer lock, and
+  // would stop the pulses on a radio that is driving a car. Hand the message
+  // to the interface instead and return.
+  if (!isUiTask()) {
+    POPUP_WARNING_ON_UI_TASK(msg, info);
+    return;
+  }
+#endif
   bool running = true;
 
   resetBacklightTimeout();

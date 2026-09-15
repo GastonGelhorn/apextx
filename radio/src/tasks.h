@@ -65,6 +65,10 @@ extern task_handle_t cliTaskId;
 
 void tasksStart();
 
+// True when the caller is the task that owns the interface. Anything that
+// drives the GUI, above all a nested event loop, must not run anywhere else.
+bool isUiTask();
+
 extern volatile uint16_t timeForcePowerOffPressed;
 inline void resetForcePowerOffRequest()
 {

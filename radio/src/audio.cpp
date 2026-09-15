@@ -812,7 +812,12 @@ void AudioQueue::playFile(const char * filename, uint8_t flags, uint8_t id, int8
 #endif
 
   if (strlen(filename) > AUDIO_FILENAME_MAXLEN) {
-    POPUP_WARNING(STR_PATH_TOO_LONG);
+    // Deferred, never modal. Special functions play files from the mixer task
+    // with the mixer lock held, and POPUP_WARNING runs its own event loop
+    // until dismissed: that would stop the mixer, and with it the pulses, on a
+    // radio that is driving a car. The interface picks this up on its next
+    // pass instead.
+    POPUP_WARNING_ON_UI_TASK(STR_PATH_TOO_LONG);
     return;
   }
 
