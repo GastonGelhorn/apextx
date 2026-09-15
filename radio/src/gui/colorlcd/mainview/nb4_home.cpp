@@ -259,7 +259,7 @@ void Nb4HomeScreen::build()
   blockedModel = nb4ModelBlocked();
   builtIdentity = modelIdentity();
 
-  const Nb4CarState state = nb4ReadCarState();
+  const Nb4CarState state = nb4UiCarState();
   builtPanel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   const bool landscape = width() > height();
   const coord_t w = width();
@@ -400,7 +400,7 @@ void Nb4HomeScreen::checkEvents()
 {
   WidgetsContainer::checkEvents();
   if (deleted()) return;
-  const auto& state = nb4ReadCarState();
+  const auto& state = nb4UiCarState();
   const uint8_t panel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   if (builtWidth != width() || builtHeight != height() || blockedModel != nb4ModelBlocked() ||
       spanish != (strncmp(g_eeGeneral.uiLanguage, "es", 2) == 0) || builtTheme != nb4ThemeKey() ||

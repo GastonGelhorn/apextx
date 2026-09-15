@@ -58,6 +58,11 @@ struct Nb4SensorReading {
 Nb4SensorReading nb4ReadSensor(unsigned index);
 // UI/Lua callers only. Native aligned words are read without waiting on control.
 const Nb4CarState& nb4ReadCarState();
+// MainWindow starts one snapshot before it refreshes the dashboard. Every
+// native widget in that UI pass then observes the same coherent values without
+// rescanning mixes, functions and telemetry for each instrument.
+void nb4BeginUiCarStateFrame();
+const Nb4CarState& nb4UiCarState();
 
 #if defined(SIMU)
 

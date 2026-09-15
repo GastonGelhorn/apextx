@@ -125,7 +125,7 @@ class RacePage : public DataPage {
     if (deleted()) return;
     DataPage::checkEvents();
     if (deleted()) return;
-    panel->refresh(nb4ReadCarState());
+    panel->refresh(nb4UiCarState());
     auto phase = nb4RacePhase();
     start->setText(phase == Nb4RacePhase::Running ? STR_NB4_FINISH : phase == Nb4RacePhase::Finished ? STR_NB4_NEW_RUN : STR_NB4_START);
     lap->enable(phase == Nb4RacePhase::Running);

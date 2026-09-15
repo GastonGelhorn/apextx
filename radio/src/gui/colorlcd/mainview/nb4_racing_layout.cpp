@@ -88,7 +88,7 @@ class RacingInstrument : public Widget {
       if (kind == 0) nb4OpenRoute("settings/steering/travel");
       else if (kind == 1) nb4OpenRoute("settings/throttle_brake/travel");
       else if (kind == 2) {
-        const auto& state = nb4ReadCarState();
+        const auto& state = nb4UiCarState();
         if (!state.homeShowsRace && state.homeTimerIndex < MAX_TIMERS)
           new TimerWindow(state.homeTimerIndex);
         else nb4OpenRoute("settings/race/timer_laps");
@@ -99,10 +99,10 @@ class RacingInstrument : public Widget {
   void checkEvents() override {
     Widget::checkEvents();
     if (deleted()) return;
-    const auto& state = nb4ReadCarState();
+    const auto& state = nb4UiCarState();
     const unsigned panel = state.homeShowsRace ? 1 : 2 + state.homeTimerIndex;
     if (builtW != width() || builtH != height() || theme != nb4ThemeKey() ||
-        builtPanel != panel || language != languageKey()) build();
+        (kind == 2 && builtPanel != panel) || language != languageKey()) build();
     if (chrono) chrono->refresh(state);
     if (stats) stats->refresh(state);
   }
@@ -123,7 +123,7 @@ class RacingInstrument : public Widget {
     clear(); chrono = nullptr; stats = nullptr;
     builtW = width(); builtH = height(); theme = nb4ThemeKey();
     language = languageKey();
-    const auto& state = nb4ReadCarState();
+    const auto& state = nb4UiCarState();
     builtPanel = state.homeShowsRace ? 1 : 2 + state.homeTimerIndex;
     const bool wide = lv_disp_get_hor_res(nullptr) > lv_disp_get_ver_res(nullptr);
     const rect_t bounds{0, 0, width(), height()};

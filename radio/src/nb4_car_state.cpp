@@ -97,10 +97,8 @@ static Nb4Reading trimReading(unsigned index)
                  enabled ? Nb4Validity::Valid : Nb4Validity::Absent);
 }
 
-const Nb4CarState& nb4ReadCarState()
+static void readCarState(Nb4CarState& state)
 {
-  static Nb4CarState state;
-
   state = Nb4CarState{};
   state.timestampMs = timersGetMsTick();
   memcpy(state.model, g_model.header.name, min(sizeof(state.model) - 1, size_t(LEN_MODEL_NAME)));
@@ -190,7 +188,7 @@ const Nb4CarState& nb4ReadCarState()
     if (receiverLive && rx.voltageAvailable)
       state.receiver = reading(rx.voltageMv, Nb4Unit::Millivolts,
         (tmr10ms_t)(now - rx.voltageTime) >= TELEMETRY_TIMEOUT10ms ? Nb4Validity::Stale : Nb4Validity::Valid);
-    return state;
+    return;
   }
 #endif
   if (TELEMETRY_STREAMING()) state.link = reading(TELEMETRY_RSSI(), Nb4Unit::Percent,
@@ -207,7 +205,30 @@ const Nb4CarState& nb4ReadCarState()
       break;
     }
   }
+}
+
+const Nb4CarState& nb4ReadCarState()
+{
+  static Nb4CarState state;
+  readCarState(state);
   return state;
+}
+
+namespace {
+Nb4CarState uiCarState;
+bool uiCarStateReady = false;
+}
+
+void nb4BeginUiCarStateFrame()
+{
+  readCarState(uiCarState);
+  uiCarStateReady = true;
+}
+
+const Nb4CarState& nb4UiCarState()
+{
+  if (!uiCarStateReady) nb4BeginUiCarStateFrame();
+  return uiCarState;
 }
 Nb4SensorReading nb4ReadSensor(unsigned index)
 {

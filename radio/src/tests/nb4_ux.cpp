@@ -444,6 +444,22 @@ TEST(Nb4Ux, PalettesAreBuiltinAndAccentOverridesFocus)
             RGB((focus >> 16) & 255, (focus >> 8) & 255, focus & 255));
 }
 
+TEST(Nb4Ux, DashboardCarStateIsBuiltOncePerUiFrame)
+{
+  const auto previous = calibratedAnalogs[ADC_MAIN_ST];
+  calibratedAnalogs[ADC_MAIN_ST] = -RESX / 2;
+  nb4BeginUiCarStateFrame();
+  const int32_t first = nb4UiCarState().steeringInput.value;
+
+  calibratedAnalogs[ADC_MAIN_ST] = RESX / 2;
+  EXPECT_EQ(nb4UiCarState().steeringInput.value, first);
+  EXPECT_NE(nb4ReadCarState().steeringInput.value, first);
+
+  nb4BeginUiCarStateFrame();
+  EXPECT_NE(nb4UiCarState().steeringInput.value, first);
+  calibratedAnalogs[ADC_MAIN_ST] = previous;
+}
+
 TEST(Nb4Ux, HomeRepaintsNothingWhenNothingMovesAndOnlyTheDialThatDid)
 {
   Scene scene;
@@ -544,7 +560,7 @@ TEST(Nb4Ux, HomeSettingsMenuFitsWhenTheRadioIsTurnedOrRelabelled)
       auto box = lv_obj_get_child(menu->getLvObj(), 0);
       ASSERT_NE(box, nullptr);
       EXPECT_EQ(dynamic_cast<QuickMenu*>(menu), nullptr);
-      EXPECT_LE(lv_obj_get_width(box), LCD_W);
+      EXPECT_LE(lv_obj_get_width(box), lv_disp_get_hor_res(nullptr));
       menu->onCancel();
       render(scene.root);
     }
@@ -633,10 +649,12 @@ TEST(Nb4Ux, InternalBatteryShowsChargingWhenTheExternalIsFeedingIt)
   scene.applyPalette("ApexTX Dark");
   auto home = new Nb4HomeScreen(scene.root, {0, 0, LCD_W, LCD_H});
   nb4SimuChargeSource = 0;
+  nb4BeginUiCarStateFrame();
   home->checkEvents(); render(scene.root);
   const auto idle = frame;
 
   nb4SimuChargeSource = 2;  // USB
+  nb4BeginUiCarStateFrame();
   home->checkEvents(); render(scene.root);
   ASSERT_EQ(frame.size(), idle.size());
   bool changed = false;
@@ -646,6 +664,7 @@ TEST(Nb4Ux, InternalBatteryShowsChargingWhenTheExternalIsFeedingIt)
   saveFrame("home-portrait-es-cargando-dark", LCD_W, LCD_H);
 
   nb4SimuChargeSource = 0;
+  nb4BeginUiCarStateFrame();
   home->checkEvents(); render(scene.root);
   bool back = true;
   for (size_t i = 0; i < frame.size() && back; ++i)
@@ -4693,10 +4712,12 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
         if (lv_obj_check_type(obj, &lv_label_class)) {
           auto parent = lv_obj_get_parent(obj);
-          // Tile labels have a sibling icon. Header/configure buttons do not.
+          // Tile labels live in buttons and have a sibling icon. The branded
+          // header also has an icon now, but is deliberately not a tile.
           bool tile = false;
-          for (uint32_t i = 0; i < lv_obj_get_child_cnt(parent); ++i)
-            if (lv_obj_has_class(lv_obj_get_child(parent, i), &lv_img_class)) tile = true;
+          if (lv_obj_has_class(parent, &lv_btn_class))
+            for (uint32_t i = 0; i < lv_obj_get_child_cnt(parent); ++i)
+              if (lv_obj_has_class(lv_obj_get_child(parent, i), &lv_img_class)) tile = true;
           if (tile) {
             tiles.push_back(parent);
             lv_area_t labelBounds, tileBounds;
