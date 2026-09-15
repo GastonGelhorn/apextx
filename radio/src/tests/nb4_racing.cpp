@@ -216,20 +216,20 @@ TEST(Nb4Racing, LapTimesAndBest)
   for (int i = 0; i < 99; i++) nb4RacingLapTick(st, false, 1);
   nb4RacingLapTick(st, true, 1);
   EXPECT_EQ(st.laps, 1);
-  EXPECT_EQ(st.last, 100);
-  EXPECT_EQ(st.best, 100);
+  EXPECT_EQ(st.last, 100u);
+  EXPECT_EQ(st.best, 100u);
 
   nb4RacingLapTick(st, false, 1);
   for (int i = 0; i < 148; i++) nb4RacingLapTick(st, false, 1);
   nb4RacingLapTick(st, true, 1);
-  EXPECT_EQ(st.last, 150);
-  EXPECT_EQ(st.best, 100);
+  EXPECT_EQ(st.last, 150u);
+  EXPECT_EQ(st.best, 100u);
 
   nb4RacingLapTick(st, false, 1);
   for (int i = 0; i < 78; i++) nb4RacingLapTick(st, false, 1);
   nb4RacingLapTick(st, true, 1);
-  EXPECT_EQ(st.last, 80);
-  EXPECT_EQ(st.best, 80);
+  EXPECT_EQ(st.last, 80u);
+  EXPECT_EQ(st.best, 80u);
 }
 
 TEST(Nb4Racing, LapTimerDoesNotWrap)
@@ -623,10 +623,10 @@ TEST(Nb4Racing, RaceSummaryAddsUpAndSurvivesTheLimit)
   }
 
   EXPECT_EQ(st.laps, 3);
-  EXPECT_EQ(st.times[0], 100);
-  EXPECT_EQ(st.times[1], 200);
-  EXPECT_EQ(st.times[2], 300);
-  EXPECT_EQ(st.best, 100);
+  EXPECT_EQ(st.times[0], 100u);
+  EXPECT_EQ(st.times[1], 200u);
+  EXPECT_EQ(st.times[2], 300u);
+  EXPECT_EQ(st.best, 100u);
 
   for (int i = 0; i < NB4_MAX_LAPS + 20; i++) {
     nb4RacingLapTick(st, false, 1);

@@ -78,7 +78,10 @@ TEST(Nb4Routes, QuickAccessKeepsExplicitEmptySlotsAndRejectsDuplicatesAndActions
   EXPECT_EQ(g_eeGeneral.nb4QuickAccess[1], first);
   for (unsigned i = 0; i < 8; ++i) EXPECT_TRUE(nb4QuickAccessSet(i, 0));
   nb4QuickAccessNormalize();
-  for (auto id : g_eeGeneral.nb4QuickAccess) EXPECT_EQ(id, 0u);
+  // RadioData is packed on the firmware target.  GCC correctly refuses to
+  // bind the hidden range-for reference to an element of this packed array.
+  for (unsigned i = 0; i < 8; ++i)
+    EXPECT_EQ(g_eeGeneral.nb4QuickAccess[i], 0u);
   g_eeGeneral.nb4QuickAccess[0] = first;
   g_eeGeneral.nb4QuickAccess[1] = first;
   g_eeGeneral.nb4QuickAccess[2] = 42;
@@ -100,14 +103,17 @@ TEST(Nb4Routes, APendingRouteRefusesAndNeverOpensSomethingElse)
       available += 1;
       EXPECT_NE(routes[i].open, nullptr);
 
-      if (!routes[i].available)
+      if (!routes[i].available) {
         EXPECT_EQ(routes[i].reason, nullptr);
+      }
 
-      if (routes[i].available)
+      if (routes[i].available) {
         EXPECT_NE(routes[i].reason, nullptr);
+      }
 
-      if (routes[i].available && !routes[i].available())
+      if (routes[i].available && !routes[i].available()) {
         EXPECT_FALSE(nb4OpenRoute(routes[i].path));
+      }
     } else {
       pending += 1;
 
@@ -117,7 +123,9 @@ TEST(Nb4Routes, APendingRouteRefusesAndNeverOpensSomethingElse)
     }
     ASSERT_NE(routes[i].label, nullptr);
     EXPECT_NE(routes[i].label()[0], '\0');
-    if (routes[i].reason) EXPECT_NE(routes[i].reason()[0], '\0');
+    if (routes[i].reason) {
+      EXPECT_NE(routes[i].reason()[0], '\0');
+    }
   }
 
   EXPECT_GT(available, pending * 4);
@@ -346,9 +354,11 @@ TEST(Nb4Routes, EveryRouteIsClassifiedAndRecoveryIsNeverBlocked)
   for (unsigned i = 0; i < count; i += 1) {
     const Nb4Route& r = all[i];
     if (r.state != Nb4RouteState::Available) continue;
-    for (const char* path : mustRefuse)
-      if (strcmp(r.path, path) == 0 && (!r.available || r.available()))
+    for (const char* path : mustRefuse) {
+      if (strcmp(r.path, path) == 0 && (!r.available || r.available())) {
         EXPECT_TRUE(nb4RouteIsOpenable(r));
+      }
+    }
   }
 
   const char* broken = "not: [a, valid, model\n";
@@ -374,12 +384,16 @@ TEST(Nb4Routes, EveryRouteIsClassifiedAndRecoveryIsNeverBlocked)
   for (unsigned i = 0; i < count; i += 1) {
     const Nb4Route& r = all[i];
     if (r.state != Nb4RouteState::Available) continue;
-    for (const char* path : mustRefuse)
-      if (strcmp(r.path, path) == 0)
+    for (const char* path : mustRefuse) {
+      if (strcmp(r.path, path) == 0) {
         EXPECT_FALSE(nb4RouteIsOpenable(r));
-    for (const char* path : mustAllow)
-      if (strcmp(r.path, path) == 0)
+      }
+    }
+    for (const char* path : mustAllow) {
+      if (strcmp(r.path, path) == 0) {
         EXPECT_TRUE(nb4RouteIsOpenable(r));
+      }
+    }
   }
 
   EXPECT_FALSE(nb4OpenRoute("settings/throttle_brake/throttle"));
@@ -416,7 +430,9 @@ TEST(Nb4Routes, QuickAccessKeepsCanonicalLocationsAndMigratesOldAxisTabShortcuts
   std::set<std::string> destinations;
   for (unsigned i = 0; i < 8; ++i) {
     auto route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
-    if (route) EXPECT_TRUE(destinations.insert(route->destination).second);
+    if (route) {
+      EXPECT_TRUE(destinations.insert(route->destination).second);
+    }
   }
   g_eeGeneral = saved;
 }
@@ -457,8 +473,11 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
   EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], nb4RouteId("settings/connectivity/usb"));
   unsigned routeCount;
   const auto routes = nb4Routes(&routeCount);
-  for (unsigned i = 0; i < routeCount; ++i)
-    if (!routes[i].tab) EXPECT_TRUE(nb4RouteInSettings(routes[i]));
+  for (unsigned i = 0; i < routeCount; ++i) {
+    if (!routes[i].tab) {
+      EXPECT_TRUE(nb4RouteInSettings(routes[i]));
+    }
+  }
   g_eeGeneral = saved;
 }
 
