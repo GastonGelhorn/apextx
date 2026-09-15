@@ -136,6 +136,15 @@ The default race-oriented set uses Pit; existing Receiver shortcuts are retained
 Scope stays visible below the header. Wide submenu tiles avoid splitting long
 names; compact root/quick-access grids retain their existing arrangement.
 
+## Performance diagnostics
+
+![Control and touch latency diagnostics](images/performance-diagnostics.png)
+
+Diagnostics retain the stable control-latency minimum/average/maximum, expose
+discarded stalls and their raw maximum, and measure touch interrupt to first
+presented frame. Values are microseconds; [LATENCY.md](LATENCY.md) defines the
+measurement boundaries.
+
 ## Regenerating the images
 
 The gallery must stay tied to a tested build. Generate the source frames with:

@@ -57,7 +57,41 @@ The automated menu checks are in `Nb4Routes`, `Nb4Ux`, `Nb4RacingUi`,
 versions and migration/rollback files. Hardware checks remain required before
 release; simulator tests cannot qualify a transmitter or receiver.
 
-## Stable Menu revision — 2026-09-15 (current local build, not flashed)
+## Display, touch and rendering revision — 2026-09-15
+
+- Native suite: **360/360 passed**, 48 suites. New regressions cover one shared
+  car-state snapshot per UI frame, unfiltered latency stalls and touch
+  IRQ-to-present timing; the complete existing navigation, storage, history,
+  compatibility and rendering suite remains green.
+- Python NB4 tooling: **53/53 passed**. The checked RF profile remains
+  development/NB4-original/USART6/addressless SLIP; this revision does not
+  change RF timing or qualification.
+- Original-NB4 ARM build and manifest validation pass. Application:
+  **1,645,160 / 1,966,048 bytes (83.68%)**, leaving **320,888 bytes
+  (313.4 KiB)**. Internal `.bss` is 66,144 bytes and SDRAM allocation is
+  3,018,752 bytes. Padded image: 2,097,152 bytes.
+- Image SHA-256:
+  `44f86da164e5fc08380a4a3d24eea2af788f98405beefa3244b5bba6d078d7a9`.
+- Touch accepts the controller's initial press event, checks every I2C result,
+  retains stable coordinates on faults and polls at 20 ms. Diagnostics expose
+  touch-to-present time and retain the raw maximum behind filtered control
+  latency.
+- Backlight level 100 reaches a true 100% duty cycle at the unchanged 10 kHz
+  drive. Framebuffer synchronisation copies exact dirty row extents, and the
+  dashboard builds its complete car state once per UI frame.
+- Menu and quick-access grids adapt to the current width, use route-specific
+  icons, and branded modal headers identify the open view. The high-contrast
+  `ApexTX Sun` palette remains the outdoor option; no duplicate palette was
+  introduced.
+- The release resource set now includes a 16 kHz, 16-bit mono English
+  `hello.wav` saying “Welcome to ApexTX”; the TTS source mapping and package
+  manifest use the same prompt, and the resource-format regression passes.
+- The host updater found no connected **ApexTX NB4 Update** interface at the
+  final check, so this image was not installed. Confirm the USB cable/update
+  screen, then verify touch, maximum brightness, orientation changes and
+  System > Diagnostics on the transmitter after installation.
+
+## Earlier stable Menu revision — 2026-09-15
 
 - Native suite: **358/358 passed**, 48 suites. Includes category order and stable
   route IDs, permanent Menu entries, EN/ES and both orientations, scope strips

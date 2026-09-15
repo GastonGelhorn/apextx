@@ -16,6 +16,17 @@ The target uses an STM32F429 with 2 MiB internal flash, external SDRAM, a
 | Haptic motor | PA8, TIM1 channel 1 |
 | Addressable LED | PH12, TIM5 channel 3, four WS2812 pixels |
 
+The display backlight keeps the original 10 kHz PWM and the normal electrical
+drive. Its 0-100 user scale maps to timer counts 0-99, so level 100 is now a
+true 100% duty cycle instead of 100/101. This increases the attainable maximum
+slightly without overdriving the backlight.
+
+The UI, display refresh and touch polling use a common 20 ms cadence. Touch
+interrupts are timestamped before deferred I2C handling; transient bus errors
+preserve the last valid state and retry with bounded backoff. The framebuffer
+path tracks the changed horizontal extent of each physical row, so separated
+small invalidations no longer force a near-full 320 x 480 copy.
+
 The AFHDS3 framing is addressless SLIP with a complement checksum. The selected
 route and electrical sequence are recorded in `rf/qualification.json`.
 

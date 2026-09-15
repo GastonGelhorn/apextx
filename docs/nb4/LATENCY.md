@@ -1,7 +1,9 @@
 # Control latency
 
 The radio measures its own contribution to control latency and shows it in
-System > Diagnostics, as minimum, average and maximum microseconds.
+System > Diagnostics, as minimum, average and maximum microseconds. That page
+also measures the touch path from the panel interrupt to the first frame
+presented after the press.
 
 ## What the number is
 
@@ -62,13 +64,35 @@ that is being held still. Real movement is unfiltered.
   change in behaviour shows up instead of being drowned by history.
 - A measurement longer than one mixer period is discarded rather than
   recorded, because it means the task was preempted and one such outlier would
-  own the maximum for the rest of the session. Those are counted separately.
+  own the stable maximum for the rest of the session. The `>5 ms` row shows
+  both the number of discarded samples and the unfiltered raw maximum, so a
+  real scheduling stall is visible instead of being silently hidden.
 - Cycles that send configuration or poll status instead of channel positions
   are not timed at all.
+
+## Touch response
+
+The **Touch panel** row is also in microseconds and shows last, average and
+maximum IRQ-to-present time. It includes the touch-controller read, event
+dispatch, LVGL processing, drawing and the wait for the panel's vertical blank.
+It therefore reflects what the interface itself can improve, rather than only
+the I2C transaction.
+
+The figure does not include the panel's analogue scan before its interrupt, or
+LCD pixel response after presentation. A press whose next frame takes more than
+250 ms is rejected as an interrupted/debug session rather than allowed to own
+the maximum indefinitely. The counter is retained internally for tests and
+diagnosis.
+
+NB4 polls LVGL input every 20 ms, matching the interface/display task cadence.
+The FT6236 `press down` event is accepted immediately as contact. A failed I2C
+read keeps the last stable touch state, retries with bounded backoff, and cannot
+turn uninitialised bytes into a phantom tap.
 
 ## Keeping it honest
 
 `radio/src/tests/nb4_latency.cpp` covers the accounting: which cycles count,
-which are discarded, tick wrap-around, and that the average converges after a
-long run. The simulator's microsecond tick does not advance, so those tests
-drive a clock of their own; the figure itself can only be read on the radio.
+which are discarded, raw stalls, touch presentation, tick wrap-around, and that
+the averages converge. The simulator's microsecond tick does not advance, so
+those tests drive a clock of their own; the physical figures can only be read
+on the radio.

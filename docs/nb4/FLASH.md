@@ -291,10 +291,13 @@ volume. Install the resources shipped by this repository:
 rsync -a --exclude='._*' sdcard/ "$NB4_VOLUME/"
 ```
 
-Install compatible EdgeTX sound packs separately under `SOUNDS/en` and, if
-wanted, `SOUNDS/es`. System prompts belong below each language's `SYSTEM`
-directory. The firmware works without WAV files, but voice prompts will be
-silent or missing.
+ApexTX ships its English `SOUNDS/en/SYSTEM/hello.wav` welcome prompt in
+`sdcard/`; copying the repository resources replaces the old “Welcome to
+EdgeTX” file with “Welcome to ApexTX”. Install the rest of a compatible EdgeTX
+sound pack separately under `SOUNDS/en` and, if wanted, `SOUNDS/es`, without
+overwriting that ApexTX `hello.wav`. System prompts belong below each
+language's `SYSTEM` directory. The firmware works without WAV files, but voice
+prompts will be silent or missing.
 
 On macOS, remove AppleDouble metadata before ejecting; every `._*.wav` consumes
 directory entries and at least one filesystem cluster:
