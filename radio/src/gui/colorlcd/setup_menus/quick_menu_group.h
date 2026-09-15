@@ -120,8 +120,9 @@ class QuickMenuButton : public ButtonBase
   // coloured square is the visual control; the full cell remains the touch
   // target and carries its label below the icon.
   void useAppTile(coord_t size, lv_color_t accent, lv_color_t detail) {
-    constexpr coord_t badgeSize = 42;
-    constexpr coord_t labelTop = badgeSize + 1;
+    constexpr coord_t badgeSize = 48;
+    constexpr coord_t labelGap = 3;
+    constexpr coord_t labelTop = badgeSize + labelGap;
 
     setSize(size, size);
     padAll(PAD_ZERO);
@@ -139,7 +140,7 @@ class QuickMenuButton : public ButtonBase
     lv_obj_t* badge = badgePtr->getLvObj();
     lv_obj_clear_flag(badge, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE |
                                 LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    lv_obj_set_style_radius(badge, 10, LV_PART_MAIN);
+    lv_obj_set_style_radius(badge, 11, LV_PART_MAIN);
     lv_obj_set_style_bg_color(badge, lv_color_lighten(accent, LV_OPA_20),
                               LV_PART_MAIN);
     lv_obj_set_style_bg_grad_color(badge,

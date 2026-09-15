@@ -823,10 +823,10 @@ class Nb4GridModal : public BaseDialog
 
   static lv_coord_t gridWidth()
   {
-    // Use the available landscape width instead of retaining the narrow
-    // portrait-sized panel. The same proportion leaves a safe touch margin in
-    // portrait and gives translated labels substantially more room.
-    return lv_disp_get_hor_res(nullptr) * 94 / 100;
+    // Use the complete screen width. Four square columns then retain enough
+    // height for the larger badge, its label gap, and the fixed label font in
+    // portrait, while the dialog itself still provides its inner padding.
+    return lv_disp_get_hor_res(nullptr);
   }
 
   static lv_coord_t gridHeight(unsigned)

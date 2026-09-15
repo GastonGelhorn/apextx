@@ -4775,6 +4775,7 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         columns[bounds.y1] += 1;
         EXPECT_EQ(lv_obj_get_style_bg_opa(tile, LV_PART_MAIN), LV_OPA_TRANSP);
         lv_obj_t* badge = nullptr;
+        lv_obj_t* tileLabel = nullptr;
         std::set<uint32_t> glyphColours;
         std::set<uint32_t> artworkColours;
         std::function<void(lv_obj_t*)> inspectArtwork = [&](lv_obj_t* obj) {
@@ -4794,6 +4795,7 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         inspectArtwork(tile);
         for (uint32_t i = 0; i < lv_obj_get_child_cnt(tile); ++i) {
           auto child = lv_obj_get_child(tile, i);
+          if (lv_obj_has_class(child, &lv_label_class)) tileLabel = child;
           if (!lv_obj_has_class(child, &lv_img_class) &&
               !lv_obj_has_class(child, &lv_label_class) &&
               lv_obj_get_width(child) == lv_obj_get_height(child) &&
@@ -4801,7 +4803,12 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
             badge = child;
         }
         ASSERT_NE(badge, nullptr);
-        EXPECT_EQ(lv_obj_get_width(badge), 42);
+        ASSERT_NE(tileLabel, nullptr);
+        EXPECT_EQ(lv_obj_get_width(badge), 48);
+        lv_area_t badgeBounds, labelBounds;
+        lv_obj_get_coords(badge, &badgeBounds);
+        lv_obj_get_coords(tileLabel, &labelBounds);
+        EXPECT_GE(labelBounds.y1 - badgeBounds.y2 - 1, 3);
         EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
                   lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
         EXPECT_EQ(glyphColours.size(), 2u);
