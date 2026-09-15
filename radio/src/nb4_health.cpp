@@ -11,6 +11,7 @@
 #include "os/time.h"
 #include "tasks.h"
 #include "tasks/mixer_task.h"
+#include "nb4_fault_screen.h"
 
 #include <atomic>
 #include <cstdlib>
@@ -57,6 +58,10 @@ bool valid(const Nb4HealthRecord& record)
 #if defined(FREE_RTOS) && !defined(SIMU)
   if (mixerTaskStarted() &&
       xTaskGetCurrentTaskHandle() == menusTaskId._rtos_handle) {
+    // Say so on the panel before the interface stops answering for good. The
+    // screen is painted here, on the task that is about to be suspended,
+    // rather than left to the mixer: the time is worth nothing now.
+    nb4FaultScreenShow(NB4_FAULT_CPP_ALLOC);
     for (;;) vTaskSuspend(nullptr);
   }
 #endif
@@ -107,6 +112,10 @@ bool nb4HealthSupervisor()
     lastSupervision = now;
     return true;
   }
+  // A bounded slice of any pending fault screen, every cycle. Painting the
+  // whole panel here would delay a channel frame; a slice will not.
+  nb4FaultScreenStep();
+
   if (now - lastSupervision < 100) return !reportedTimerStall;
   lastSupervision = now;
 
@@ -116,6 +125,9 @@ bool nb4HealthSupervisor()
     reportedUiStall = true;
     nb4HealthFault(NB4_FAULT_UI_STALL,
                    now - lastBeat[NB4_TASK_UI].load());
+    // The interface cannot report this itself, so the mixer does it: the panel
+    // is scanned straight out of SDRAM, and this task is still running.
+    nb4FaultScreenRequest(NB4_FAULT_UI_STALL);
   }
 
   if (!reportedTimerStall &&
@@ -166,6 +178,7 @@ void nb4UiAssert(const char* file, unsigned line)
 #if defined(FREE_RTOS) && !defined(SIMU)
   if (mixerTaskStarted() &&
       xTaskGetCurrentTaskHandle() == menusTaskId._rtos_handle) {
+    nb4FaultScreenShow(NB4_FAULT_UI_ASSERT);
     for (;;) vTaskSuspend(nullptr);
   }
 #endif

@@ -106,6 +106,7 @@ bool lcdSetOrientation(bool landscape)
   lv_disp_set_rotation(display, rotation);
   return true;
 }
+
 #endif
 
 // Call backs
@@ -116,6 +117,28 @@ void lcdSetFlushCb(void (*cb)(lv_disp_drv_t*, uint16_t*, const rect_t&))
 {
   lcd_flush_cb = cb;
 }
+
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+uint16_t* lcdSpareCanvas(unsigned* width, unsigned* height, bool* landscape)
+{
+  if (width) *width = LCD_PHYS_W;
+  if (height) *height = LCD_PHYS_H;
+  if (landscape) *landscape = lcdWidth > lcdHeight;
+  return (uint16_t*)nb4Back;
+}
+
+void lcdPresentSpare()
+{
+  // The double buffer bookkeeping is reset rather than maintained: this is
+  // reached when the interface has stopped and nothing else will draw again.
+  auto canvas = nb4Back;
+  nb4Back = nb4Front;
+  nb4Front = canvas;
+  dirtyTop = LCD_PHYS_H; dirtyBottom = -1;
+  syncTop = LCD_PHYS_H; syncBottom = -1;
+  if (lcd_flush_cb) lcd_flush_cb(&disp_drv, nb4Front, {0, 0, LCD_PHYS_W, LCD_PHYS_H});
+}
+#endif
 
 #if defined(SIMU)
 // Only used in simulator to prevent lock up when closing simulator

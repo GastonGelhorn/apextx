@@ -463,6 +463,7 @@ set(SRC
   nb4_health.cpp
   nb4_car_state.cpp
   nb4_latency.cpp
+  nb4_fault_screen.cpp
   nb4_leds.cpp
   nb4_axis.cpp
   nb4_palettes.cpp

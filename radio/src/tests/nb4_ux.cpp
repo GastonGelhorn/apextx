@@ -4,6 +4,8 @@
 
 #include "gtests.h"
 
+#include <set>
+
 #if defined(RADIO_NB4_FAMILY) && defined(COLORLCD)
 
 #include "layer.h"
@@ -4113,6 +4115,73 @@ TEST(Nb4Ux, OpeningWidgetSetupRepeatedlyGivesBackEveryStyle)
   EXPECT_GE(final.free_size + 64u, warm.free_size);
 
   memcpy(g_model.topbarWidgetWidth, saved, sizeof(saved));
+}
+
+#include "nb4_fault_screen.h"
+
+// The fault screen is painted without LVGL, straight into the scanout buffer,
+// so this reads the buffer back rather than the LVGL frame.
+static void saveFaultScreen(const char* name, uint16_t* pixels, bool landscape)
+{
+  const char* directory = getenv("NB4_SCREENSHOT_DIR");
+  if (!directory) return;
+  const int w = landscape ? LCD_PHYS_H : LCD_PHYS_W;
+  const int h = landscape ? LCD_PHYS_W : LCD_PHYS_H;
+  std::string path = std::string(directory) + "/" + name + ".ppm";
+  auto file = fopen(path.c_str(), "wb");
+  ASSERT_NE(file, nullptr);
+  fprintf(file, "P6\n%d %d\n255\n", w, h);
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x) {
+      const uint16_t px =
+          landscape ? pixels[(LCD_PHYS_H - 1 - x) * LCD_PHYS_W + y]
+                    : pixels[y * LCD_PHYS_W + x];
+      unsigned char data[] = {
+          (unsigned char)(((px >> 11) & 0x1f) << 3),
+          (unsigned char)(((px >> 5) & 0x3f) << 2),
+          (unsigned char)((px & 0x1f) << 3)};
+      fwrite(data, 1, 3, file);
+    }
+  fclose(file);
+}
+
+TEST(Nb4Ux, TheFaultScreenDrawsWithoutLVGLInBothOrientations)
+{
+  Scene scene;
+  for (unsigned pass = 0; pass < 2; ++pass) {
+    const bool landscape = pass == 1;
+    scene.orient(landscape);
+
+    // Grab the buffer the painter will use before it is presented and swapped.
+    unsigned w = 0, h = 0;
+    bool reportedLandscape = false;
+    auto canvas = lcdSpareCanvas(&w, &h, &reportedLandscape);
+    ASSERT_EQ(w, (unsigned)LCD_PHYS_W);
+    ASSERT_EQ(h, (unsigned)LCD_PHYS_H);
+    EXPECT_EQ(reportedLandscape, landscape);
+
+    const auto before = lv_mem_test();
+    lv_mem_monitor_t heapBefore{}, heapAfter{};
+    lv_mem_monitor(&heapBefore);
+
+    nb4FaultScreenShow(3);
+
+    lv_mem_monitor(&heapAfter);
+    // The screen has to be drawable when the interface heap is what failed.
+    EXPECT_EQ(heapAfter.used_cnt, heapBefore.used_cnt)
+        << "the fault screen allocated from the interface heap";
+    EXPECT_EQ(heapAfter.free_size, heapBefore.free_size);
+    EXPECT_EQ(before, LV_RES_OK);
+
+    // Painted, and painted as text rather than a flat rectangle.
+    std::set<uint16_t> colours;
+    for (unsigned i = 0; i < w * h; ++i) colours.insert(canvas[i]);
+    EXPECT_GT(colours.size(), 8u) << "no text was drawn on the fault screen";
+
+    saveFaultScreen(landscape ? "fault-landscape" : "fault-portrait", canvas,
+                    landscape);
+  }
+  scene.orient(false);
 }
 
 #endif

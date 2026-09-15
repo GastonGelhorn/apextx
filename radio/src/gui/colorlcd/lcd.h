@@ -55,6 +55,15 @@ void lcdInitDisplayDriver();
 // Called between UI iterations, after editors and gestures have been resolved.
 bool lcdSetOrientation(bool landscape);
 void lcdPresentedSize(unsigned* width, unsigned* height);
+
+// Painting on the panel without LVGL: no allocation, no locks, nothing that
+// an interface fault can have broken. lcdSpareCanvas hands back the scanout
+// buffer the panel is not reading, which the caller may paint over as many
+// calls as it likes, and lcdPresentSpare shows it at the next vertical blank.
+// The panel always scans portrait; `landscape` says whether the picture should
+// read as landscape, and the painter does that mapping itself.
+uint16_t* lcdSpareCanvas(unsigned* width, unsigned* height, bool* landscape);
+void lcdPresentSpare();
 #endif
 
 void lcdClear();

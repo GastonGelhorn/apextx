@@ -1493,6 +1493,8 @@
 #define TR_NB4_SYSTEM_DIAGNOSTICS    "System & diagnostics"
 #define TR_NB4_CAR                   "Car"
 #define TR_NB4_RF_DISABLED           "RF DISABLED"
+#define TR_NB4_FAULT_TITLE           "Interface stopped"
+#define TR_NB4_FAULT_ADVICE          "If you are driving, park the car and switch it off, then restart the radio. Steering and throttle keep working."
 #define TR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS "Unsupported model. The original file is preserved. Select a car model."
 #define TR_NB4_MODELS                "Models"
 #define TR_NB4_RESULT_PENDING        "Result pending"

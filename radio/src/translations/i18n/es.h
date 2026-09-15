@@ -1497,6 +1497,8 @@
 #define TR_NB4_SYSTEM_DIAGNOSTICS    "Sistema y diagnóstico"
 #define TR_NB4_CAR                   "Coche"
 #define TR_NB4_RF_DISABLED           "RF BLOQUEADO"
+#define TR_NB4_FAULT_TITLE           "Interfaz detenida"
+#define TR_NB4_FAULT_ADVICE          "Si estas conduciendo, aparca el coche y apagalo, luego reinicia la emisora. La direccion y el gas siguen funcionando."
 #define TR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS "Modelo incompatible. El archivo original está conservado. Selecciona un modelo de coche."
 #define TR_NB4_MODELS                "Modelos"
 #define TR_NB4_RESULT_PENDING        "Resultado pendiente"
