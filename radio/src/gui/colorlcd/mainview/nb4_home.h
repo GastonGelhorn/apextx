@@ -24,6 +24,11 @@ void nb4BuildCards(Window* parent);
 void nb4RequestOrientation(bool landscape, bool reopenAppearance = true);
 void nb4ProcessOrientation();
 
+// True while an orientation change is still waiting for the open pages to
+// close. The request is dropped after a bounded number of attempts, so this
+// always returns to false whether or not the change went through.
+bool nb4OrientationChangePending();
+
 // The only native Home. Persistent objects update from native readings.
 class Nb4HomeScreen : public WidgetsContainer
 {

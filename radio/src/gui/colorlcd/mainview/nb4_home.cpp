@@ -32,6 +32,15 @@
 namespace {
 int pendingOrientation = -1;
 bool reopenAfterOrientation = true;
+unsigned orientationAttempts = 0;
+
+// Switching orientation has to cancel any gesture in flight and unwind the
+// open pages before the views are rebuilt. Both are safe once; repeated on
+// every UI iteration they cancel the user's every touch, which is
+// indistinguishable from a frozen screen. So the request is given a bounded
+// number of attempts and then dropped: not changing orientation is a far
+// better outcome than a radio that ignores its own screen.
+constexpr unsigned OrientationAttemptLimit = 8;
 
 StaticText* label(Window* p, rect_t r, const char* text, LcdFlags font = FONT(STD),
                   LcdColorIndex color = COLOR_THEME_PRIMARY1_INDEX)
@@ -143,29 +152,46 @@ void nb4RequestOrientation(bool landscape, bool reopenAppearance)
 {
   pendingOrientation = landscape ? 1 : 0;
   reopenAfterOrientation = reopenAppearance;
+  orientationAttempts = 0;
 }
+
+bool nb4OrientationChangePending() { return pendingOrientation >= 0; }
 
 void nb4ProcessOrientation()
 {
   if (pendingOrientation < 0) return;
   auto display = lv_disp_get_default();
+  // Mid-flush is an ordinary transient and costs nothing to retry, so it does
+  // not spend an attempt and must stay clear of the side effects below.
   if (!display || lv_disp_get_draw_buf(display)->flushing) return;
+  if (++orientationAttempts > OrientationAttemptLimit) {
+    pendingOrientation = -1;
+    orientationAttempts = 0;
+    return;
+  }
+  // Resolved before anything is cancelled: instance() creates the main view on
+  // first use and pushes a layer, and creating it mid-unwind would put it on
+  // top of the very pages being closed and end the walk early.
+  auto main = ViewMain::instance();
   // Finish native live edits and cancel gestures before rebuilding any view.
   Keyboard::hide(false);
   lv_indev_reset(nullptr, nullptr);
   // This runs between UI iterations, never inside a control's callback.
-  auto main = ViewMain::instance();
-  while (Layer::back() && Layer::back() != main) {
+  for (unsigned i = 0; i < 32 && Layer::back() && Layer::back() != main; ++i) {
     auto page = Layer::back();
     page->onCancel();
+    // A page that refuses to close, or that reopens another in its place, is
+    // retried on the next iteration rather than spun on here.
     if (Layer::back() == page) return;
   }
+  if (Layer::back() != main) return;
   if (!lcdSetOrientation(pendingOrientation != 0)) return;
   if (!nb4HealthRecovery()) {
     g_eeGeneral.nb4Orientation = pendingOrientation;
     storageDirty(EE_GENERAL);
   }
   pendingOrientation = -1;
+  orientationAttempts = 0;
   main->resizeToDisplay();
   LayoutFactory::loadCustomScreens();
   if (reopenAfterOrientation) nb4OpenSection(Nb4Section::Appearance);

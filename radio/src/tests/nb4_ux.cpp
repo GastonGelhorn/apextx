@@ -3974,4 +3974,64 @@ TEST(Nb4Performance, RemappedGripKeysNavigateSelectAndReturnThroughLvgl)
   EXPECT_EQ(Layer::back(), base);
 }
 
+namespace {
+
+// A page that will not close, which is all it takes to strand an orientation
+// change: the real ones that behave this way are modal dialogs that insist on
+// an answer.
+struct StubbornPage : Window {
+  explicit StubbornPage(Window* parent) : Window(parent, {0, 0, 40, 40})
+  {
+    pushLayer();
+  }
+  void onCancel() override {}  // refuses
+};
+
+}  // namespace
+
+TEST(Nb4Ux, AStrandedOrientationChangeIsDroppedRatherThanSwallowingEveryTouch)
+{
+  Scene scene;
+  scene.orient(false);
+  // The main view pushes a layer of its own on first use, so it has to exist
+  // before the page under test is stacked on top of it.
+  auto main = ViewMain::instance();
+  scene.root->run();
+  auto base = Layer::back();
+  ASSERT_EQ(base, main);
+  auto stubborn = new StubbornPage(scene.root);
+  ASSERT_EQ(Layer::back(), stubborn);
+
+  nb4RequestOrientation(true, false);
+  ASSERT_TRUE(nb4OrientationChangePending());
+
+  // Every iteration that keeps the request alive also resets the input
+  // devices, so a request that never resolves cancels the user's every touch
+  // for as long as the radio is on. It has to give up.
+  for (unsigned i = 0; i < 64; ++i) nb4ProcessOrientation();
+
+  EXPECT_FALSE(nb4OrientationChangePending())
+      << "the orientation request never stopped resetting the input devices";
+  EXPECT_EQ(Layer::back(), stubborn) << "a stranded request must not force a page shut";
+  EXPECT_EQ(lv_disp_get_hor_res(nullptr), 320) << "orientation must not have changed";
+
+  stubborn->deleteLater();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+}
+
+TEST(Nb4Ux, AnOrientationChangeStillGoesThroughOnceThePagesClose)
+{
+  Scene scene;
+  scene.orient(false);
+  ViewMain::instance();
+  scene.root->run();
+
+  nb4RequestOrientation(true, false);
+  for (unsigned i = 0; i < 4; ++i) { nb4ProcessOrientation(); scene.root->run(); }
+
+  EXPECT_FALSE(nb4OrientationChangePending());
+  EXPECT_EQ(lv_disp_get_hor_res(nullptr), 480);
+}
+
 #endif
