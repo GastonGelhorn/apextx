@@ -87,14 +87,23 @@ SetupTopBarWidgetsPage::SetupTopBarWidgetsPage() :
   setRect(viewMain->getRect());
 
   auto topbar = viewMain->getTopbar();
-  for (unsigned i = 0; i < topbar->getZonesCount(); i++) {
+  SetupWidgetsPageSlot* firstSlot = nullptr;
+  const unsigned zones = topbar ? topbar->getZonesCount() : 0;
+  for (unsigned i = 0; i < zones; i++) {
     auto rect = topbar->getZone(i);
-    new SetupWidgetsPageSlot(this, rect, topbar, i);
+    auto slot = new SetupWidgetsPageSlot(this, rect, topbar, i);
+    if (i == 0) firstSlot = slot;
   }
 
+  Window* back = nullptr;
 #if defined(HARDWARE_TOUCH)
-  addBackButton();
+  back = addBackButton();
 #endif
+  // Same as the custom screen version: a transparent overlay that swallows
+  // every touch must leave something focused and a marked way out. The zone
+  // count is zero whenever every top bar widget width has been set to zero.
+  if (firstSlot) lv_group_focus_obj(firstSlot->getLvObj());
+  else if (back) lv_group_focus_obj(back->getLvObj());
 }
 
 void SetupTopBarWidgetsPage::onClicked()

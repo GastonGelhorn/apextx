@@ -132,19 +132,25 @@ SetupWidgetsPage::SetupWidgetsPage(uint8_t customScreenIdx) :
   }
 
   SetupWidgetsPageSlot* firstSlot = nullptr;
-  for (unsigned i = 0; i < screen->getZonesCount(); i++) {
+  const unsigned zones = screen ? screen->getZonesCount() : 0;
+  for (unsigned i = 0; i < zones; i++) {
     auto rect = screen->getZone(i);
-    auto widget_container = customScreens[customScreenIdx];
-    auto slot = new SetupWidgetsPageSlot(this, rect, widget_container, i);
+    auto slot = new SetupWidgetsPageSlot(this, rect, screen, i);
     if (i == 0) firstSlot = slot;
   }
-  if (firstSlot) lv_group_focus_obj(firstSlot->getLvObj());
 
+  Window* back = nullptr;
 #if defined(HARDWARE_TOUCH)
-  addBackButton();
+  back = addBackButton();
 #endif
+  // This page is a transparent overlay that blocks every touch beneath it, so
+  // something has to hold the focus. A container with no zones -- the car home
+  // screen declares none -- would otherwise leave the radio with no focused
+  // object and no marked way back, which is indistinguishable from a freeze.
+  if (firstSlot) lv_group_focus_obj(firstSlot->getLvObj());
+  else if (back) lv_group_focus_obj(back->getLvObj());
 
-  screen->show();
+  if (screen) screen->show();
 }
 
 void SetupWidgetsPage::onClicked()

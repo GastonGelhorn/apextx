@@ -473,15 +473,20 @@ void Window::enable(bool enabled)
 }
 
 #if defined(HARDWARE_TOUCH)
-void Window::addBackButton()
+Window* Window::addBackButton()
 {
-  new ButtonBase(
-      this, {0, 0, EdgeTxStyles::MENU_HEADER_HEIGHT, EdgeTxStyles::MENU_HEADER_HEIGHT},
+  // Drawn, not invisible. The pages that use this are transparent overlays
+  // that swallow every touch, so an unmarked hit box in the corner was the
+  // only way out of them and nothing said it was there.
+  return new TextButton(
+      this,
+      {PAD_MEDIUM, PAD_MEDIUM, EdgeTxStyles::MENU_HEADER_HEIGHT,
+       EdgeTxStyles::MENU_HEADER_HEIGHT},
+      LV_SYMBOL_LEFT,
       [=]() -> uint8_t {
         onCancel();
         return 0;
-      },
-      window_create);
+      });
 }
 
 void Window::addCustomButton(coord_t x, coord_t y, std::function<void()> action)

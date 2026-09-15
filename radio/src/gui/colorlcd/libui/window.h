@@ -166,7 +166,9 @@ class Window
   bool deleted() const { return _deleted; }
 
 #if defined(HARDWARE_TOUCH)
-  void addBackButton();
+  // Returns the button so a page with nothing else on it can still give the
+  // focus somewhere. Used only by the widget setup pages.
+  Window* addBackButton();
   void addCustomButton(coord_t x, coord_t y, std::function<void()> action);
 #endif
 

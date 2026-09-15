@@ -10,6 +10,7 @@
 #include "mainwindow.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "topbar.h"
 #include "theme_manager.h"
 #include "pagegroup.h"
 #include "radio_setup.h"
@@ -4032,6 +4033,49 @@ TEST(Nb4Ux, AnOrientationChangeStillGoesThroughOnceThePagesClose)
 
   EXPECT_FALSE(nb4OrientationChangePending());
   EXPECT_EQ(lv_disp_get_hor_res(nullptr), 480);
+}
+
+TEST(Nb4Ux, WidgetSetupWithNoSlotsStillShowsAWayOutAndHoldsTheFocus)
+{
+  Scene scene;
+  ViewMain::instance();
+  scene.root->run();
+
+  // The zone count is zero whenever every top bar widget width is zero, and
+  // the car home screen declares no zones at all. The page is a transparent
+  // overlay that blocks every touch, so with no slots it used to leave the
+  // radio with nothing focused and only an unmarked hit box in the corner --
+  // a screen that answers nothing, which is what a freeze looks like.
+  uint8_t saved[MAX_TOPBAR_ZONES];
+  memcpy(saved, g_model.topbarWidgetWidth, sizeof(saved));
+  memset(g_model.topbarWidgetWidth, 0, sizeof(g_model.topbarWidgetWidth));
+
+  auto base = Layer::back();
+  auto page = new SetupTopBarWidgetsPage();
+  scene.root->run();
+  ASSERT_EQ(Layer::back(), page);
+
+  std::vector<std::string> labels;
+  collectLabels(page->getLvObj(), labels);
+  EXPECT_FALSE(labels.empty()) << "the only way out of the page is invisible";
+  EXPECT_NE(lv_group_get_focused(lv_group_get_default()), nullptr)
+      << "nothing holds the focus, so the keys have nowhere to go";
+
+  page->onCancel();
+  scene.root->run();
+  EXPECT_NE(Layer::back(), page);
+
+  // Closing this page deliberately reopens the top bar settings page in its
+  // place, so unwind back to where the test started.
+  for (unsigned i = 0; i < 8 && Layer::back() && Layer::back() != base; ++i) {
+    auto open = Layer::back();
+    open->onCancel();
+    scene.root->run();
+    if (Layer::back() == open) break;
+  }
+  EXPECT_EQ(Layer::back(), base);
+
+  memcpy(g_model.topbarWidgetWidth, saved, sizeof(saved));
 }
 
 #endif
