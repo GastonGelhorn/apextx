@@ -47,8 +47,11 @@ void backlightInit()
   gpio_init_af(BACKLIGHT_GPIO, BACKLIGHT_GPIO_AF, GPIO_PIN_SPEED_LOW);
 
   stm32_timer_enable_clock(BACKLIGHT_TIMER);
-  BACKLIGHT_TIMER->ARR = 100;
-  BACKLIGHT_TIMER->PSC = BACKLIGHT_TIMER_FREQ / 1000000 - 1; // 10kHz (same as FrOS)
+  // Count 0..99: the public 0..100 brightness scale now reaches a genuine
+  // 100% duty cycle at its maximum without driving the LED above its normal
+  // current. The timer remains at the original 10 kHz frequency.
+  BACKLIGHT_TIMER->ARR = BACKLIGHT_LEVEL_MAX - 1;
+  BACKLIGHT_TIMER->PSC = BACKLIGHT_TIMER_FREQ / 1000000 - 1;
   BACKLIGHT_TIMER->CCMR1 = TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1PE; // PWM mode 1
   BACKLIGHT_TIMER->CCER = TIM_CCER_CC1E | TIM_CCER_CC1NE;
   BACKLIGHT_TIMER->CCR1 = 0;
