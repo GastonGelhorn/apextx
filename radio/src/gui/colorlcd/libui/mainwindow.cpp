@@ -17,6 +17,9 @@
  */
 
 #include "mainwindow.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_car_state.h"
+#endif
 
 #include "board.h"
 #include "keyboard_base.h"
@@ -54,6 +57,10 @@ void MainWindow::emptyTrash()
 void MainWindow::run(bool trash)
 {
   auto start = timersGetMsTick();
+
+#if defined(RADIO_NB4_FAMILY)
+  nb4BeginUiCarStateFrame();
+#endif
 
   if (widgetRefreshEnable)
     ViewMain::refreshWidgets();

@@ -28,6 +28,8 @@
 #include "bitmaps.h"
 #include "static.h"
 
+#include <algorithm>
+
 //-----------------------------------------------------------------------------
 
 class BaseDialogForm : public Window
@@ -160,7 +162,7 @@ void BaseDialog::useBrandHeader()
   useSectionHeader();
   header->show(false);
 
-  auto brand = new Window(content, {0, 0, LV_PCT(100), 34});
+  auto brand = new Window(content, {0, 0, LV_PCT(100), 44});
   brand->setWindowFlag(OPAQUE);
   brand->padAll(PAD_ZERO);
   etx_solid_bg(brand->getLvObj(), COLOR_THEME_QM_BG_INDEX);
@@ -169,9 +171,17 @@ void BaseDialog::useBrandHeader()
   etx_border_color(brand->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   lv_obj_move_to_index(brand->getLvObj(), 0);
 
-  auto logo = new StaticIcon(brand, 0, 0, ICON_TOP_LOGO,
-                             COLOR_THEME_QM_FG_INDEX);
-  lv_obj_center(logo->getLvObj());
+  auto mask = getBuiltinIcon(ICON_TOP_LOGO);
+  const coord_t logoW = mask ? mask->width : 0;
+  const coord_t logoH = mask ? mask->height : 0;
+  new StaticIcon(brand, 8, std::max<coord_t>(0, (44 - logoH) / 2),
+                 ICON_TOP_LOGO, COLOR_THEME_QM_FG_INDEX);
+  lv_obj_update_layout(content->getLvObj());
+  const coord_t brandW = lv_obj_get_width(brand->getLvObj());
+  new StaticText(brand, {coord_t(logoW + 16), 10,
+                         coord_t(std::max<int>(40, brandW - logoW - 72)), 24},
+                 header->getText(), COLOR_THEME_QM_FG_INDEX,
+                 FONT(XS) | CENTERED);
 }
 #endif
 

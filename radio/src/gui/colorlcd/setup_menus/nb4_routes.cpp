@@ -442,6 +442,20 @@ constexpr int GRID_COLS = 4;
 
 constexpr lv_coord_t TILE_H = 90;
 
+uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
+{
+  if (!strcmp(route.destination, "steering")) return ICON_NB4_STEERING;
+  if (!strcmp(route.destination, "throttle_brake")) return ICON_NB4_THROTTLE;
+  if (!strcmp(route.path, "settings/controls/trims")) return ICON_NB4_OUTPUTS;
+  if (!strcmp(route.path, "settings/race/history")) return ICON_STATS;
+  if (!strcmp(route.path, "settings/race/timer_laps")) return ICON_STATS_TIMERS;
+  if (!strcmp(route.path, "settings/race/pit")) return ICON_RADIO_TOOLS;
+  if (!strcmp(route.path, "settings/race/statistics")) return ICON_STATS_ANALOGS;
+  if (!strcmp(route.path, "settings/race/setup")) return ICON_MODEL_SETUP;
+  if (!strcmp(route.path, "settings/race/resets")) return ICON_TOOLS_RESET;
+  return fallback;
+}
+
 class Nb4GridModal : public BaseDialog
 {
  public:
@@ -550,9 +564,10 @@ class Nb4GridModal : public BaseDialog
 
   static lv_coord_t gridWidth()
   {
-
-    return GRID_COLS * QuickMenuGroup::QM_BUTTON_WIDTH +
-           (GRID_COLS - 1) * PAD_SMALL + 4 * PAD_SMALL;
+    // Use the available landscape width instead of retaining the narrow
+    // portrait-sized panel. The same proportion leaves a safe touch margin in
+    // portrait and gives translated labels substantially more room.
+    return lv_disp_get_hor_res(nullptr) * 94 / 100;
   }
 
   static lv_coord_t gridHeight(unsigned)
@@ -616,6 +631,7 @@ void nb4OpenQuickAccessModal()
     for (const auto& section : sections) {
       if (nb4RouteInSection(*route, section.id)) icon = section.icon;
     }
+    icon = routeIcon(*route, icon);
     modal->tile(icon, nb4QuickAccessLabel(*route).c_str(), nb4RouteIsOpenable(*route),
                 [route] { nb4OpenRoute(route->path); }, nb4StrOrNull(route->reason));
   }
@@ -674,7 +690,9 @@ void nb4OpenSettingsSection(const char* id)
   if (direct) { nb4OpenRoute(direct); return; }
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(id, views, 32);
-  auto modal = new Nb4GridModal(section->label(), n, false, 2);
+  const unsigned columns = lv_disp_get_hor_res(nullptr) >
+                           lv_disp_get_ver_res(nullptr) ? 3 : 2;
+  auto modal = new Nb4GridModal(section->label(), n, false, columns);
   modal->populate([modal, section] {
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(section->id, views, 32);
@@ -682,7 +700,8 @@ void nb4OpenSettingsSection(const char* id)
     const auto route = views[v];
     if (!nb4RouteInSettings(*route)) continue;
     if (!strcmp(route->path, "settings/race/resets")) modal->separator();
-    modal->tile(section->icon, route->label(), nb4RouteIsOpenable(*route),
+    modal->tile(routeIcon(*route, section->icon), route->label(),
+                nb4RouteIsOpenable(*route),
                 [route] { nb4OpenRoute(route->path); },
                 nb4StrOrNull(route->reason));
   }
