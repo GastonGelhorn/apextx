@@ -1990,7 +1990,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
 
   nb4OpenSettingsModal();
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
-  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_CAR));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), nb4AppTileLabel("car", STR_NB4_CAR)));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   lv_obj_t* helpTile = nullptr;
@@ -1998,7 +1998,8 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
     std::function<lv_obj_t*(lv_obj_t*)> findTile = [&](lv_obj_t* o) -> lv_obj_t* {
       if (lv_obj_check_type(o, &lv_label_class)) {
         const char* t = lv_label_get_text(o);
-        if (t && std::string(t) == std::string(STR_NB4_NOTES)) {
+        if (t && std::string(t) ==
+                     std::string(nb4AppTileLabel(pending->path, pending->label()))) {
           lv_obj_t* up = lv_obj_get_parent(o);
           for (unsigned d = 0; up && d < 4; ++d) {
             if (lv_obj_has_class(up, &lv_btn_class)) return up;
@@ -2022,7 +2023,8 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   }
 
   const auto before = Layer::back();
-  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_NOTES));
+  ASSERT_TRUE(clickLabel(
+      lv_scr_act(), nb4AppTileLabel(pending->path, pending->label())));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   EXPECT_NE(Layer::back(), before);
@@ -2122,7 +2124,10 @@ TEST(Nb4Ux, TheSettingsGridFitsWithoutScrolling)
     bool visible = false;
     for (unsigned r = 0; r < count && r < 32; ++r)
       if (nb4RouteInSettings(*routes[r])) visible = true;
-    EXPECT_EQ(std::find(labels.begin(), labels.end(), std::string(name)) != labels.end(), visible);
+    const char* tileName = nb4AppTileLabel(sections[i].id, name);
+    EXPECT_EQ(std::find(labels.begin(), labels.end(), std::string(tileName)) !=
+                  labels.end(),
+              visible);
   }
 
   for (unsigned d = 0; d < 16; ++d) {
@@ -4602,10 +4607,12 @@ TEST(Nb4Ux, MenuAndQuickAccessShareOneAxisEditorWithoutMovingItems)
   auto settings = Layer::back();
   std::vector<std::string> labels;
   collectLabels(settings->getLvObj(), labels);
-  EXPECT_NE(std::find(labels.begin(), labels.end(), STR_NB4_STEERING_2090), labels.end());
+  const char* steeringTile =
+      nb4AppTileLabel("steering", STR_NB4_STEERING_2090);
+  EXPECT_NE(std::find(labels.begin(), labels.end(), steeringTile), labels.end());
   nb4QuickAccessSet(0, 0);
   for (unsigned i = 0; i < 3; ++i) render(scene.root);
-  ASSERT_TRUE(clickLabel(settings->getLvObj(), STR_NB4_STEERING_2090));
+  ASSERT_TRUE(clickLabel(settings->getLvObj(), steeringTile));
   render(scene.root);
   ASSERT_TRUE(Layer::back()->isPageGroup()) << "Steering must not open a grid of editor tabs";
   EXPECT_EQ(static_cast<PageGroup*>(Layer::back())->getCurrentTab()->pageId(), QM_MODEL_NB4_STEERING);
@@ -4614,11 +4621,11 @@ TEST(Nb4Ux, MenuAndQuickAccessShareOneAxisEditorWithoutMovingItems)
   nb4QuickAccessSet(0, nb4RouteId("settings/steering/travel"));
   for (unsigned i = 0; i < 3; ++i) render(scene.root);
   labels.clear(); collectLabels(settings->getLvObj(), labels);
-  EXPECT_NE(std::find(labels.begin(), labels.end(), STR_NB4_STEERING_2090), labels.end());
+  EXPECT_NE(std::find(labels.begin(), labels.end(), steeringTile), labels.end());
   settings->onCancel(); render(scene.root);
   nb4OpenQuickAccessModal(); render(scene.root);
   auto quick = Layer::back();
-  ASSERT_TRUE(clickLabel(quick->getLvObj(), STR_NB4_STEERING_2090)); render(scene.root);
+  ASSERT_TRUE(clickLabel(quick->getLvObj(), steeringTile)); render(scene.root);
   ASSERT_TRUE(Layer::back()->isPageGroup());
   EXPECT_EQ(static_cast<PageGroup*>(Layer::back())->getCurrentTab()->pageId(), QM_MODEL_NB4_STEERING);
   Layer::back()->onCancel(); render(scene.root);
@@ -4732,7 +4739,11 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
                             lv_obj_get_style_text_font(obj, LV_PART_MAIN),
                             lv_obj_get_style_text_letter_space(obj, LV_PART_MAIN),
                             lv_obj_get_style_text_line_space(obj, LV_PART_MAIN),
-                            lv_obj_get_content_width(obj), LV_TEXT_FLAG_NONE);
+                            LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+            EXPECT_EQ(lv_obj_get_style_text_font(obj, LV_PART_MAIN),
+                      getFont(FONT(STD))) << lv_label_get_text(obj);
+            EXPECT_LE(required.x, lv_obj_get_content_width(obj))
+                << lv_label_get_text(obj);
             EXPECT_LE(required.y, lv_obj_get_content_height(obj))
                 << lv_label_get_text(obj);
             const auto foreground = lv_color_to32(lv_obj_get_style_text_color(obj, 0));
@@ -4790,7 +4801,7 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
             badge = child;
         }
         ASSERT_NE(badge, nullptr);
-        EXPECT_EQ(lv_obj_get_width(badge), 34);
+        EXPECT_EQ(lv_obj_get_width(badge), 42);
         EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
                   lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
         EXPECT_EQ(glyphColours.size(), 2u);

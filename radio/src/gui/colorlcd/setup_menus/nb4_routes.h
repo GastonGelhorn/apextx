@@ -111,5 +111,8 @@ void nb4QuickAccessMove(unsigned slot, int direction);
 // Strings used by the NB4 menu shell are part of the regular EN/ES catalogue.
 const char* nb4RouteHelp(const Nb4Route& route);
 std::string nb4QuickAccessLabel(const Nb4Route& route);
+// Compact, fixed-size label used only by icon grids. Destination pages retain
+// their complete translated title.
+const char* nb4AppTileLabel(const char* key, const char* fallback);
 
 #endif  // RADIO_NB4_FAMILY

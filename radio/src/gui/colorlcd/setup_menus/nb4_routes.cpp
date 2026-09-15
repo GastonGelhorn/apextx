@@ -449,6 +449,99 @@ struct AppTileColors {
   lv_color_t detail;
 };
 
+struct AppTileLabel {
+  const char* key;
+  const char* en;
+  const char* es;
+};
+
+const char* appTileLabel(const char* key, const char* fallback)
+{
+  // Grid labels are deliberately compact: the complete translated title is
+  // retained by the destination page and by unavailable-item explanations.
+  // ApexTX NB4 ships EN/ES, so both supported UI languages are explicit here.
+  static constexpr AppTileLabel labels[] = {
+      {"steering", "Steering", "Dirección"},
+      {"throttle_brake", "Throttle", "Gas/freno"},
+      {"car", "Car", "Coche"},
+      {"controls", "Controls", "Mandos"},
+      {"receiver_rf", "Receiver", "Receptor"},
+      {"race", "Race", "Carrera"},
+      {"telemetry", "Telemetry", "Telemetría"},
+      {"models", "Cars", "Coches"},
+      {"display", "Display", "Pantalla"},
+      {"sound_alerts", "Alerts", "Avisos"},
+      {"system", "System", "Sistema"},
+      {"help", "Help", "Ayuda"},
+      {"quick-access/edit", "Edit", "Editar"},
+      {"settings/car/general", "Details", "Datos"},
+      {"settings/car/safety", "Startup", "Arranque"},
+      {"settings/car/presets", "Presets", "Preajuste"},
+      {"settings/car/notes", "Notes", "Notas"},
+      {"settings/car/advanced", "Advanced", "Avanzado"},
+      {"settings/steering/travel", "Steering", "Dirección"},
+      {"settings/throttle_brake/travel", "Throttle", "Gas/freno"},
+      {"settings/receiver_rf/module", "Receiver", "Receptor"},
+      {"settings/controls/trims", "Trims", "Trims"},
+      {"settings/controls/assignments", "Assign", "Asignar"},
+      {"settings/controls/channels", "Channels", "Canales"},
+      {"settings/controls/general", "Response", "Respuesta"},
+      {"settings/controls/monitor", "Monitor", "Monitor"},
+      {"settings/telemetry/track_view", "Live", "Vista"},
+      {"settings/telemetry/sensors", "Sensors", "Sensores"},
+      {"settings/telemetry/alerts", "Alerts", "Alertas"},
+      {"settings/race/timer_laps", "Chrono", "Crono"},
+      {"settings/race/pit", "Pit", "Boxes"},
+      {"settings/race/history", "History", "Historial"},
+      {"settings/race/statistics", "Stats", "Datos"},
+      {"settings/race/setup", "Setup", "Ajustes"},
+      {"settings/race/timers", "Timers", "Tiempos"},
+      {"settings/race/resets", "Resets", "Reinicios"},
+      {"settings/models/management", "Cars", "Coches"},
+      {"settings/models/templates", "Templates", "Plantillas"},
+      {"settings/display/brightness", "Bright", "Brillo"},
+      {"settings/display/appearance", "Style", "Aspecto"},
+      {"settings/display/screens", "Screens", "Pantallas"},
+      {"settings/display/top_bar", "Top bar", "Barra"},
+      {"settings/controls/shortcuts", "Keys", "Teclas"},
+      {"settings/controls/quick_access", "Shortcuts", "Accesos"},
+      {"settings/sound_alerts/lights", "Lights", "Luces"},
+      {"settings/sound_alerts/alerts", "Alerts", "Avisos"},
+      {"settings/sound_alerts/sound", "Sound", "Sonido"},
+      {"settings/sound_alerts/haptic", "Haptic", "Vibración"},
+      {"settings/connectivity/usb", "USB", "USB"},
+      {"settings/connectivity/bluetooth", "Bluetooth", "Bluetooth"},
+      {"settings/system/backup_restore", "Backup", "Copia"},
+      {"settings/system/reset", "Restore", "Restaurar"},
+      {"settings/system/general", "General", "General"},
+      {"settings/system/power", "Power", "Energía"},
+      {"settings/system/hardware", "Hardware", "Hardware"},
+      {"settings/system/calibration", "Calibrate", "Calibrar"},
+      {"settings/system/storage", "Storage", "Archivos"},
+      {"settings/system/update", "Update", "Actualizar"},
+      {"settings/system/date_time_location", "Location", "Ubicación"},
+      {"settings/system/diagnostics", "Tests", "Pruebas"},
+      {"settings/system/about", "About", "Acerca"},
+      {"settings/system/help", "Help", "Ayuda"},
+      {"settings/advanced/features", "Features", "Funciones"},
+      {"settings/advanced/input_preferences", "Input cfg", "Entrada"},
+      {"settings/advanced/inputs", "Inputs", "Entradas"},
+      {"settings/advanced/mixes", "Mixes", "Mezclas"},
+      {"settings/advanced/outputs", "Outputs", "Salidas"},
+      {"settings/advanced/logic", "Logic", "Lógica"},
+      {"settings/advanced/automation", "Actions", "Acciones"},
+      {"settings/advanced/variables", "Variables", "Variables"},
+      {"settings/advanced/scripts", "Scripts", "Scripts"},
+  };
+  if (key) {
+    const bool spanish = g_eeGeneral.uiLanguage[0] == 'e' &&
+                         g_eeGeneral.uiLanguage[1] == 's';
+    for (const auto& label : labels)
+      if (!strcmp(label.key, key)) return spanish ? label.es : label.en;
+  }
+  return fallback;
+}
+
 AppTileColors appTileColors(const char* key)
 {
   // Dark-mode variants of the familiar iOS app colours.  Keeping a colour
@@ -659,8 +752,9 @@ class Nb4GridModal : public BaseDialog
                       LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_opa(slot->getLvObj(), LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(slot->getLvObj(), 0, LV_PART_MAIN);
+    const char* compactLabel = appTileLabel(colorKey, label);
     QuickMenuButton* btn = new QuickMenuButton(
-        slot, (EdgeTxIcon)icon, label,
+        slot, (EdgeTxIcon)icon, compactLabel,
         [this, action, openable, title = std::string(label), reason]() {
           if (openable) {
 
@@ -719,7 +813,7 @@ class Nb4GridModal : public BaseDialog
   }
   void configure(std::function<void()> action) {
     tile(ICON_QM_FAVORITES, STR_NB4_CONFIGURE_QUICK_ACCESS, true,
-         std::move(action), nullptr, "settings/controls/quick_access");
+         std::move(action), nullptr, "quick-access/edit");
   }
 
  private:
@@ -790,6 +884,11 @@ bool sectionHasSomethingOpenable(const char* id)
 }
 
 }  // namespace
+
+const char* nb4AppTileLabel(const char* key, const char* fallback)
+{
+  return appTileLabel(key, fallback);
+}
 
 static const Nb4QuickEntry quickDefaults[] = {
     {"settings/steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},

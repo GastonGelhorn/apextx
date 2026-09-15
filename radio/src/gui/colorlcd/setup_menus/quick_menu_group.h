@@ -120,7 +120,7 @@ class QuickMenuButton : public ButtonBase
   // coloured square is the visual control; the full cell remains the touch
   // target and carries its label below the icon.
   void useAppTile(coord_t size, lv_color_t accent, lv_color_t detail) {
-    constexpr coord_t badgeSize = 34;
+    constexpr coord_t badgeSize = 42;
     constexpr coord_t labelTop = badgeSize + 1;
 
     setSize(size, size);
@@ -174,16 +174,10 @@ class QuickMenuButton : public ButtonBase
 
     textPtr->setPos(0, labelTop);
     textPtr->setSize(size, size - labelTop);
-    etx_font(textPtr->getLvObj(), FONT_XS_INDEX);
-    lv_label_set_long_mode(textPtr->getLvObj(), LV_LABEL_LONG_WRAP);
+    etx_font(textPtr->getLvObj(), FONT_STD_INDEX);
+    lv_label_set_long_mode(textPtr->getLvObj(), LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_letter_space(textPtr->getLvObj(), -1, LV_PART_MAIN);
     lv_obj_set_style_text_line_space(textPtr->getLvObj(), 0, LV_PART_MAIN);
-    lv_point_t required;
-    lv_txt_get_size(&required, lv_label_get_text(textPtr->getLvObj()),
-                    lv_obj_get_style_text_font(textPtr->getLvObj(), LV_PART_MAIN),
-                    lv_obj_get_style_text_letter_space(textPtr->getLvObj(), LV_PART_MAIN),
-                    0, size, LV_TEXT_FLAG_NONE);
-    if (required.y > size - labelTop)
-      etx_font(textPtr->getLvObj(), FONT_XXS_INDEX);
     etx_txt_color(textPtr->getLvObj(), COLOR_THEME_QM_FG_INDEX,
                   LV_PART_MAIN | LV_STATE_USER_1);
   }
