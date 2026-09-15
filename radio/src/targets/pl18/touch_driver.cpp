@@ -35,9 +35,15 @@
 #include "keys.h"
 
 #include "debug.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_latency.h"
+#endif
+
+#include <string.h>
 
 #define TAP_TIME 250 // 250 ms
 #define I2C_TIMEOUT_MAX 5 // 5 ms
+constexpr uint8_t TOUCH_I2C_ATTEMPTS = 2;
 
 // FT6236 definitions
 #define TOUCH_FT6236_I2C_ADDRESS          (0x70>>1)
@@ -53,6 +59,7 @@
 #define TOUCH_FT6206_REG_P1_XH            0x03
 #define TOUCH_FT6206_EVT_SHIFT            6
 #define TOUCH_FT6206_EVT_MASK             (3 << TOUCH_FT6206_EVT_SHIFT)
+#define TOUCH_FT6206_EVT_PRESS_DOWN       0x00
 #define TOUCH_FT6206_EVT_CONTACT          0x02
 #define TOUCH_FT6206_MASK_TD_STAT         0x0f
 
@@ -140,12 +147,14 @@ const char* boardTouchType = "";
 static const TouchControllerDescriptor *tcd = nullptr;
 static TouchState internalTouchState = {};
 volatile static bool touchEventOccured;
+volatile static uint32_t touchEventAtUs;
 static tmr10ms_t downTime = 0;
 static tmr10ms_t tapTime = 0;
 static short tapCount = 0;
 
 static void _touch_exti_isr(void)
 {
+  if (!touchEventOccured) touchEventAtUs = timersGetUsTick();
   touchEventOccured = true;
 }
 
@@ -190,53 +199,114 @@ static int _i2c_read(uint8_t addr, uint32_t reg, uint8_t regSize, uint8_t* data,
 {
   if (touchController == TC_CST836U || regSize > 2) {
     if(stm32_i2c_master_tx(TOUCH_I2C_BUS, addr, (uint8_t*) &reg, regSize, 3) < 0)
-      return false;
+      return -1;
     delay_us(5);
     if(stm32_i2c_master_rx(TOUCH_I2C_BUS, addr, data, len, I2C_TIMEOUT_MAX) < 0)
-      return false;
-    return true;
+      return -1;
+    return 0;
   } else {
     return stm32_i2c_read(TOUCH_I2C_BUS, addr, reg, regSize, data, len, timeout);
   }
 }
 
-static uint8_t _i2c_readRetry(uint8_t addr, uint32_t reg, uint8_t regSize)
+static bool lastTouchReadSucceeded = true;
+
+static bool _i2c_readRetry(uint8_t addr, uint32_t reg, uint8_t regSize,
+                           uint8_t* result)
 {
-  uint8_t result;
-  uint8_t tryCount = 3;
-  while (_i2c_read(addr, reg, regSize, &result, 1, I2C_TIMEOUT_MAX) < 0) {
-    if (--tryCount == 0) break;
+  if (!result) {
+    lastTouchReadSucceeded = false;
+    return false;
+  }
+  *result = 0;
+  uint8_t tryCount = TOUCH_I2C_ATTEMPTS;
+  while (_i2c_read(addr, reg, regSize, result, 1, I2C_TIMEOUT_MAX) < 0) {
+    if (--tryCount == 0) {
+      lastTouchReadSucceeded = false;
+      return false;
+    }
     _i2c_reInit();
   }
-  return result;
+  return true;
 }
 
-static uint16_t _i2c_readMultipleRetry(uint8_t addr, uint32_t reg, uint8_t regSize, uint8_t * buffer, uint16_t length)
+static bool _i2c_readMultipleRetry(uint8_t addr, uint32_t reg, uint8_t regSize,
+                                   uint8_t* buffer, uint16_t length)
 {
-  uint8_t tryCount = 3;
+  if (!buffer || !length) {
+    lastTouchReadSucceeded = false;
+    return false;
+  }
+  memset(buffer, 0, length);
+  uint8_t tryCount = TOUCH_I2C_ATTEMPTS;
   while (_i2c_read(addr, reg, regSize, buffer, length, I2C_TIMEOUT_MAX) < 0) {
-    if (--tryCount == 0) break;
+    if (--tryCount == 0) {
+      lastTouchReadSucceeded = false;
+      return false;
+    }
     _i2c_reInit();
   }
-  return length;
+  return true;
+}
+
+#if defined(DEBUG)
+static uint8_t _i2c_readValueRetry(uint8_t addr, uint32_t reg,
+                                   uint8_t regSize)
+{
+  uint8_t result = 0;
+  _i2c_readRetry(addr, reg, regSize, &result);
+  return result;
+}
+#endif
+
+static bool touchReadRetryPending = false;
+static uint32_t touchReadRetryAt = 0;
+static uint8_t touchReadFailures = 0;
+
+static bool touchReadRetryDue()
+{
+  return touchReadRetryPending &&
+         int32_t(timersGetMsTick() - touchReadRetryAt) >= 0;
+}
+
+static void scheduleTouchReadRetry(uint32_t now)
+{
+  if (touchReadFailures < 4) ++touchReadFailures;
+  // Retry once on the next UI cadence, then back off to 40/80/160 ms if the
+  // bus remains unavailable. A single transient error should not add 40 ms to
+  // a press before we even try again.
+  touchReadRetryAt = now + (20u << (touchReadFailures - 1));
+  touchReadRetryPending = true;
+}
+
+static void clearTouchReadRetry()
+{
+  touchReadFailures = 0;
+  touchReadRetryPending = false;
 }
 
 static bool defaultHasTouchEvent()
 {
-  return touchEventOccured;
+  return touchEventOccured || touchReadRetryDue();
 }
 
 static bool ft6236TouchRead(uint16_t * X, uint16_t * Y)
 {
   // Read register FT6206_TD_STAT_REG to check number of touches detection
-  uint8_t nbTouch = _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6206_REG_TD_STAT, 1);
+  uint8_t nbTouch = 0;
+  if (!_i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS,
+                      TOUCH_FT6206_REG_TD_STAT, 1, &nbTouch))
+    return false;
   nbTouch &= TOUCH_FT6206_MASK_TD_STAT;
   bool hasTouch = nbTouch > 0;
 
   if (hasTouch) {
-    uint8_t dataxy[4];
+    uint8_t dataxy[4] = {};
     // Read X and Y positions and event
-    _i2c_readMultipleRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6206_REG_P1_XH, 1, dataxy, sizeof(dataxy));
+    if (!_i2c_readMultipleRetry(TOUCH_FT6236_I2C_ADDRESS,
+                                TOUCH_FT6206_REG_P1_XH, 1,
+                                dataxy, sizeof(dataxy)))
+      return false;
 
     // Send back ready X position to caller
     *X = ((dataxy[0] & 0x0f) << 8) | dataxy[1];
@@ -244,7 +314,8 @@ static bool ft6236TouchRead(uint16_t * X, uint16_t * Y)
     *Y = ((dataxy[2] & 0x0f) << 8) | dataxy[3];
 
     uint8_t event = (dataxy[0] & TOUCH_FT6206_EVT_MASK) >> TOUCH_FT6206_EVT_SHIFT;
-    return event == TOUCH_FT6206_EVT_CONTACT;
+    return event == TOUCH_FT6206_EVT_PRESS_DOWN ||
+           event == TOUCH_FT6206_EVT_CONTACT;
   }
   return false;
 }
@@ -252,14 +323,14 @@ static bool ft6236TouchRead(uint16_t * X, uint16_t * Y)
 static void ft6236PrintDebugInfo()
 {
 #if defined(DEBUG)
-  TRACE("ft6x36: thrhld = %d", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_TH_GROUP, 1) * 4);
-  TRACE("ft6x36: rep rate=", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_PERIODACTIVE, 1) * 10);
-  TRACE("ft6x36: fw lib 0x%02X %02X", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_LIB_VER_H, 1),
-        _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_LIB_VER_L, 1));
-  TRACE("ft6x36: fw v 0x%02X", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_FIRMID, 1));
-  TRACE("ft6x36: CHIP ID 0x%02X", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_CIPHER, 1));
-  TRACE("ft6x36: CTPM ID 0x%02X", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_FOCALTECH_ID, 1));
-  TRACE("ft6x36: rel code 0x%02X", _i2c_readRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_RELEASE_CODE_ID, 1));
+  TRACE("ft6x36: thrhld = %d", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_TH_GROUP, 1) * 4);
+  TRACE("ft6x36: rep rate=", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_PERIODACTIVE, 1) * 10);
+  TRACE("ft6x36: fw lib 0x%02X %02X", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_LIB_VER_H, 1),
+        _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_LIB_VER_L, 1));
+  TRACE("ft6x36: fw v 0x%02X", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_FIRMID, 1));
+  TRACE("ft6x36: CHIP ID 0x%02X", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_CIPHER, 1));
+  TRACE("ft6x36: CTPM ID 0x%02X", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_FOCALTECH_ID, 1));
+  TRACE("ft6x36: rel code 0x%02X", _i2c_readValueRetry(TOUCH_FT6236_I2C_ADDRESS, TOUCH_FT6236_REG_RELEASE_CODE_ID, 1));
 #endif
 
 }
@@ -267,13 +338,19 @@ static void ft6236PrintDebugInfo()
 static bool cst836uTouchRead(uint16_t * X, uint16_t * Y)
 {
   // Read register TOUCH_CST836U_REG_NUM to check number of touches detection
-  uint8_t nbTouch = _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_REG_NUM, 1);
+  uint8_t nbTouch = 0;
+  if (!_i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS,
+                      TOUCH_CST836U_REG_NUM, 1, &nbTouch))
+    return false;
   bool hasTouch = nbTouch > 0;
 
   if (hasTouch) {
-    uint8_t dataxy[4];
+    uint8_t dataxy[4] = {};
     // Read X and Y positions and event
-    _i2c_readMultipleRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_REG_P1_XH, 1, dataxy, sizeof(dataxy));
+    if (!_i2c_readMultipleRetry(TOUCH_CST836U_I2C_ADDRESS,
+                                TOUCH_CST836U_REG_P1_XH, 1,
+                                dataxy, sizeof(dataxy)))
+      return false;
 
     // Send back ready X position to caller
     *X = ((dataxy[0] & 0x0f) << 8) | dataxy[1];
@@ -281,7 +358,8 @@ static bool cst836uTouchRead(uint16_t * X, uint16_t * Y)
     *Y = ((dataxy[2] & 0x0f) << 8) | dataxy[3];
 
     uint8_t event = (dataxy[0] & TOUCH_CST836U_EVT_MASK) >> TOUCH_CST836U_EVT_SHIFT;
-    return event == TOUCH_CST836U_EVT_CONTACT;
+    return event == TOUCH_FT6206_EVT_PRESS_DOWN ||
+           event == TOUCH_CST836U_EVT_CONTACT;
   }
   return false;
 }
@@ -289,19 +367,22 @@ static bool cst836uTouchRead(uint16_t * X, uint16_t * Y)
 static void cst836uPrintDebugInfo(void)
 {
 #if defined(DEBUG)
-  TRACE("cst836u: fw ver 0x%02X %02X", _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_FW_VERSION_H_REG, 1), _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_FW_VERSION_L_REG, 1));
-  TRACE("cst836u: module version 0x%02X", _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_MODULE_VERSION_REG, 1));
-  TRACE("cst836u: project name 0x%02X", _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_PROJECT_NAME_REG, 1));
-  TRACE("cst836u: chip type 0x%02X 0x%02X", _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_CHIP_TYPE_H_REG, 1), _i2c_readRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_CHIP_TYPE_L_REG, 1));
+  TRACE("cst836u: fw ver 0x%02X %02X", _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_FW_VERSION_H_REG, 1), _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_FW_VERSION_L_REG, 1));
+  TRACE("cst836u: module version 0x%02X", _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_MODULE_VERSION_REG, 1));
+  TRACE("cst836u: project name 0x%02X", _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_PROJECT_NAME_REG, 1));
+  TRACE("cst836u: chip type 0x%02X 0x%02X", _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_CHIP_TYPE_H_REG, 1), _i2c_readValueRetry(TOUCH_CST836U_I2C_ADDRESS, TOUCH_CST836U_CHIP_TYPE_L_REG, 1));
 #endif
 }
 
 static bool cst340TouchRead(uint16_t * X, uint16_t * Y)
 {
-  uint8_t data[4];
+  uint8_t data[4] = {};
 
   // Read X and Y positions
-  _i2c_readMultipleRetry(TOUCH_CST340_I2C_ADDRESS, TOUCH_CST340_REG_FINGER1, 1, data, sizeof(data));
+  if (!_i2c_readMultipleRetry(TOUCH_CST340_I2C_ADDRESS,
+                              TOUCH_CST340_REG_FINGER1, 1,
+                              data, sizeof(data)))
+    return false;
 
   // Send back X position to caller
   if (X) *X = ((data[1]<<4) + ((data[3]>>4)&0x0f));
@@ -314,9 +395,16 @@ static bool cst340TouchRead(uint16_t * X, uint16_t * Y)
 static bool cst340HasTouchEvent()
 {
   static bool lastHasTouch = false;
+  if (touchReadRetryDue()) return true;
   bool ret = touchEventOccured;
   if (ret) {
-    uint8_t hasTouch = cst340TouchRead(nullptr, nullptr);
+    lastTouchReadSucceeded = true;
+    const bool hasTouch = cst340TouchRead(nullptr, nullptr);
+    if (!lastTouchReadSucceeded) {
+      scheduleTouchReadRetry(timersGetMsTick());
+      return false;
+    }
+    clearTouchReadRetry();
     if (!hasTouch && !lastHasTouch) {
       TRACE("Interrupt occurs without touch event!!");
       touchEventOccured = false;
@@ -341,7 +429,10 @@ static bool chsc5448TouchRead(uint16_t * X, uint16_t * Y)
   int ptCnt = 0;
   union rpt_point_t* ppt;
 
-  _i2c_readMultipleRetry(TOUCH_CHSC5448_I2C_ADDRESS, TOUCH_CHSC5448_REG_ADDR, 4, readbuffer, reportSize);
+  if (!_i2c_readMultipleRetry(TOUCH_CHSC5448_I2C_ADDRESS,
+                              TOUCH_CHSC5448_REG_ADDR, 4,
+                              readbuffer, reportSize))
+    return false;
   ptCnt = readbuffer[1] & 0x0f;
   ppt = (union rpt_point_t*)&readbuffer[2];
   *X = ((ppt->rp.x_h4 & 0x0f) << 8) | ppt->rp.x_l8;
@@ -489,15 +580,35 @@ struct TouchState touchPanelRead()
   }
 #endif
 
-  if (!touchEventOccured) return internalTouchState;
+  const bool retryDue = touchReadRetryDue();
+  if (!touchEventOccured && !retryDue) return internalTouchState;
 
+  // A scheduled retry has no new IRQ, so retain the timestamp of the original
+  // press. This also lets the retry path actually perform the deferred read;
+  // merely reporting it from hasTouchEvent() would otherwise loop forever.
+  const uint32_t interruptAtUs = touchEventAtUs;
   touchEventOccured = false;
 
   uint32_t now = timersGetMsTick();
   internalTouchState.tapCount = 0;
-  unsigned short touchX;
-  unsigned short touchY;
+  unsigned short touchX = 0;
+  unsigned short touchY = 0;
+  lastTouchReadSucceeded = true;
   bool hasTouchContact = tcd->touchRead(&touchX, &touchY);
+  if (!lastTouchReadSucceeded) {
+    // Keep the last stable state. Turning a bus timeout into a release or a
+    // random coordinate makes a transient electrical fault look like a tap.
+    scheduleTouchReadRetry(now);
+    return internalTouchState;
+  }
+  clearTouchReadRetry();
+
+  if (hasTouchContact &&
+      (touchX >= LCD_PHYS_W || touchY >= LCD_PHYS_H)) {
+    TRACE("Touch coordinate outside panel: %u,%u", touchX, touchY);
+    scheduleTouchReadRetry(now);
+    return internalTouchState;
+  }
 
   unsigned short tmp;
   switch(tcd->rotate) {
@@ -530,6 +641,9 @@ struct TouchState touchPanelRead()
       internalTouchState.startX = internalTouchState.x;
       internalTouchState.startY = internalTouchState.y;
       internalTouchState.event = TE_DOWN;
+#if defined(RADIO_NB4_FAMILY)
+      nb4TouchLatencyPressed(interruptAtUs);
+#endif
     }
     else if (internalTouchState.event == TE_DOWN) {
       if (dx >= SLIDE_RANGE || dx <= -SLIDE_RANGE || dy >= SLIDE_RANGE || dy <= -SLIDE_RANGE) {

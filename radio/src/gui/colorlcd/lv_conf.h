@@ -106,7 +106,11 @@
 #endif
 
 /*Input device read period in milliseconds*/
+#if defined(RADIO_NB4_FAMILY)
+#define LV_INDEV_DEF_READ_PERIOD 20     /*[ms]*/
+#else
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
+#endif
 
 /*Use a custom tick source that tells the elapsed time in milliseconds.
  *It removes the need to manually update the tick with `lv_tick_inc()`)*/
