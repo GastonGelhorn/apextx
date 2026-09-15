@@ -31,13 +31,6 @@
 
 #define SET_DIRTY() storageDirty(EE_MODEL)
 
-static const rect_t widgetSettingsDialogRect = {
-    LCD_W / 10,              // x
-    LCD_H / 5,               // y
-    LCD_W - 2 * LCD_W / 10,  // width
-    LCD_H - 2 * LCD_H / 5    // height
-};
-
 static const lv_coord_t line_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1),
                                           LV_GRID_TEMPLATE_LAST};
 static const lv_coord_t line_row_dsc[] = {LV_GRID_CONTENT,

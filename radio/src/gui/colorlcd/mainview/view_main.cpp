@@ -150,7 +150,11 @@ rect_t ViewMain::getMainZone(rect_t zone, bool hasTopbar) const
     zone.h -= visibleHeight;
     return zone;
   } else {
-    return {0, 0, LCD_W, LCD_H};
+    // The display resolution, not the compile-time macros: those describe the
+    // panel in portrait and stay that way when the screen is rotated, so this
+    // used to hand back a zone taller than the screen and narrower than it.
+    return {0, 0, (coord_t)lv_disp_get_hor_res(nullptr),
+            (coord_t)lv_disp_get_ver_res(nullptr)};
   }
 }
 
