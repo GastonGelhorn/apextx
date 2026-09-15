@@ -216,16 +216,30 @@ std::string timerText(int32_t seconds, bool available)
 
 namespace {
 
-constexpr coord_t DIAL_R = 70;         // Outer track radius
-constexpr coord_t DIAL_TRACK = 8;
 constexpr coord_t DIAL_BORDER = 1;
-constexpr coord_t TICK_OUT = 58, TICK_MINOR_IN = 53, TICK_MAJOR_IN = 49;
-constexpr coord_t ZERO_IN = 49, ZERO_OUT = 62;
-constexpr coord_t NEEDLE_LEN = 45, NEEDLE_HUB = 9;
 
-constexpr coord_t NEEDLE_OX = 43, NEEDLE_OY = 48, NEEDLE_W = 86, NEEDLE_H = 74;
+// The dial's geometry, chosen by orientation. Landscape gives the card 284 by
+// 206 against portrait's 188 by 244, so the same circle left a wide band of
+// empty card below the trim rule and slack on both sides. The needle box is
+// the sweep's bounding rectangle: half a needle either side of the hub plus
+// the drop at full lock, with a couple of pixels for the rounded cap.
+struct DialMetrics {
+  coord_t r, track, tickOut, tickMinorIn, tickMajorIn, zeroIn, zeroOut;
+  coord_t needleLen, needleHub, needleOx, needleOy, needleW, needleH;
+  coord_t labelR, cy, wellTop, wellWidth;
+};
 
-constexpr coord_t LABEL_R = DIAL_R + 13;
+constexpr DialMetrics DIAL_PORTRAIT = {
+  70, 8, 58, 53, 49, 49, 62,
+  45, 9, 43, 48, 86, 74,
+  83, 132, 188, 0,  // portrait sizes the trim rule to the card
+};
+
+constexpr DialMetrics DIAL_LANDSCAPE = {
+  82, 9, 68, 62, 57, 57, 73,
+  53, 11, 50, 56, 100, 87,
+  95, 108, 168, 200,
+};
 
 void polar(coord_t cx, coord_t cy, int deg, int r, lv_point_t& p)
 {
@@ -371,13 +385,17 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   setWindowFlag(OPAQUE);
   Nb4Ui::card(lvobj);
   const auto accent = Nb4Ui::steeringColor();
-  radius = DIAL_R;
-  needleLen = NEEDLE_LEN;
+  const DialMetrics& m = landscape ? DIAL_LANDSCAPE : DIAL_PORTRAIT;
+  radius = m.r;
+  needleLen = m.needleLen;
+  needleHub = m.needleHub;
+  needleOx = m.needleOx;
+  needleOy = m.needleOy;
 
   cx = (coord_t)(r.w / 2);
-  cy = landscape ? (coord_t)98 : (coord_t)132;
+  cy = m.cy;
   digitsCx = cx;
-  const coord_t wellTop = landscape ? 150 : 188;
+  const coord_t wellTop = m.wellTop;
   const coord_t numberHeight = lv_font_nb4_gauge_22.line_height;
   const coord_t percentHeight = lv_font_nb4_percent_15.line_height;
   digitsTop = wellTop - numberHeight - 2;
@@ -391,8 +409,8 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
 
   for (unsigned pass = 0; pass < 3; ++pass) {
     const coord_t inset = pass == 0 ? DIAL_BORDER : 0;
-    const coord_t arcRadius = DIAL_R + inset;
-    const coord_t arcWidth = DIAL_TRACK + 2 * inset;
+    const coord_t arcRadius = m.r + inset;
+    const coord_t arcWidth = m.track + 2 * inset;
     auto a = lv_arc_create(lvobj);
 
     lv_obj_clear_flag(a, LV_OBJ_FLAG_CLICKABLE);
@@ -430,8 +448,8 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
     const bool major = (v % 50) == 0;
     const int deg = v * 6 / 5;  // 1.2 degrees per point
     lv_point_t inner, outer;
-    polar(cx, cy, deg, major ? TICK_MAJOR_IN : TICK_MINOR_IN, inner);
-    polar(cx, cy, deg, TICK_OUT, outer);
+    polar(cx, cy, deg, major ? m.tickMajorIn : m.tickMinorIn, inner);
+    polar(cx, cy, deg, m.tickOut, outer);
     const coord_t x0 = min<coord_t>(inner.x, outer.x) - 1;
     const coord_t y0 = min<coord_t>(inner.y, outer.y) - 1;
     tickPts[tick][0] = {(lv_coord_t)(inner.x - x0), (lv_coord_t)(inner.y - y0)};
@@ -446,27 +464,28 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
     ++tick;
   }
 
-  solidRect(lvobj, (coord_t)(cx - 1), (coord_t)(cy - ZERO_OUT), 3,
-            (coord_t)(ZERO_OUT - ZERO_IN), COLOR_THEME_PRIMARY1_INDEX);
+  solidRect(lvobj, (coord_t)(cx - 1), (coord_t)(cy - m.zeroOut), 3,
+            (coord_t)(m.zeroOut - m.zeroIn), COLOR_THEME_PRIMARY1_INDEX);
 
   struct { int value; const char* text; coord_t w; } marks[] = {
     {-100, "-100", 26}, {-50, "-50", 24}, {50, "+50", 24}, {100, "+100", 26},
   };
-  for (auto& m : marks) {
+  for (auto& mark : marks) {
     lv_point_t p;
-    polar(cx, cy, m.value * 6 / 5, LABEL_R, p);
-    caption(this, {(coord_t)(p.x - m.w / 2), (coord_t)(p.y - 6), m.w, 12}, m.text, CENTERED);
+    polar(cx, cy, mark.value * 6 / 5, m.labelR, p);
+    caption(this, {(coord_t)(p.x - mark.w / 2), (coord_t)(p.y - 6), mark.w, 12},
+            mark.text, CENTERED);
   }
-  caption(this, {(coord_t)(cx - 6), (coord_t)(cy - DIAL_R - 14), 12, 12}, "0", CENTERED);
+  caption(this, {(coord_t)(cx - 6), (coord_t)(cy - m.r - 14), 12, 12}, "0", CENTERED);
 
   needle = lv_line_create(lvobj);
-  lv_obj_set_pos(needle, (coord_t)(cx - NEEDLE_OX), (coord_t)(cy - NEEDLE_OY));
-  lv_obj_set_size(needle, NEEDLE_W, NEEDLE_H);
+  lv_obj_set_pos(needle, (coord_t)(cx - m.needleOx), (coord_t)(cy - m.needleOy));
+  lv_obj_set_size(needle, m.needleW, m.needleH);
   lv_obj_set_style_line_width(needle, 3, 0);
   lv_obj_set_style_line_color(needle, accent, 0);
   lv_obj_set_style_line_rounded(needle, true, 0);
-  needlePts[0] = {NEEDLE_OX, NEEDLE_OY};
-  needlePts[1] = {NEEDLE_OX, (lv_coord_t)(NEEDLE_OY - NEEDLE_LEN)};
+  needlePts[0] = {m.needleOx, m.needleOy};
+  needlePts[1] = {m.needleOx, (lv_coord_t)(m.needleOy - m.needleLen)};
   lv_line_set_points(needle, needlePts, 2);
 
   auto hub = solidRect(lvobj, (coord_t)(cx - 6), (coord_t)(cy - 6), 12, 12,
@@ -481,7 +500,7 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   gaugeFont(pct, &lv_font_nb4_percent_15, percentHeight);
   lv_obj_set_style_text_color(pct->getLvObj(), accent, 0);
 
-  const coord_t wellWidth = landscape ? 158 : width() - 12;
+  const coord_t wellWidth = m.wellWidth ? m.wellWidth : (coord_t)(width() - 12);
   const rect_t wellBox = {(coord_t)((width() - wellWidth) / 2),
                          wellTop,
                          wellWidth, landscape ? (coord_t)34 : (coord_t)50};
@@ -526,8 +545,8 @@ void Nb4Dial::checkEvents()
 
   // 2) Needle: draw through the endpoint pixel, as in widgets/outputs.cpp.
   lv_point_t inner, tip;
-  polar(NEEDLE_OX, NEEDLE_OY, deg, NEEDLE_HUB, inner);
-  polar(NEEDLE_OX, NEEDLE_OY, deg, NEEDLE_LEN, tip);
+  polar(needleOx, needleOy, deg, needleHub, inner);
+  polar(needleOx, needleOy, deg, needleLen, tip);
   if (tip.x != tipX || tip.y != tipY) {
     tipX = tip.x; tipY = tip.y;
     needlePts[0] = inner; needlePts[1] = tip;

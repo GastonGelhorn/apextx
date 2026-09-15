@@ -45,6 +45,7 @@ class Nb4Dial : public Window
 
  private:
   coord_t cx = 0, cy = 0, radius = 0, needleLen = 0;
+  coord_t needleHub = 0, needleOx = 0, needleOy = 0;
   coord_t digitsCx = 0, digitsTop = 0, ruleX0 = 0, ruleSpan = 0, wedgeY = 0;
   lv_obj_t *track = nullptr, *arc = nullptr, *needle = nullptr, *wedge = nullptr;
 
