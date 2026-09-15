@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 import unittest
+import wave
 from pathlib import Path
 
 
@@ -65,6 +66,17 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         self.assertTrue((ROOT / "sdcard/THEMES/ApexTXDark/theme.yml").is_file())
         self.assertTrue((ROOT / "sdcard/THEMES/ApexTXLight/theme.yml").is_file())
         self.assertFalse((ROOT / "NB4_VERSION").exists())
+
+    def test_apextx_english_welcome_prompt_is_radio_compatible(self) -> None:
+        prompt = ROOT / "sdcard/SOUNDS/en/SYSTEM/hello.wav"
+        self.assertTrue(prompt.is_file())
+        with wave.open(str(prompt), "rb") as sound:
+            self.assertEqual(sound.getnchannels(), 1)
+            self.assertEqual(sound.getsampwidth(), 2)
+            self.assertEqual(sound.getframerate(), 16000)
+            self.assertGreater(sound.getnframes(), 8000)
+        mapping = (ROOT / "radio/util/tts_en.py").read_text(encoding="utf-8")
+        self.assertIn('(\"Welcome to Apex T X!\", \"hello\")', mapping)
 
 
 if __name__ == "__main__":

@@ -147,7 +147,8 @@ def create(args):
         (out / "rollback/version.json").write_text(
             json.dumps(rollback, indent=2) + "\n"
         )
-    for relative in ("THEMES/ApexTXLight", "THEMES/ApexTXDark", "SCRIPTS/TOOLS"):
+    for relative in ("THEMES/ApexTXLight", "THEMES/ApexTXDark", "SCRIPTS/TOOLS",
+                     "SOUNDS/en/SYSTEM"):
         shutil.copytree(ROOT / "sdcard" / relative, out / "resources" / relative)
     shutil.copy2(ROOT / "sdcard/THEMES/README.md", out / "resources/THEMES/README.md")
     if evidence:
@@ -162,7 +163,7 @@ def create(args):
         "sourceCommit": head, "sourceTreeSha256": source_digest(ROOT),
         "sourceDirty": source_dirty,
         "baseTag": "v2.12.4",
-        "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 3,
+        "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 4,
         "languages": ["es", "en"], "homes": ["ApexTX"],
         "fonts": ["Roboto", "Barlow Condensed"],
         "orientations": [[320, 480], [480, 272]], "outputChannels": 8,
