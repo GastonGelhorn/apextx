@@ -36,6 +36,12 @@ class ValueWidget : public Widget
     delayLoad();
   }
 
+  ~ValueWidget() override
+  {
+    lv_style_reset(&labelStyle);
+    lv_style_reset(&valueStyle);
+  }
+
   void delayedInit() override
   {
     lv_style_init(&labelStyle);
@@ -173,8 +179,8 @@ class ValueWidget : public Widget
  protected:
   int32_t lastValue = -10000;
   bool lastTelemState = false;
-  lv_style_t labelStyle;
-  lv_style_t valueStyle;
+  lv_style_t labelStyle = {};
+  lv_style_t valueStyle = {};
   lv_obj_t* label;
   lv_obj_t* labelShadow;
   lv_obj_t* value;

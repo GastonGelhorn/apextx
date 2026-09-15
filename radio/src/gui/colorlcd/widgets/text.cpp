@@ -34,6 +34,8 @@ class TextWidget : public Widget
     delayLoad();
   }
 
+  ~TextWidget() override { lv_style_reset(&style); }
+
   void delayedInit() override
   {
     lv_style_init(&style);
@@ -54,7 +56,7 @@ class TextWidget : public Widget
   static const WidgetOption options[];
 
  protected:
-  lv_style_t style;
+  lv_style_t style = {};
   lv_obj_t* shadow;
   lv_obj_t* label;
 

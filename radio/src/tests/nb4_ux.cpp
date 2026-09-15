@@ -4078,4 +4078,41 @@ TEST(Nb4Ux, WidgetSetupWithNoSlotsStillShowsAWayOutAndHoldsTheFocus)
   memcpy(g_model.topbarWidgetWidth, saved, sizeof(saved));
 }
 
+TEST(Nb4Ux, OpeningWidgetSetupRepeatedlyGivesBackEveryStyle)
+{
+  Scene scene;
+  ViewMain::instance();
+  scene.root->run();
+  auto base = Layer::back();
+
+  uint8_t saved[MAX_TOPBAR_ZONES];
+  memcpy(saved, g_model.topbarWidgetWidth, sizeof(saved));
+  for (int i = 0; i < VISIBLE_TOPBAR_ZONES; i += 1) g_model.topbarWidgetWidth[i] = 1;
+
+  // Each slot initialises a dashed border style, and an lv_style_t holds a
+  // heap allocation as soon as a property is set on it. Nothing used to give
+  // those back, so every visit to this page cost a handful of blocks that the
+  // interface's own heap never saw again.
+  lv_mem_monitor_t warm{}, final{};
+  for (unsigned i = 0; i < 60; ++i) {
+    auto page = new SetupTopBarWidgetsPage();
+    scene.root->run();
+    page->onCancel();
+    scene.root->run();
+    for (unsigned n = 0; n < 8 && Layer::back() && Layer::back() != base; ++n) {
+      auto open = Layer::back();
+      open->onCancel();
+      scene.root->run();
+      if (Layer::back() == open) break;
+    }
+    ASSERT_EQ(Layer::back(), base);
+    if (i == 9) lv_mem_monitor(&warm);
+  }
+  lv_mem_monitor(&final);
+  EXPECT_EQ(final.used_cnt, warm.used_cnt);
+  EXPECT_GE(final.free_size + 64u, warm.free_size);
+
+  memcpy(g_model.topbarWidgetWidth, saved, sizeof(saved));
+}
+
 #endif

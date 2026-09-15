@@ -271,6 +271,10 @@ const WidgetOption* Widget::getOptionDefinitions() const
   return getFactory()->getDefaultOptions();
 }
 
+// The focus border style owns a heap allocation once any property is set on
+// it, and nothing else releases it.
+Widget::~Widget() { lv_style_reset(&borderStyle); }
+
 void Widget::enableFocus(bool enable)
 {
   if (enable) {
@@ -311,6 +315,9 @@ void Widget::enableFocus(bool enable)
       lv_obj_del(focusBorder);
       setFocusHandler(nullptr);
       lv_group_remove_obj(lvobj);
+      // Released here, because enabling focus again initialises the style
+      // afresh and would otherwise abandon this one's property array.
+      lv_style_reset(&borderStyle);
     }
     focusBorder = nullptr;
   }

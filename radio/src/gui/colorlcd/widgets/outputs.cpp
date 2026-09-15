@@ -43,6 +43,8 @@ class ChannelValue : public Window
     delayLoad();
   }
 
+  ~ChannelValue() override { lv_style_reset(&style); }
+
   void delayedInit() override
   {
     etx_obj_add_style(lvobj, styles->border_thin, LV_PART_MAIN);
@@ -154,7 +156,7 @@ class ChannelValue : public Window
   std::string lastText;
   bool lastExtendedLimits = false;
   bool chanHasName = false;
-  lv_style_t style;
+  lv_style_t style = {};
   lv_obj_t* valueLabel = nullptr;
   lv_obj_t* chanLabel = nullptr;
   lv_point_t divPoints[2];
@@ -229,6 +231,8 @@ class OutputsWidget : public Widget
     }
   }
 
+  ~OutputsWidget() override { lv_style_reset(&style); }
+
   static const WidgetOption options[];
 
  protected:
@@ -239,7 +243,7 @@ class OutputsWidget : public Widget
   uint8_t rows = 0;
   LcdFlags txtColor = 0;
   LcdFlags barColor = 0;
-  lv_style_t style;
+  lv_style_t style = {};
 
   static LAYOUT_VAL_SCALED(SHOW_MIN_W, 100)
   static LAYOUT_VAL_SCALED(SHOW_MIN_H, 20)

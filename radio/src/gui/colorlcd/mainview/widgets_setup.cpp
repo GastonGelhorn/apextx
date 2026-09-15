@@ -79,6 +79,10 @@ SetupWidgetsPageSlot::SetupWidgetsPageSlot(Window* parent, const rect_t& rect,
   setFocusHandler([=](bool) { setFocusState(); });
 }
 
+// One of these is built per zone every time the page is opened, and the dashed
+// border style holds a heap allocation that nothing else gives back.
+SetupWidgetsPageSlot::~SetupWidgetsPageSlot() { lv_style_reset(&borderStyle); }
+
 void SetupWidgetsPageSlot::setFocusState()
 {
   if (hasFocus()) {

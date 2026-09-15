@@ -75,7 +75,7 @@ class Widget : public ButtonBase
   Widget(const WidgetFactory* factory, Window* parent, const rect_t& rect,
          int screenNum, int zoneNum);
 
-  ~Widget() override = default;
+  ~Widget() override;
 
   const WidgetFactory* getFactory() const { return factory; }
 
@@ -130,7 +130,7 @@ class Widget : public ButtonBase
   bool fsAllowed = true;
   bool closeFS = false;
   lv_obj_t* focusBorder = nullptr;
-  lv_style_t borderStyle;
+  lv_style_t borderStyle = {};
   lv_point_t borderPts[5];
 
   void onCancel() override;

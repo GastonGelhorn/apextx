@@ -39,6 +39,8 @@ class TimerWidget : public Widget
     delayLoad();
   }
 
+  ~TimerWidget() override { lv_style_reset(&style); }
+
   void delayedInit() override
   {
     etx_solid_bg(lvobj, COLOR_THEME_WARNING_INDEX,
@@ -223,7 +225,7 @@ class TimerWidget : public Widget
   tmrval_t lastValue = 0;
   uint32_t lastStartValue = -1;
   bool isLarge = false;
-  lv_style_t style;
+  lv_style_t style = {};
   lv_obj_t* nameLabel = nullptr;
   lv_obj_t* valLabel = nullptr;
   lv_obj_t* digits0 = nullptr;

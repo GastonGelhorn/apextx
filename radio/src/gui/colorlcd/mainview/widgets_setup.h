@@ -54,12 +54,13 @@ class SetupWidgetsPageSlot : public ButtonBase
  public:
   SetupWidgetsPageSlot(Window* parent, const rect_t& rect,
                        WidgetsContainer* container, uint8_t slotIndex);
+  ~SetupWidgetsPageSlot() override;
 
  protected:
   WidgetsContainer* container = nullptr;
   uint8_t slotIndex = 0;
   bool openSettings = false;
-  lv_style_t borderStyle;
+  lv_style_t borderStyle = {};
   lv_point_t borderPts[5];
   lv_obj_t* border;
 
