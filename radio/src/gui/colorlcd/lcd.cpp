@@ -29,6 +29,11 @@
 #if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
 #include <atomic>
 #include <algorithm>
+#if !defined(SIMU)
+#include "os/sleep.h"
+#include "os/task.h"
+#include "os/time.h"
+#endif
 #endif
 #if !LV_USE_GPU_STM32_DMA2D && !defined(SIMU)
 #include "dma2d.h"
@@ -65,6 +70,15 @@ static pixel_t* nb4Back = nb4ScanBuffer;
 static int dirtyTop = LCD_PHYS_H, dirtyBottom = -1;
 static int syncTop = LCD_PHYS_H, syncBottom = -1;
 static std::atomic<uint32_t> presentedSize{(LCD_PHYS_W << 16) | LCD_PHYS_H};
+
+#if !defined(SIMU)
+// When the present was handed to the panel, and how long the interface will
+// wait for the acknowledgement before giving up on it. The panel scans at
+// about 60 Hz, so this is several frames: long enough that a late interrupt
+// cannot still be in flight, short enough not to be felt.
+static volatile uint32_t presentArmedAt = 0;
+constexpr uint32_t PresentTimeoutMs = 100;
+#endif
 
 void lcdPresentedSize(unsigned* width, unsigned* height)
 {
@@ -112,6 +126,9 @@ void lcdSetWaitCb(void (*cb)(lv_disp_drv_t*)) { lcd_wait_cb = cb; }
 
 extern "C" void lcdFlushed()
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT) && !defined(SIMU)
+  presentArmedAt = 0;
+#endif
   lv_disp_flush_ready(&disp_drv);
 }
 
@@ -148,6 +165,9 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
   syncTop = dirtyTop; syncBottom = dirtyBottom;
   dirtyTop = LCD_PHYS_H; dirtyBottom = -1;
   presentedSize.store((uint32_t(lcdWidth) << 16) | lcdHeight, std::memory_order_release);
+#if !defined(SIMU)
+  presentArmedAt = time_get_ms() | 1;  // never zero, which means "not armed"
+#endif
   if (lcd_flush_cb) lcd_flush_cb(disp_drv, nb4Front, {0, 0, LCD_PHYS_W, LCD_PHYS_H});
   else lv_disp_flush_ready(disp_drv);
   return;
@@ -177,6 +197,34 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
     lcdFlushed();
   }
 }
+
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT) && !defined(SIMU)
+// LVGL waits here for the panel to acknowledge a present. With the display
+// rotated it waits once per frame, inside its rotation loop, and the
+// acknowledgement is up to a whole frame period away; without a callback it
+// spins on the flag and burns the interface's time slice for nothing. Hand the
+// time back instead.
+//
+// The wait also gets a deadline. Only the line interrupt clears the flag, so
+// if it never arrives the buffer is never released and the interface spins on
+// it for the rest of the session while the mixer carries on none the wiser: a
+// dead screen on a radio that is still driving the car. Releasing the buffer
+// early can at worst tear one frame, which the next one repairs. A wedged
+// interface repairs nothing.
+//
+// Before the scheduler starts there is nothing to hand the time to and the
+// millisecond tick does not advance, so the boot path keeps the plain spin.
+static void waitForPresent(lv_disp_drv_t* drv)
+{
+  if (!scheduler_is_running()) return;
+  sleep_ms(1);
+  const uint32_t armed = presentArmedAt;
+  if (armed && time_get_ms() - armed > PresentTimeoutMs) {
+    presentArmedAt = 0;
+    lv_disp_flush_ready(drv);
+  }
+}
+#endif
 
 static void clear_frame_buffers()
 {
@@ -211,6 +259,8 @@ static void init_lvgl_disp_drv()
   disp_drv.flush_cb = flushLcd;  /*Set a flush callback to draw to the display*/
 #if defined(SIMU)
   disp_drv.wait_cb = lcd_wait_cb; /*Set a wait callback*/
+#elif defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  disp_drv.wait_cb = waitForPresent;
 #endif
 
   disp_drv.hor_res = LCD_W; /*Set the horizontal resolution in pixels*/
