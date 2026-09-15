@@ -20,6 +20,9 @@
  */
 
 #include "afhds3.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_latency.h"
+#endif
 #include "afhds3_transport.h"
 #include "afhds3_config.h"
 
@@ -270,6 +273,10 @@ class ProtoState
      if (hardFaulted) return;
 #endif
      trsp.sendBuffer();
+#if defined(RADIO_NB4_FAMILY)
+     // The module port owns the bytes from here on.
+     nb4LatencySent();
+#endif
    }
 
    /**
@@ -1583,6 +1590,10 @@ bool ProtoState::syncSettings()
 
 void ProtoState::sendChannelsData()
 {
+#if defined(RADIO_NB4_FAMILY)
+  // Whatever else this cycle queued, it is carrying control positions.
+  nb4LatencyCarriesChannels();
+#endif
 #if defined(RADIO_NB4)
   uint8_t channels_start = 0;
   uint8_t channelsCount = sentModuleChannels(module_index);

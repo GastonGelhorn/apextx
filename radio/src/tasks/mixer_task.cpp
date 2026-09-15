@@ -22,6 +22,9 @@
 #include "tasks.h"
 #include "mixer_task.h"
 #include "mixer_scheduler.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_latency.h"
+#endif
 
 #include "os/task.h"
 
@@ -241,6 +244,10 @@ void doMixerCalculations()
   DEBUG_TIMER_START(debugTimerGetAdc);
   getADC();
   DEBUG_TIMER_STOP(debugTimerGetAdc);
+#if defined(RADIO_NB4_FAMILY)
+  // The control positions this cycle will send have just been read.
+  nb4LatencySampled();
+#endif
 
   DEBUG_TIMER_START(debugTimerGetSwitches);
   getSwitchesPosition(!s_mixer_first_run_done);

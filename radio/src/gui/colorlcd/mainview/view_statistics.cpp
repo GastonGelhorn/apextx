@@ -26,6 +26,9 @@
 #include "tasks.h"
 #include "tasks/mixer_task.h"
 #include "mixer_scheduler.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_latency.h"
+#endif
 #include "lua/lua_states.h"
 #include "quick_menu.h"
 
@@ -241,6 +244,29 @@ void DebugViewPage::build(Window* window)
   new DynamicNumber<uint16_t>(
           line, rect_t{}, [] { return getMixerSchedulerPeriod() / 1000; },
           COLOR_THEME_PRIMARY1_INDEX, 0, pad_STR_PERIOD.c_str(), pad_STR_MS.c_str());
+
+#if defined(RADIO_NB4_FAMILY)
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+
+  // Sampling the controls to handing the frame carrying them to the module.
+  // docs/nb4/LATENCY.md says what this covers and what it leaves out.
+  new StaticText(line, rect_t{}, STR_NB4_CONTROL_LATENCY);
+#if PORTRAIT
+  line = window->newLine(grid2);
+  line->padAll(PAD_ZERO);
+  line->padLeft(PAD_LARGE);
+#endif
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4LatencyRead().minUs; },
+                                STR_NB4_MIN);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4LatencyRead().averageUs; },
+                                STR_NB4_AVERAGE_C834);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4LatencyRead().maxUs; },
+                                STR_NB4_MAX);
+#endif
 
   line = window->newLine(grid);
   line->padAll(PAD_TINY);

@@ -6,6 +6,10 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Added a control-latency figure to System > Diagnostics: the time from
+  sampling the wheel and trigger to handing the frame that carries them to the
+  module, as minimum, average and maximum microseconds. docs/nb4/LATENCY.md
+  says what it covers and what it leaves to an oscilloscope.
 ## [0.1.0-alpha.1] - 2026-09-15
 
 First public build for the original FlySky Noble NB4.

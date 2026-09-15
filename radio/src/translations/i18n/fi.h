@@ -1948,3 +1948,4 @@
 #define TR_NB4_ADVICE_SOUND_OFF "Sound is off, so the radio cannot warn you about a low battery or a lost link while you drive. Turn it back on unless you silenced it on purpose."
 #define TR_NB4_ADVICE_KEY_STUCK "A control is reading as held down, which blocks the buttons. Free the control shown above; the touchscreen keeps working in the meantime."
 #define TR_NB4_ADVICE_THEME "An external theme could not be loaded, so the built-in palette is in use. Choose a theme again, or leave the built-in one."
+#define TR_NB4_CONTROL_LATENCY "Control latency"

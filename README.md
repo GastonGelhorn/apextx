@@ -121,6 +121,7 @@ details, and validation:
 - [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
+- [Control latency](docs/nb4/LATENCY.md)
 - [Hardware checklist before a release](docs/nb4/rf/BENCH_ACCEPTANCE.md)
 - [Release process](docs/nb4/RELEASE.md)
 - [Contributing](CONTRIBUTING.md)

@@ -1949,3 +1949,4 @@
 #define TR_NB4_ADVICE_SOUND_OFF "El sonido está apagado, así que la emisora no puede avisarte de batería baja ni de pérdida de enlace mientras conduces. Vuelve a encenderlo si no la silenciaste a propósito."
 #define TR_NB4_ADVICE_KEY_STUCK "Un control se lee como pulsado y eso bloquea los botones. Libera el control indicado arriba; mientras tanto la pantalla táctil sigue funcionando."
 #define TR_NB4_ADVICE_THEME "No se pudo cargar un tema externo, así que se usa la paleta interna. Vuelve a elegir tema, o quédate con la interna."
+#define TR_NB4_CONTROL_LATENCY "Latencia de mando"
