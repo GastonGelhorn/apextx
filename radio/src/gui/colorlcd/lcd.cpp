@@ -27,6 +27,7 @@
 #include "board.h"
 #include "etx_lv_theme.h"
 #if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#include "nb4_latency.h"
 #include <atomic>
 #include <algorithm>
 #if !defined(SIMU)
@@ -67,9 +68,55 @@ static lv_disp_drv_t disp_drv;
 static pixel_t nb4ScanBuffer[DISPLAY_BUFFER_SIZE] __SDRAM __ALIGNED(64);
 static pixel_t* nb4Front = LCD_SECOND_FRAME_BUFFER;
 static pixel_t* nb4Back = nb4ScanBuffer;
-static int dirtyTop = LCD_PHYS_H, dirtyBottom = -1;
-static int syncTop = LCD_PHYS_H, syncBottom = -1;
+
+// Keep the horizontal extent changed on every physical row. A single vertical
+// bounding box made two small updates near opposite edges copy almost the
+// complete 307 KiB frame into the next back buffer.
+struct Nb4DirtyRows {
+  uint32_t present[(LCD_PHYS_H + 31) / 32] = {};
+  uint16_t left[LCD_PHYS_H];
+  uint16_t right[LCD_PHYS_H];
+};
+static Nb4DirtyRows nb4DirtyStorage[2];
+static Nb4DirtyRows* nb4Dirty = &nb4DirtyStorage[0];
+static Nb4DirtyRows* nb4Sync = &nb4DirtyStorage[1];
 static std::atomic<uint32_t> presentedSize{(LCD_PHYS_W << 16) | LCD_PHYS_H};
+
+static void nb4MarkDirty(const lv_area_t& area)
+{
+  for (int y = area.y1; y <= area.y2; ++y) {
+    const uint32_t bit = uint32_t(1) << (unsigned(y) % 32);
+    auto& word = nb4Dirty->present[unsigned(y) / 32];
+    if (!(word & bit)) {
+      word |= bit;
+      nb4Dirty->left[y] = area.x1;
+      nb4Dirty->right[y] = area.x2;
+    } else {
+      nb4Dirty->left[y] = std::min<uint16_t>(nb4Dirty->left[y], area.x1);
+      nb4Dirty->right[y] = std::max<uint16_t>(nb4Dirty->right[y], area.x2);
+    }
+  }
+}
+
+static void nb4SynchroniseBackBuffer()
+{
+  for (unsigned slot = 0; slot < DIM(nb4Sync->present); ++slot) {
+    uint32_t pending = nb4Sync->present[slot];
+    while (pending) {
+      const unsigned bit = __builtin_ctz(pending);
+      const unsigned y = slot * 32 + bit;
+      if (y < LCD_PHYS_H) {
+        const unsigned left = nb4Sync->left[y];
+        const unsigned count = nb4Sync->right[y] - left + 1;
+        memcpy(nb4Back + y * LCD_PHYS_W + left,
+               nb4Front + y * LCD_PHYS_W + left,
+               count * sizeof(pixel_t));
+      }
+      pending &= pending - 1;
+    }
+    nb4Sync->present[slot] = 0;
+  }
+}
 
 #if !defined(SIMU)
 // When the present was handed to the panel, and how long the interface will
@@ -134,8 +181,8 @@ void lcdPresentSpare()
   auto canvas = nb4Back;
   nb4Back = nb4Front;
   nb4Front = canvas;
-  dirtyTop = LCD_PHYS_H; dirtyBottom = -1;
-  syncTop = LCD_PHYS_H; syncBottom = -1;
+  memset(nb4DirtyStorage[0].present, 0, sizeof(nb4DirtyStorage[0].present));
+  memset(nb4DirtyStorage[1].present, 0, sizeof(nb4DirtyStorage[1].present));
   if (lcd_flush_cb) lcd_flush_cb(&disp_drv, nb4Front, {0, 0, LCD_PHYS_W, LCD_PHYS_H});
 }
 #endif
@@ -151,6 +198,9 @@ extern "C" void lcdFlushed()
 {
 #if defined(RADIO_NB4_FAMILY) && !defined(BOOT) && !defined(SIMU)
   presentArmedAt = 0;
+#endif
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4TouchLatencyPresented();
 #endif
   lv_disp_flush_ready(&disp_drv);
 }
@@ -168,26 +218,22 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
     return;
   }
   const unsigned width = area->x2 - area->x1 + 1;
-  if (syncBottom >= syncTop) {
-    // The preceding flush was acknowledged at vertical blank. Its old front
-    // buffer is now free; synchronise it before composing the next frame.
-    memcpy(nb4Back + syncTop * LCD_PHYS_W, nb4Front + syncTop * LCD_PHYS_W,
-      (syncBottom - syncTop + 1) * LCD_PHYS_W * sizeof(pixel_t));
-    syncTop = LCD_PHYS_H; syncBottom = -1;
-  }
+  // The preceding flush was acknowledged at vertical blank. Its old front
+  // buffer is now free; synchronise only the pixels that actually changed.
+  nb4SynchroniseBackBuffer();
   for (int y = area->y1; y <= area->y2; ++y)
     memcpy(nb4Back + y * LCD_PHYS_W + area->x1,
       color_p + (y - area->y1) * width, width * sizeof(pixel_t));
-  dirtyTop = std::min(dirtyTop, int(area->y1));
-  dirtyBottom = std::max(dirtyBottom, int(area->y2));
+  nb4MarkDirty(*area);
   if (!lv_disp_flush_is_last(disp_drv)) {
     lv_disp_flush_ready(disp_drv);
     return;
   }
   auto oldFront = nb4Front; nb4Front = nb4Back; nb4Back = oldFront;
-  syncTop = dirtyTop; syncBottom = dirtyBottom;
-  dirtyTop = LCD_PHYS_H; dirtyBottom = -1;
+  std::swap(nb4Dirty, nb4Sync);
+  memset(nb4Dirty->present, 0, sizeof(nb4Dirty->present));
   presentedSize.store((uint32_t(lcdWidth) << 16) | lcdHeight, std::memory_order_release);
+  nb4TouchLatencyFrameQueued();
 #if !defined(SIMU)
   presentArmedAt = time_get_ms() | 1;  // never zero, which means "not armed"
 #endif
