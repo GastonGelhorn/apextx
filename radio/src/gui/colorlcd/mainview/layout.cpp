@@ -128,10 +128,8 @@ void LayoutFactory::deleteTopBarWidgets()
 #if defined(RADIO_NB4_FAMILY)
 void LayoutFactory::nb4ApplyRacingHome()
 {
-  // Presentation is a radio preference. Retain every persisted model screen,
-  // including the previous primary screen, for lossless restoration.
-  g_eeGeneral.nb4Home = NB4_HOME_INSTRUMENTS;
-  storageDirty(EE_GENERAL);
+  nb4SetRacingHomeData(0);
+  storageDirty(EE_MODEL);
   loadCustomScreens();
 }
 #endif
@@ -140,9 +138,10 @@ void LayoutFactory::loadDefaultLayout()
 {
   auto& screen = customScreens[0];
 #if defined(RADIO_NB4_FAMILY)
-  if (!screen && g_eeGeneral.nb4Home != NB4_HOME_PREVIOUS) {
+  if (!screen) {
+    nb4SetRacingHomeData(0);
     auto view = ViewMain::instance();
-    screen = new Nb4HomeScreen(view, view->getRect());
+    screen = loadLayout(view, 0);
     view->addMainView(screen, 0);
     view->updateTopbarVisibility();
     return;
@@ -197,7 +196,7 @@ void LayoutFactory::loadCustomScreens()
     viewMain->resizeToDisplay();
   else
     nb4RequestOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1, false);
-  {
+  if (nb4HealthRecovery() || !g_model.nb4ScreenVersion || nb4ModelBlocked()) {
     customScreens[0] = new Nb4HomeScreen(viewMain, viewMain->getRect());
     viewMain->addMainView(customScreens[0], 0);
     i = 1;
@@ -206,6 +205,13 @@ void LayoutFactory::loadCustomScreens()
       viewMain->updateTopbarVisibility();
       return;
     }
+  }
+  // Unknown layout IDs must not erase the saved configuration or leave the
+  // pilot without navigation. The editor still offers an explicit reset.
+  if (!i && !getLayoutFactory(g_model.getScreenLayoutId(0))) {
+    customScreens[0] = new Nb4HomeScreen(viewMain, viewMain->getRect());
+    viewMain->addMainView(customScreens[0], 0);
+    i = 1;
   }
 #endif
 
@@ -350,6 +356,14 @@ void LayoutFactory::initPersistentData(int screenNum, bool setDefault) const
 WidgetsContainer* LayoutFactory::create(Window* parent, int screenNum) const
 {
   initPersistentData(screenNum, true);
+#if defined(RADIO_NB4_FAMILY)
+  if (!strcmp(getId(), "ApexTXRacing")) {
+    nb4SetRacingHomeData(screenNum);
+    auto layout = createNew(parent, screenNum);
+    if (layout) layout->load();
+    return layout;
+  }
+#endif
   return createNew(parent, screenNum);
 }
 
@@ -378,17 +392,17 @@ Layout::Layout(Window* parent, const LayoutFactory* factory,
 
 void Layout::setTrimsVisible(bool visible)
 {
-  decoration->setTrimsVisible(visible);
+  if (decoration) decoration->setTrimsVisible(visible);
 }
 
 void Layout::setSlidersVisible(bool visible)
 {
-  decoration->setSlidersVisible(visible);
+  if (decoration) decoration->setSlidersVisible(visible);
 }
 
 void Layout::setFlightModeVisible(bool visible)
 {
-  decoration->setFlightModeVisible(visible);
+  if (decoration) decoration->setFlightModeVisible(visible);
 }
 
 void Layout::show(bool visible)

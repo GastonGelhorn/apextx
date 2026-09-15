@@ -14,6 +14,13 @@ struct Nb4HelpEntry {
   Nb4Str body;
 };
 
+std::function<void()> nb4InheritedHelp();
+std::string nb4InheritedScope();
+class StaticText;
+void nb4ScopeBar(Window* owner, Window* body, StaticText*& label,
+                 const std::string& text);
+void nb4DismissHelp();
+
 void nb4AddHelp(Window* form, const char* title, const Nb4HelpEntry* entries,
                 unsigned count);
 

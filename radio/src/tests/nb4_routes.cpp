@@ -35,6 +35,60 @@ TEST(Nb4Routes, EveryPathIsLowercaseAsciiSoItCannotDependOnAccents)
   }
 }
 
+TEST(Nb4Routes, StableIdsAccessAndShortcutEligibilityMatchTheirPurpose)
+{
+  unsigned count;
+  const auto routes = nb4Routes(&count);
+  std::set<uint32_t> ids;
+  std::set<std::string> paths;
+  for (unsigned i = 0; i < count; ++i) {
+    const auto& route = routes[i];
+    const auto id = nb4RouteId(route.path);
+    EXPECT_NE(id, 0u);
+    EXPECT_TRUE(ids.insert(id).second);
+    EXPECT_TRUE(paths.insert(route.path).second);
+    EXPECT_EQ(nb4RouteById(id), &route);
+    ASSERT_NE(route.destination, nullptr);
+    ASSERT_NE(route.help, nullptr);
+    EXPECT_NE(route.help()[0], 0);
+    EXPECT_EQ(route.state, Nb4RouteState::Available);
+  }
+  EXPECT_EQ(nb4RouteByPath("settings/advanced/curves"), nullptr);
+  EXPECT_EQ(nb4RouteByPath("settings/race/race_summary"), nullptr);
+  EXPECT_FALSE(nb4RouteByPath("settings/system/update")->shortcut);
+  EXPECT_FALSE(nb4RouteByPath("settings/race/resets")->shortcut);
+  for (const auto path : {"settings/display/brightness", "settings/display/appearance",
+                         "settings/sound_alerts/lights", "settings/controls/quick_access"})
+    EXPECT_EQ(nb4RouteAccessOf(path), Nb4RouteAccess::RadioOnly);
+  EXPECT_EQ(nb4RouteAccessOf("settings/display/top_bar"), Nb4RouteAccess::ModelData);
+  EXPECT_EQ(nb4RouteAccessOf("settings/system/update"), Nb4RouteAccess::Recovery);
+}
+
+TEST(Nb4Routes, QuickAccessKeepsExplicitEmptySlotsAndRejectsDuplicatesAndActions)
+{
+  const auto previous = g_eeGeneral;
+  nb4QuickAccessReset();
+  const auto first = g_eeGeneral.nb4QuickAccess[0];
+  const auto second = g_eeGeneral.nb4QuickAccess[1];
+  EXPECT_FALSE(nb4QuickAccessSet(1, first));
+  EXPECT_FALSE(nb4QuickAccessSet(0, nb4RouteId("settings/system/update")));
+  EXPECT_FALSE(nb4QuickAccessSet(8, first));
+  nb4QuickAccessMove(0, 1);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], second);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[1], first);
+  for (unsigned i = 0; i < 8; ++i) EXPECT_TRUE(nb4QuickAccessSet(i, 0));
+  nb4QuickAccessNormalize();
+  for (auto id : g_eeGeneral.nb4QuickAccess) EXPECT_EQ(id, 0u);
+  g_eeGeneral.nb4QuickAccess[0] = first;
+  g_eeGeneral.nb4QuickAccess[1] = first;
+  g_eeGeneral.nb4QuickAccess[2] = 42;
+  nb4QuickAccessNormalize();
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], first);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[1], 0u);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[2], 0u);
+  g_eeGeneral = previous;
+}
+
 TEST(Nb4Routes, APendingRouteRefusesAndNeverOpensSomethingElse)
 {
   unsigned count = 0;
@@ -133,13 +187,13 @@ TEST(Nb4Routes, ASectionWhoseViewsAllLeadToOnePlaceOpensItDirectly)
   for (unsigned i = 0; i < sectionCount; ++i) {
     const Nb4Route* views[32];
     const unsigned n = nb4RoutesOfSection(sections[i].id, views, 32);
-    std::set<void*> destinations;
+    std::set<std::string> destinations;
 
     bool hasPending = false;
     for (unsigned v = 0; v < n && v < 32; ++v) {
       if (views[v]->state == Nb4RouteState::NotBuiltYet) hasPending = true;
       if (!nb4RouteIsOpenable(*views[v])) continue;
-      destinations.insert((void*)views[v]->open);
+      destinations.insert(views[v]->destination);
     }
     auto only = nb4SingleDestinationOf(sections[i].id);
 
@@ -177,7 +231,7 @@ TEST(Nb4Routes, NoTwoViewsOfASectionOpenTheSameThing)
       if (!nb4RouteIsOpenable(*views[a])) continue;
       for (unsigned b = a + 1; b < n && b < 32; ++b) {
         if (!nb4RouteIsOpenable(*views[b])) continue;
-        if (views[a]->open != views[b]->open) continue;
+        if (strcmp(views[a]->destination, views[b]->destination)) continue;
         EXPECT_NE(views[a]->tab, views[b]->tab);
       }
     }
@@ -250,7 +304,7 @@ TEST(Nb4Routes, EveryRouteIsClassifiedAndRecoveryIsNeverBlocked)
 {
   unsigned count = 0;
   const Nb4Route* all = nb4Routes(&count);
-  ASSERT_GT(count, 60u);
+  ASSERT_GT(count, 50u);
 
   unsigned recovery = 0, radioOnly = 0, modelData = 0;
   for (unsigned i = 0; i < count; i += 1) {
@@ -332,6 +386,80 @@ TEST(Nb4Routes, EveryRouteIsClassifiedAndRecoveryIsNeverBlocked)
 
   nb4AcceptNewCarModel();
   EXPECT_FALSE(nb4ModelBlocked());
+}
+
+TEST(Nb4Routes, QuickAccessKeepsCanonicalLocationsAndMigratesOldAxisTabShortcuts)
+{
+  const auto saved = g_eeGeneral;
+  nb4QuickAccessReset();
+  const auto steering = nb4RouteByPath("settings/steering/travel");
+  const auto curve = nb4RouteByPath("settings/steering/curve");
+  ASSERT_NE(steering, nullptr);
+  EXPECT_TRUE(nb4RouteInQuickAccess(*steering));
+  EXPECT_TRUE(nb4RouteInSettings(*steering));
+  EXPECT_FALSE(nb4RouteInSettings(*curve));
+  EXPECT_FALSE(curve->shortcut);
+  EXPECT_TRUE(nb4QuickAccessSet(0, 0));
+  EXPECT_TRUE(nb4RouteInSettings(*steering));
+  EXPECT_FALSE(nb4RouteInSettings(*curve));
+  EXPECT_FALSE(nb4QuickAccessSet(0, nb4RouteId(curve->path)));
+
+  g_eeGeneral.nb4QuickAccessVersion = 1;
+  g_eeGeneral.nb4QuickAccess[0] = nb4RouteId("settings/steering/curve");
+  g_eeGeneral.nb4QuickAccess[1] = nb4RouteId("settings/steering/speed");
+  g_eeGeneral.nb4QuickAccess[2] = nb4RouteId("settings/throttle_brake/brake");
+  nb4QuickAccessNormalize();
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccessVersion, 2);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], nb4RouteId(steering->path));
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[1], 0u);
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[2], nb4RouteId("settings/throttle_brake/travel"));
+  std::set<std::string> destinations;
+  for (unsigned i = 0; i < 8; ++i) {
+    auto route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
+    if (route) EXPECT_TRUE(destinations.insert(route->destination).second);
+  }
+  g_eeGeneral = saved;
+}
+
+TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
+{
+  const auto saved = g_eeGeneral;
+  for (const auto& move : std::vector<std::pair<const char*, const char*>>{
+      {"settings/controls/shortcuts", "display"},
+      {"settings/controls/quick_access", "display"},
+      {"settings/sound_alerts/lights", "display"},
+      {"settings/connectivity/usb", "system"}}) {
+    const auto route = nb4RouteById(nb4RouteId(move.first));
+    ASSERT_NE(route, nullptr);
+    EXPECT_STREQ(route->path, move.first);
+    EXPECT_TRUE(nb4RouteInSection(*route, move.second));
+  }
+  const char* expected[] = {"timer_laps", "pit", "history", "statistics", "setup", "timers", "resets"};
+  const Nb4Route* race[8];
+  ASSERT_EQ(nb4RoutesOfSection("race", race, 8), 7u);
+  for (unsigned i = 0; i < 7; ++i)
+    EXPECT_STREQ(race[i]->path + strlen("settings/race/"), expected[i]);
+  unsigned count;
+  const auto sections = nb4Sections(&count);
+  const char* expectedSections[] = {"steering", "throttle_brake", "car", "controls", "receiver_rf", "race", "telemetry", "models", "display", "sound_alerts", "system", "advanced"};
+  ASSERT_EQ(count, 12u);
+  for (unsigned i = 0; i < count; ++i) EXPECT_STREQ(sections[i].id, expectedSections[i]);
+#if !defined(BLUETOOTH)
+  EXPECT_EQ(nb4RouteByPath("settings/connectivity/bluetooth"), nullptr);
+#endif
+  nb4QuickAccessReset();
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[6], nb4RouteId("settings/race/pit"));
+  // Existing receiver/USB shortcuts are retained; changing categories or defaults is not a migration.
+  g_eeGeneral.nb4QuickAccess[6] = nb4RouteId("settings/receiver_rf/module");
+  g_eeGeneral.nb4QuickAccess[0] = nb4RouteId("settings/connectivity/usb");
+  nb4QuickAccessNormalize();
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[6], nb4RouteId("settings/receiver_rf/module"));
+  EXPECT_EQ(g_eeGeneral.nb4QuickAccess[0], nb4RouteId("settings/connectivity/usb"));
+  unsigned routeCount;
+  const auto routes = nb4Routes(&routeCount);
+  for (unsigned i = 0; i < routeCount; ++i)
+    if (!routes[i].tab) EXPECT_TRUE(nb4RouteInSettings(routes[i]));
+  g_eeGeneral = saved;
 }
 
 #endif  // RADIO_NB4_FAMILY

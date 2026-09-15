@@ -159,7 +159,7 @@ class WidgetFactory
   const WidgetOption* getDefaultOptions() const { return options; }
   virtual const void parseOptionDefaults() const {}
 
-  const char* getDisplayName() const
+  virtual const char* getDisplayName() const
   {
     return displayName ? displayName : name;
   }

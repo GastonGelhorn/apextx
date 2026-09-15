@@ -99,6 +99,20 @@ CurveParam::CurveParam(Window* parent, const rect_t& rect, CurveRef* ref,
                                   setRefValue(v.rawValue);
                                 }, refreshView, source);
 
+#if defined(RADIO_NB4_FAMILY)
+  curve_edit = new TextButton(this, {0, 0, 70, 40}, STR_EDIT, [this, source] {
+    SourceNumVal value; value.rawValue = this->ref->value;
+    if (!value.isSource && value.value)
+      ModelCurvesPage::pushEditCurve(abs(value.value) - 1, this->refreshView, source);
+    return 0;
+  });
+  curve_edit->setCheckHandler([this] {
+    SourceNumVal value; value.rawValue = this->ref->value;
+    curve_edit->enable(!value.isSource && value.value != 0);
+    const int index = abs(value.value) - 1;
+    curve_edit->setText(index >= 0 && index < MAX_CURVES && !isCurveUsed(index) ? STR_CREATE_NEW : STR_EDIT);
+  });
+#endif
   update();
 }
 
@@ -109,6 +123,9 @@ void CurveParam::update()
   value_edit->hide();
   func_choice->hide();
   cust_choice->hide();
+#if defined(RADIO_NB4_FAMILY)
+  if (curve_edit) curve_edit->show(ref->type == CURVE_REF_CUSTOM);
+#endif
 
   switch (ref->type) {
     case CURVE_REF_DIFF:

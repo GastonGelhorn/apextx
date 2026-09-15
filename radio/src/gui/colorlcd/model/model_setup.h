@@ -24,6 +24,10 @@
 #include "pagegroup.h"
 
 class TextButton;
+#if defined(RADIO_NB4_FAMILY)
+void openNb4ModelFeatures();
+void openNb4InputPreferences();
+#endif
 
 class ModelSetupPage: public PageGroupItem {
  public:

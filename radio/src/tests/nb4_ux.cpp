@@ -21,6 +21,10 @@
 #include "model_init.h"
 #include "quick_menu.h"
 #include "nb4_routes.h"
+#include "nb4_menu_pages.h"
+#include "storage/sdcard_yaml.h"
+#include "storage/sdcard_common.h"
+#include "widgets_setup.h"
 #include "nb4_controls.h"
 #include "nb4_assignments.h"
 #include "nb4_racing.h"
@@ -39,6 +43,7 @@
 #include "throttle_params.h"
 #include "model/nb4_params.h"
 #include "curveedit.h"
+#include "model_curves.h"
 #include "input_edit.h"
 #include "module_setup.h"
 #include "timer_setup.h"
@@ -1106,7 +1111,8 @@ TEST(Nb4Ux, EveryStringTheFirmwareWritesHasAGlyphInTheCompiledFont)
         ++checked;
         for (LcdFlags flags : sizes) {
           lv_font_glyph_dsc_t dsc;
-          EXPECT_TRUE(lv_font_get_glyph_dsc(getFont(flags), &dsc, letter, 0));
+          EXPECT_TRUE(lv_font_get_glyph_dsc(getFont(flags), &dsc, letter, 0))
+              << file << ": U+" << std::hex << letter << " in " << text;
         }
       }
     }
@@ -1617,10 +1623,12 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
   g_model.nb4Racing.vehicleType = NB4_VEHICLE_UNSET;
 
   const auto racing = labelsOfPage(scene.root, QM_MODEL_NB4_RACING);
-  EXPECT_TRUE(has(racing, STR_NB4_VEHICLE_TYPE));
+  EXPECT_FALSE(has(racing, STR_NB4_VEHICLE_TYPE));
 
   auto base = Layer::back();
-  QuickMenu::openPage(QM_MODEL_NB4_RACING);
+  QuickMenu::openPage(QM_MODEL_NB4_THROTTLE);
+  for (unsigned f = 0; f < 3; ++f) render(scene.root);
+  pickTab(lv_scr_act(), STR_NB4_ENGINE);
   for (unsigned f = 0; f < 3; ++f) render(scene.root);
   lv_obj_t* row = nullptr;
   std::function<void(lv_obj_t*)> findRow = [&](lv_obj_t* o) {
@@ -1659,6 +1667,18 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
 namespace {
 bool clickLabel(lv_obj_t* obj, const char* text)
 {
+  if (lv_obj_has_class(obj, &lv_table_class)) {
+    for (uint16_t row = 0; row < lv_table_get_row_cnt(obj); ++row) {
+      for (uint16_t col = 0; col < lv_table_get_col_cnt(obj); ++col) {
+        if (!strcmp(lv_table_get_cell_value(obj, row, col), text)) {
+          auto table = static_cast<TableField*>(lv_obj_get_user_data(obj));
+          if (!table) return false;
+          table->onPress(row, col);
+          return true;
+        }
+      }
+    }
+  }
   if (lv_obj_check_type(obj, &lv_label_class)) {
     const char* t = lv_label_get_text(obj);
     if (t && std::string(t) == text) {
@@ -1826,7 +1846,7 @@ TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
 }
 #endif
 
-TEST(Nb4Ux, TheFactoryResetIsInBackupAndEachButtonKeepsToItsHalf)
+TEST(Nb4Ux, ManualBackupHasNoResetAndResetButtonsKeepToTheirScope)
 {
   Scene scene;
   scene.applyPalette("ApexTX Dark");
@@ -1836,6 +1856,15 @@ TEST(Nb4Ux, TheFactoryResetIsInBackupAndEachButtonKeepsToItsHalf)
 
   nb4OpenSection(Nb4Section::Backup);
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
+
+  std::vector<std::string> backupLabels;
+  collectLabels(Layer::back()->getLvObj(), backupLabels);
+  EXPECT_EQ(std::find(backupLabels.begin(), backupLabels.end(), STR_NB4_THIS_CAR), backupLabels.end());
+  EXPECT_EQ(std::find(backupLabels.begin(), backupLabels.end(), STR_NB4_RADIO_SETTINGS), backupLabels.end());
+  EXPECT_NE(std::find(backupLabels.begin(), backupLabels.end(), STR_NB4_OPEN_FILES), backupLabels.end());
+  Layer::back()->onCancel(); render(scene.root);
+  ASSERT_TRUE(nb4OpenRoute("settings/system/reset"));
+  render(scene.root);
 
   std::vector<std::string> labels;
   collectLabels(lv_scr_act(), labels);
@@ -1934,15 +1963,15 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   const Nb4Route* routes = nb4Routes(&count);
   const Nb4Route* pending = nullptr;
   for (unsigned i = 0; i < count; ++i)
-    if (routes[i].state == Nb4RouteState::NotBuiltYet &&
-        strcmp(routes[i].path, "settings/system/help") == 0)
+    if (routes[i].reason &&
+        strcmp(routes[i].path, "settings/car/notes") == 0)
       pending = &routes[i];
   ASSERT_NE(pending, nullptr);
   ASSERT_NE(pending->reason, nullptr);
 
   nb4OpenSettingsModal();
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
-  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_SYSTEM));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_CAR));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   lv_obj_t* helpTile = nullptr;
@@ -1950,7 +1979,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
     std::function<lv_obj_t*(lv_obj_t*)> findTile = [&](lv_obj_t* o) -> lv_obj_t* {
       if (lv_obj_check_type(o, &lv_label_class)) {
         const char* t = lv_label_get_text(o);
-        if (t && std::string(t) == std::string(STR_NB4_HELP)) {
+        if (t && std::string(t) == std::string(STR_NB4_NOTES)) {
           lv_obj_t* up = lv_obj_get_parent(o);
           for (unsigned d = 0; up && d < 4; ++d) {
             if (lv_obj_has_class(up, &lv_btn_class)) return up;
@@ -1974,7 +2003,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   }
 
   const auto before = Layer::back();
-  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_HELP));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_NOTES));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   EXPECT_NE(Layer::back(), before);
@@ -1983,7 +2012,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   collectLabels(lv_scr_act(), labels);
   bool saysWhy = false;
   for (const auto& l : labels)
-    if (l.find("índice de ayuda") != std::string::npos) saysWhy = true;
+    if (l == pending->reason()) saysWhy = true;
   EXPECT_TRUE(saysWhy);
 
   for (unsigned d = 0; d < 16; ++d) {
@@ -2067,9 +2096,14 @@ TEST(Nb4Ux, TheSettingsGridFitsWithoutScrolling)
   unsigned sectionCount = 0;
   const Nb4Section2* sections = nb4Sections(&sectionCount);
   for (unsigned i = 0; i < sectionCount; i += 1) {
+    if (sections[i].parent) continue;
     const char* name = sections[i].label();
-    EXPECT_NE(std::find(labels.begin(), labels.end(), std::string(name)),
-              labels.end());
+    const Nb4Route* routes[32];
+    const auto count = nb4RoutesOfSection(sections[i].id, routes, 32);
+    bool visible = false;
+    for (unsigned r = 0; r < count && r < 32; ++r)
+      if (nb4RouteInSettings(*routes[r])) visible = true;
+    EXPECT_EQ(std::find(labels.begin(), labels.end(), std::string(name)) != labels.end(), visible);
   }
 
   for (unsigned d = 0; d < 16; ++d) {
@@ -2224,7 +2258,7 @@ TEST(Nb4Ux, TheTopIconBarFitsOnScreen)
   };
   if (Layer::back()) walk(Layer::back()->getLvObj());
 
-  ASSERT_GT(icons, 3u);
+  ASSERT_GE(icons, 2u); // Single-destination header: no unrelated carousel tabs.
   EXPECT_LE(rightmost, screen - 1);
 
   for (unsigned d = 0; d < 16 && Layer::back() != base; ++d) {
@@ -2955,6 +2989,7 @@ bool collectStrayControls(lv_obj_t* obj, std::vector<std::string>& out)
   if (!isControl) return controlBelow;
   if (controlBelow) return true;
   if (nb4ParamOwnsObject(obj)) return true;
+  if (labelInside(obj) == STR_NB4_BACK) return true;
 
   std::string label;
   if (lv_obj_t* row = lv_obj_get_parent(obj)) {
@@ -3096,7 +3131,7 @@ TEST(Nb4Ux, EveryDrivingParameterIsShownInExactlyOnePlace)
         std::find(shown.begin(), shown.end(),
                   std::string(nb4ParamLabel(Nb4Param::ChannelReverse))) !=
         shown.end();
-    EXPECT_TRUE(hasReverse);
+    EXPECT_EQ(hasReverse, view == 1);
     for (unsigned d = 0; d < 8 && Layer::back() != base; ++d) {
       auto pg = Layer::back(); pg->onCancel(); scene.root->run();
       if (Layer::back() == pg) break;
@@ -3113,6 +3148,7 @@ TEST(Nb4Ux, EveryDrivingParameterIsShownInExactlyOnePlace)
       "Punto de partida", "Eléctrico", "Nitro",
   };
   auto isAllowed = [&](const std::string& label) {
+    if (label == STR_NB4_BACK) return true;
     if (label.rfind("Editar los puntos de", 0) == 0) return true;
     if (label.rfind("?", 0) == 0) return true;   // Help row
     for (const char* a : allowed) if (label == a) return true;
@@ -3129,7 +3165,7 @@ TEST(Nb4Ux, EveryDrivingParameterIsShownInExactlyOnePlace)
     ASSERT_NE(Layer::back(), nullptr);
     collectStrayControls(Layer::back()->getLvObj(), stray);
     for (const auto& label : stray)
-      EXPECT_TRUE(isAllowed(label));
+      EXPECT_TRUE(isAllowed(label)) << label;
     for (unsigned d = 0; d < 16 && Layer::back() != base; ++d) {
       auto pg = Layer::back(); pg->onCancel(); scene.root->run();
       if (Layer::back() == pg) break;
@@ -3304,9 +3340,10 @@ struct RouteDestination { const char* path; const char* mustShow; };
 
 const RouteDestination kDestinations[] = {
     {"settings/car/general", "Nombre modelo"},
-    {"settings/car/safety", "Seguridad al encender"},
-    {"settings/car/presets", "Punto de partida"},
-    {"settings/receiver_rf/module", "RF interna"},
+    {"settings/car/safety", "Chequeos de arranque"},
+    {"settings/car/presets", "Preajustes del coche"},
+    {"settings/car/advanced", "Configuración avanzada"},
+    {"settings/receiver_rf/module", "Receptor y RF"},
     {"settings/steering/travel", "Centro"},
     {"settings/steering/curve", "Centro"},
     {"settings/steering/centre", "Centro"},
@@ -3318,23 +3355,26 @@ const RouteDestination kDestinations[] = {
 
     {"settings/controls/assignments", "Asignar pulsando"},
 
-    {"settings/controls/channels", "Canales"},
+    {"settings/controls/channels", "Asignación de canales"},
     {"settings/controls/trims", "Paso trim"},
     {"settings/controls/general", "Atraso switches"},
     {"settings/controls/shortcuts", "Asignar pulsando"},
-    {"settings/controls/monitor", "MONITOR CANALES 1/8"},
+    {"settings/controls/quick_access", "Configurar acceso rápido"},
+    {"settings/controls/monitor", "Monitor de entradas/salidas"},
     {"settings/telemetry/sensors", "Sensores"},
 
     {"settings/telemetry/alerts", "Alarmas"},
-    {"settings/telemetry/track_view", "Telemetría"},
-    {"settings/race/timers", "Cronómetros"},
+    {"settings/telemetry/track_view", "Vista de telemetría"},
+    {"settings/race/timers", "Temporizadores"},
     {"settings/race/timer_laps", "TIEMPO DE CARRERA"},
-    {"settings/race/statistics", "Battery"},
+    {"settings/race/statistics", "Batería"},
     {"settings/race/pit", "DEPÓSITO / PACK"},
-    {"settings/race/history", "Registro de mangas"},
-    {"settings/models/management", "Modelos"},
+    {"settings/race/history", "Historial de mangas"},
+    {"settings/models/management", "Lista de coches"},
+    {"settings/models/templates", "Plantillas"},
     {"settings/display/top_bar", "Config. widgets"},
-    {"settings/display/screens", "PALETA"},
+    {"settings/display/screens", "Inicio"},
+    {"settings/display/appearance", "PALETA"},
     {"settings/display/theme", "TEMAS"},
 
     {"settings/display/home", "PALETA"},
@@ -3348,25 +3388,30 @@ const RouteDestination kDestinations[] = {
 
     {"settings/system/power", "Atraso apagado"},
     {"settings/system/hardware", "Calibración batería"},
-    {"settings/system/calibration", "CALIBRACIÓN"},
-    {"settings/system/storage", "TARJETA SD"},
-    {"settings/system/backup_restore", "Copias y restauración"},
+    {"settings/system/calibration", "Calibración"},
+    {"settings/system/storage", "Almacenamiento"},
+    {"settings/system/backup_restore", "Copia manual"},
+    {"settings/system/reset", "Restablecer ajustes"},
     {"settings/system/update", "Actualizar"},
+    {"settings/system/help", "Ayuda"},
     {"settings/display/brightness", "Brillo"},
 
     {"settings/system/date_time_location", "Zona horaria"},
     {"settings/system/diagnostics", "Tmix máx"},
     {"settings/system/about", "https://github.com/GastonGelhorn/apextx"},
-    {"settings/advanced/inputs", "ENTRADAS"},
-    {"settings/advanced/mixes", "MEZCLAS"},
+    {"settings/advanced/features", "Funciones habilitadas"},
+    {"settings/advanced/input_preferences", "Filtro y avisos de centro"},
+    {"settings/advanced/inputs", "Entradas"},
+    {"settings/advanced/mixes", "Mezclas"},
     {"settings/advanced/outputs", "Ampliar límites"},
     {"settings/advanced/curves", "CURVAS"},
-    {"settings/advanced/logic", "INTERRUPTORES LÓGICOS"},
-    {"settings/advanced/automation", "FUNCIONES ESPECIALES"},
+    {"settings/advanced/logic", "Lógica"},
+    {"settings/advanced/automation", "Funciones especiales del modelo"},
 
-    {"settings/advanced/variables", "Variables del modelo"},
+    {"settings/advanced/variables", "Variables del modelo (GVAR)"},
 
     {"settings/race/resets", "Reset Reloj 1"},
+    {"settings/race/setup", "Ajustes de carrera"},
 };
 
 }  // namespace
@@ -3395,6 +3440,13 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   unsigned checkedDestination = 0, menuDestination = 0;
   const Nb4Route* routes = nb4Routes(&count);
 
+  for (unsigned pass = 0; pass < 4; ++pass) {
+  const bool spanish = pass % 2;
+  g_eeGeneral.nb4Orientation = pass >= 2;
+  scene.orient(pass >= 2);
+  ViewMain::instance()->resizeToDisplay();
+  memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
   for (unsigned i = 0; i < count; ++i) {
     const Nb4Route& r = routes[i];
     if (r.state != Nb4RouteState::Available) continue;
@@ -3408,12 +3460,34 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
 
     expectEveryGlyphRenderable(lv_scr_act(), r.path);
 
+    const std::pair<const char*, QMPage> nativePages[] = {
+      {"car/general", QM_MODEL_SETUP}, {"car/presets", QM_MODEL_NB4_RACING},
+      {"steering", QM_MODEL_NB4_STEERING}, {"throttle_brake", QM_MODEL_NB4_THROTTLE},
+      {"telemetry/sensors", QM_MODEL_TELEMETRY}, {"race/statistics", QM_TOOLS_STATS},
+      {"display/top_bar", QM_UI_SETUP}, {"system/hardware", QM_RADIO_HARDWARE},
+      {"system/storage", QM_TOOLS_STORAGE}, {"system/diagnostics", QM_TOOLS_DEBUG},
+      {"system/about", QM_RADIO_VERSION}, {"advanced/inputs", QM_MODEL_INPUTS},
+      {"advanced/mixes", QM_MODEL_MIXES}, {"advanced/outputs", QM_MODEL_OUTPUTS},
+      {"advanced/logic", QM_MODEL_LS}, {"advanced/automation", QM_MODEL_SF}
+    };
+    for (const auto& native : nativePages) if (!strcmp(native.first, r.destination)) {
+      ASSERT_TRUE(Layer::back()->isPageGroup()) << r.path;
+      auto group = static_cast<PageGroup*>(Layer::back());
+      ASSERT_NE(group->getCurrentTab(), nullptr);
+      EXPECT_EQ(group->getCurrentTab()->pageId(), native.second) << r.path;
+      EXPECT_EQ(group->tabCount(), 1);
+    }
+    std::string capture = std::string("route-") + g_eeGeneral.uiLanguage[0] + g_eeGeneral.uiLanguage[1] +
+        (pass >= 2 ? "-landscape-" : "-portrait-") + (r.path + 9);
+    std::replace(capture.begin(), capture.end(), '/', '-');
+    saveFrame(capture.c_str(), pass >= 2 ? 480 : 320, pass >= 2 ? 320 : 480);
+
     const char* mustShow = nullptr;
     bool declared = false;
     for (const auto& d : kDestinations)
       if (strcmp(d.path, r.path) == 0) { mustShow = d.mustShow; declared = true; break; }
-    EXPECT_TRUE(declared);
-    if (declared && mustShow && *mustShow) {
+    EXPECT_TRUE(declared) << r.path;
+    if (declared && mustShow && *mustShow && spanish) {
       std::vector<std::string> ls;
       collectLabels(lv_scr_act(), ls);
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
@@ -3425,9 +3499,9 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
 #endif
       const bool found =
           std::find(ls.begin(), ls.end(), std::string(mustShow)) != ls.end();
-      EXPECT_TRUE(found);
+      EXPECT_TRUE(found) << r.path << " expected: " << mustShow;
       if (found) ++checkedDestination;
-    } else if (declared) {
+    } else if (declared && spanish) {
       ++menuDestination;
     }
 
@@ -3442,9 +3516,10 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
     EXPECT_EQ(lv_mem_test(), LV_RES_OK);
   }
 
-  EXPECT_GT(opened, 45u);
-  EXPECT_LT(guarded, 8u);
-  EXPECT_GT(checkedDestination, 45u);
+  }
+  EXPECT_GT(opened, 180u);
+  EXPECT_LT(guarded, 32u);
+  EXPECT_GT(checkedDestination, 90u);
   EXPECT_EQ(menuDestination, 0u);
   nb4RacingReset();
 }
@@ -4143,6 +4218,608 @@ static void saveFaultScreen(const char* name, uint16_t* pixels, bool landscape)
       fwrite(data, 1, 3, file);
     }
   fclose(file);
+}
+
+TEST(Nb4Ux, RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors)
+{
+  Scene scene;
+  for (unsigned i = 0; i < MAX_KEYS; ++i) simuSetKey(i, false);
+  nb4ControlSetBinding(0, NB4_CONTROL_BACK);
+  auto keyCycle = [&] {
+    keysPollingCycle(); scene.root->run(); lv_tick_inc(20);
+    LvglWrapper::instance()->run();
+  };
+  auto pressBack = [&] {
+    for (unsigned i = 0; i < 10; ++i) keyCycle();
+    simuSetKey(KEY_EXIT, true);
+    for (unsigned i = 0; i < 8; ++i) keyCycle();
+    simuSetKey(KEY_EXIT, false);
+    for (unsigned i = 0; i < 12; ++i) keyCycle();
+  };
+  nb4AcceptNewCarModel();
+  g_model.resetScreenData();
+  nb4SetRacingHomeData(0);
+  g_model.setScreenLayoutId(1, "Layout1x1");
+  g_model.getScreenLayoutData(1)->setWidgetName(0, "NB4Battery");
+  auto main = ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool wide = pass >= 2;
+    const char* lang = pass % 2 ? "es" : "en";
+    memcpy(g_eeGeneral.uiLanguage, lang, 2);
+    currentLangStrings = langStrings[getLanguageId(lang)];
+    g_eeGeneral.nb4Orientation = wide;
+    scene.orient(wide); main->resizeToDisplay();
+    scene.applyPalette("ApexTX Dark");
+    LayoutFactory::loadCustomScreens();
+    main->setCurrentMainView(0);
+    for (int f = 0; f < 4; ++f) render(scene.root);
+    ASSERT_NE(customScreens[0], nullptr);
+    ASSERT_TRUE(customScreens[0]->isLayout());
+    EXPECT_EQ(customScreens[0]->getZonesCount(), 4u);
+    EXPECT_FALSE(static_cast<Layout*>(customScreens[0])->hasTopbar());
+    for (unsigned i = 0; i < 4; ++i) {
+      auto widget = customScreens[0]->getWidget(i);
+      ASSERT_NE(widget, nullptr);
+      auto zone = customScreens[0]->getZone(i);
+      EXPECT_GE(zone.x, 0); EXPECT_GE(zone.y, wide ? 52 : 110);
+      EXPECT_LE(zone.x + zone.w, customScreens[0]->width());
+      EXPECT_LE(zone.y + zone.h, customScreens[0]->height());
+      EXPECT_GT(zone.w, 0); EXPECT_GT(zone.h, 0);
+    }
+    expectEveryGlyphRenderable(customScreens[0]->getLvObj(), "customizable-home");
+    const std::string prefix = std::string("menus-") + lang + (wide ? "-landscape" : "-portrait");
+    saveFrame((prefix + "-home").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+
+    main->setCurrentMainView(1);
+    ASSERT_TRUE(nb4OpenRoute("settings/display/screens"));
+    for (int f = 0; f < 3; ++f) render(scene.root);
+    auto list = Layer::back();
+    saveFrame((prefix + "-screens").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    ASSERT_TRUE(clickLabel(list->getLvObj(), STR_NB4_HOME));
+    for (int f = 0; f < 3; ++f) render(scene.root);
+    auto editor = Layer::back();
+    ASSERT_TRUE(editor->isPageGroup());
+    auto group = static_cast<PageGroup*>(editor);
+    ASSERT_NE(group->getCurrentTab(), nullptr);
+    EXPECT_EQ(group->getCurrentTab()->pageId(), QM_UI_SCREEN1);
+    EXPECT_EQ(group->getCurrentTab()->getTitle(), STR_NB4_HOME);
+    saveFrame((prefix + "-home-editor").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    ASSERT_TRUE(clickLabel(editor->getLvObj(), STR_SETUP_WIDGETS));
+    render(scene.root);
+    auto widgetsEditor = Layer::back();
+    EXPECT_NE(widgetsEditor, editor);
+    EXPECT_EQ(main->getCurrentMainView(), 0);
+    EXPECT_FALSE(list->isVisible()) << "screen list covers the editable zones";
+    EXPECT_EQ(Layer::getFirstOpaque(), main)
+        << "hidden navigation must not stop Home/widget refresh";
+    saveFrame((prefix + "-zones").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    // Exercise the zone itself, not only entering/leaving the transparent page.
+    auto slot = lv_group_get_focused(lv_group_get_default());
+    ASSERT_NE(slot, nullptr);
+    lv_event_send(slot, LV_EVENT_CLICKED, nullptr);
+    render(scene.root);
+    EXPECT_NE(Layer::back(), widgetsEditor);
+    EXPECT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_REMOVE_WIDGET));
+    render(scene.root);
+    EXPECT_EQ(customScreens[0]->getWidget(0), nullptr);
+    customScreens[0]->createWidget(0, WidgetFactory::getWidgetFactory("ApexSteering"));
+    pressBack(); render(scene.root);
+    EXPECT_EQ(main->getCurrentMainView(), 1);
+    ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_BACK)); render(scene.root);
+    EXPECT_EQ(Layer::back(), list);
+    EXPECT_TRUE(list->isVisible());
+    list->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
+
+    ASSERT_TRUE(nb4OpenRoute("settings/display/appearance"));
+    for (int f = 0; f < 3; ++f) render(scene.root);
+    saveFrame((prefix + "-appearance").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    Layer::back()->onCancel(); render(scene.root);
+
+    nb4OpenSettingsModal();
+    auto settings = Layer::back();
+    nb4OpenSettingsSection("display");
+    auto display = Layer::back();
+    ASSERT_TRUE(nb4OpenRoute("settings/display/top_bar"));
+    render(scene.root);
+    ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_SETUP_WIDGETS));
+    render(scene.root);
+    EXPECT_FALSE(settings->isVisible());
+    EXPECT_FALSE(display->isVisible());
+    EXPECT_EQ(Layer::getFirstOpaque(), main);
+    EXPECT_EQ(main->getTopbar()->top(), 0);
+    saveFrame((prefix + "-topbar-zones").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    pressBack(); render(scene.root);
+    EXPECT_EQ(main->getCurrentMainView(), 1);
+    EXPECT_TRUE(settings->isVisible());
+    ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_BACK)); render(scene.root);
+    EXPECT_EQ(Layer::back(), display);
+    EXPECT_TRUE(display->isVisible());
+    display->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), settings);
+    settings->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
+
+    nb4OpenQuickAccessModal();
+    for (int f = 0; f < 3; ++f) render(scene.root);
+    saveFrame((prefix + "-quick").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+    Layer::back()->onCancel(); render(scene.root);
+  }
+  customScreens[0]->removeWidget(1);
+  LayoutFactory::loadCustomScreens();
+  EXPECT_EQ(customScreens[0]->getWidget(1), nullptr);
+  g_model.limitData[0].min = 234;
+  LayoutFactory::nb4ApplyRacingHome();
+  ASSERT_NE(customScreens[0]->getWidget(1), nullptr);
+  EXPECT_EQ(g_model.limitData[0].min, 234);
+  EXPECT_STREQ(g_model.getScreenLayoutData(1)->getWidgetName(0), "NB4Battery");
+  EXPECT_EQ(lv_mem_test(), LV_RES_OK);
+}
+
+TEST(Nb4Ux, TemplatesPreserveTheActiveCarOnFailureAndConfirmOverwrite)
+{
+  Scene scene;
+  nb4FlushSettings();
+  const auto dir = std::filesystem::temp_directory_path() / ("nb4-template-qa-" + std::to_string(getpid()));
+  for (const char* folder : {"MODELS", "RADIO", "TEMPLATES/Personal"})
+    std::filesystem::create_directories(dir / folder);
+  struct Cleanup {
+    std::filesystem::path dir;
+    ~Cleanup() {
+      simuFatfsSetFaults(0); simuFatfsSetRenameFault(0); nb4FlushSettings();
+      simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(dir);
+    }
+  } cleanup{dir};
+  simuFatfsSetPaths(dir.c_str(), nullptr);
+  nb4AcceptNewCarModel(); nb4SetRacingHomeData(0);
+  strAppend(g_eeGeneral.currModelFilename, "active.yml", LEN_MODEL_FILENAME);
+  auto cell = modelslist.addModel("active.yml", false); modelslist.setCurrentModel(cell);
+  g_model.limitData[0].min = 222;
+  ASSERT_EQ(writeModel(), nullptr);
+  EXPECT_FALSE(nb4TemplateNameValid("../bad"));
+  EXPECT_FALSE(nb4TemplateNameValid("trailing."));
+  ASSERT_EQ(nb4SavePersonalTemplate("Circuit", false), nullptr);
+  EXPECT_EQ(nb4SavePersonalTemplate("Circuit", false), STR_FILE_EXISTS);
+  g_model.limitData[0].min = 333;
+  ASSERT_EQ(nb4SavePersonalTemplate("Circuit", true), nullptr);
+  g_model.limitData[0].min = 444;
+  auto path = std::string(PERS_TEMPL_PATH) + "/Circuit.yml";
+
+  simuFatfsSetFaults(0, 0);
+  EXPECT_NE(nb4CreateCarFromTemplate(path.c_str()), nullptr);
+  simuFatfsSetFaults(0);
+  EXPECT_STREQ(g_eeGeneral.currModelFilename, "active.yml");
+  EXPECT_EQ(g_model.limitData[0].min, 444);
+  EXPECT_EQ(modelslist.getCurrentModel(), cell);
+  // A failed rename during the safe save/candidate promotion must also retain the car.
+  simuFatfsSetRenameFault(1);
+  EXPECT_NE(nb4CreateCarFromTemplate(path.c_str()), nullptr);
+  simuFatfsSetRenameFault(0);
+  EXPECT_STREQ(g_eeGeneral.currModelFilename, "active.yml");
+  EXPECT_EQ(g_model.limitData[0].min, 444);
+  EXPECT_STREQ(g_model.getScreenLayoutId(0), "ApexTXRacing");
+  EXPECT_NE(nb4CreateCarFromTemplate("/MODELS/active.yml"), nullptr);
+  EXPECT_FALSE(nb4ModelBlocked());
+  ASSERT_EQ(nb4CreateCarFromTemplate(path.c_str()), nullptr);
+  EXPECT_STRNE(g_eeGeneral.currModelFilename, "active.yml");
+  EXPECT_NE(modelslist.getCurrentModel(), cell);
+  EXPECT_EQ(g_model.limitData[0].min, 333);
+  EXPECT_EQ(g_model.nb4ScreenVersion, 1);
+  EXPECT_STREQ(g_model.getScreenLayoutId(0), "ApexTXRacing");
+}
+
+TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
+{
+  Scene scene;
+  for (unsigned i = 0; i < MAX_KEYS; ++i) simuSetKey(i, false);
+  nb4ControlSetBinding(0, NB4_CONTROL_BACK);
+  auto keyCycle = [&] {
+    keysPollingCycle(); scene.root->run(); lv_tick_inc(20);
+    LvglWrapper::instance()->run();
+  };
+  auto pressBack = [&] {
+    for (unsigned i = 0; i < 10; ++i) keyCycle();
+    simuSetKey(KEY_EXIT, true);
+    for (unsigned i = 0; i < 8; ++i) keyCycle();
+    simuSetKey(KEY_EXIT, false);
+    for (unsigned i = 0; i < 12; ++i) keyCycle();
+  };
+  nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  unsigned outsideTapChecks = 0;
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool wide = pass >= 2;
+    const char* lang = pass % 2 ? "es" : "en";
+    memcpy(g_eeGeneral.uiLanguage, lang, 2);
+    currentLangStrings = langStrings[getLanguageId(lang)];
+    scene.orient(wide); main->resizeToDisplay();
+    const std::string prefix = std::string("polish-") + lang + (wide ? "-landscape-" : "-portrait-");
+    for (const char* path : {"settings/car/general", "settings/car/safety",
+         "settings/car/presets", "settings/receiver_rf/module", "settings/display/brightness",
+         "settings/controls/quick_access", "settings/race/timer_laps", "settings/race/setup"}) {
+      ASSERT_TRUE(nb4OpenRoute(path));
+      for (unsigned i = 0; i < 3; ++i) render(scene.root);
+      auto owner = Layer::back();
+      ASSERT_NE(owner, main);
+      ASSERT_TRUE(bool(owner->getHelpHandler())) << path;
+      std::vector<std::string> labels;
+      collectLabels(owner->getLvObj(), labels);
+      EXPECT_EQ(std::find(labels.begin(), labels.end(), STR_NB4_WHAT_EACH_SETTING_DOES), labels.end());
+      std::string name = prefix + (path + 9);
+      std::replace(name.begin(), name.end(), '/', '-');
+      saveFrame(name.c_str(), wide ? 480 : 320, wide ? 320 : 480);
+      lv_point_t homeIcon{lv_coord_t(lv_disp_get_hor_res(nullptr) - 26), 20};
+      if (auto target = lv_indev_search_obj(owner->getLvObj(), &homeIcon)) {
+        if (target == owner->getLvObj()) {
+          // Home's top-right icons can be visible behind a short dialog.
+          // Clicking that backdrop is not the dialog's explicit Back/close.
+          lv_event_send(target, LV_EVENT_CLICKED, nullptr);
+          render(scene.root);
+          ASSERT_EQ(Layer::back(), owner) << path;
+          ++outsideTapChecks;
+        }
+      }
+      if (owner->isPageGroup() || !strcmp(path, "settings/car/safety") ||
+          !strcmp(path, "settings/receiver_rf/module") || !strcmp(path, "settings/display/brightness")) {
+        // Hit-test the actual decorative header area, including any invisible
+        // legacy button placed over it. Only the labelled Back may navigate.
+        lv_point_t point{22, 20};
+        if (auto target = lv_indev_search_obj(owner->getLvObj(), &point))
+          lv_event_send(target, LV_EVENT_CLICKED, nullptr);
+        render(scene.root);
+        ASSERT_EQ(Layer::back(), owner) << path;
+      }
+      ASSERT_TRUE(openHelpSheet(owner->getLvObj())) << path;
+      for (unsigned i = 0; i < 3; ++i) render(scene.root);
+      ASSERT_TRUE(Layer::back()->isHelpPage());
+      labels.clear(); collectLabels(Layer::back()->getLvObj(), labels);
+      EXPECT_EQ(std::find(labels.begin(), labels.end(), STR_NB4_UX_OPEN_SETTING), labels.end());
+      saveFrame((name + "-help").c_str(), wide ? 480 : 320, wide ? 320 : 480);
+      ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_GOT_IT));
+      render(scene.root);
+      EXPECT_EQ(Layer::back(), owner);
+      ASSERT_TRUE(openHelpSheet(owner->getLvObj())); render(scene.root);
+      ASSERT_TRUE(Layer::back()->isHelpPage());
+      pressBack(); render(scene.root);
+      ASSERT_EQ(Layer::back(), owner);
+      pressBack(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+    nb4OpenHelp("settings/car/general");
+    render(scene.root);
+    ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_UX_OPEN_SETTING));
+    render(scene.root);
+    EXPECT_TRUE(Layer::back()->isPageGroup());
+    Layer::back()->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main) << "Back must not reopen the help used to navigate here";
+  }
+  EXPECT_GT(outsideTapChecks, 0u);
+}
+
+TEST(Nb4Ux, SafetyLabelsFitAboveTheirDescriptionsInBothLanguagesAndOrientations)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const char* lang = pass % 2 ? "es" : "en";
+    memcpy(g_eeGeneral.uiLanguage, lang, 2);
+    currentLangStrings = langStrings[getLanguageId(lang)];
+    scene.orient(pass >= 2);
+    ASSERT_TRUE(nb4OpenRoute("settings/car/safety"));
+    for (unsigned i = 0; i < 3; ++i) render(scene.root);
+    unsigned checked = 0;
+    std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+      if (lv_obj_check_type(obj, &lv_label_class)) {
+        const auto text = lv_label_get_text(obj);
+        for (const auto title : {STR_CHECKLIST, STR_CHECKLIST_INTERACTIVE,
+             STR_THROTTLE_WARNING, STR_CUSTOM_THROTTLE_WARNING}) {
+          if (strcmp(text, title)) continue;
+          lv_point_t size;
+          lv_txt_get_size(&size, text, lv_obj_get_style_text_font(obj, LV_PART_MAIN),
+            lv_obj_get_style_text_letter_space(obj, LV_PART_MAIN),
+            lv_obj_get_style_text_line_space(obj, LV_PART_MAIN),
+            lv_obj_get_content_width(obj), LV_TEXT_FLAG_NONE);
+          EXPECT_GE(lv_obj_get_height(obj), size.y) << title;
+          EXPECT_GE(lv_obj_get_height(lv_obj_get_parent(obj)),
+                    lv_obj_get_y(obj) + lv_obj_get_height(obj)) << title;
+          ++checked;
+        }
+      }
+      for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+    };
+    inspect(Layer::back()->getLvObj());
+    EXPECT_EQ(checked, 4u);
+    Layer::back()->onCancel(); render(scene.root);
+  }
+}
+
+TEST(Nb4Ux, CarDetailsAndPresetsContainNoDuplicateDestinations)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  ASSERT_TRUE(nb4OpenRoute("settings/car/general"));
+  for (unsigned i = 0; i < 3; ++i) render(scene.root);
+  std::vector<std::string> labels;
+  collectLabels(Layer::back()->getLvObj(), labels);
+  for (const char* unwanted : {STR_INTERNALRF, STR_TIMER_1, STR_TIMER_2, STR_TIMER_3,
+       STR_PREFLIGHT, STR_TRIMS, STR_THROTTLE_LABEL, STR_ENABLED_FEATURES})
+    EXPECT_EQ(std::find(labels.begin(), labels.end(), unwanted), labels.end());
+  Layer::back()->onCancel(); render(scene.root);
+
+  g_model.nb4Racing.brakeMax = 51;
+  g_model.nb4Racing.lapCount = 12;
+  g_model.nb4Racing.lapSw = SWSRC_FIRST_SWITCH;
+  g_model.nb4Racing.lapAnnounce = true;
+  g_model.nb4Racing.pitEnabled = true;
+  const auto before = g_model.nb4Racing;
+  ASSERT_TRUE(nb4OpenRoute("settings/car/presets"));
+  render(scene.root);
+  auto presets = Layer::back();
+  ASSERT_TRUE(clickLabel(presets->getLvObj(), STR_NB4_UX_APPLY_NITRO));
+  render(scene.root);
+  EXPECT_EQ(g_model.nb4Racing.brakeMax, 51);
+  ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NO)); render(scene.root);
+  EXPECT_EQ(g_model.nb4Racing.brakeMax, 51);
+  ASSERT_TRUE(clickLabel(presets->getLvObj(), STR_NB4_UX_APPLY_NITRO)); render(scene.root);
+  ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_YES)); render(scene.root);
+  EXPECT_EQ(g_model.nb4Racing.brakeMax, 80);
+  EXPECT_EQ(g_model.nb4Racing.vehicleType, NB4_VEHICLE_NITRO);
+  EXPECT_EQ(g_model.nb4Racing.lapCount, before.lapCount);
+  EXPECT_EQ(g_model.nb4Racing.lapSw, before.lapSw);
+  EXPECT_EQ(g_model.nb4Racing.lapAnnounce, before.lapAnnounce);
+  EXPECT_EQ(g_model.nb4Racing.pitEnabled, before.pitEnabled);
+  EXPECT_EQ(g_model.nb4Racing.steeringChannel, before.steeringChannel);
+  EXPECT_EQ(g_model.nb4Racing.throttleChannel, before.throttleChannel);
+  presets->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), main);
+}
+
+TEST(Nb4Ux, MenuAndQuickAccessShareOneAxisEditorWithoutMovingItems)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  nb4QuickAccessReset();
+  nb4OpenSettingsModal(); render(scene.root);
+  auto settings = Layer::back();
+  std::vector<std::string> labels;
+  collectLabels(settings->getLvObj(), labels);
+  EXPECT_NE(std::find(labels.begin(), labels.end(), STR_NB4_STEERING_2090), labels.end());
+  nb4QuickAccessSet(0, 0);
+  for (unsigned i = 0; i < 3; ++i) render(scene.root);
+  ASSERT_TRUE(clickLabel(settings->getLvObj(), STR_NB4_STEERING_2090));
+  render(scene.root);
+  ASSERT_TRUE(Layer::back()->isPageGroup()) << "Steering must not open a grid of editor tabs";
+  EXPECT_EQ(static_cast<PageGroup*>(Layer::back())->getCurrentTab()->pageId(), QM_MODEL_NB4_STEERING);
+  ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NB4_BACK)); render(scene.root);
+  EXPECT_EQ(Layer::back(), settings);
+  nb4QuickAccessSet(0, nb4RouteId("settings/steering/travel"));
+  for (unsigned i = 0; i < 3; ++i) render(scene.root);
+  labels.clear(); collectLabels(settings->getLvObj(), labels);
+  EXPECT_NE(std::find(labels.begin(), labels.end(), STR_NB4_STEERING_2090), labels.end());
+  settings->onCancel(); render(scene.root);
+  nb4OpenQuickAccessModal(); render(scene.root);
+  auto quick = Layer::back();
+  ASSERT_TRUE(clickLabel(quick->getLvObj(), STR_NB4_STEERING_2090)); render(scene.root);
+  ASSERT_TRUE(Layer::back()->isPageGroup());
+  EXPECT_EQ(static_cast<PageGroup*>(Layer::back())->getCurrentTab()->pageId(), QM_MODEL_NB4_STEERING);
+  Layer::back()->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), quick);
+  quick->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), main);
+}
+
+TEST(Nb4Ux, RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool spanish = pass % 2, landscape = pass >= 2;
+    scene.orient(landscape);
+    g_eeGeneral.nb4Orientation = landscape;
+    main->resizeToDisplay();
+    memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    for (const char* name : {"Touring", "Buggy"}) {
+      memset(g_model.header.name, 0, LEN_MODEL_NAME);
+      strncpy(g_model.header.name, name, LEN_MODEL_NAME);
+      for (const char* path : {"settings/display/brightness", "settings/display/appearance",
+           "settings/display/screens", "settings/display/top_bar", "settings/controls/shortcuts",
+           "settings/controls/quick_access", "settings/sound_alerts/lights",
+           "settings/race/timers", "settings/race/resets", "settings/system/reset"}) {
+        SCOPED_TRACE(path);
+        ASSERT_TRUE(nb4OpenRoute(path)); render(scene.root);
+        auto owner = Layer::back();
+        const auto route = nb4RouteByPath(path);
+        const auto scope = nb4RouteScope(*route);
+        EXPECT_EQ(owner->getScopeText(), scope);
+        std::vector<std::string> labels;
+        collectLabels(owner->getLvObj(), labels);
+        EXPECT_NE(std::find(labels.begin(), labels.end(), scope), labels.end());
+        ASSERT_TRUE(owner->getHelpHandler());
+        if (!strcmp(path, "settings/controls/shortcuts")) {
+          std::vector<Choice*> visible;
+          std::function<void(lv_obj_t*)> collect = [&](lv_obj_t* obj) {
+            if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+            if (auto window = static_cast<Window*>(lv_obj_get_user_data(obj)))
+              if (auto choice = dynamic_cast<Choice*>(window)) visible.push_back(choice);
+            for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) collect(lv_obj_get_child(obj, i));
+          };
+          collect(owner->getLvObj());
+          ASSERT_EQ(visible.size(), 1u);
+          EXPECT_EQ(visible[0]->getMin(), NB4_CONTROL_PREVIOUS);
+          EXPECT_EQ(visible[0]->getMax(), NB4_CONTROL_QUICK);
+        }
+        owner->getHelpHandler()(); render(scene.root);
+        ASSERT_TRUE(Layer::back()->isHelpPage());
+        Layer::back()->onCancel(); render(scene.root);
+        EXPECT_EQ(Layer::back(), owner);
+        owner->onCancel(); render(scene.root);
+        EXPECT_EQ(Layer::back(), main);
+      }
+    }
+    for (const char* section : {"car", "controls", "race", "display", "system"}) {
+      nb4OpenSettingsSection(section); render(scene.root);
+      std::string file = std::string("stable-") + (spanish ? "es" : "en") +
+        (landscape ? "-landscape-" : "-portrait-") + section;
+      saveFrame(file.c_str(), landscape ? 480 : 320, landscape ? 320 : 480);
+      Layer::back()->onCancel(); render(scene.root);
+    }
+  }
+}
+
+TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool spanish = pass % 2, landscape = pass >= 2;
+    scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
+    main->resizeToDisplay();
+    memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4QuickAccessReset();
+    for (const char* section : {"menu", "quick", "car", "controls", "race", "display", "system"}) {
+      SCOPED_TRACE(section);
+      if (!strcmp(section, "menu")) nb4OpenSettingsModal();
+      else if (!strcmp(section, "quick")) nb4OpenQuickAccessModal();
+      else nb4OpenSettingsSection(section);
+      render(scene.root);
+      EXPECT_FALSE(Layer::back()->getHelpHandler());
+      std::vector<std::string> gridLabels;
+      collectLabels(Layer::back()->getLvObj(), gridLabels);
+      EXPECT_EQ(std::find(gridLabels.begin(), gridLabels.end(), "?"), gridLabels.end());
+      std::vector<lv_obj_t*> tiles;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+        if (lv_obj_check_type(obj, &lv_label_class)) {
+          auto parent = lv_obj_get_parent(obj);
+          // Tile labels have a sibling icon. Header/configure buttons do not.
+          bool tile = false;
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(parent); ++i)
+            if (lv_obj_has_class(lv_obj_get_child(parent, i), &lv_img_class)) tile = true;
+          if (tile) {
+            tiles.push_back(parent);
+            lv_area_t labelBounds, tileBounds;
+            lv_obj_get_coords(obj, &labelBounds); lv_obj_get_coords(parent, &tileBounds);
+            EXPECT_LE(labelBounds.y2, tileBounds.y2) << lv_label_get_text(obj);
+            EXPECT_GE(labelBounds.x1, tileBounds.x1) << lv_label_get_text(obj);
+            EXPECT_LE(labelBounds.x2, tileBounds.x2) << lv_label_get_text(obj);
+            const auto foreground = lv_color_to32(lv_obj_get_style_text_color(obj, 0));
+            const auto background = lv_color_to32(lv_obj_get_style_bg_color(parent, 0));
+            EXPECT_GE(contrastRatio(foreground, background), 4.5) << lv_label_get_text(obj);
+          }
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(Layer::back()->getLvObj());
+      ASSERT_GE(tiles.size(), 2u);
+      lv_area_t first, second;
+      lv_obj_get_coords(tiles[0], &first); lv_obj_get_coords(tiles[1], &second);
+      EXPECT_EQ(first.y1, second.y1) << "Submenus must have two usable columns";
+      EXPECT_GT(second.x1, first.x2);
+      Layer::back()->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, RoutedAdvancedGridHasNoHelpButItsEditorsStillDo)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  ASSERT_TRUE(nb4OpenRoute("settings/car/advanced")); render(scene.root);
+  auto grid = Layer::back();
+  EXPECT_FALSE(grid->getHelpHandler());
+  std::vector<std::string> labels;
+  collectLabels(grid->getLvObj(), labels);
+  EXPECT_EQ(std::find(labels.begin(), labels.end(), "?"), labels.end());
+  ASSERT_TRUE(nb4OpenRoute("settings/advanced/input_preferences")); render(scene.root);
+  EXPECT_TRUE(Layer::back()->getHelpHandler());
+  Layer::back()->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), grid);
+  grid->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), main);
+}
+
+TEST(Nb4Ux, TimerEditorsReturnToTheirListAndSessionResetRequiresConfirmation)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  ASSERT_TRUE(nb4OpenRoute("settings/race/timers")); render(scene.root);
+  auto list = Layer::back();
+  const auto first = std::string(STR_NB4_TIMER_BF94) + " 1";
+  ASSERT_TRUE(clickLabel(list->getLvObj(), first.c_str())); render(scene.root);
+  EXPECT_NE(Layer::back(), list);
+  Layer::back()->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), list);
+  list->onCancel(); render(scene.root);
+  ASSERT_TRUE(nb4OpenRoute("settings/race/resets")); render(scene.root);
+  auto resets = Layer::back();
+  timersStates[0].val = 123;
+  ASSERT_TRUE(clickLabel(resets->getLvObj(), STR_RESET_TIMER1)); render(scene.root);
+  EXPECT_EQ(timersStates[0].val, 123);
+  ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NO)); render(scene.root);
+  EXPECT_EQ(timersStates[0].val, 123);
+  EXPECT_EQ(Layer::back(), resets);
+  resets->onCancel(); render(scene.root);
+  EXPECT_EQ(Layer::back(), main);
+}
+
+TEST(Nb4Ux, VariablesEnableIsPerCarNotAGlobalRadioChange)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  ViewMain::instance();
+  g_eeGeneral.modelGVDisabled = 1;
+  g_model.modelGVDisabled = OVERRIDE_GLOBAL;
+  ASSERT_TRUE(nb4OpenRoute("settings/advanced/variables")); render(scene.root);
+  lv_obj_t* toggle = nullptr;
+  std::function<void(lv_obj_t*)> find = [&](lv_obj_t* obj) {
+    if (lv_obj_has_class(obj, &lv_switch_class)) toggle = obj;
+    for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) find(lv_obj_get_child(obj, i));
+  };
+  find(Layer::back()->getLvObj()); ASSERT_NE(toggle, nullptr);
+  lv_obj_add_state(toggle, LV_STATE_CHECKED);
+  lv_event_send(toggle, LV_EVENT_VALUE_CHANGED, nullptr);
+  render(scene.root);
+  EXPECT_EQ(g_eeGeneral.modelGVDisabled, 1);
+  EXPECT_EQ(g_model.modelGVDisabled, OVERRIDE_ON);
+  EXPECT_TRUE(modelGVEnabled());
+  Layer::back()->onCancel(); render(scene.root);
+}
+
+TEST(Nb4Ux, ContextualCurveEditorListsSharedInputsAndMixes)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (const char* lang : {"en", "es"}) {
+    memcpy(g_eeGeneral.uiLanguage, lang, 2);
+    currentLangStrings = langStrings[getLanguageId(lang)];
+    // Refresh the underlying Home before covering it with a modal.
+    for (unsigned i = 0; i < 3; ++i) render(scene.root);
+    expoAddress(0)->curve.type = CURVE_REF_CUSTOM;
+    expoAddress(0)->curve.value = makeSourceNumVal(3);
+    mixAddress(0)->curve.type = CURVE_REF_CUSTOM;
+    mixAddress(0)->curve.value = makeSourceNumVal(-3);
+    ModelCurvesPage::pushEditCurve(2, {}, MIXSRC_FIRST_INPUT);
+    for (unsigned i = 0; i < 3; ++i) render(scene.root);
+    auto confirmation = Layer::back();
+    EXPECT_NE(confirmation, main);
+    std::vector<std::string> labels;
+    collectLabels(confirmation->getLvObj(), labels);
+    const std::string expectedInput = std::string(STR_INPUTS) + " 1";
+    const std::string expectedMix = std::string(STR_NB4_MIXES_60C8) + " 1 / CH1";
+    EXPECT_TRUE(std::any_of(labels.begin(), labels.end(), [&](const auto& text) {
+      return text.find(expectedInput) != std::string::npos &&
+             text.find(expectedMix) != std::string::npos;
+    }));
+    saveFrame((std::string("shared-curve-") + lang).c_str(), 320, 480);
+    ASSERT_TRUE(clickLabel(confirmation->getLvObj(), STR_YES));
+    render(scene.root);
+    EXPECT_NE(Layer::back(), main);
+    EXPECT_NE(Layer::back(), confirmation);
+    Layer::back()->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
+  }
 }
 
 TEST(Nb4Ux, TheFaultScreenDrawsWithoutLVGLInBothOrientations)

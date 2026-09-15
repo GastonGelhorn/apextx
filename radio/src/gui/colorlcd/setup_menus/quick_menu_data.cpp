@@ -87,10 +87,8 @@ static bool nb4OffCarousel() { return false; }
 PageDef modelMenuItems[] = {
   { ICON_CAR_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
 #if defined(RADIO_NB4_FAMILY)
-  // Not ICON_MODEL_SETUP: that mask is a plane inside a gear, and sharing it
-  // with "Model settings" right next door left two identical 30 px gears in
-  // adjacent 33 px carousel slots. A stopwatch is what this page governs.
-  { ICON_STATS_TIMERS, STR_DEF(STR_NB4_RACING), STR_DEF(STR_NB4_RACING), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
+  // Driving presets belong to the car; lap/race controls have their own route.
+  { ICON_CAR_MODEL_SETUP, STR_DEF(STR_NB4_UX_VEHICLE_PRESETS), STR_DEF(STR_NB4_UX_VEHICLE_PRESETS), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
 
   { ICON_NB4_STEERING, nb4SteeringTitle, nb4SteeringTitle, PAGE_CREATE, QM_MODEL_NB4_STEERING, [](PageDef& pageDef) { return new ModelNb4SteeringPage(pageDef); }},
   { ICON_NB4_THROTTLE, nb4ThrottleTitle, nb4ThrottleTitle, PAGE_CREATE, QM_MODEL_NB4_THROTTLE, [](PageDef& pageDef) { return new ModelNb4ThrottlePage(pageDef); }},
@@ -233,10 +231,7 @@ PageDef favoritesMenuItems[] = {
 PageDef modelMenuItems[] = {
   { ICON_CAR_MODEL_SETUP, STR_DEF(STR_QM_MODEL_SETTINGS), STR_DEF(STR_MAIN_MODEL_SETTINGS), PAGE_CREATE, QM_MODEL_SETUP, [](PageDef& pageDef) { return new ModelSetupPage(pageDef); }},
 #if defined(RADIO_NB4_FAMILY)
-  // Not ICON_MODEL_SETUP: that mask is a plane inside a gear, and sharing it
-  // with "Model settings" right next door left two identical 30 px gears in
-  // adjacent 33 px carousel slots. A stopwatch is what this page governs.
-  { ICON_STATS_TIMERS, STR_DEF(STR_NB4_RACING), STR_DEF(STR_NB4_RACING), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
+  { ICON_CAR_MODEL_SETUP, STR_DEF(STR_NB4_UX_VEHICLE_PRESETS), STR_DEF(STR_NB4_UX_VEHICLE_PRESETS), PAGE_CREATE, QM_MODEL_NB4_RACING, [](PageDef& pageDef) { return new ModelNb4RacingPage(pageDef); }},
 
   { ICON_NB4_STEERING, nb4SteeringTitle, nb4SteeringTitle, PAGE_CREATE, QM_MODEL_NB4_STEERING, [](PageDef& pageDef) { return new ModelNb4SteeringPage(pageDef); }},
   { ICON_NB4_THROTTLE, nb4ThrottleTitle, nb4ThrottleTitle, PAGE_CREATE, QM_MODEL_NB4_THROTTLE, [](PageDef& pageDef) { return new ModelNb4ThrottlePage(pageDef); }},

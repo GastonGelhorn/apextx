@@ -639,7 +639,18 @@ SetupLine::SetupLine(Window* parent, coord_t y, coord_t col2, PaddingSize paddin
         titleH = EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_TINY + PAD_LARGE;
         editY = PAD_SMALL + 1;
       }
-      new StaticText(this, {PAD_TINY, titleY, lblWidth, titleH}, title);
+      auto label = new StaticText(this, {PAD_TINY, titleY, lblWidth, titleH}, title);
+#if defined(RADIO_NB4_FAMILY)
+      // Translations can require more than the legacy two-line allowance.
+      // Measure wrapped text so the next row/help paragraph cannot overlap it.
+      const auto obj = label->getLvObj();
+      lv_point_t size;
+      lv_txt_get_size(&size, title, lv_obj_get_style_text_font(obj, LV_PART_MAIN),
+        lv_obj_get_style_text_letter_space(obj, LV_PART_MAIN),
+        lv_obj_get_style_text_line_space(obj, LV_PART_MAIN), lblWidth, LV_TEXT_FLAG_NONE);
+      label->setHeight(max(titleH, coord_t(size.y)));
+      h = max(h, coord_t(titleY + label->height() + PAD_TINY));
+#endif
     }
     setHeight(h);
     createEdit(this, col2, editY);

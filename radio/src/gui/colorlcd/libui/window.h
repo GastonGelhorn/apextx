@@ -50,6 +50,17 @@ class Window
   Window(Window *parent, const rect_t &rect, LvglCreate objConstruct = nullptr);
 
   virtual ~Window();
+#if defined(RADIO_NB4_FAMILY)
+  virtual bool setHelpHandler(std::function<void()> action) { return false; }
+  virtual std::function<void()> getHelpHandler() const { return {}; }
+  virtual bool isHelpPage() const { return false; }
+  virtual void setRouteTitle(const char*) {}
+  virtual void setScopeText(const std::string&) {}
+  virtual const std::string& getScopeText() const {
+    static const std::string empty;
+    return empty;
+  }
+#endif
 
 #if defined(DEBUG_WINDOWS)
   virtual std::string getName() const;

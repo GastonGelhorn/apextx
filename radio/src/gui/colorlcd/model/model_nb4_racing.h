@@ -30,6 +30,7 @@ void nb4BuildChannelAssignment(Window* form, FlexGridLayout& grid,
                                Nb4ChannelSlots* slots);
 
 void nb4OpenChannelsDialog();
+void nb4OpenRaceSetup();
 
 #endif  // RADIO_NB4_FAMILY
 
@@ -43,10 +44,4 @@ class ModelNb4RacingPage : public PageGroupItem
  protected:
 
   void rebuild(Window* window);
-
- private:
-#if defined(RADIO_NB4_FAMILY)
-
-  Nb4ChannelSlots channels;
-#endif
 };

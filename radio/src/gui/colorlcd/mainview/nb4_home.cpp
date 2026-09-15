@@ -123,27 +123,25 @@ void nb4Navigate(Nb4Section section)
 void nb4OpenSection(Nb4Section section)
 {
   if (section == Nb4Section::Telemetry || section == Nb4Section::History ||
-      section == Nb4Section::Chrono || section == Nb4Section::Pit || section == Nb4Section::Backup) {
+      section == Nb4Section::Chrono || section == Nb4Section::Pit || section == Nb4Section::Backup || section == Nb4Section::Reset) {
     nb4OpenDataPage(section);
     return;
   }
   switch (section) {
-    case Nb4Section::Car: QuickMenu::openPage(QM_MODEL_SETUP); break;
-    case Nb4Section::Race: QuickMenu::openPage(QM_MODEL_NB4_RACING); break;
+    case Nb4Section::Car: nb4OpenRoute("settings/car/general"); break;
+    case Nb4Section::Race: nb4OpenRoute("settings/race/setup"); break;
     case Nb4Section::Steering:
-      if (g_model.nb4Racing.steeringChannel < MAX_OUTPUT_CHANNELS)
-        new OutputEditWindow(g_model.nb4Racing.steeringChannel);
+      nb4OpenRoute("settings/steering/travel");
       break;
     case Nb4Section::Throttle:
-      if (g_model.nb4Racing.throttleChannel < MAX_OUTPUT_CHANNELS)
-        new OutputEditWindow(g_model.nb4Racing.throttleChannel);
+      nb4OpenRoute("settings/throttle_brake/travel");
       break;
     case Nb4Section::Auxiliary: QuickMenu::openPage(QM_MODEL_MIXES); break;
-    case Nb4Section::Advanced: ViewMain::instance()->openMenu(); break;
-    case Nb4Section::System: ViewMain::instance()->openMenu(); break;
+    case Nb4Section::Advanced: nb4OpenSettingsSection("advanced"); break;
+    case Nb4Section::System: nb4OpenSettingsSection("system"); break;
 
     case Nb4Section::Appearance:
-    case Nb4Section::Cards: QuickMenu::openPage(QM_UI_SCREEN1); break;
+    case Nb4Section::Cards: nb4OpenAppearance(); break;
     default: break;
   }
 }
@@ -216,6 +214,7 @@ void applyPaletteByName(const char* name)
 
 void nb4BuildAppearance(Window* parent)
 {
+  lv_obj_set_layout(parent->getLvObj(), 0);
   parent->padAll(PAD_TINY);
   lv_obj_update_layout(parent->getLvObj());
   coord_t y = 0, w = lv_obj_get_content_width(parent->getLvObj());
@@ -245,7 +244,8 @@ void nb4BuildAppearance(Window* parent)
 
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
 
-Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect) : WidgetsContainer(parent, rect, 0)
+Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect, bool instruments) :
+    WidgetsContainer(parent, rect, 0), instruments(instruments)
 {
   setWindowFlag(OPAQUE);
   build();
@@ -332,6 +332,8 @@ void Nb4HomeScreen::build()
       telltales[i] = new Nb4Telltale(this, {x, 52, cellWidth, 56}, i, true);
     }
   }
+
+  if (!instruments) { refresh(state); return; }
 
   // --- Instruments ----------------------------------------------------------
   const coord_t instrumentY = landscape ? 52 : 110;

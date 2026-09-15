@@ -29,6 +29,9 @@
 #include "view_main.h"
 #include "view_channels.h"
 #include "screen_setup.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_menu_pages.h"
+#endif
 
 static bool modelListIsFull()
 {
@@ -366,7 +369,10 @@ class ModelsPageBody : public Window
     }
     menu->addLine(STR_DUPLICATE_MODEL, [=]() { duplicateModel(focusedModel); });
     menu->addLine(STR_LABEL_MODEL, [=]() { editLabels(focusedModel); });
-    menu->addLine(STR_SAVE_TEMPLATE, [=]() { saveAsTemplate(focusedModel); });
+#if defined(RADIO_NB4_FAMILY)
+    if (focusedModel == modelslist.getCurrentModel())
+#endif
+      menu->addLine(STR_SAVE_TEMPLATE, [=]() { saveAsTemplate(focusedModel); });
     if (focusedModel != modelslist.getCurrentModel()) {
       menu->addLine(STR_DELETE_MODEL, [=]() { deleteModel(focusedModel); });
     }
@@ -507,6 +513,17 @@ class ModelsPageBody : public Window
 
   void saveAsTemplate(ModelCell *model)
   {
+#if defined(RADIO_NB4_FAMILY)
+    new LabelDialog(model->modelName, LEN_MODEL_NAME, STR_NAME, [](std::string name) {
+      const auto error = nb4SavePersonalTemplate(name.c_str(), false);
+      if (error == STR_FILE_EXISTS) {
+        new ConfirmDialog(STR_FILE_EXISTS, STR_ASK_OVERWRITE, [name] {
+          if (const auto error = nb4SavePersonalTemplate(name.c_str(), true))
+            new MessageDialog(STR_NB4_TEMPLATES, error);
+        });
+      } else if (error) new MessageDialog(STR_NB4_TEMPLATES, error);
+    });
+#else
     new ConfirmDialog(
         STR_SAVE_TEMPLATE,
         std::string(model->modelName, sizeof(model->modelName)).c_str(), [=] {
@@ -538,6 +555,7 @@ class ModelsPageBody : public Window
                        persFolder);
           }
         });
+#endif
   }
 };
 
@@ -665,6 +683,14 @@ void ModelLabelsWindow::newModel()
   storageCheck(true);
 
   new SelectTemplateFolder([=](std::string folder, std::string name) {
+#if defined(RADIO_NB4_FAMILY)
+    if (!name.empty()) {
+      const auto path = std::string(TEMPLATES_PATH) + "/" + folder + "/" + name + YAML_EXT;
+      if (const auto error = nb4CreateCarFromTemplate(path.c_str()))
+        new MessageDialog(STR_NB4_TEMPLATES, error);
+      return;
+    }
+#endif
     // Create a new blank ModelCell and activate it first, createmodel() will
     // modify the model in memory.
     auto newCell = modelslist.addModel("", false);

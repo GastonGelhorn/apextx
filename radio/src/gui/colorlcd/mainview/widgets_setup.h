@@ -22,6 +22,9 @@
 #pragma once
 
 #include "button.h"
+#if defined(RADIO_NB4_FAMILY)
+#include <vector>
+#endif
 
 class ScreenMenu;
 class WidgetsContainer;
@@ -44,6 +47,9 @@ class SetupWidgetsPage : public Window
  protected:
   uint8_t customScreenIdx;
   unsigned savedView = 0;
+#if defined(RADIO_NB4_FAMILY)
+  std::vector<Window*> suspendedLayers;
+#endif
 
   void onEvent(event_t event) override;
   void deleteLater(bool detach = true, bool trash = true) override;

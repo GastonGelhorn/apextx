@@ -202,6 +202,18 @@ class PotWarnMatrix : public ButtonMatrix
 PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MODEL_SETTINGS, STR_PREFLIGHT)
 {
   body->setFlexLayout();
+#if defined(RADIO_NB4_FAMILY)
+  header->setTitle(STR_NB4_SAFETY);
+  header->setTitle2("");
+  auto note = [this](const char* text) -> Window* {
+    auto label = new StaticText(body, {PAD_SMALL, 0, LV_PCT(100), LV_SIZE_CONTENT},
+      text, COLOR_THEME_PRIMARY3_INDEX);
+    lv_label_set_long_mode(label->getLvObj(), LV_LABEL_LONG_WRAP);
+    label->padLeft(PAD_SMALL); label->padRight(PAD_SMALL);
+    label->padBottom(PAD_LARGE);
+    return label;
+  };
+#endif
 
   // Display checklist
   setupLine(STR_CHECKLIST,
@@ -216,6 +228,9 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
     });
 
   // Interactive checklist
+#if defined(RADIO_NB4_FAMILY)
+  note(STR_NB4_UX_SAFETY_CHECKLIST);
+#endif
   setupLine(STR_CHECKLIST_INTERACTIVE,
     [=](Window* parent, coord_t x, coord_t y) {
       interactive = new ToggleSwitch(parent, {x, y, 0, 0}, GET_SET_DEFAULT(g_model.checklistInteractive));
@@ -223,6 +238,9 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
     });
 
   // Throttle warning
+#if defined(RADIO_NB4_FAMILY)
+  note(STR_NB4_UX_SAFETY_INTERACTIVE);
+#endif
   setupLine(STR_THROTTLE_WARNING,
     [=](Window* parent, coord_t x, coord_t y) {
       new ToggleSwitch(parent, {x, y, 0, 0},
@@ -231,10 +249,14 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
                         g_model.disableThrottleWarning = !newValue;
                         SET_DIRTY();
                         customThrottle->show(!g_model.disableThrottleWarning);
+                        if (customThrottleHelp) customThrottleHelp->show(!g_model.disableThrottleWarning);
                       });
     });
 
   // Custom Throttle warning (conditional on previous field)
+#if defined(RADIO_NB4_FAMILY)
+  note(STR_NB4_UX_SAFETY_THROTTLE);
+#endif
   customThrottle = setupLine(STR_CUSTOM_THROTTLE_WARNING,
     [=](Window* parent, coord_t x, coord_t y) {
       new ToggleSwitch(parent, {x, y, 0, 0}, GET_DEFAULT(g_model.enableCustomThrottleWarning),
@@ -250,6 +272,12 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
       customThrottleValue->show(g_model.enableCustomThrottleWarning);
     });
 
+  customThrottle->show(!g_model.disableThrottleWarning);
+#if defined(RADIO_NB4_FAMILY)
+  customThrottleHelp = note(STR_NB4_UX_SAFETY_POSITION);
+  customThrottleHelp->show(!g_model.disableThrottleWarning);
+#endif
+
   if (switchWarningCount() > 0) {
     // Switch warnings (TODO: add display switch?)
     setupLine(STR_SWITCHES, [](Window*, coord_t, coord_t){});
@@ -258,6 +286,9 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
         auto w = new SwitchWarnMatrix(parent, rect_t{PAD_SMALL, y, 0, 0});
         parent->setHeight(w->height() + PAD_TINY * 2);
       });
+#if defined(RADIO_NB4_FAMILY)
+    note(STR_NB4_UX_SAFETY_SWITCHES);
+#endif
   }
 
   // Pots and sliders warning
@@ -287,6 +318,9 @@ PreflightChecks::PreflightChecks() : SubPage(ICON_MODEL_SETUP, STR_MAIN_MENU_MOD
           parent->setHeight(w->height() + PAD_TINY * 2);
         });
       potsWarnMatrix->show(g_model.potsWarnMode > 0);
+#if defined(RADIO_NB4_FAMILY)
+      note(STR_NB4_UX_SAFETY_POTS);
+#endif
     }
   }
 }

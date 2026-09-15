@@ -73,6 +73,7 @@ static void viewOption(Window* parent, coord_t x, coord_t y,
 }
 
 static SetupLineDef viewOptionsPageSetupLines[] = {
+#if !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_RADIO_MENU_TABS), nullptr,
   },
@@ -105,6 +106,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
   {
     STR_DEF(STR_MODEL_MENU_TABS), nullptr,
   },
+#endif
 #if defined(HELI)
   {
     STR_DEF(STR_MENUHELISETUP),
@@ -115,7 +117,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
     }
   },
 #endif
-#if defined(FLIGHT_MODES)
+#if defined(FLIGHT_MODES) && !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_MENUFLIGHTMODES),
     [](Window* parent, coord_t x, coord_t y) {
@@ -135,6 +137,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
     }
   },
 #endif
+#if !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_MENUCURVES),
     [](Window* parent, coord_t x, coord_t y) {
@@ -143,6 +146,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_eeGeneral.modelCurvesDisabled);
     }
   },
+#endif
   {
     STR_DEF(STR_MENULOGICALSWITCHES),
     [](Window* parent, coord_t x, coord_t y) {
@@ -355,6 +359,13 @@ void ModelSetupPage::build(Window * window)
 {
   coord_t y = SetupLine::showLines(window, 0, SubPage::EDT_X, padding, setupLines, DIM(setupLines));
 
+#if defined(RADIO_NB4_FAMILY)
+  auto note = new StaticText(window, {PAD_MEDIUM, coord_t(y + PAD_MEDIUM),
+      coord_t(lv_disp_get_hor_res(nullptr) - PAD_LARGE * 2), LV_SIZE_CONTENT},
+      STR_NB4_UX_HELP_DETAILS, COLOR_THEME_PRIMARY3_INDEX);
+  lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
+#else
+
   new SetupButtonGroup(window, {0, y, lv_disp_get_hor_res(nullptr) - padding * 2, 0}, nullptr, BTN_COLS, PAD_TINY, {
     // Modules
     {STR_DEF(STR_INTERNALRF), []() { new ModulePage(INTERNAL_MODULE); }, []() { return g_model.moduleData[INTERNAL_MODULE].type > 0; }},
@@ -382,4 +393,19 @@ void ModelSetupPage::build(Window * window)
     {STR_DEF(STR_MENUHELISETUP), []() { return new ModelHeliPage(); }, nullptr, modelHeliEnabled},
 #endif
   }, BTN_H);
+#endif
 }
+
+#if defined(RADIO_NB4_FAMILY)
+void openNb4ModelFeatures()
+{
+  new SubPage(ICON_NB4_MODEL_SETUP, STR_NB4_UX_ADVANCED_SETUP,
+    STR_NB4_UX_ENABLED_FEATURES, viewOptionsPageSetupLines, DIM(viewOptionsPageSetupLines));
+}
+
+void openNb4InputPreferences()
+{
+  new SubPage(ICON_NB4_OUTPUTS, STR_NB4_UX_ADVANCED_SETUP,
+    STR_NB4_UX_INPUT_PREFERENCES, otherPageSetupLines, DIM(otherPageSetupLines));
+}
+#endif

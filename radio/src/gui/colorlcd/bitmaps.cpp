@@ -577,6 +577,23 @@ int etxBuiltinIconMisalignedAt()
 const MaskBitmap* getBuiltinIcon(EdgeTxIcon id)
 {
 #if defined(RADIO_NB4_FAMILY)
+  if (id == ICON_RADIO) {
+    // Surface receiver: antenna, case and three servo connectors.
+    struct ReceiverMask { uint16_t width, height; uint8_t data[30 * 30]; };
+    static constexpr ReceiverMask receiver = []() constexpr {
+      ReceiverMask result{30, 30, {}};
+      for (int y = 0; y < 30; ++y) for (int x = 0; x < 30; ++x) {
+        bool antenna = x >= 7 && x <= 9 && y >= 2 && y <= 12;
+        bool box = x >= 4 && x <= 25 && y >= 10 && y <= 25;
+        bool inside = x >= 7 && x <= 22 && y >= 13 && y <= 22;
+        bool pins = y >= 24 && y <= 28 && (x == 9 || x == 15 || x == 21);
+        bool led = x >= 17 && x <= 20 && y >= 15 && y <= 18;
+        result.data[y * 30 + x] = (antenna || (box && !inside) || pins || led) ? 255 : 0;
+      }
+      return result;
+    }();
+    return reinterpret_cast<const MaskBitmap*>(&receiver);
+  }
   if (id == ICON_MODEL || id == ICON_MODEL_SELECT) {
     struct CarMask { uint16_t width, height; uint8_t data[30 * 30]; };
     static constexpr CarMask car = []() constexpr {

@@ -13,6 +13,8 @@
 #include "model_telemetry.h"
 #include "numberedit.h"
 #include "dialog.h"
+#include "nb4_help.h"
+#include "nb4_routes.h"
 #include <array>
 
 namespace {
@@ -33,12 +35,19 @@ const char* storageText() {
 class DataPage : public NavWindow {
  public:
 
-  explicit DataPage(const char* title) : NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}) {
+  DataPage(const char* title, const char* routePath) : NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)}) {
+    helpHandler = nb4InheritedHelp();
     pushLayer();
     etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
     Nb4Ui::header(this, title, [this] { onCancel(); });
+    helpButton = Nb4Ui::action(this, {coord_t(width() - 124), 4, 44, 44}, "?",
+      [this] { if (helpHandler) helpHandler(); });
     body = new Window(this, {2, 56, width() - 4, height() - 58});
     lv_obj_set_scroll_dir(body->getLvObj(), LV_DIR_VER);
+    if (const auto route = nb4RouteByPath(routePath)) {
+      setScopeText(nb4RouteScope(*route));
+      setHelpHandler([route] { nb4OpenHelp(route->path, true); });
+    }
   }
 #if defined(HARDWARE_KEYS)
   void onPressSYS() override { nb4Navigate(Nb4Section::System); }
@@ -50,8 +59,23 @@ class DataPage : public NavWindow {
   void onLongPressRTN() override { onCancel(); }
 #endif
   void onCancel() override { deleteLater(); }
+  bool setHelpHandler(std::function<void()> action) override {
+    helpHandler = std::move(action);
+    helpButton->show(bool(helpHandler));
+    return true;
+  }
+  std::function<void()> getHelpHandler() const override { return helpHandler; }
+  void setScopeText(const std::string& text) override {
+    scopeText = text;
+    nb4ScopeBar(this, body, scopeLabel, text);
+  }
+  const std::string& getScopeText() const override { return scopeText; }
  protected:
   Window* body;
+  TextButton* helpButton;
+  StaticText* scopeLabel = nullptr;
+  std::string scopeText;
+  std::function<void()> helpHandler;
 };
 void lapTable(Window* parent, const uint32_t* times, unsigned count, uint32_t best) {
   const coord_t w = parent->width();
@@ -73,7 +97,7 @@ void lapTable(Window* parent, const uint32_t* times, unsigned count, uint32_t be
 }
 class RacePage : public DataPage {
  public:
-  RacePage() : DataPage(STR_NB4_TIMERS_LAPS) {
+  RacePage() : DataPage(STR_NB4_TIMERS_LAPS, "settings/race/timer_laps") {
     panel = new Nb4RacePanel(body, {0, 0, body->width(), 120});
     const auto half = (body->width() - 6) / 2;
     start = Nb4Ui::action(body, {0, 128, half, 44}, "", [this] {
@@ -84,9 +108,12 @@ class RacePage : public DataPage {
 
     undo = Nb4Ui::action(body, {0, 178, half, 44}, STR_NB4_UNDO_LAP,
                          [] { nb4RacingUndoLap(); });
-    Nb4Ui::action(body, {half + 6, 178, half, 44}, STR_NB4_SETUP, [] { QuickMenu::openPage(QM_MODEL_NB4_RACING); });
+    Nb4Ui::action(body, {half + 6, 178, half, 44}, STR_NB4_SETUP, [] { nb4OpenRoute("settings/race/setup"); });
     auto retry = Nb4Ui::action(body, {0, 230, body->width(), 44}, "", [] {
-      if (nb4HistoryStatus() == Nb4HistoryStatus::Idle || nb4HistoryStatus() == Nb4HistoryStatus::Saved) nb4OpenSection(Nb4Section::History);
+      const auto saved = nb4HistorySavedId(nb4RaceResultToken());
+      if (nb4RacePhase() == Nb4RacePhase::Finished && saved) nb4OpenRaceRecord(saved);
+      else if (nb4RacePhase() != Nb4RacePhase::Finished &&
+               (nb4HistoryStatus() == Nb4HistoryStatus::Idle || nb4HistoryStatus() == Nb4HistoryStatus::Saved)) nb4OpenSection(Nb4Section::History);
       else nb4HistoryRetry();
     });
     statusLabel = nb4Label(retry, {8, 6, retry->width() - 16, 34}, "", FONT(XS));
@@ -103,7 +130,8 @@ class RacePage : public DataPage {
     start->setText(phase == Nb4RacePhase::Running ? STR_NB4_FINISH : phase == Nb4RacePhase::Finished ? STR_NB4_NEW_RUN : STR_NB4_START);
     lap->enable(phase == Nb4RacePhase::Running);
     undo->enable(phase == Nb4RacePhase::Running && nb4RacingLaps() > 0);
-    statusLabel->setText(storageText());
+    statusLabel->setText(phase == Nb4RacePhase::Finished &&
+        nb4HistorySavedId(nb4RaceResultToken()) ? STR_NB4_UX_SAVED_RESULT : storageText());
     if (previousCount != nb4RacingLaps()) {
       previousCount = nb4RacingLaps();
       table->clear(); table->setHeight(25 + previousCount * 34);
@@ -121,7 +149,7 @@ class RacePage : public DataPage {
 };
 class PitPage : public DataPage {
  public:
-  PitPage() : DataPage("Boxes") {
+  PitPage() : DataPage(STR_NB4_PIT, "settings/race/pit") {
     auto card = nb4Card(body, {0, 0, body->width(), 142});
     nb4Label(card, {12, 8, card->width() - 24, 20}, STR_NB4_FUEL_PACK, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
     remaining = nb4Label(card, {12, 36, card->width() - 24, 58}, "--", FONT(LXL));
@@ -153,7 +181,7 @@ class PitPage : public DataPage {
 };
 class HistoryPage : public DataPage {
  public:
-  HistoryPage(uint32_t id = 0) : DataPage(STR_NB4_RACE_HISTORY), detailId(id) {
+  HistoryPage(uint32_t id = 0) : DataPage(STR_NB4_HISTORY, "settings/race/history"), detailId(id) {
     content = new Window(body, {0, 0, body->width(), body->height()});
     request();
   }
@@ -222,20 +250,33 @@ class HistoryPage : public DataPage {
 
 class BackupPage : public DataPage {
  public:
-  BackupPage() : DataPage(STR_NB4_BACKUP_RESTORE) {
+  BackupPage() : DataPage(STR_NB4_BACKUP_RESTORE, "settings/system/backup_restore") {
 
     content = new Window(body, {0, 0, body->width(), body->height()});
     const coord_t w = content->width();
     coord_t y = 0;
 
     const char* instructions = STR_NB4_COPY_RADIO_MODELS_SCRIPTS_THEMES_AND;
-    auto note = nb4Label(content, {8, y, w - 16, 300}, instructions);
+    auto note = nb4Label(content, {8, y, w - 16, LV_SIZE_CONTENT}, instructions);
     lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
-    y += 310;
+    lv_obj_update_layout(note->getLvObj());
+    y += lv_obj_get_height(note->getLvObj()) + 12;
 
     Nb4Ui::action(content, {0, y, w, Nb4Ui::Touch}, STR_NB4_OPEN_FILES,
-                  [] { QuickMenu::openPage(QM_TOOLS_STORAGE); }, true);
+                  [] { nb4OpenRoute("settings/system/storage"); }, true);
     y += Nb4Ui::Touch + 24;
+    content->setHeight(y);
+  }
+ private:
+  Window* content = nullptr;
+};
+
+class ResetPage : public DataPage {
+ public:
+  ResetPage() : DataPage(STR_NB4_UX_RESET_SETTINGS, "settings/system/reset") {
+    content = new Window(body, {0, 0, body->width(), body->height()});
+    const coord_t w = content->width();
+    coord_t y = 0;
 
     nb4Label(content, {8, y, w - 16, 24},
              STR_NB4_FACTORY_RESET, FONT(XS),
@@ -279,7 +320,7 @@ class BackupPage : public DataPage {
 
 class TelemetryPage : public DataPage {
  public:
-  TelemetryPage() : DataPage(STR_NB4_TELEMETRY) {
+  TelemetryPage() : DataPage(STR_NB4_TRACK_VIEW, "settings/telemetry/track_view") {
     const auto w = body->width();
     Nb4Ui::action(body, {0, 0, (w - 6) / 2, 44}, STR_NB4_SENSORS, [] { QuickMenu::openPage(QM_MODEL_TELEMETRY); });
     Nb4Ui::action(body, {(w + 6) / 2, 0, (w - 6) / 2, 44}, STR_NB4_LOG_FILES, [] { QuickMenu::openPage(QM_TOOLS_STORAGE); });
@@ -381,6 +422,7 @@ void nb4OpenRaceRecord(uint32_t id) { new HistoryPage(id); }
 void nb4OpenDataPage(Nb4Section section) {
   switch (section) {
     case Nb4Section::Backup: new BackupPage(); break;
+    case Nb4Section::Reset: new ResetPage(); break;
     case Nb4Section::Chrono: new RacePage(); break;
     case Nb4Section::Pit: new PitPage(); break;
     case Nb4Section::Telemetry: new TelemetryPage(); break;

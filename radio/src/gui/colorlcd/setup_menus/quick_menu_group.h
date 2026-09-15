@@ -102,7 +102,19 @@ class QuickMenuButton : public ButtonBase
 
     lv_obj_add_event_cb(lvobj, QuickMenuButton::focused_cb, LV_EVENT_FOCUSED, nullptr);
     lv_obj_add_event_cb(lvobj, QuickMenuButton::defocused_cb, LV_EVENT_DEFOCUSED, nullptr);
+#if defined(RADIO_NB4_FAMILY)
+    // The group may focus the button before its label/icon have been created.
+    if (lv_obj_has_state(lvobj, LV_STATE_FOCUSED)) setFocused();
+#endif
   }
+
+#if defined(RADIO_NB4_FAMILY)
+  void setTileWidth(coord_t width) {
+    setWidth(width);
+    textPtr->setWidth(width - 1);
+    iconPtr->setPos((width - QuickMenuGroup::QM_ICON_SIZE) / 2, PAD_SMALL);
+  }
+#endif
 
 #if defined(DEBUG_WINDOWS)
   std::string getName() const override { return "QuickMenuButton"; }

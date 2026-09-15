@@ -75,6 +75,18 @@ bool TopBarPersistentData::isWidget(int idx, const char* s)
 SetupTopBarWidgetsPage::SetupTopBarWidgetsPage() :
     Window(ViewMain::instance(), rect_t{})
 {
+#if defined(RADIO_NB4_FAMILY)
+  // Keep the return stack, but reveal the bar beneath this transparent editor.
+  Layer::walk([this](Window* window) {
+    if (window == ViewMain::instance()) return true;
+    if (window->isVisible()) {
+      suspendedLayers.push_back(window);
+      window->show(false);
+    }
+    return false;
+  });
+  savedView = ViewMain::instance()->getCurrentMainView();
+#endif
   // remember focus
   pushLayer();
 
@@ -87,6 +99,10 @@ SetupTopBarWidgetsPage::SetupTopBarWidgetsPage() :
   setRect(viewMain->getRect());
 
   auto topbar = viewMain->getTopbar();
+#if defined(RADIO_NB4_FAMILY)
+  // Racing does not normally show the configurable top bar.
+  if (topbar) topbar->setVisible(1.0);
+#endif
   SetupWidgetsPageSlot* firstSlot = nullptr;
   const unsigned zones = topbar ? topbar->getZonesCount() : 0;
   for (unsigned i = 0; i < zones; i++) {
@@ -117,6 +133,17 @@ void SetupTopBarWidgetsPage::deleteLater(bool detach, bool trash)
 {
   // and continue async deletion...
   Window::deleteLater(detach, trash);
+#if defined(RADIO_NB4_FAMILY)
+  Layer::walk([this](Window* window) {
+    for (auto suspended : suspendedLayers)
+      if (window == suspended) { window->show(); break; }
+    return false;
+  });
+  suspendedLayers.clear();
+  auto viewMain = ViewMain::instance();
+  viewMain->setCurrentMainView(savedView);
+  viewMain->updateTopbarVisibility();
+#endif
 
   // restore screen setting tab on top
   QuickMenu::openPage(QM_UI_SETUP);

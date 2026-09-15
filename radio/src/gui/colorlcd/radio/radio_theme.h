@@ -52,6 +52,10 @@ class ThemeSetupPage : public PageGroupItem
   StaticText *nameText = nullptr;
   int currentTheme = 0;
   bool started = false;
+  std::vector<int> themeIndices;
+  std::vector<std::string> visibleThemeNames(ThemePersistance* tp);
+  int selectedThemeIndex() const;
+  int visibleThemeIndex(int index) const;
 
   void setupListbox(Window *window, rect_t r, ThemePersistance *tp);
   void displayThemeMenu(Window *window, ThemePersistance *tp);

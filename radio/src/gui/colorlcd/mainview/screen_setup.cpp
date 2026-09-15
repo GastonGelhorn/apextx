@@ -31,6 +31,7 @@
 #include "view_main.h"
 #include "widget_settings.h"
 #include "widgets_setup.h"
+#include "nb4_routes.h"
 
 #define SET_DIRTY() storageDirty(EE_MODEL)
 #define BUTTON_HEIGHT 30
@@ -121,15 +122,25 @@ ScreenSetupPage::ScreenSetupPage(unsigned index, PageDef& pageDef) :
 
 void ScreenSetupPage::update(uint8_t index)
 {
+#if defined(RADIO_NB4_FAMILY)
+  customScreenIndex = pageId() - QM_UI_SCREEN1;
+  setTitle(customScreenIndex ? std::string(STR_SCREEN) + " " + std::to_string(customScreenIndex + 1)
+                             : STR_NB4_HOME);
+#else
   customScreenIndex = index - QuickMenu::pageIndex(QM_UI_SCREEN1);
+#endif
 }
 
 void ScreenSetupPage::build(Window* window)
 {
 #if defined(RADIO_NB4_FAMILY)
-  if (customScreenIndex == 0) {
-    nb4BuildAppearance(window);
-    return;
+  if (customScreenIndex == 0 && !g_model.nb4ScreenVersion) {
+    std::string path = std::string(MODELS_PATH) + "/" + g_eeGeneral.currModelFilename;
+    if (!nb4MigrateHome(path.c_str())) {
+      new StaticText(window, {0, 0, LV_PCT(100), 0}, STR_NB4_UX_HOME_MIGRATION);
+      return;
+    }
+    LayoutFactory::loadCustomScreens();
   }
 #endif
   window->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO);
@@ -146,7 +157,7 @@ void ScreenSetupPage::build(Window* window)
   LayoutChoice::LayoutFactoryGetter getFactory =
       [=]() -> const LayoutFactory* {
     auto layout = customScreens[customScreenIndex];
-    if (!layout->isLayout()) return nullptr;
+    if (!layout || !layout->isLayout()) return nullptr;
     return ((Layout*)layout)->getFactory();
   };
 
@@ -161,7 +172,7 @@ void ScreenSetupPage::build(Window* window)
         auto layout = (Layout*)customScreens[customScreenIndex];
         bool restoreOptions = false;
         bool hasTopbar = true, hasFM = true, hasSliders = true, hasTrims = true, isMirrored = false;
-        if (!layout->isAppMode()) {
+        if (layout && layout->isLayout() && !layout->isAppMode()) {
           hasTopbar = layoutData->options[LAYOUT_OPTION_TOPBAR].value.boolValue;
           hasFM = layoutData->options[LAYOUT_OPTION_FM].value.boolValue;
           hasSliders = layoutData->options[LAYOUT_OPTION_SLIDERS].value.boolValue;
@@ -206,7 +217,11 @@ void ScreenSetupPage::build(Window* window)
   buildLayoutOptions();
 
   // Prevent removing the last page
-  if (customScreens[1] != nullptr) {
+  if (customScreens[1] != nullptr
+#if defined(RADIO_NB4_FAMILY)
+      && customScreenIndex != 0
+#endif
+      ) {
     grid.setColSpan(2);
     line = window->newLine(grid);
     Window* btn =
@@ -220,11 +235,15 @@ void ScreenSetupPage::build(Window* window)
           // adjust index if last screen deleted
           if (customScreens[customScreenIndex] == nullptr) customScreenIndex -= 1;
 
+#if defined(RADIO_NB4_FAMILY)
+          window->getParent()->deleteLater();
+#else
           PageGroup* menu = (PageGroup*)window->getParent();
           // Reset to setup page to ensure screen properly updates.
           menu->setCurrentTab(QuickMenu::pageIndex(QM_UI_SETUP));
           // Reset to original (or adjusted screen)
           menu->setCurrentTab(QuickMenu::pageIndex((QMPage)(QM_UI_SCREEN1 + customScreenIndex)));
+#endif
 
           storageDirty(EE_MODEL);
           return 0;
@@ -233,6 +252,22 @@ void ScreenSetupPage::build(Window* window)
     lv_obj_set_width(obj, lv_pct(100));
     lv_obj_center(obj);
   }
+#if defined(RADIO_NB4_FAMILY)
+  auto restore = new TextButton(window, {0, 0, LV_PCT(100), 44}, STR_NB4_UX_RESTORE_HOME,
+    [this, window]() {
+      const auto index = customScreenIndex;
+      new ConfirmDialog(STR_NB4_UX_RESTORE_HOME, STR_NB4_UX_RESTORE_HOME_CONFIRM,
+        [index, window] {
+          nb4SetRacingHomeData(index);
+          storageDirty(EE_MODEL);
+          window->getParent()->deleteLater();
+          LayoutFactory::loadCustomScreens();
+          QuickMenu::openPage((QMPage)(QM_UI_SCREEN1 + index));
+        });
+      return 0;
+    });
+  restore->setWrap();
+#endif
 }
 
 void ScreenSetupPage::clearLayoutOptions()
@@ -254,6 +289,10 @@ void ScreenSetupPage::buildLayoutOptions()
 
   auto factory = ((Layout*)layout)->getFactory();
   if (!factory) return;
+
+#if defined(RADIO_NB4_FAMILY)
+  new StaticText(layoutOptions, {0, 0, LV_PCT(100), 0}, factory->getName());
+#endif
 
   int index = 0;
   for (auto* option = factory->getLayoutOptions(); option->name; option++, index++) {

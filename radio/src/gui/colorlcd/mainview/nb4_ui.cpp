@@ -161,10 +161,13 @@ TextButton* action(Window* parent, rect_t r, const char* title, std::function<vo
 
 void header(Window* parent, const char* title, std::function<void()> back)
 {
-  auto b = action(parent, {8, 4, 44, 44}, LV_SYMBOL_LEFT, back);
+  auto b = action(parent, {coord_t(parent->width() - 76), 4, 72, 44}, STR_NB4_BACK, back);
   lv_obj_set_style_border_width(b->getLvObj(), 0, 0);
   etx_solid_bg(b->getLvObj(), COLOR_THEME_PRIMARY2_INDEX);
-  nb4Label(parent, {60, 15, parent->width() - 72, 26}, title, FONT(BOLD));
+  auto heading = nb4Label(parent, {8, 4, parent->width() - 136, 44}, title, FONT(BOLD));
+  lv_label_set_long_mode(heading->getLvObj(), LV_LABEL_LONG_WRAP);
+  if (getTextWidth(title, 0, FONT(BOLD)) > parent->width() - 136)
+    etx_font(heading->getLvObj(), FONT_XS_INDEX);
   nb4Hairline(parent, {8, 51, parent->width() - 16, 1});
 }
 

@@ -25,6 +25,7 @@
 #include "quick_menu.h"
 
 class HeaderIcon;
+class TextButton;
 class PageGroupItem;
 class PageGroupBase;
 #if VERSION_MAJOR == 2
@@ -98,7 +99,6 @@ class PageGroupItem
 
   void setIcon(EdgeTxIcon icon) { this->icon = icon; }
   EdgeTxIcon getIcon() const { return icon; }
-
   PaddingSize getPadding() const { return padding; }
 
   virtual void update(uint8_t index) {}
@@ -123,6 +123,9 @@ class PageGroupHeaderBase : public Window
 
   void setTitle(const char* title);
   void setIcon(EdgeTxIcon newIcon);
+#if defined(RADIO_NB4_FAMILY)
+  void singleDestination();
+#endif
 
   virtual void chgTab(int dir) = 0;
 
@@ -184,6 +187,14 @@ class PageGroupBase : public NavWindow
   coord_t getScrollY();
   void setScrollY(coord_t y);
 
+#if defined(RADIO_NB4_FAMILY)
+  void setRouteTitle(const char* title) override { header->setTitle(title); }
+  bool setHelpHandler(std::function<void()> action) override;
+  void setScopeText(const std::string& text) override;
+  const std::string& getScopeText() const override { return scopeText; }
+  std::function<void()> getHelpHandler() const override { return helpHandler; }
+#endif
+
   EdgeTxIcon getIcon() const { return icon; }
 
  protected:
@@ -192,6 +203,13 @@ class PageGroupBase : public NavWindow
   PageGroupItem* currentTab = nullptr;
   QuickMenu* quickMenu = nullptr;
   EdgeTxIcon icon;
+
+#if defined(RADIO_NB4_FAMILY)
+  TextButton* helpButton = nullptr;
+  StaticText* scopeLabel = nullptr;
+  std::string scopeText;
+  std::function<void()> helpHandler;
+#endif
 
   virtual void openMenu() = 0;
 
@@ -218,7 +236,7 @@ class PageGroupBase : public NavWindow
 class PageGroup : public PageGroupBase
 {
  public:
-  explicit PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages);
+  explicit PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages, QMPage onlyPage = QM_NONE);
 
 #if defined(DEBUG_WINDOWS)
   std::string getName() const override { return "PageGroup"; }

@@ -944,12 +944,22 @@ static const Nb4HelpEntry _rf_help[] = {
 };
 #endif
 
-ModulePage::ModulePage(uint8_t moduleIdx) : Page(ICON_MODEL_SETUP)
+ModulePage::ModulePage(uint8_t moduleIdx) : Page(
+#if defined(RADIO_NB4_FAMILY)
+  ICON_RADIO
+#else
+  ICON_MODEL_SETUP
+#endif
+)
 {
   const char* title2 =
       moduleIdx == INTERNAL_MODULE ? STR_INTERNALRF : STR_EXTERNALRF;
   header->setTitle(STR_MAIN_MENU_MODEL_SETTINGS);
   header->setTitle2(title2);
+#if defined(RADIO_NB4_FAMILY)
+  header->setTitle(STR_NB4_RECEIVER);
+  header->setTitle2("AFHDS 3");
+#endif
 
   body->setFlexLayout();
 

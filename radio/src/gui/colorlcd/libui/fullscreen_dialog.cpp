@@ -287,10 +287,23 @@ void FullScreenDialog::buildNb4()
       landscape ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER;
 
   if (alert) alertText(body, STR_WARNING, FONT(BOLD), ink, align);
-  if (!title.empty()) alertText(body, title.c_str(), FONT(XL), ink, align);
+  StaticText* heading = nullptr;
+  if (!title.empty()) heading = alertText(body, title.c_str(), FONT(XL), ink, align);
   messageLabel = alertText(body, message.c_str(), FONT(L), ink, align);
   // Smaller than the message it explains, and only for warnings we know.
   if (known) alertText(body, known->advice(), FONT(STD), ink, align);
+  // Translations can need more lines. Reduce display type before allowing
+  // the scrollable text area to overflow; never centre clipped text above it.
+  lv_obj_update_layout(body->getLvObj());
+  coord_t textHeight = 0;
+  const auto children = lv_obj_get_child_cnt(body->getLvObj());
+  for (uint32_t i = 0; i < children; ++i)
+    textHeight += lv_obj_get_height(lv_obj_get_child(body->getLvObj(), i)) + (i ? PAD_TINY : 0);
+  if (textHeight > bodyRect.h) {
+    if (heading) lv_obj_set_style_text_font(heading->getLvObj(), getFont(FONT(L)), 0);
+    lv_obj_set_style_text_font(messageLabel->getLvObj(), getFont(FONT(STD)), 0);
+    lv_obj_set_style_flex_main_place(body->getLvObj(), LV_FLEX_ALIGN_START, 0);
+  }
 }
 #endif
 

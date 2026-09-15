@@ -27,6 +27,8 @@
 #include "keyboard_base.h"
 #include "quick_menu.h"
 #include "pagegroup.h"
+#include "nb4_routes.h"
+#include "nb4_help.h"
 
 PageHeader::PageHeader(Window* parent, EdgeTxIcon icon) :
     Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), EdgeTxStyles::MENU_HEADER_HEIGHT})
@@ -41,6 +43,9 @@ PageHeader::PageHeader(Window* parent, EdgeTxIcon icon) :
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
                           lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
                          "", COLOR_THEME_HEADER_FG_INDEX);
+#if defined(RADIO_NB4_FAMILY)
+  title->setWidth(lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT - 124);
+#endif
 }
 
 PageHeader::PageHeader(Window* parent, const char* iconFile) :
@@ -56,6 +61,9 @@ PageHeader::PageHeader(Window* parent, const char* iconFile) :
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
                           lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT, EdgeTxStyles::STD_FONT_HEIGHT},
                          "", COLOR_THEME_HEADER_FG_INDEX);
+#if defined(RADIO_NB4_FAMILY)
+  title->setWidth(lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT - 124);
+#endif
 }
 
 StaticText* PageHeader::setTitle2(std::string txt)
@@ -67,8 +75,23 @@ StaticText* PageHeader::setTitle2(std::string txt)
                             "", COLOR_THEME_HEADER_FG_INDEX);
   }
   title2->setText(std::move(txt));
+#if defined(RADIO_NB4_FAMILY)
+  title2->setWidth(lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT - 124);
+#endif
   return title2;
 }
+
+#if defined(RADIO_NB4_FAMILY)
+void PageHeader::setRouteTitle(const char* text)
+{
+  if (title2) title2->hide();
+  title->setText(text);
+  title->setHeight(44);
+  lv_label_set_long_mode(title->getLvObj(), LV_LABEL_LONG_WRAP);
+  etx_font(title->getLvObj(), getTextWidth(text, 0, FONT(STD)) > title->width()
+    ? FONT_XS_INDEX : FONT_STD_INDEX);
+}
+#endif
 
 Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
     NavWindow(MainWindow::instance(), {0, 0, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr)})
@@ -77,12 +100,17 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
     lv_obj_enable_style_refresh(false);
 
   header = new PageHeader(this, icon);
+#if defined(RADIO_NB4_FAMILY)
+  new TextButton(header, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 4, 72, 40},
+                 STR_NB4_BACK, [this] { onCancel(); return 0; });
+  setHelpHandler(nb4InheritedHelp());
+#endif
 
 #if VERSION_MAJOR > 2
   new HeaderBackIcon(header);
 #endif
 
-#if defined(HARDWARE_TOUCH)
+#if defined(HARDWARE_TOUCH) && !defined(RADIO_NB4_FAMILY)
 #if VERSION_MAJOR == 2
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
@@ -100,6 +128,9 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
                               LV_PART_MAIN);
   etx_scrollbar(body->getLvObj());
 
+#if defined(RADIO_NB4_FAMILY)
+  setScopeText(nb4InheritedScope());
+#endif
   pushLayer(true);
 
   body->padAll(padding);
@@ -107,6 +138,10 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
 
 void Page::openMenu()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4OpenSettingsModal();
+  return;
+#endif
   PageGroup* p = (PageGroup*)Layer::getPageGroup();
   QMPage qmPage = QM_NONE;
   if (p)
@@ -123,6 +158,25 @@ void Page::openMenu()
       }
     }, p, qmPage);
 }
+
+#if defined(RADIO_NB4_FAMILY)
+bool Page::setHelpHandler(std::function<void()> action)
+{
+  helpHandler = std::move(action);
+  if (!helpButton && helpHandler)
+    helpButton = new TextButton(header,
+      {coord_t(lv_disp_get_hor_res(nullptr) - 120), 4, 40, 40}, "?",
+      [this] { if (helpHandler) helpHandler(); return 0; });
+  if (helpButton) helpButton->show(bool(helpHandler));
+  return true;
+}
+
+void Page::setScopeText(const std::string& text)
+{
+  scopeText = text;
+  nb4ScopeBar(this, body, scopeLabel, text);
+}
+#endif
 
 void Page::onCancel()
 {

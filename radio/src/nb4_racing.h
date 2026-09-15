@@ -59,6 +59,7 @@ uint32_t nb4RacingRaceAverage();
 
 enum class Nb4RacePhase : uint8_t { Ready, Running, Finished };
 Nb4RacePhase nb4RacePhase();
+uint32_t nb4RaceResultToken();
 uint32_t nb4RaceElapsed();
 // Commands are consumed by the mixer; UI never waits for the mixer mutex.
 bool nb4RaceStart();

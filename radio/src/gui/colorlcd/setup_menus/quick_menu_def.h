@@ -83,7 +83,7 @@ inline bool nb4PageAllowed(QMPage page)
   return !((page >= QM_MODEL_SETUP && page <= QM_MODEL_NOTES) ||
            (page >= QM_UI_SCREEN1 && page <= QM_UI_ADD_PG) ||
            page == QM_MODEL_NB4_RACING || page == QM_MODEL_NB4_STEERING ||
-           page == QM_MODEL_NB4_THROTTLE || page == QM_TOOLS_APPS ||
+           page == QM_MODEL_NB4_THROTTLE || page == QM_UI_SETUP || page == QM_TOOLS_APPS ||
            page == QM_TOOLS_RESET);
 }
 #endif

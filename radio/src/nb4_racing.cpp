@@ -50,6 +50,8 @@ static std::atomic<bool> racePaused{false};
 static std::atomic<bool> processingCommand{false};
 static uint8_t nativeAdvance = 0;
 static int historySlot = -1;
+static std::atomic<uint32_t> resultToken{0};
+uint32_t nb4RaceResultToken() { return resultToken.load(); }
 static Nb4RaceRecord result;
 static bool queueCommand(uint8_t command) {
   uint8_t empty = 0;
@@ -73,6 +75,7 @@ bool nb4RaceTimerOverride() { return manualTimer; }
 bool nb4RaceTimerHeld() { return nb4RaceIsPaused() || nb4RacePhase() == Nb4RacePhase::Finished || (nb4RacePhase() == Nb4RacePhase::Ready && !nb4HistoryCanReserve()); }
 void nb4RaceTimerAdvance(uint8_t tick10ms) { nativeAdvance = tick10ms; }
 static void beginRace() {
+  resultToken.store(0);
   racePaused.store(false);
   historySlot = nb4HistoryReserve();
   memset(&result, 0, sizeof(result));
@@ -94,7 +97,7 @@ static void finishRace() {
   result.average = nb4RacingRaceAverage();
   memcpy(result.times, _nb4LapState.times, sizeof(result.times));
   // Reservation precedes the session. Publishing copies only bounded RAM.
-  nb4HistoryPublish(historySlot, result);
+  resultToken.store(nb4HistoryPublish(historySlot, result));
   historySlot = -1;
   timersStates[0].state = TMR_STOPPED;
   racePaused.store(false);
@@ -341,6 +344,7 @@ uint8_t nb4RacingBestLapIndex() { return bestLapIndex.load(); }
 
 void nb4RacingReset()
 {
+  resultToken.store(0);
   nb4ControlsReload();
   racePaused.store(false);
   resetOutputState();

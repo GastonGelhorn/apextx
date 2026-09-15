@@ -152,22 +152,8 @@ void sharedCurveRow(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   line = form->newLine(grid);
   auto edit = new TextButton(
       line, {0, 0, LV_PCT(100), 0}, label,
-      [curveNumber, source, refreshView, others]() {
-        char ask[160];
-        if (others > 0)
-          snprintf(ask, sizeof(ask),
-
-                   STR_NB4_THIS_AFFECTS_THROTTLE_BRAKE_AND_D,
-                   (int)others, others == 1 ? "" : "s");
-        else
-
-          snprintf(ask, sizeof(ask), "%s",
-                   STR_NB4_THIS_AFFECTS_THROTTLE_AND_BRAKE_AT);
-        new ConfirmDialog(getCurveString(curveNumber), ask,
-                          [curveNumber, source, refreshView]() {
-                            ModelCurvesPage::pushEditCurve(curveNumber - 1,
-                                                           refreshView, source);
-                          });
+      [curveNumber, source, refreshView]() {
+        ModelCurvesPage::pushEditCurve(curveNumber - 1, refreshView, source);
         return 0;
       });
   lv_obj_set_style_grid_cell_column_span(edit->getLvObj(), 2, LV_PART_MAIN);
@@ -604,8 +590,10 @@ void ModelNb4ThrottlePage::build(Window* window)
       nb4ParamRow(window, grid, Nb4Param::AbsRelease);
       break;
 
-    case 3:                                              // Engine
-
+    case 3: {                                            // Engine
+      Nb4ParamCtx vehicle;
+      vehicle.afterChange = [this] { pendingTab = 3; };
+      nb4ParamRow(window, grid, Nb4Param::VehicleType, vehicle);
       if (g_model.nb4Racing.vehicleType == NB4_VEHICLE_ELECTRIC) {
         auto why = new StaticText(
             window->newLine(grid), rect_t{},
@@ -625,6 +613,7 @@ void ModelNb4ThrottlePage::build(Window* window)
       nb4ParamRow(window, grid, Nb4Param::EngineCutSwitch);
       nb4ParamRow(window, grid, Nb4Param::EngineCutPos);
       break;
+    }
 
     default:
       break;

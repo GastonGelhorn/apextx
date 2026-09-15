@@ -38,19 +38,14 @@
 #include "radio_setup.h"
 #include "view_channels.h"
 #include "view_main.h"
+#include "nb4_menu_pages.h"
+#include "nb4_help.h"
+#include "model_setup.h"
 
 namespace {
 
 void page(QMPage p) { QuickMenu::openPage(p); }
 
-bool hasBluetooth()
-{
-#if defined(BLUETOOTH)
-  return true;
-#else
-  return false;
-#endif
-}
 void section(Nb4Section s) { nb4OpenSection(s); }
 
 void openSteering()   { page(QM_MODEL_NB4_STEERING); }
@@ -97,10 +92,7 @@ void nb4RequestUpdateMode()
       });
 }
 void openTelemetry()  { page(QM_MODEL_TELEMETRY); }
-void openScreens()
-{
-  page((QMPage)(QM_UI_SCREEN1 + ViewMain::instance()->getCurrentMainView()));
-}
+void openScreens() { nb4OpenScreens(); }
 
 void openDestination(void (*open)(), uint8_t tab)
 {
@@ -126,10 +118,10 @@ class Nb4VariablesDialog : public BaseDialog
     new StaticText(line, {0, 0, 0, 0}, STR_NB4_USE_VARIABLES,
                    COLOR_THEME_PRIMARY1_INDEX);
     new ToggleSwitch(
-        line, {0, 0, 0, 0}, []() { return (uint8_t)!g_eeGeneral.modelGVDisabled; },
+        line, {0, 0, 0, 0}, []() { return (uint8_t)modelGVEnabled(); },
         [this](uint8_t on) {
-          g_eeGeneral.modelGVDisabled = on ? 0 : 1;
-          storageDirty(EE_GENERAL);
+          g_model.modelGVDisabled = on ? OVERRIDE_ON : OVERRIDE_OFF;
+          storageDirty(EE_MODEL);
           updateEditor();
         });
 
@@ -257,148 +249,116 @@ void openLeds() { new Nb4LedsDialog(); }
 
 void openVariables() { new Nb4VariablesDialog(); }
 
-void resetMenu()
-{
-  Menu* m = new Menu();
-  m->addLine(STR_RESET_TIMER1, []() { timerReset(0); });
-  m->addLine(STR_RESET_TIMER2, []() { timerReset(1); });
-  m->addLine(STR_RESET_TIMER3, []() { timerReset(2); });
-  m->addLine(STR_RESET_TELEMETRY, []() { telemetryReset(); });
-}
 
 // Labels and reasons are NB4_STR(...) accessors so the catalogue follows the
 // active language at the moment a tile is drawn.
-#define AV(path, label, fn) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, 0}
-#define AVTAB(path, label, fn, tab) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, tab}
-#define AVIF(path, label, fn, guard) {path, label, Nb4RouteState::Available, nullptr, fn, guard, 0}
-#define AVIFR(path, label, fn, guard, why) {path, label, Nb4RouteState::Available, why, fn, guard, 0}
-#define PEND(path, label, why) {path, label, Nb4RouteState::NotBuiltYet, why, nullptr, nullptr, 0}
+#define AV(path, label, fn, access, dest, help, shortcut) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, 0, Nb4RouteAccess::access, dest, NB4_STR(help), shortcut}
+#define AVTAB(path, label, fn, tab, access, dest, help, shortcut) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, tab, Nb4RouteAccess::access, dest, NB4_STR(help), shortcut}
+#define AVIF(path, label, fn, guard, access, dest, help, shortcut) {path, label, Nb4RouteState::Available, nullptr, fn, guard, 0, Nb4RouteAccess::access, dest, NB4_STR(help), shortcut}
+#define AVIFR(path, label, fn, guard, why, access, dest, help, shortcut) {path, label, Nb4RouteState::Available, why, fn, guard, 0, Nb4RouteAccess::access, dest, NB4_STR(help), shortcut}
+#define IN(path, label, fn, access, dest, help, shortcut, section) {path, label, Nb4RouteState::Available, nullptr, fn, nullptr, 0, Nb4RouteAccess::access, dest, NB4_STR(help), shortcut, section}
 
 const Nb4Route routes[] = {
     // --- Car
-    AV("settings/car/general", NB4_STR(GENERAL), []() { page(QM_MODEL_SETUP); }),
+    AV("settings/car/general", NB4_STR(UX_CAR_DETAILS), []() { page(QM_MODEL_SETUP); }, ModelData, "car/general", UX_HELP_DETAILS, true),
 
-    AV("settings/car/safety", NB4_STR(SAFETY), []() { new PreflightChecks(); }),
-    AV("settings/car/presets", NB4_STR(START_POINT), []() { page(QM_MODEL_NB4_RACING); }),
+    AV("settings/car/safety", NB4_STR(SAFETY), []() { new PreflightChecks(); }, ModelData, "car/safety", UX_HELP_SAFETY, true),
+    AV("settings/car/presets", NB4_STR(UX_VEHICLE_PRESETS), []() { page(QM_MODEL_NB4_RACING); }, ModelData, "car/presets", UX_HELP_PRESETS, true),
     AVIFR("settings/car/notes",
           NB4_STR(NOTES),
           []() { page(QM_MODEL_NOTES); },
           modelHasNotes,
-          NB4_STR(THIS_CAR_HAS_NO_NOTES_YET_THEY_ARE_READ)),
+          NB4_STR(THIS_CAR_HAS_NO_NOTES_YET_THEY_ARE_READ), ModelData, "car/notes", UX_HELP_CAR, true),
+
+    AV("settings/car/advanced", NB4_STR(UX_ADVANCED_SETUP), []() { nb4OpenSettingsSection("advanced"); }, ModelData, "car/advanced", UX_HELP_ADVANCED, true),
 
     // --- Steering
-    AVTAB("settings/steering/travel", NB4_STR(TRAVEL), openSteering, 0),
-    AVTAB("settings/steering/curve", NB4_STR(CURVE), openSteering, 1),
-    AVTAB("settings/steering/centre", NB4_STR(CENTRE), openSteering, 2),
-    AVTAB("settings/steering/speed", NB4_STR(SPEED), openSteering, 3),
+    AVTAB("settings/steering/travel", NB4_STR(STEERING_2090), openSteering, 0, ModelData, "steering", UX_HELP_STEERING, true),
+    AVTAB("settings/steering/curve", NB4_STR(CURVE), openSteering, 1, ModelData, "steering", UX_HELP_STEERING, false),
+    AVTAB("settings/steering/centre", NB4_STR(CENTRE), openSteering, 2, ModelData, "steering", UX_HELP_STEERING, false),
+    AVTAB("settings/steering/speed", NB4_STR(SPEED), openSteering, 3, ModelData, "steering", UX_HELP_STEERING, false),
 
     // --- Throttle and brake
-    AVTAB("settings/throttle_brake/travel", NB4_STR(TRAVEL), openThrottle, 0),
-    AVTAB("settings/throttle_brake/curve", NB4_STR(CURVE), openThrottle, 1),
-    AVTAB("settings/throttle_brake/brake", NB4_STR(BRAKE_ABS), openThrottle, 2),
-    AVTAB("settings/throttle_brake/engine", NB4_STR(ENGINE), openThrottle, 3),
+    AVTAB("settings/throttle_brake/travel", NB4_STR(THROTTLE_BRAKE), openThrottle, 0, ModelData, "throttle_brake", UX_HELP_THROTTLE, true),
+    AVTAB("settings/throttle_brake/curve", NB4_STR(CURVE), openThrottle, 1, ModelData, "throttle_brake", UX_HELP_THROTTLE, false),
+    AVTAB("settings/throttle_brake/brake", NB4_STR(BRAKE_ABS), openThrottle, 2, ModelData, "throttle_brake", UX_HELP_THROTTLE, false),
+    AVTAB("settings/throttle_brake/engine", NB4_STR(ENGINE), openThrottle, 3, ModelData, "throttle_brake", UX_HELP_THROTTLE, false),
 
     // --- Receiver and RF
     // One page holds the RF module, the receiver and failsafe together, so it
     // gets one entry rather than three labels for the same destination.
-    AV("settings/receiver_rf/module", NB4_STR(RF_MODULE_RECEIVER_FAILSAFE), openModule),
+    AV("settings/receiver_rf/module", NB4_STR(RECEIVER), openModule, ModelData, "receiver_rf/module", UX_HELP_RECEIVER, true),
 
     // --- Channels and controls
     // Per-model actions and navigation share one physical-control editor.
     // Hardware naming remains reachable from its Other controls menu.
-    AV("settings/controls/assignments", NB4_STR(ASSIGNMENTS), nb4OpenAssignments),
+    AV("settings/controls/trims", NB4_STR(TRIMS_LABEL), []() { new TrimsSetup(); }, ModelData, "controls/trims", UX_HELP_TRIMS, true),
+    AV("settings/controls/assignments", NB4_STR(ASSIGNMENTS), nb4OpenAssignments, ModelData, "controls/assignments", UX_HELP_ASSIGNMENTS, true),
 
-    AV("settings/controls/channels", NB4_STR(CHANNELS), nb4OpenChannelsDialog),
-    AV("settings/controls/trims", NB4_STR(TRIMS_LABEL), []() { new TrimsSetup(); }),
-    AV("settings/controls/general", NB4_STR(CONTROL_BEHAVIOUR), openControlBehaviour),
-    AV("settings/controls/shortcuts",
-       NB4_STR(KEYS_AND_NAVIGATION),
-       nb4OpenNavigationAssignments),
-    PEND("settings/controls/quick_access",
-         NB4_STR(CONFIGURE_QUICK_ACCESS),
-         NB4_STR(CHOOSING_WHAT_GOES_INTO_QUICK_ACCESS_IS)),
-    AV("settings/controls/monitor", NB4_STR(MONITOR), []() { new ChannelsViewMenu(); }),
+    AV("settings/controls/channels", NB4_STR(CHANNELS), nb4OpenChannelsDialog, ModelData, "controls/channels", UX_HELP_CHANNELS, true),
+    AV("settings/controls/general", NB4_STR(CONTROL_BEHAVIOUR), openControlBehaviour, RadioOnly, "controls/general", UX_HELP_BEHAVIOUR, true),
+    AV("settings/controls/monitor", NB4_STR(MONITOR), []() { new ChannelsViewMenu(); }, Recovery, "controls/monitor", UX_HELP_MONITOR, true),
 
     // --- Telemetry
+    AV("settings/telemetry/track_view",
+       NB4_STR(TRACK_VIEW),
+       []() { section(Nb4Section::Telemetry); }, ModelData, "telemetry/track_view", UX_HELP_TELEMETRY, true),
     AVIFR("settings/telemetry/sensors",
           NB4_STR(SENSORS),
           openTelemetry,
           modelTelemetryEnabled,
-          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T)),
+          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T), ModelData, "telemetry/sensors", UX_HELP_TELEMETRY, true),
 
     AVIFR("settings/telemetry/alerts",
           NB4_STR(ALERTS),
           openTelemetryAlarmsPage,
           modelTelemetryEnabled,
-          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T)),
-    AV("settings/telemetry/track_view",
-       NB4_STR(TRACK_VIEW),
-       []() { section(Nb4Section::Telemetry); }),
+          NB4_STR(TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T), ModelData, "telemetry/alerts", UX_HELP_TELEMETRY, true),
 
     // --- Race
+    AV("settings/race/timer_laps", NB4_STR(TIMERS_LAPS), []() { section(Nb4Section::Chrono); }, ModelData, "race/timer_laps", UX_HELP_LAPS, true),
+    AV("settings/race/pit", NB4_STR(PIT), []() { section(Nb4Section::Pit); }, ModelData, "race/pit", UX_HELP_PIT, true),
+    AV("settings/race/history", NB4_STR(HISTORY), []() { section(Nb4Section::History); }, ModelData, "race/history", UX_HELP_HISTORY, true),
+    AV("settings/race/statistics", NB4_STR(STATISTICS), []() { page(QM_TOOLS_STATS); }, ModelData, "race/statistics", UX_HELP_STATS, true),
+    AV("settings/race/setup", NB4_STR(UX_RACE_SETUP), nb4OpenRaceSetup, ModelData, "race/setup", UX_HELP_RACE_SETUP, true),
 
-    AV("settings/race/timers", NB4_STR(TIMERS_85E8), []() {
-      Menu* m = new Menu();
-      m->setTitle(STR_NB4_TIMERS_85E8);
-      for (uint8_t t = 0; t < MAX_TIMERS && t < 3; t += 1) {
-        char label[24];
-        snprintf(label, sizeof(label), "%s %u", STR_NB4_TIMER_BF94, t + 1);
-        m->addLine(label, [t]() { new TimerWindow(t); });
-      }
-
-      m->addLine(STR_NB4_THROTTLE_TRACKING,
-                 []() { nb4OpenThrottleTraceDialog(); });
-    }),
-    AV("settings/race/timer_laps", NB4_STR(TIMERS_LAPS), []() { section(Nb4Section::Chrono); }),
-    AV("settings/race/statistics", NB4_STR(STATISTICS), []() { page(QM_TOOLS_STATS); }),
-    AV("settings/race/pit", NB4_STR(PIT), []() { section(Nb4Section::Pit); }),
-    AV("settings/race/history", NB4_STR(HISTORY), []() { section(Nb4Section::History); }),
-    PEND("settings/race/race_summary",
-         NB4_STR(RUN_SUMMARY),
-         NB4_STR(THE_RUN_SUMMARY_IS_NOT_BUILT_YET_IN_THE)),
-    AV("settings/race/resets", NB4_STR(SESSION_RESETS), []() { resetMenu(); }),
+    AV("settings/race/timers", NB4_STR(TIMERS_85E8), nb4OpenTimers, ModelData, "race/timers", UX_HELP_TIMERS, true),
+    AV("settings/race/resets", NB4_STR(SESSION_RESETS), nb4OpenSessionResets, ModelData, "race/resets", UX_HELP_RESETS, false),
 
     // --- Models
-    AV("settings/models/management", NB4_STR(MANAGE), []() { new ModelLabelsWindow(); }),
-    PEND("settings/models/templates",
-         NB4_STR(TEMPLATES),
-         NB4_STR(TEMPLATES_HAVE_NO_PAGE_OF_THEIR_OWN_YET)),
+    AV("settings/models/management", NB4_STR(MANAGE), []() { new ModelLabelsWindow(); }, Recovery, "models/management", UX_HELP_MODELS, true),
+    AV("settings/models/templates", NB4_STR(TEMPLATES), nb4OpenTemplates, Recovery, "models/templates", UX_HELP_TEMPLATES, true),
 
     // --- Display and appearance
-    AV("settings/display/brightness", NB4_STR(BRIGHTNESS), openBrightness),
-    AV("settings/display/top_bar", NB4_STR(TOP_BAR), []() { page(QM_UI_SETUP); }),
-    AV("settings/display/screens", NB4_STR(SCREENS), openScreens),
-
-    AVIFR("settings/display/theme",
-          NB4_STR(THEME),
-          []() { page(QM_UI_THEMES); },
-          radioThemesEnabled,
-          NB4_STR(EXTERNAL_THEMES_ARE_SWITCHED_OFF_TURN_TH)),
-    AV("settings/display/home", NB4_STR(HOME), []() { section(Nb4Section::Appearance); }),
+    AV("settings/display/brightness", NB4_STR(BRIGHTNESS), openBrightness, RadioOnly, "display/brightness", UX_HELP_BRIGHTNESS, true),
+    AV("settings/display/appearance", NB4_STR(UX_APPEARANCE), nb4OpenAppearance, RadioOnly, "display/appearance", UX_HELP_APPEARANCE, true),
+    AV("settings/display/screens", NB4_STR(SCREENS), openScreens, ModelData, "display/screens", UX_HELP_SCREENS, true),
+    AV("settings/display/top_bar", NB4_STR(TOP_BAR), []() { page(QM_UI_SETUP); }, ModelData, "display/top_bar", UX_HELP_TOPBAR, true),
+    IN("settings/controls/shortcuts", NB4_STR(KEYS_AND_NAVIGATION), nb4OpenNavigationAssignments, ModelData, "controls/shortcuts", UX_HELP_NAVIGATION, true, "display"),
+    IN("settings/controls/quick_access", NB4_STR(CONFIGURE_QUICK_ACCESS), nb4OpenQuickAccessSetup, RadioOnly, "controls/quick_access", UX_HELP_QUICK, false, "display"),
+    IN("settings/sound_alerts/lights", NB4_STR(LIGHTS), openLeds, RadioOnly, "sound_alerts/lights", UX_HELP_LIGHTS, true, "display"),
 
     // --- Sound and alerts
-    AV("settings/sound_alerts/alerts", NB4_STR(ALERTS), openAlarms),
-    AV("settings/sound_alerts/sound", NB4_STR(SOUND), openSound),
-    AV("settings/sound_alerts/haptic", NB4_STR(HAPTIC), openHaptic),
+    AV("settings/sound_alerts/alerts", NB4_STR(ALERTS), openAlarms, RadioOnly, "sound_alerts/alerts", UX_HELP_SOUND, true),
+    AV("settings/sound_alerts/sound", NB4_STR(SOUND), openSound, RadioOnly, "sound_alerts/sound", UX_HELP_SOUND, true),
+    AV("settings/sound_alerts/haptic", NB4_STR(HAPTIC), openHaptic, RadioOnly, "sound_alerts/haptic", UX_HELP_SOUND, true),
 
-    AV("settings/sound_alerts/lights", NB4_STR(LIGHTS), openLeds),
+    // --- System (legacy connectivity IDs are preserved for saved shortcuts)
+    IN("settings/connectivity/usb", NB4_STR(USB), openUsb, RadioOnly, "connectivity/usb", UX_HELP_CONNECTION, true, "system"),
 
-    // --- Connectivity
-    AV("settings/connectivity/usb", NB4_STR(USB), openUsb),
-
-    AVIFR("settings/connectivity/bluetooth",
-          NB4_STR(BLUETOOTH),
-          openHardware,
-          hasBluetooth,
-          NB4_STR(THIS_RADIO_HAS_NO_BLUETOOTH_IT_IS_NOT_A)),
+#if defined(BLUETOOTH)
+    IN("settings/connectivity/bluetooth", NB4_STR(BLUETOOTH), nb4OpenBluetooth, RadioOnly, "connectivity/bluetooth", UX_HELP_CONNECTION, true, "system"),
+#endif
 
     // --- System
-    AV("settings/system/general", NB4_STR(GENERAL_PREFERENCES), openGeneralPrefs),
-    AV("settings/system/power", NB4_STR(POWER), openPower),
-    AV("settings/system/hardware", NB4_STR(HARDWARE), openHardware),
+    AV("settings/system/backup_restore", NB4_STR(BACKUP_RESTORE), []() { section(Nb4Section::Backup); }, Recovery, "system/backup_restore", UX_HELP_BACKUP, true),
+    AV("settings/system/reset", NB4_STR(UX_RESET_SETTINGS), []() { section(Nb4Section::Reset); }, Recovery, "system/reset", UX_HELP_RESET_SETTINGS, false),
+    AV("settings/system/general", NB4_STR(GENERAL_PREFERENCES), openGeneralPrefs, RadioOnly, "system/general", UX_HELP_SYSTEM, true),
+    AV("settings/system/power", NB4_STR(POWER), openPower, RadioOnly, "system/power", UX_HELP_SYSTEM, true),
+    AV("settings/system/hardware", NB4_STR(HARDWARE), openHardware, RadioOnly, "system/hardware", UX_HELP_SYSTEM, true),
     AV("settings/system/calibration",
        NB4_STR(CALIBRATION),
-       []() { new RadioCalibrationPage(); }),
+       []() { new RadioCalibrationPage(); }, Recovery, "system/calibration", UX_HELP_SYSTEM, true),
 
     AV("settings/system/storage", NB4_STR(STORAGE), []() {
       if (!nb4MountFailureIsMissingFilesystem(nb4StorageMountResult())) {
@@ -415,72 +375,63 @@ const Nb4Route routes[] = {
             STR_NB4_NO_FILESYSTEM_FOUND_CREATING_ONE_ERASES,
             []() { nb4RequestFilesystemCreation(); });
       });
-    }),
-    AV("settings/system/backup_restore",
-       NB4_STR(BACKUP_RESTORE),
-       []() { section(Nb4Section::Backup); }),
+    }, Recovery, "system/storage", UX_HELP_SYSTEM, true),
 
-    AV("settings/system/update", NB4_STR(UPDATE), nb4RequestUpdateMode),
+    AV("settings/system/update", NB4_STR(UPDATE), nb4RequestUpdateMode, Recovery, "system/update", UX_HELP_UPDATE, false),
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
-    AV("settings/system/date_time_location", NB4_STR(LOCATION), openDateTime),
+    AV("settings/system/date_time_location", NB4_STR(LOCATION), openDateTime, RadioOnly, "system/date_time_location", UX_HELP_SYSTEM, true),
 #else
-    AV("settings/system/date_time_location", NB4_STR(DATE_TIME_LOCATION), openDateTime),
+    AV("settings/system/date_time_location", NB4_STR(DATE_TIME_LOCATION), openDateTime, RadioOnly, "system/date_time_location", UX_HELP_SYSTEM, true),
 #endif
-    AV("settings/system/diagnostics", NB4_STR(DIAGNOSTICS), []() { page(QM_TOOLS_DEBUG); }),
-    AV("settings/system/about", NB4_STR(ABOUT), []() { page(QM_RADIO_VERSION); }),
-    PEND("settings/system/help",
-         NB4_STR(HELP),
-         NB4_STR(THERE_IS_NO_HELP_INDEX_YET_THE_ONE_SHEET)),
+    AV("settings/system/diagnostics", NB4_STR(DIAGNOSTICS), []() { page(QM_TOOLS_DEBUG); }, Recovery, "system/diagnostics", UX_HELP_SYSTEM, true),
+    AV("settings/system/about", NB4_STR(ABOUT), []() { page(QM_RADIO_VERSION); }, Recovery, "system/about", UX_HELP_SYSTEM, true),
+    AV("settings/system/help", NB4_STR(HELP), []() { nb4OpenHelp(); }, Recovery, "system/help", UX_HELP_INDEX, false),
 
     // --- Advanced
-    AV("settings/advanced/inputs", NB4_STR(INPUTS), []() { page(QM_MODEL_INPUTS); }),
-    AV("settings/advanced/mixes", NB4_STR(MIXES_60C8), []() { page(QM_MODEL_MIXES); }),
-    AV("settings/advanced/outputs", NB4_STR(OUTPUTS), []() { page(QM_MODEL_OUTPUTS); }),
-    AVIFR("settings/advanced/curves",
-          NB4_STR(CURVES),
-          []() { page(QM_MODEL_CURVES); },
-          modelCurvesEnabled,
-          NB4_STR(POINT_CURVES_ARE_SWITCHED_OFF_TURN_THEM)),
+    AV("settings/advanced/features", NB4_STR(UX_ENABLED_FEATURES), openNb4ModelFeatures, ModelData, "advanced/features", UX_HELP_FEATURES, true),
+    AV("settings/advanced/input_preferences", NB4_STR(UX_INPUT_PREFERENCES), openNb4InputPreferences, ModelData, "advanced/input_preferences", UX_HELP_INPUT_PREFS, true),
+    AV("settings/advanced/inputs", NB4_STR(INPUTS), []() { page(QM_MODEL_INPUTS); }, ModelData, "advanced/inputs", UX_HELP_INPUTS, true),
+    AV("settings/advanced/mixes", NB4_STR(MIXES_60C8), []() { page(QM_MODEL_MIXES); }, ModelData, "advanced/mixes", UX_HELP_MIXES, true),
+    AV("settings/advanced/outputs", NB4_STR(OUTPUTS), []() { page(QM_MODEL_OUTPUTS); }, ModelData, "advanced/outputs", UX_HELP_OUTPUTS, true),
     AVIFR("settings/advanced/logic",
           NB4_STR(LOGIC),
           []() { page(QM_MODEL_LS); },
           modelLSEnabled,
-          NB4_STR(LOGICAL_SWITCHES_ARE_SWITCHED_OFF_TURN_T)),
+          NB4_STR(LOGICAL_SWITCHES_ARE_SWITCHED_OFF_TURN_T), ModelData, "advanced/logic", UX_HELP_LOGIC, true),
 
     AVIFR("settings/advanced/automation",
           NB4_STR(MODEL_SPECIAL_FUNCTIONS),
           []() { page(QM_MODEL_SF); },
           modelSFEnabled,
-          NB4_STR(SPECIAL_FUNCTIONS_ARE_SWITCHED_OFF_TURN)),
+          NB4_STR(SPECIAL_FUNCTIONS_ARE_SWITCHED_OFF_TURN), ModelData, "advanced/automation", UX_HELP_FUNCTIONS, true),
 
-    AV("settings/advanced/variables", NB4_STR(MODEL_VARIABLES_GVAR), openVariables),
+    AV("settings/advanced/variables", NB4_STR(MODEL_VARIABLES_GVAR), openVariables, ModelData, "advanced/variables", UX_HELP_VARIABLES, true),
     AVIFR("settings/advanced/scripts",
           NB4_STR(SCRIPTS),
           []() { page(QM_MODEL_SCRIPTS); },
           modelCustomScriptsEnabled,
-          NB4_STR(SCRIPTS_ARE_SWITCHED_OFF_TURN_THEM_ON_IN)),
+          NB4_STR(SCRIPTS_ARE_SWITCHED_OFF_TURN_THEM_ON_IN), ModelData, "advanced/scripts", UX_HELP_SCRIPTS, true),
 };
 
 #undef AV
 #undef AVTAB
 #undef AVIF
 #undef AVIFR
-#undef PEND
+#undef IN
 
 const Nb4Section2 sections[] = {
-    {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP},
     {"steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
     {"throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
-    {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
+    {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP},
     {"controls", NB4_STR(CONTROLS), ICON_NB4_OUTPUTS},
-    {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
+    {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
     {"race", NB4_STR(RACE_5527), ICON_STATS_TIMERS},
+    {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
     {"models", NB4_STR(MODELS), ICON_MODEL_SELECT},
     {"display", NB4_STR(DISPLAY), ICON_THEME},
-    {"sound_alerts", NB4_STR(SOUND), ICON_RADIO_SETUP},
-    {"connectivity", NB4_STR(CONNECTION), ICON_MODEL_USB},
+    {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_RADIO_SETUP},
     {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
-    {"advanced", NB4_STR(ADVANCED), ICON_MODEL_MIXER},
+    {"advanced", NB4_STR(UX_ADVANCED_SETUP), ICON_MODEL_MIXER, "car"},
 };
 
 }  // namespace
@@ -489,14 +440,15 @@ namespace {
 
 constexpr int GRID_COLS = 4;
 
-constexpr lv_coord_t TILE_H = 70;
+constexpr lv_coord_t TILE_H = 90;
 
 class Nb4GridModal : public BaseDialog
 {
  public:
-  Nb4GridModal(const char* title, unsigned tiles, bool branded = false) :
-      BaseDialog(title, true, gridWidth(), gridHeight(tiles))
+  Nb4GridModal(const char* title, unsigned tiles, bool branded = false, unsigned columns = GRID_COLS) :
+      BaseDialog(title, true, gridWidth(), gridHeight(tiles)), columns(columns)
   {
+    setScopeText(""); // Category grids contain destinations with different scopes.
     if (branded)
       useBrandHeader();
     else
@@ -510,18 +462,22 @@ class Nb4GridModal : public BaseDialog
       etx_solid_bg(content, COLOR_THEME_QM_BG_INDEX);
   }
 
+  // Navigation grids only choose a destination. Help belongs to the editor,
+  // not to a second category index; also reject route-level help injection.
+  bool setHelpHandler(std::function<void()>) override { return false; }
+
   void tile(uint8_t icon, const char* label, bool openable,
             std::function<void()> action, const char* reason = nullptr)
   {
     QuickMenuButton* btn = new QuickMenuButton(
         form, (EdgeTxIcon)icon, label,
-        [this, action, openable, label, reason]() {
+        [this, action, openable, title = std::string(label), reason]() {
           if (openable) {
 
             action();
           } else {
             new MessageDialog(
-                label,
+                title.c_str(),
                 reason && *reason
                     ? reason
                     : STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
@@ -530,8 +486,14 @@ class Nb4GridModal : public BaseDialog
         },
         nullptr);
 
-    if (!openable) btn->setDisabled();
+    // Keep unavailable options focusable so their explanation can be read.
+    if (!openable) lv_obj_set_style_opa(btn->getLvObj(), LV_OPA_50, 0);
 
+    // PaddingSize is a style token, not a pixel count. Measure resolved values.
+    lv_obj_update_layout(form->getLvObj());
+    const coord_t available = lv_obj_get_content_width(form->getLvObj());
+    const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
+    btn->setTileWidth((available - (columns - 1) * gap) / columns);
     lv_obj_set_height(btn->getLvObj(), TILE_H);
     tiles.push_back(btn);
   }
@@ -540,6 +502,13 @@ class Nb4GridModal : public BaseDialog
   {
     BaseDialog::checkEvents();
     if (deleted()) return;
+    uint32_t current = g_eeGeneral.nb4QuickAccessVersion;
+    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
+      current = current * 31 + g_eeGeneral.nb4QuickAccess[i];
+    if (watchQuickAccess && rebuild && current != quickSignature) {
+      quickSignature = current;
+      tiles.clear(); form->clear(); rebuild();
+    }
     for (auto* btn : tiles) {
       if (!btn->getLvObj()) continue;
       if (lv_obj_has_state(btn->getLvObj(), LV_STATE_FOCUSED))
@@ -551,6 +520,33 @@ class Nb4GridModal : public BaseDialog
 
  private:
   std::vector<QuickMenuButton*> tiles;
+  unsigned columns;
+
+ public:
+  void populate(std::function<void()> action, bool watch = false) {
+    watchQuickAccess = watch;
+    rebuild = std::move(action);
+    quickSignature = g_eeGeneral.nb4QuickAccessVersion;
+    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
+      quickSignature = quickSignature * 31 + g_eeGeneral.nb4QuickAccess[i];
+    rebuild();
+  }
+  void separator() {
+    auto line = new Window(form, {0, 0, LV_PCT(100), 8});
+    lv_obj_set_style_border_side(line->getLvObj(), LV_BORDER_SIDE_TOP, 0);
+    lv_obj_set_style_border_width(line->getLvObj(), 1, 0);
+    etx_border_color(line->getLvObj(), COLOR_THEME_PRIMARY3_INDEX);
+  }
+  void configure(std::function<void()> action) {
+    auto button = new TextButton(form, {0, 0, LV_PCT(100), 44},
+      STR_NB4_CONFIGURE_QUICK_ACCESS, [action] { action(); return 0; });
+    button->setWrap();
+  }
+
+ private:
+  std::function<void()> rebuild;
+  uint32_t quickSignature = 0;
+  bool watchQuickAccess = false;
 
   static lv_coord_t gridWidth()
   {
@@ -569,14 +565,14 @@ void (*singleDestinationImpl(const char* id))()
 {
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(id, views, 32);
-  void (*only)() = nullptr;
-  for (unsigned v = 0; v < n && v < 32; v += 1) {
-    if (views[v]->state == Nb4RouteState::NotBuiltYet) return nullptr;
+  const Nb4Route* first = nullptr;
+  for (unsigned v = 0; v < n && v < 32; ++v) {
     if (!nb4RouteIsOpenable(*views[v])) continue;
-    if (!only) only = views[v]->open;
-    else if (only != views[v]->open) return nullptr;
+    if (!first) first = views[v];
+    else if (!first->destination || !views[v]->destination ||
+             strcmp(first->destination, views[v]->destination)) return nullptr;
   }
-  return only;
+  return first ? first->open : nullptr;
 }
 
 bool sectionHasSomethingOpenable(const char* id)
@@ -588,28 +584,17 @@ bool sectionHasSomethingOpenable(const char* id)
   return false;
 }
 
-bool pathIsOpenable(const char* path)
-{
-  const char* slash = strchr(path, '/');
-  if (slash && !strchr(slash + 1, '/')) return sectionHasSomethingOpenable(slash + 1);
-  unsigned rc = 0;
-  const Nb4Route* all = nb4Routes(&rc);
-  for (unsigned r = 0; r < rc; r += 1)
-    if (strcmp(all[r].path, path) == 0) return nb4RouteIsOpenable(all[r]);
-  return false;
-}
-
 }  // namespace
 
 static const Nb4QuickEntry quickDefaults[] = {
     {"settings/steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
     {"settings/throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
 
-    {"settings/throttle_brake/brake", NB4_STR(ABS), ICON_MODEL_CURVES},
+    {"settings/race/history", NB4_STR(HISTORY), ICON_STATS_TIMERS},
     {"settings/controls/trims", NB4_STR(TRIMS_LABEL), ICON_NB4_OUTPUTS},
     {"settings/race/timer_laps", NB4_STR(LAPS), ICON_STATS_TIMERS},
     {"settings/telemetry/track_view", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"settings/receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
+    {"settings/race/pit", NB4_STR(PIT), ICON_STATS_TIMERS},
     {"settings/controls/monitor", NB4_STR(MONITOR), ICON_MONITOR},
 };
 
@@ -621,15 +606,21 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
 
 void nb4OpenQuickAccessModal()
 {
-  unsigned count = 0;
-  const Nb4QuickEntry* entries = nb4QuickAccessDefaults(&count);
-  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS,
-                                count, true);
-  for (unsigned i = 0; i < count; i += 1) {
-    const Nb4QuickEntry* e = &entries[i];
-    modal->tile(e->icon, e->label(), pathIsOpenable(e->path),
-                [e]() { nb4OpenRoute(e->path); });
+  nb4QuickAccessNormalize();
+  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS, NB4_QUICK_ACCESS_COUNT, true);
+  modal->populate([modal] {
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
+    const Nb4Route* route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
+    if (!route) continue;
+    uint8_t icon = ICON_RADIO;
+    for (const auto& section : sections) {
+      if (nb4RouteInSection(*route, section.id)) icon = section.icon;
+    }
+    modal->tile(icon, nb4QuickAccessLabel(*route).c_str(), nb4RouteIsOpenable(*route),
+                [route] { nb4OpenRoute(route->path); }, nb4StrOrNull(route->reason));
   }
+  modal->configure([] { nb4OpenRoute("settings/controls/quick_access"); });
+  }, true);
 }
 
 const Nb4Route* nb4Routes(unsigned* count)
@@ -653,86 +644,93 @@ unsigned nb4RoutesOfSection(const char* sectionId, const Nb4Route** out,
                             unsigned max)
 {
   if (!sectionId) return 0;
-  char prefix[64];
-  snprintf(prefix, sizeof(prefix), "settings/%s/", sectionId);
-  const size_t len = strlen(prefix);
   unsigned n = 0;
   for (const auto& r : routes) {
-    if (strncmp(r.path, prefix, len) != 0) continue;
+    if (!nb4RouteInSection(r, sectionId)) continue;
     if (n < max && out) out[n] = &r;
     n += 1;
   }
   return n;
 }
 
+bool nb4RouteInSection(const Nb4Route& route, const char* sectionId)
+{
+  if (!sectionId) return false;
+  if (route.section) return !strcmp(route.section, sectionId);
+  const auto prefix = std::string("settings/") + sectionId + "/";
+  return !strncmp(route.path, prefix.c_str(), prefix.size());
+}
+
+void nb4OpenSettingsSection(const char* id)
+{
+  nb4QuickAccessNormalize();
+  const Nb4Section2* section = nullptr;
+  for (const auto& item : sections) if (!strcmp(item.id, id)) section = &item;
+  if (!section) return;
+  // These categories already have one editor with its own tabs, not submenus.
+  const char* direct = !strcmp(id, "steering") ? "settings/steering/travel" :
+    !strcmp(id, "throttle_brake") ? "settings/throttle_brake/travel" :
+    !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" : nullptr;
+  if (direct) { nb4OpenRoute(direct); return; }
+  const Nb4Route* views[32];
+  const unsigned n = nb4RoutesOfSection(id, views, 32);
+  auto modal = new Nb4GridModal(section->label(), n, false, 2);
+  modal->populate([modal, section] {
+  const Nb4Route* views[32];
+  const unsigned n = nb4RoutesOfSection(section->id, views, 32);
+  for (unsigned v = 0; v < n && v < 32; ++v) {
+    const auto route = views[v];
+    if (!nb4RouteInSettings(*route)) continue;
+    if (!strcmp(route->path, "settings/race/resets")) modal->separator();
+    modal->tile(section->icon, route->label(), nb4RouteIsOpenable(*route),
+                [route] { nb4OpenRoute(route->path); },
+                nb4StrOrNull(route->reason));
+  }
+  });
+}
+
 void nb4OpenSettingsModal()
 {
-  unsigned sectionCount = 0;
-  const Nb4Section2* list = nb4Sections(&sectionCount);
-
-  auto modal = new Nb4GridModal(STR_NB4_SETTINGS,
-                                sectionCount, true);
-
-  for (unsigned i = 0; i < sectionCount; i += 1) {
-    const Nb4Section2* sec = &list[i];
-    modal->tile(sec->icon, sec->label(),
-                sectionHasSomethingOpenable(sec->id), [sec]() {
-
-                  if (auto only = nb4SingleDestinationOf(sec->id)) {
-
-                    openDestination(only, 0);
-                    return;
-                  }
-                  const Nb4Route* views[32];
-                  const unsigned n = nb4RoutesOfSection(sec->id, views, 32);
-                  auto sub = new Nb4GridModal(sec->label(), n);
-                  for (unsigned v = 0; v < n && v < 32; v += 1) {
-                    const Nb4Route* route = views[v];
-                    sub->tile(sec->icon, route->label(),
-                              nb4RouteIsOpenable(*route),
-                              [route]() { nb4OpenRoute(route->path); },
-                              nb4StrOrNull(route->reason));
-                  }
-                });
+  nb4QuickAccessNormalize();
+  auto modal = new Nb4GridModal(STR_NB4_SETTINGS, 12, true);
+  modal->populate([modal] {
+  for (const auto& section : sections) {
+    if (section.parent) continue;
+    const Nb4Route* views[32];
+    const auto n = nb4RoutesOfSection(section.id, views, 32);
+    bool visible = false;
+    for (unsigned i = 0; i < n && i < 32; ++i)
+      if (nb4RouteInSettings(*views[i])) visible = true;
+    if (!visible) continue;
+    const auto sec = &section;
+    modal->tile(sec->icon, sec->label(), sectionHasSomethingOpenable(sec->id),
+                [sec] { nb4OpenSettingsSection(sec->id); });
   }
+  });
+}
+
+bool nb4RouteInQuickAccess(const Nb4Route& route)
+{
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
+    const auto pinned = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
+    if (pinned && pinned->shortcut && !strcmp(pinned->destination, route.destination)) return true;
+  }
+  return false;
+}
+
+bool nb4RouteInSettings(const Nb4Route& route)
+{
+  if ((!strcmp(route.destination, "steering") || !strcmp(route.destination, "throttle_brake")) && route.tab)
+    return false;
+  return true;
 }
 
 Nb4RouteAccess nb4RouteAccessOf(const char* path)
 {
-  if (!path) return Nb4RouteAccess::ModelData;
-
-  static const char* const kRecovery[] = {
-      "settings/system/calibration",
-      "settings/system/storage",
-      "settings/system/backup_restore",
-      "settings/system/diagnostics",
-      "settings/system/about",
-      "settings/controls/monitor",
-      "settings/models/management",
-  };
-  for (const char* r : kRecovery)
-    if (strcmp(path, r) == 0) return Nb4RouteAccess::Recovery;
-
-  static const char* const kRadioOnly[] = {
-      "settings/system/general",
-      "settings/system/power",
-      "settings/system/hardware",
-      "settings/system/date_time_location",
-      "settings/sound_alerts/alerts",
-      "settings/sound_alerts/sound",
-      "settings/sound_alerts/haptic",
-      "settings/connectivity/usb",
-      "settings/connectivity/bluetooth",
-      "settings/controls/general",
-      "settings/display/top_bar",
-      "settings/display/theme",
-      "settings/display/home",
-  };
-  for (const char* r : kRadioOnly)
-    if (strcmp(path, r) == 0) return Nb4RouteAccess::RadioOnly;
-
-  return Nb4RouteAccess::ModelData;
+  const auto route = nb4RouteByPath(path);
+  return route ? route->access : Nb4RouteAccess::ModelData;
 }
+
 
 bool nb4RouteIsOpenable(const Nb4Route& route)
 {
@@ -745,6 +743,8 @@ bool nb4RouteIsOpenable(const Nb4Route& route)
 const Nb4Route* nb4RouteByPath(const char* path)
 {
   if (!path) return nullptr;
+  if (!strcmp(path, "settings/display/home") || !strcmp(path, "settings/display/theme"))
+    path = "settings/display/appearance";
   for (const auto& r : routes)
     if (strcmp(r.path, path) == 0) return &r;
   return nullptr;
@@ -810,30 +810,134 @@ bool nb4RunDeferredRoute()
 
 bool nb4OpenRoute(const char* path)
 {
-  if (!path) return false;
-
-  static const char kPrefix[] = "settings/";
-  if (strncmp(path, kPrefix, sizeof(kPrefix) - 1) != 0) return false;
-
-  const char* firstSlash = path + sizeof(kPrefix) - 2;  // Prefix bar
-  if (!strchr(firstSlash + 1, '/')) {
-    const Nb4Route* views[32];
-    const unsigned n = nb4RoutesOfSection(firstSlash + 1, views, 32);
-    for (unsigned i = 0; i < n && i < 32; i += 1)
-
-      if (nb4RouteIsOpenable(*views[i])) {
-        openDestination(views[i]->open, 0);
-        return true;
-      }
-    return false;
-  }
-  for (const auto& r : routes) {
-    if (strcmp(r.path, path) != 0) continue;
-    if (!nb4RouteIsOpenable(r)) return false;
-    openDestination(r.open, r.tab);
+  if (!path || strncmp(path, "settings/", 9)) return false;
+  if (!strchr(path + 9, '/')) {
+    if (!sectionHasSomethingOpenable(path + 9)) return false;
+    nb4OpenSettingsSection(path + 9);
     return true;
   }
-  return false;
+  const auto route = nb4RouteByPath(path);
+  if (!route || !nb4RouteIsOpenable(*route)) return false;
+  openDestination(route->open, route->tab);
+  if (auto page = Layer::back()) {
+    if (!page->isHelpPage()) page->setScopeText(nb4RouteScope(*route));
+    page->setRouteTitle(route->label());
+    // Receiver keeps its richer, field-by-field help registered by ModulePage.
+    if (!page->isHelpPage() && strcmp(route->destination, "receiver_rf/module"))
+      page->setHelpHandler([route] { nb4OpenHelp(route->path, true); });
+  }
+  return true;
+}
+
+uint32_t nb4RouteId(const char* path)
+{
+  if (!path) return 0;
+  uint32_t hash = 2166136261u;
+  while (*path) hash = (hash ^ uint8_t(*path++)) * 16777619u;
+  return hash;
+}
+
+const Nb4Route* nb4RouteById(uint32_t id)
+{
+  if (!id) return nullptr;
+  for (const auto& route : routes)
+    if (nb4RouteId(route.path) == id) return &route;
+  return nullptr;
+}
+
+void nb4QuickAccessReset()
+{
+  static const char* defaults[] = {
+    "settings/steering/travel", "settings/throttle_brake/travel",
+    "settings/race/history", "settings/controls/trims",
+    "settings/race/timer_laps", "settings/telemetry/track_view",
+    "settings/race/pit", "settings/controls/monitor"
+  };
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
+    g_eeGeneral.nb4QuickAccess[i] = nb4RouteId(defaults[i]);
+  g_eeGeneral.nb4QuickAccessVersion = 2;
+  storageDirty(EE_GENERAL);
+}
+
+void nb4QuickAccessNormalize()
+{
+  if (!g_eeGeneral.nb4QuickAccessVersion) { nb4QuickAccessReset(); return; }
+  bool changed = g_eeGeneral.nb4QuickAccessVersion < 2;
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
+    auto id = g_eeGeneral.nb4QuickAccess[i];
+    if (!id) continue;
+    auto route = nb4RouteById(id);
+    if (route && route->tab && (!strcmp(route->destination, "steering") || !strcmp(route->destination, "throttle_brake"))) {
+      const std::string path = std::string("settings/") + route->destination + "/travel";
+      route = nb4RouteByPath(path.c_str());
+      id = nb4RouteId(route->path);
+      g_eeGeneral.nb4QuickAccess[i] = id;
+      changed = true;
+    }
+    bool valid = route && route->shortcut;
+    for (unsigned j = 0; j < i; ++j)
+      if (id == g_eeGeneral.nb4QuickAccess[j]) valid = false;
+    if (!valid) { g_eeGeneral.nb4QuickAccess[i] = 0; changed = true; }
+  }
+  if (changed) {
+    g_eeGeneral.nb4QuickAccessVersion = 2;
+    storageDirty(EE_GENERAL);
+  }
+}
+
+bool nb4QuickAccessSet(unsigned slot, uint32_t id)
+{
+  if (slot >= NB4_QUICK_ACCESS_COUNT) return false;
+  const auto route = nb4RouteById(id);
+  if (id && (!route || !route->shortcut)) return false;
+  for (unsigned i = 0; id && i < NB4_QUICK_ACCESS_COUNT; ++i)
+    if (i != slot && g_eeGeneral.nb4QuickAccess[i] == id) return false;
+  g_eeGeneral.nb4QuickAccess[slot] = id;
+  g_eeGeneral.nb4QuickAccessVersion = 2;
+  storageDirty(EE_GENERAL);
+  return true;
+}
+
+void nb4QuickAccessMove(unsigned slot, int direction)
+{
+  const int target = int(slot) + direction;
+  if (slot >= NB4_QUICK_ACCESS_COUNT || target < 0 || target >= int(NB4_QUICK_ACCESS_COUNT)) return;
+  const uint32_t previous = g_eeGeneral.nb4QuickAccess[slot];
+  g_eeGeneral.nb4QuickAccess[slot] = g_eeGeneral.nb4QuickAccess[target];
+  g_eeGeneral.nb4QuickAccess[target] = previous;
+  storageDirty(EE_GENERAL);
+}
+
+const char* nb4RouteHelp(const Nb4Route& route)
+{
+  return route.help ? route.help() : STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO;
+}
+
+std::string nb4RouteScope(const Nb4Route& route)
+{
+  if (!strcmp(route.path, "settings/race/statistics") ||
+      !strcmp(route.path, "settings/system/backup_restore") ||
+      !strcmp(route.path, "settings/system/reset")) return STR_NB4_UX_SCOPE_MIXED;
+  if (nb4RouteInSection(route, "models")) return STR_NB4_UX_SCOPE_CARS;
+  if (route.access != Nb4RouteAccess::ModelData &&
+      strcmp(route.path, "settings/controls/monitor")) return STR_NB4_UX_SCOPE_RADIO;
+  return std::string(STR_NB4_UX_SCOPE_CAR) +
+    std::string(g_model.header.name, strnlen(g_model.header.name, LEN_MODEL_NAME));
+}
+
+std::string nb4QuickAccessLabel(const Nb4Route& route)
+{
+  if (!strcmp(route.path, "settings/receiver_rf/module")) return STR_NB4_RECEIVER;
+  if (!strcmp(route.destination, "steering")) {
+    if (!route.tab) return STR_NB4_STEERING_2090;
+    return std::string(STR_NB4_STEERING_2090) + " / " + route.label();
+  }
+  if (!strcmp(route.destination, "throttle_brake")) {
+    if (!route.tab) return STR_NB4_THROTTLE_BRAKE;
+    if (route.tab == 2) return STR_NB4_BRAKE_ABS;
+    return std::string(STR_NB4_THROTTLE_BRAKE) + " / " + route.label();
+  }
+  return route.label();
 }
 
 #endif  // RADIO_NB4_FAMILY

@@ -22,6 +22,9 @@
 #pragma once
 
 #include "layout.h"
+#if defined(RADIO_NB4_FAMILY)
+#include <vector>
+#endif
 
 class HeaderIcon;
 
@@ -40,6 +43,11 @@ class SetupTopBarWidgetsPage : public Window
   void onCancel() override;
   void onEvent(event_t event)  override;
   void deleteLater(bool detach = true, bool trash = true) override;
+#if defined(RADIO_NB4_FAMILY)
+ private:
+  unsigned savedView = 0;
+  std::vector<Window*> suspendedLayers;
+#endif
 };
 
 //-----------------------------------------------------------------------------

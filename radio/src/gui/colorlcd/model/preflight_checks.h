@@ -34,6 +34,7 @@ class PreflightChecks : public SubPage
  protected:
   ToggleSwitch* interactive = nullptr;
   Window* customThrottle = nullptr;
+  Window* customThrottleHelp = nullptr;
   NumberEdit* customThrottleValue = nullptr;
   Window* potsWarnMatrix = nullptr;
 };

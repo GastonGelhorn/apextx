@@ -20,6 +20,7 @@
  */
 
 #include "pagegroup.h"
+#include "nb4_help.h"
 
 #include "theme_manager.h"
 #include "etx_lv_theme.h"
@@ -29,6 +30,7 @@
 #include "view_channels.h"
 #include "screen_setup.h"
 #include "keyboard_base.h"
+#include "nb4_routes.h"
 
 //-----------------------------------------------------------------------------
 
@@ -126,6 +128,11 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
     hdrIcon = new HeaderIcon(this, icon);
+#if defined(RADIO_NB4_FAMILY)
+    new TextButton(this, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 4, 72, 40},
+                   STR_NB4_BACK, [menu] { menu->onCancel(); return 0; });
+    if (menu) menu->setHelpHandler(nb4InheritedHelp());
+#endif
 
 #if VERSION_MAJOR > 2
     new HeaderBackIcon(this);
@@ -162,6 +169,9 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
                           {MENU_HEADER_BUTTONS_LEFT, 0,
                            lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT, EdgeTxStyles::MENU_HEADER_HEIGHT + ICON_EXTRA_H});
     carousel->padAll(PAD_ZERO);
+#if defined(RADIO_NB4_FAMILY)
+    carousel->setWidth(lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT - 124);
+#endif
     carousel->setWindowFlag(NO_FOCUS);
 
     selectedIcon = new SelectedTabIcon(carousel);
@@ -181,7 +191,7 @@ coord_t PageGroupHeaderBase::getX(uint8_t idx)
   if (visible > 1) {
 
     const coord_t room =
-        (coord_t)(lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT);
+        carousel->width();
     const coord_t width = MENU_HEADER_BUTTON_WIDTH + PAD_THREE;
     const coord_t needed = (visible - 1) * MENU_HEADER_BUTTON_WIDTH + width;
     if (needed <= room) {
@@ -242,6 +252,15 @@ void PageGroupHeaderBase::setIcon(EdgeTxIcon newIcon)
 {
   if (hdrIcon) hdrIcon->setIcon(newIcon);
 }
+
+#if defined(RADIO_NB4_FAMILY)
+void PageGroupHeaderBase::singleDestination()
+{
+#if VERSION_MAJOR == 2
+  carousel->hide();
+#endif
+}
+#endif
 
 void PageGroupHeaderBase::addTab(PageGroupItem* page)
 {
@@ -360,7 +379,9 @@ PageGroupBase::PageGroupBase(coord_t bodyY, EdgeTxIcon icon) :
   body->setWindowFlag(NO_FOCUS);
   lv_obj_set_style_max_height(body->getLvObj(), lv_disp_get_ver_res(nullptr) - bodyY, LV_PART_MAIN);
   etx_scrollbar(body->getLvObj());
-
+#if defined(RADIO_NB4_FAMILY)
+  setScopeText(nb4InheritedScope());
+#endif
 }
 
 void PageGroupBase::checkEvents()
@@ -374,6 +395,25 @@ void PageGroupBase::checkEvents()
 }
 
 void PageGroupBase::onClicked() { Keyboard::hide(false); }
+
+#if defined(RADIO_NB4_FAMILY)
+void PageGroupBase::setScopeText(const std::string& text)
+{
+  scopeText = text;
+  nb4ScopeBar(this, body, scopeLabel, text);
+}
+
+bool PageGroupBase::setHelpHandler(std::function<void()> action)
+{
+  helpHandler = std::move(action);
+  if (!helpButton && helpHandler)
+    helpButton = new TextButton(this,
+      {coord_t(lv_disp_get_hor_res(nullptr) - 120), 4, 40, 40}, "?",
+      [this] { if (helpHandler) helpHandler(); return 0; });
+  if (helpButton) { helpButton->show(bool(helpHandler)); helpButton->bringToTop(); }
+  return true;
+}
+#endif
 
 static void closePageOverlays(Window* page)
 {
@@ -463,6 +503,10 @@ void PageGroupBase::doKeyShortcut(event_t event)
   if (pg == QM_OPEN_QUICK_MENU) {
     if (!quickMenu) openMenu();
   } else {
+#if defined(RADIO_NB4_FAMILY)
+    QuickMenu::openPage(pg);
+    return;
+#endif
     if (QuickMenu::subMenuIcon(pg) == icon) {
       setCurrentTab(QuickMenu::pageIndex(pg));
     } else {
@@ -502,20 +546,23 @@ void PageGroupBase::setScrollY(coord_t y)
 
 //-----------------------------------------------------------------------------
 
-PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages) :
+PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages, QMPage onlyPage) :
     PageGroupBase(PAGE_GROUP_BODY_Y, icon)
 {
   header = new PageGroupHeader(this, icon, title);
 
   int tabs = 0;
   for (int i = 0; pages[i].icon < EDGETX_ICONS_COUNT; i += 1) {
-    if (pages[i].create) {
+    if (pages[i].create && (onlyPage == QM_NONE || pages[i].qmPage == onlyPage)) {
       addTab(pages[i].create(pages[i]));
       tabs += 1;
     }
   }
+#if defined(RADIO_NB4_FAMILY)
+  if (onlyPage != QM_NONE) header->singleDestination();
+#endif
 
-#if defined(HARDWARE_TOUCH)
+#if defined(HARDWARE_TOUCH) && !defined(RADIO_NB4_FAMILY)
 #if VERSION_MAJOR == 2
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
@@ -537,6 +584,10 @@ PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages) :
 
 void PageGroup::openMenu()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4OpenSettingsModal();
+  return;
+#endif
   quickMenu = QuickMenu::openQuickMenu([=]() { quickMenu = nullptr; },
     [=](bool close) {
       if (close)
@@ -611,7 +662,7 @@ TabsGroup::TabsGroup(EdgeTxIcon icon, const char* parentLabel) :
 {
   header = new TabsGroupHeader(this, icon, parentLabel);
 
-#if defined(HARDWARE_TOUCH)
+#if defined(HARDWARE_TOUCH) && !defined(RADIO_NB4_FAMILY)
 #if VERSION_MAJOR == 2
   addCustomButton(0, 0, [=]() { onCancel(); });
 #else
@@ -623,6 +674,10 @@ TabsGroup::TabsGroup(EdgeTxIcon icon, const char* parentLabel) :
 
 void TabsGroup::openMenu()
 {
+#if defined(RADIO_NB4_FAMILY)
+  nb4OpenSettingsModal();
+  return;
+#endif
   PageGroup* p = (PageGroup*)Layer::getPageGroup();
   QMPage qmPage = QM_NONE;
   if (p)

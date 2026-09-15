@@ -462,11 +462,14 @@ Window* buildControl(Window* parent, const rect_t& rect, Nb4Param p,
     }
 
     case Nb4Param::VehicleType: {
-
+      auto after = ctx.afterChange;
       auto choice = new Choice(
           parent, rect, NB4_VEHICLE_UNSET, NB4_VEHICLE_CUSTOM,
           []() { return (int)g_model.nb4Racing.vehicleType; },
-          [](int v) { g_model.nb4Racing.vehicleType = v; SET_DIRTY(); });
+          [after](int v) {
+            g_model.nb4Racing.vehicleType = v; SET_DIRTY();
+            if (after) after();
+          });
       choice->setTextHandler([](int v) {
         switch (v) {
           case NB4_VEHICLE_ELECTRIC: return std::string(STR_NB4_ELECTRIC);

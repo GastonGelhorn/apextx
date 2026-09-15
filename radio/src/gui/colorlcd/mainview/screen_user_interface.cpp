@@ -46,12 +46,20 @@ static const lv_coord_t line_row_dsc[] = {LV_GRID_CONTENT,
 ScreenUserInterfacePage::ScreenUserInterfacePage(PageDef& pageDef) :
     PageGroupItem(pageDef, PAD_TINY)
 {
+#if defined(RADIO_NB4_FAMILY)
+  setTitle(STR_NB4_TOP_BAR);
+#endif
 }
 
 void ScreenUserInterfacePage::build(Window* window)
 {
   window->padAll(PAD_TINY);
   window->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO);
+
+#if defined(RADIO_NB4_FAMILY)
+  auto help = new StaticText(window, {0, 0, LV_PCT(100), 0}, STR_NB4_UX_HELP_TOPBAR);
+  lv_label_set_long_mode(help->getLvObj(), LV_LABEL_LONG_WRAP);
+#endif
 
   FlexGridLayout grid(line_col_dsc, line_row_dsc, PAD_TINY);
 

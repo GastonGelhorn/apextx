@@ -136,12 +136,15 @@ class LearnControlDialog : public BaseDialog
 class ControlEditor : public BaseDialog
 {
  public:
-  explicit ControlEditor(unsigned index, uint8_t initial = NB4_CONTROL_RUN_PAUSE) :
-      BaseDialog(index < NB4_CONTROL_COUNT ? names[index] : STR_NB4_ASSIGN_FUNCTION,
+  explicit ControlEditor(unsigned index, uint8_t initial = NB4_CONTROL_RUN_PAUSE, bool navigationOnly = false) :
+      BaseDialog(navigationOnly ? STR_NB4_KEYS_AND_NAVIGATION :
+                 index < NB4_CONTROL_COUNT ? names[index] : STR_NB4_ASSIGNMENTS,
                  false, displayWidth() - 8, displayHeight() - 12), index(index),
       draft(index < NB4_CONTROL_COUNT ? nb4ControlBinding(index) : initial)
   {
     useSectionHeader();
+    setHelpHandler([navigationOnly] { nb4OpenHelp(navigationOnly ?
+      "settings/controls/shortcuts" : "settings/controls/assignments", true); });
     form->padAll(PAD_MEDIUM);
     lv_obj_set_style_pad_row(form->getLvObj(), 8, 0);
     note(form, index < NB4_CONTROL_COUNT ? location(index) :
@@ -158,7 +161,7 @@ class ControlEditor : public BaseDialog
       info->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_MEDIUM, columnWidth, LV_SIZE_CONTENT);
     }
     sectionLabel(settings, STR_NB4_FUNCTION);
-    auto group = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 3,
+    auto group = new Choice(settings, {0, 0, LV_PCT(100), 40}, navigationOnly ? 1 : 0, navigationOnly ? 1 : 3,
         [this]() { return groupOf(draft & ~NB4_CONTROL_LONG); },
         [this](int v) { draft = firstAction[v]; refreshChoices(); });
     group->setTextHandler([](int v) {
@@ -166,6 +169,7 @@ class ControlEditor : public BaseDialog
           NB4_STR(TIMER_AND_LAPS), NB4_STR(ADJUST_TRIMS)};
       return std::string(names[v]());
     });
+    if (navigationOnly) group->hide();
     action = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 1,
         [this]() { return int(draft & ~NB4_CONTROL_LONG); },
         [this](int v) { draft = v | (v == NB4_CONTROL_RESET ? NB4_CONTROL_LONG : draft & NB4_CONTROL_LONG); refreshChoices(); });
@@ -218,7 +222,7 @@ class ControlEditor : public BaseDialog
     if (index >= NB4_CONTROL_COUNT)
       new TextButton(info, {0, 0, LV_PCT(100), 44}, STR_NB4_VIEW_BY_CONTROL,
                      []() { nb4OpenAssignmentsList(); return 0; });
-    firstFocus = group->getLvObj();
+    firstFocus = navigationOnly ? action->getLvObj() : group->getLvObj();
     refreshChoices();
   }
   void checkEvents() override
@@ -263,6 +267,9 @@ class AssignmentsDialog : public BaseDialog
       BaseDialog(navigation ? STR_NB4_KEYS_AND_NAVIGATION : STR_NB4_ASSIGNMENTS, true, displayWidth() - 8, displayHeight() - 12)
   {
     useSectionHeader();
+    setHelpHandler([navigation] {
+      nb4OpenHelp(navigation ? "settings/controls/shortcuts" : "settings/controls/assignments", true);
+    });
     form->padAll(PAD_MEDIUM);
     lv_obj_set_style_pad_row(form->getLvObj(), 6, 0);
     note(form, STR_NB4_PER_CAR_TAP_A_CONTROL_TO);
@@ -346,6 +353,6 @@ void nb4OpenControlAssignment(unsigned index)
   if (index < NB4_CONTROL_COUNT && !nb4ModelBlocked()) new ControlEditor(index);
 }
 void nb4OpenAssignments() { if (!nb4ModelBlocked()) new ControlEditor(NB4_CONTROL_COUNT); }
-void nb4OpenNavigationAssignments() { if (!nb4ModelBlocked()) new ControlEditor(NB4_CONTROL_COUNT, NB4_CONTROL_NEXT); }
+void nb4OpenNavigationAssignments() { if (!nb4ModelBlocked()) new ControlEditor(NB4_CONTROL_COUNT, NB4_CONTROL_NEXT, true); }
 void nb4OpenAssignmentsList() { if (!nb4ModelBlocked()) new AssignmentsDialog(false); }
 #endif

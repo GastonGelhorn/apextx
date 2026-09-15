@@ -14,13 +14,15 @@ class Nb4Telltale;
 class Nb4Chrono;
 class Nb4Stats;
 
-enum class Nb4Section { Car, Race, System, Steering, Throttle, Auxiliary, Advanced, Appearance, Cards, Telemetry, History, Chrono, Pit, Backup };
+enum class Nb4Section { Car, Race, System, Steering, Throttle, Auxiliary, Advanced, Appearance, Cards, Telemetry, History, Chrono, Pit, Backup, Reset };
 void nb4OpenDataPage(Nb4Section section);
 void nb4OpenRaceRecord(uint32_t id);
 void nb4OpenSection(Nb4Section section);
 void nb4Navigate(Nb4Section section);
 void nb4BuildAppearance(Window* parent);
 void nb4BuildCards(Window* parent);
+void nb4SetRacingHomeData(unsigned index);
+bool nb4MigrateHome(const char* modelPath);
 void nb4RequestOrientation(bool landscape, bool reopenAppearance = true);
 void nb4ProcessOrientation();
 
@@ -33,13 +35,14 @@ bool nb4OrientationChangePending();
 class Nb4HomeScreen : public WidgetsContainer
 {
  public:
-  explicit Nb4HomeScreen(Window* parent, const rect_t& rect);
+  explicit Nb4HomeScreen(Window* parent, const rect_t& rect, bool instruments = true);
   unsigned getZonesCount() const override { return 0; }
   rect_t getZone(unsigned) const override { return {}; }
   Widget* createWidget(unsigned, const WidgetFactory*) override { return nullptr; }
   void checkEvents() override;
 
  private:
+  bool instruments;
   void build();
   void refresh(const Nb4CarState& state);
   bool spanish = false;

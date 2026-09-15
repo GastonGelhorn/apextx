@@ -436,13 +436,16 @@ class ThemeEditPage : public Page
 ThemeSetupPage::ThemeSetupPage(PageDef& pageDef) :
     PageGroupItem(pageDef)
 {
+#if defined(RADIO_NB4_FAMILY)
+  setTitle(STR_NB4_EXTERNAL_THEMES);
+#endif
 }
 
 void ThemeSetupPage::setAuthor(ThemeFile *theme)
 {
   std::string s("");
   if (theme && !theme->getAuthor().empty()) {
-    s = s + "By: " + theme->getAuthor();
+    s = s + STR_AUTHOR + ": " + theme->getAuthor();
   }
   authorText->setText(s);
 }
@@ -474,24 +477,24 @@ void ThemeSetupPage::checkEvents()
 
 void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
 {
-  auto selected = tp->getThemeByIndex(listBox->getSelected());
+  auto selected = tp->getThemeByIndex(selectedThemeIndex());
   if (!selected) return;
   auto menu = new Menu(false);
 
   // you can't activate the active theme
-  if (listBox->getSelected() != tp->getThemeIndex()) {
+  if (selectedThemeIndex() != tp->getThemeIndex()) {
     menu->addLine(STR_ACTIVATE, [=]() {
-      auto idx = listBox->getSelected();
+      auto idx = selectedThemeIndex();
       tp->applyTheme(idx);
       tp->setDefaultTheme(idx);
-      listBox->setActiveItem(idx);
+      listBox->setActiveItem(visibleThemeIndex(idx));
     });
   }
 
   // you can't edit the default theme
   if (!selected->isBuiltin()) {
     menu->addLine(STR_EDIT, [=]() {
-      auto themeIdx = listBox->getSelected();
+      auto themeIdx = selectedThemeIndex();
       if (themeIdx < 0) return;
 
       auto theme = tp->getThemeByIndex(themeIdx);
@@ -508,7 +511,7 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
         if (themeIdx == currentTheme) {
           setAuthor(theme);
           setName(theme);
-          listBox->setName(currentTheme, theme->getName());
+          listBox->setName(visibleThemeIndex(currentTheme), theme->getName());
           themeColorPreview->setColorList(theme->getColorList());
         }
 
@@ -538,7 +541,7 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
         name[n] = 0;
 
         // use the selected themes color list to make the new theme
-        auto themeIdx = listBox->getSelected();
+        auto themeIdx = selectedThemeIndex();
         if (themeIdx < 0) return true;
 
         auto selTheme = tp->getThemeByIndex(themeIdx);
@@ -550,8 +553,8 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
         if (!tp->createNewTheme(name, theme))
           return false;
 
-        listBox->setNames(tp->getNames());
-        listBox->setSelected(currentTheme);
+        listBox->setNames(visibleThemeNames(tp));
+        listBox->setSelected(visibleThemeIndex(currentTheme));
       }
       return true;
     });
@@ -559,14 +562,14 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
 
   // you can't delete the default theme or the currently active theme
   if (!selected->isBuiltin() &&
-      listBox->getSelected() != tp->getThemeIndex()) {
+      selectedThemeIndex() != tp->getThemeIndex()) {
     menu->addLine(STR_DELETE, [=]() {
       new ConfirmDialog(STR_DELETE_THEME,
-          tp->getThemeByIndex(listBox->getSelected())->getName().c_str(), [=] {
-            tp->deleteThemeByIndex(listBox->getSelected());
-            listBox->setNames(tp->getNames());
+          tp->getThemeByIndex(selectedThemeIndex())->getName().c_str(), [=] {
+            tp->deleteThemeByIndex(selectedThemeIndex());
+            listBox->setNames(visibleThemeNames(tp));
             currentTheme = min<int>(currentTheme, tp->getNames().size() - 1);
-            listBox->setSelected(currentTheme);
+            listBox->setSelected(visibleThemeIndex(currentTheme));
           });
     });
   }
@@ -574,7 +577,7 @@ void ThemeSetupPage::displayThemeMenu(Window *window, ThemePersistance *tp)
 
 void ThemeSetupPage::setSelected(ThemePersistance *tp)
 {
-  auto value = listBox->getSelected();
+  auto value = selectedThemeIndex();
   if (themeColorPreview && authorText && nameText && fileCarosell) {
     ThemeFile *theme = tp->getThemeByIndex(value);
     if (theme) {
@@ -587,14 +590,40 @@ void ThemeSetupPage::setSelected(ThemePersistance *tp)
   }
 }
 
+std::vector<std::string> ThemeSetupPage::visibleThemeNames(ThemePersistance* tp)
+{
+  themeIndices.clear();
+  std::vector<std::string> names;
+  const auto all = tp->getNames();
+  for (unsigned i = 0; i < all.size(); ++i) {
+#if defined(RADIO_NB4_FAMILY)
+    if (tp->getThemeByIndex(i)->isBuiltin()) continue;
+#endif
+    names.push_back(all[i]);
+    themeIndices.push_back(i);
+  }
+  return names;
+}
+int ThemeSetupPage::selectedThemeIndex() const
+{
+  const int row = listBox ? listBox->getSelected() : -1;
+  return row >= 0 && row < int(themeIndices.size()) ? themeIndices[row] : -1;
+}
+int ThemeSetupPage::visibleThemeIndex(int index) const
+{
+  for (unsigned i = 0; i < themeIndices.size(); ++i)
+    if (themeIndices[i] == index) return i;
+  return -1;
+}
+
 void ThemeSetupPage::setupListbox(Window *window, rect_t r,
                                   ThemePersistance *tp)
 {
-  listBox = new ListBox(window, r, tp->getNames());
+  listBox = new ListBox(window, r, visibleThemeNames(tp));
   etx_scrollbar(listBox->getLvObj());
   listBox->setAutoEdit();
-  listBox->setSelected(currentTheme);
-  listBox->setActiveItem(tp->getThemeIndex());
+  listBox->setSelected(visibleThemeIndex(currentTheme));
+  listBox->setActiveItem(visibleThemeIndex(tp->getThemeIndex()));
   listBox->setLongPressHandler([=]() {
     setSelected(tp);
     displayThemeMenu(window, tp);
@@ -614,8 +643,10 @@ void ThemeSetupPage::build(Window *window)
 #endif
 
   auto tp = ThemePersistance::instance();
-  auto theme = tp->getCurrentTheme();
   currentTheme = tp->getThemeIndex();
+  visibleThemeNames(tp);
+  if (visibleThemeIndex(currentTheme) < 0 && !themeIndices.empty()) currentTheme = themeIndices.front();
+  auto theme = tp->getThemeByIndex(currentTheme);
 
   themeColorPreview = nullptr;
   listBox = nullptr;
@@ -630,6 +661,12 @@ void ThemeSetupPage::build(Window *window)
   rect_t r = {0, 0, window->width() - 2 * PAD_SMALL, LIST_SIZE};
 #endif
   setupListbox(window, r, tp);
+#if defined(RADIO_NB4_FAMILY)
+  if (themeIndices.empty()) {
+    new StaticText(window, {0, 0, LV_PCT(100), 0}, STR_NB4_UX_NO_EXTERNAL_THEMES);
+    return;
+  }
+#endif
 
 #if LANDSCAPE
   r.w = COLOR_PREVIEW_SIZE;

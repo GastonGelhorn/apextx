@@ -409,8 +409,12 @@ void QuickMenu::openPage(QMPage page)
             sub[j].action();
           } else {
             QuickMenu::selected();
+#if defined(RADIO_NB4_FAMILY)
+            new PageGroup(sub[j].icon, STR_VAL(sub[j].title), sub, page);
+#else
             auto pg = new PageGroup(qmTopItems[i].icon, STR_VAL(qmTopItems[i].title), sub);
             pg->setCurrentTab(k);
+#endif
             return;
           }
         } else if (sub[j].pageAction == PAGE_CREATE) {

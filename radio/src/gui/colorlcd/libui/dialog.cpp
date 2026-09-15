@@ -17,6 +17,7 @@
  */
 
 #include "dialog.h"
+#include "nb4_help.h"
 
 #include "edgetx.h"
 #include "mainwindow.h"
@@ -93,18 +94,39 @@ BaseDialog::BaseDialog(const char* title,
   form->padRow(PAD_LARGE * 2);
 
   header->padAll(PAD_MEDIUM);
+  setScopeText(nb4InheritedScope());
 #endif
 }
 
 #if defined(RADIO_NB4_FAMILY)
+void BaseDialog::setScopeText(const std::string& text)
+{
+  scopeText = text;
+  if (!scopeLabel && !text.empty()) {
+    scopeLabel = new StaticText(content, {0, 0, LV_PCT(100), 22}, text.c_str(),
+      COLOR_THEME_PRIMARY3_INDEX, FONT(XS));
+    scopeLabel->padLeft(PAD_MEDIUM);
+    scopeLabel->padRight(PAD_MEDIUM);
+    lv_label_set_long_mode(scopeLabel->getLvObj(), LV_LABEL_LONG_DOT);
+    lv_obj_move_to_index(scopeLabel->getLvObj(), 1);
+    const auto maxHeight = lv_obj_get_style_max_height(form->getLvObj(), 0);
+    if (maxHeight > 22 && maxHeight < LV_COORD_MAX)
+      lv_obj_set_style_max_height(form->getLvObj(), maxHeight - 22, 0);
+  }
+  if (scopeLabel) { scopeLabel->setText(text); scopeLabel->show(!text.empty()); }
+}
+
 void BaseDialog::useSectionHeader()
 {
+  // These are navigation/help pages, not transient popups. The Home icons
+  // visible behind them must not act as an invisible Back target.
+  closeWhenClickOutside = false;
   // The QuickMenu header treatment, with a real section title in place of a logo.
   etx_solid_bg(header->getLvObj(), COLOR_THEME_QM_BG_INDEX);
   etx_txt_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   etx_font(header->getLvObj(), FONT_BOLD_INDEX);
   header->padLeft(40);
-  header->padRight(40);
+  header->padRight(helpButton ? 84 : 40);
   header->padTop(10);
   header->padBottom(10);
   lv_obj_set_style_text_align(header->getLvObj(), LV_TEXT_ALIGN_CENTER, 0);
@@ -115,6 +137,22 @@ void BaseDialog::useSectionHeader()
     closeButton->setSize(40, 40);
     etx_txt_color(closeButton->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   }
+}
+
+bool BaseDialog::setHelpHandler(std::function<void()> action)
+{
+  helpHandler = std::move(action);
+  if (helpHandler) closeWhenClickOutside = false;
+  if (!helpButton && helpHandler) {
+    helpButton = new TextButton(content, {0, 0, 40, 40}, "?",
+      [this] { if (helpHandler) helpHandler(); return 0; });
+    lv_obj_add_flag(helpButton->getLvObj(), LV_OBJ_FLAG_FLOATING);
+    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -44, 0);
+    header->padRight(84);
+    lv_group_remove_obj(helpButton->getLvObj());
+  }
+  if (helpButton) helpButton->show(bool(helpHandler));
+  return true;
 }
 
 void BaseDialog::useBrandHeader()

@@ -123,6 +123,18 @@ void SetupWidgetsPageSlot::addNewWidget(WidgetsContainer* container,
 SetupWidgetsPage::SetupWidgetsPage(uint8_t customScreenIdx) :
     Window(ViewMain::instance(), rect_t{}), customScreenIdx(customScreenIdx)
 {
+#if defined(RADIO_NB4_FAMILY)
+  // The transparent zone editor must reveal the actual screen, not the
+  // navigation dialogs retained beneath it for Back. Keep their focus/scroll.
+  Layer::walk([this](Window* window) {
+    if (window == ViewMain::instance()) return true;
+    if (window->isVisible()) {
+      suspendedLayers.push_back(window);
+      window->show(false);
+    }
+    return false;
+  });
+#endif
   pushLayer();
 
   // attach this custom screen here so we can display it
@@ -171,6 +183,15 @@ void SetupWidgetsPage::onCancel()
 void SetupWidgetsPage::deleteLater(bool detach, bool trash)
 {
   Window::deleteLater(detach, trash);
+#if defined(RADIO_NB4_FAMILY)
+  // Only restore layers still present; shutdown/recovery may have removed one.
+  Layer::walk([this](Window* window) {
+    for (auto suspended : suspendedLayers)
+      if (window == suspended) { window->show(); break; }
+    return false;
+  });
+  suspendedLayers.clear();
+#endif
 
   // and continue async deletion...
   auto screen = customScreens[customScreenIdx];

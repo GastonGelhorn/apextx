@@ -8,13 +8,12 @@
 #include "edgetx.h"
 #include "nb4_racing.h"
 #include "nb4_car_state.h"
-#include "nb4_params.h"
 #include "dialog.h"
 #include "button.h"
-#include "dialog.h"
 #include "libui/static.h"
 #include "switchchoice.h"
 #include "toggleswitch.h"
+#include "nb4_routes.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -28,17 +27,19 @@ namespace {
 
 void applyPreset(bool nitro)
 {
-
-  uint8_t steeringChannel = g_model.nb4Racing.steeringChannel;
-  uint8_t throttleChannel = g_model.nb4Racing.throttleChannel;
-  uint8_t homeTimer = g_model.nb4Racing.homeTimer;
+  const auto previous = g_model.nb4Racing;
   if (nitro)
     nb4RacingPresetNitro(g_model.nb4Racing);
   else
     nb4RacingPresetElectric(g_model.nb4Racing);
-  g_model.nb4Racing.steeringChannel = steeringChannel;
-  g_model.nb4Racing.throttleChannel = throttleChannel;
-  g_model.nb4Racing.homeTimer = homeTimer;
+  // Presets affect driving behavior, not the user's channels or race controls.
+  g_model.nb4Racing.steeringChannel = previous.steeringChannel;
+  g_model.nb4Racing.throttleChannel = previous.throttleChannel;
+  g_model.nb4Racing.homeTimer = previous.homeTimer;
+  g_model.nb4Racing.lapSw = previous.lapSw;
+  g_model.nb4Racing.lapAnnounce = previous.lapAnnounce;
+  g_model.nb4Racing.lapCount = previous.lapCount;
+  g_model.nb4Racing.pitEnabled = previous.pitEnabled;
 }
 
 }  // namespace
@@ -119,63 +120,32 @@ void ModelNb4RacingPage::build(Window* window)
 {
   if (nb4RacingMigrate(g_model.nb4Racing)) SET_DIRTY();
 
-  FlexGridLayout grid(col_dsc, row_dsc, PAD_TINY);
   window->setFlexLayout();
   window->padAll(PAD_SMALL);
 
-  /* This page only contains behavior that EdgeTX does not already provide,
-   * with one deliberate exception: channel reverse is SHOWN here, next to the
-   * channel it applies to, because this is where a driver looks for it. It is
-   * the same LimitData field the native editor writes, not a second setting.
-   * Everything else -model name, inputs, curves, mixes, travel, subtrim,
-   * telemetry- stays in its native, tested editor and tab. */
-  auto line = window->newLine(grid);
-  new Subtitle(line, STR_NB4_PRESETS);
+  auto note = new StaticText(window, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},
+    STR_NB4_UX_HELP_PRESETS, COLOR_THEME_PRIMARY3_INDEX);
+  lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
 
-  nb4ParamRow(window, grid, Nb4Param::VehicleType);
-
-  line = window->newLine(grid);
-  new StaticText(line, rect_t{}, STR_NB4_START_POINT);
-  auto presets = new Window(line, rect_t{0, 0, LV_SIZE_CONTENT, LV_SIZE_CONTENT});
-  presets->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_TINY);
-
-  new TextButton(presets, rect_t{}, STR_NB4_ELECTRIC, [=]() {
-    new ConfirmDialog(STR_NB4_ELECTRIC, STR_NB4_PRESET_ASK, [=]() {
-      applyPreset(false);
-      SET_DIRTY();
-      rebuild(window);
-    });
-    return 0;
-  });
-
-  new TextButton(presets, rect_t{}, STR_NB4_NITRO, [=]() {
-    new ConfirmDialog(STR_NB4_NITRO, STR_NB4_PRESET_ASK, [=]() {
-      applyPreset(true);
-      SET_DIRTY();
-      rebuild(window);
-    });
-    return 0;
-  });
-
-  nb4BuildChannelAssignment(window, grid, &channels);
-
-  line = window->newLine(grid);
-  new Subtitle(line, STR_NB4_RACE);
-
-  line = window->newLine(grid);
-  new StaticText(line, rect_t{}, STR_NB4_LAP_SW);
-  new SwitchChoice(line, rect_t{}, SWSRC_FIRST, SWSRC_LAST,
-                   GET_SET_DEFAULT(g_model.nb4Racing.lapSw));
-
-  line = window->newLine(grid);
-  new StaticText(line, rect_t{}, STR_NB4_ANNOUNCE);
-  new ToggleSwitch(line, rect_t{}, GET_SET_DEFAULT(g_model.nb4Racing.lapAnnounce));
-
-  line = window->newLine(grid);
-  new StaticText(line, rect_t{}, STR_NB4_LAPS);
-  auto laps = new NumberEdit(line, rect_t{}, 0, 99,
-                             GET_SET_DEFAULT(g_model.nb4Racing.lapCount));
-  laps->setZeroText(STR_NONE);
+  for (bool nitro : {false, true}) {
+    auto heading = new StaticText(window, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},
+      nitro ? STR_NB4_NITRO : STR_NB4_ELECTRIC, COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));
+    heading->padTop(PAD_LARGE);
+    auto description = new StaticText(window, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},
+      nitro ? STR_NB4_UX_PRESET_NITRO : STR_NB4_UX_PRESET_ELECTRIC,
+      COLOR_THEME_PRIMARY3_INDEX);
+    lv_label_set_long_mode(description->getLvObj(), LV_LABEL_LONG_WRAP);
+    auto button = new TextButton(window, {0, 0, LV_PCT(100), 44},
+      nitro ? STR_NB4_UX_APPLY_NITRO : STR_NB4_UX_APPLY_ELECTRIC, [=]() {
+        new ConfirmDialog(STR_NB4_UX_VEHICLE_PRESETS, STR_NB4_UX_PRESET_CONFIRM, [=]() {
+          applyPreset(nitro);
+          SET_DIRTY();
+          rebuild(window);
+        });
+        return 0;
+      });
+    button->setWrap();
+  }
 }
 
 namespace {
@@ -207,5 +177,34 @@ class Nb4ChannelsDialog : public BaseDialog
 }  // namespace
 
 void nb4OpenChannelsDialog() { new Nb4ChannelsDialog(); }
+
+void nb4OpenRaceSetup()
+{
+  class RaceSetup : public BaseDialog {
+   public:
+    RaceSetup() : BaseDialog(STR_NB4_UX_RACE_SETUP, true,
+      lv_disp_get_hor_res(nullptr) - 8, lv_disp_get_ver_res(nullptr) - 12) {
+      useSectionHeader();
+      setHelpHandler([] { nb4OpenHelp("settings/race/setup", true); });
+      form->padAll(PAD_MEDIUM);
+      auto note = new StaticText(form, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},
+        STR_NB4_UX_HELP_RACE_SETUP, COLOR_THEME_PRIMARY3_INDEX);
+      lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
+      FlexGridLayout grid(col_dsc, row_dsc, PAD_SMALL);
+      auto line = form->newLine(grid);
+      new StaticText(line, rect_t{}, STR_NB4_LAP_SW);
+      new SwitchChoice(line, rect_t{}, SWSRC_FIRST, SWSRC_LAST,
+                       GET_SET_DEFAULT(g_model.nb4Racing.lapSw));
+      line = form->newLine(grid);
+      new StaticText(line, rect_t{}, STR_NB4_ANNOUNCE);
+      new ToggleSwitch(line, rect_t{}, GET_SET_DEFAULT(g_model.nb4Racing.lapAnnounce));
+      line = form->newLine(grid);
+      new StaticText(line, rect_t{}, STR_NB4_LAPS);
+      new NumberEdit(line, rect_t{}, 0, NB4_MAX_LAPS,
+        GET_SET_DEFAULT(g_model.nb4Racing.lapCount));
+    }
+  };
+  new RaceSetup();
+}
 
 #endif  // RADIO_NB4_FAMILY

@@ -26,6 +26,7 @@
 
 struct CurveRef;
 class SourceNumberEdit;
+class TextButton;
 
 class CurveChoice : public Choice
 {
@@ -58,6 +59,9 @@ class CurveParam : public Window
   Choice* func_choice;
   Choice* cust_choice;
   Window* act_field = nullptr;
+#if defined(RADIO_NB4_FAMILY)
+  TextButton* curve_edit = nullptr;
+#endif
 
   std::function<void(void)> refreshView;
 

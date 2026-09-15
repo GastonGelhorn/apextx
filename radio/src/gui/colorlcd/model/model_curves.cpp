@@ -23,6 +23,8 @@
 
 #include "curveedit.h"
 #include "edgetx.h"
+#include "dialog.h"
+#include "mixes.h"
 
 #define SET_DIRTY() storageDirty(EE_MODEL)
 
@@ -128,14 +130,44 @@ ModelCurvesPage::ModelCurvesPage(PageDef& pageDef) : PageGroupItem(pageDef)
 // currently called from model_mixes.cpp on longpress.
 void ModelCurvesPage::pushEditCurve(int index, std::function<void(void)> refreshView, mixsrc_t source)
 {
-  if (!isCurveUsed(index)) {
-    CurveHeader &curve = g_model.curves[index];
-    int8_t *points = curveAddress(index);
-    initPoints(curve, points);
+  if (index < 0 || index >= MAX_CURVES) return;
+  auto edit = [index, refreshView, source] {
+    if (!isCurveUsed(index)) {
+      initPoints(g_model.curves[index], curveAddress(index));
+      storageDirty(EE_MODEL);
+    }
+    auto cv = new CurveEditWindow(index, refreshView);
+    cv->setCurrentSource(source);
+  };
+#if defined(RADIO_NB4_FAMILY)
+  unsigned users = 0;
+  std::string uses;
+  const auto matches = [index](const CurveRef& ref) {
+    SourceNumVal value;
+    value.rawValue = ref.value;
+    return ref.type == CURVE_REF_CUSTOM && !value.isSource &&
+           abs(value.value) == index + 1;
+  };
+  for (unsigned i = 0; i < MAX_EXPOS; ++i) {
+    const auto input = expoAddress(i);
+    if (!input->srcRaw || !matches(input->curve)) continue;
+    ++users;
+    uses += std::string(STR_INPUTS) + " " + std::to_string(i + 1) + "\n";
   }
-
-  auto cv = new CurveEditWindow(index, refreshView);
-  cv->setCurrentSource(source);
+  for (unsigned i = 0; i < MAX_MIXERS; ++i) {
+    const auto mix = mixAddress(i);
+    if (!mix->srcRaw || !matches(mix->curve)) continue;
+    ++users;
+    uses += std::string(STR_NB4_MIXES_60C8) + " " + std::to_string(i + 1) +
+            " / CH" + std::to_string(mix->destCh + 1) + "\n";
+  }
+  if (users > 1) {
+    uses = std::string(STR_NB4_UX_SHARED_CURVE) + "\n\n" + uses;
+    new ConfirmDialog(getCurveString(index + 1), uses.c_str(), edit);
+    return;
+  }
+#endif
+  edit();
 }
 
 void ModelCurvesPage::rebuild(Window *window)

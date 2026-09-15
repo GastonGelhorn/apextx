@@ -29,6 +29,8 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_health.h"
 #include "nb4_latency.h"
+#include "nb4_i18n.h"
+#include "dialog.h"
 #endif
 #include "lua/lua_states.h"
 #include "quick_menu.h"
@@ -146,6 +148,10 @@ void StatisticsViewPage::build(Window* window)
   window->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_ZERO);
   window->padLeft(PAD_SMALL);
   window->padRight(PAD_SMALL);
+#if defined(RADIO_NB4_FAMILY)
+  new StaticText(window, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},
+    STR_NB4_UX_HELP_STATS, COLOR_THEME_PRIMARY3_INDEX, FONT(XS));
+#endif
 
   FlexGridLayout grid(col_dsc, row_dsc, PAD_ZERO);
 
@@ -201,12 +207,18 @@ void StatisticsViewPage::build(Window* window)
   // Reset
   auto btn = new TextButton(line, rect_t{0, 0, 0, RST_BTN_H}, STR_MENUTORESET,
                             [=]() -> uint8_t {
+#if defined(RADIO_NB4_FAMILY)
+                              new ConfirmDialog(STR_NB4_UX_RESET_COUNTERS, STR_NB4_UX_HELP_STATS, [] {
+#endif
                               g_eeGeneral.globalTimer = 0;
                               storageDirty(EE_GENERAL);
                               sessionTimer = 0;
                               s_timeCumThr = 0;
                               s_timeCum16ThrP = 0;
                               s_traceWr = 0;
+#if defined(RADIO_NB4_FAMILY)
+                              });
+#endif
                               return 0;
                             });
 

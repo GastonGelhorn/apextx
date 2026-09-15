@@ -24,6 +24,7 @@
 #include "static.h"
 
 class QuickMenu;
+class TextButton;
 
 class PageHeader : public Window
 {
@@ -33,6 +34,9 @@ class PageHeader : public Window
 
   void setTitle(std::string txt) { title->setText(std::move(txt)); }
   StaticText* setTitle2(std::string txt);
+#if defined(RADIO_NB4_FAMILY)
+  void setRouteTitle(const char* text);
+#endif
 
   static LAYOUT_VAL_SCALED(PAGE_TITLE_LEFT, 50)
   static constexpr coord_t PAGE_TITLE_TOP = PAD_TINY;
@@ -57,11 +61,24 @@ class Page : public NavWindow
   void enableRefresh();
 
   void openMenu();
+#if defined(RADIO_NB4_FAMILY)
+  bool setHelpHandler(std::function<void()> action) override;
+  void setScopeText(const std::string& text) override;
+  const std::string& getScopeText() const override { return scopeText; }
+  void setRouteTitle(const char* text) override { header->setRouteTitle(text); }
+  std::function<void()> getHelpHandler() const override { return helpHandler; }
+#endif
 
  protected:
   PageHeader* header = nullptr;
   Window* body = nullptr;
   QuickMenu* quickMenu = nullptr;
+#if defined(RADIO_NB4_FAMILY)
+  TextButton* helpButton = nullptr;
+  StaticText* scopeLabel = nullptr;
+  std::string scopeText;
+  std::function<void()> helpHandler;
+#endif
 
   bool bubbleEvents() override { return false; }
 
