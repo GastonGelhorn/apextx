@@ -43,11 +43,12 @@ repository.
 | `0x000000-0x7FFFFF` | EdgeTX FrFTL and FAT filesystem, 8 MiB physical |
 
 FrFTL reserves pages for translation tables and wear management, leaving
-7.875 MiB of logical storage. The filesystem uses 512-byte clusters so the
-English and Spanish system voice packs can coexist with radio settings. The
-factory and retired custom regions are no longer read by the firmware and have
-been reclaimed. Changing the filesystem layout requires a filesystem backup,
-format, and restore.
+7.875 MiB of logical storage. The filesystem uses 512-byte clusters. One
+size-bounded English or Spanish ApexTX voice pack can coexist with radio
+settings; complete packs for both languages cannot. The factory and retired
+custom regions are no longer read by the firmware and have been reclaimed.
+Changing the filesystem layout requires a filesystem backup, format, and
+restore.
 
 The board has no dedicated VBUS input. While the USB device stack is active,
 host SOF frames provide the authoritative cable signal. After frames stop, the

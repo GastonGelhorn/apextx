@@ -112,6 +112,10 @@ The host requires both the `ApexTX NB4 Update` product name and its exact
 interface descriptor. A matching STM32 VID/PID alone is insufficient; a ROM DFU
 device is never claimed for a normal update.
 
+Firmware updates do not modify the external audio files. When a release changes
+voice resources, install one matching English or Spanish package separately in
+USB Storage mode as described in [AUDIO.md](AUDIO.md).
+
 ## Failure and recovery
 
 Before installation, firmware resides in SDRAM and the current application is

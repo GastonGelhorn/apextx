@@ -119,6 +119,8 @@ def create(args):
         "validation/size-report.json": build / "nb4-size-report.json",
         "README.md": ROOT / "docs/nb4/README.md",
         "FLASH.md": ROOT / "docs/nb4/FLASH.md",
+        "AUDIO.md": ROOT / "docs/nb4/AUDIO.md",
+        "tools/nb4-install-audio.py": ROOT / "tools/nb4-install-audio.py",
         "VALIDATION.md": ROOT / "docs/nb4/VALIDATION.md",
         "RELEASE.md": ROOT / "docs/nb4/RELEASE.md",
         "CHANGELOG.md": ROOT / "CHANGELOG.md",
@@ -147,8 +149,7 @@ def create(args):
         (out / "rollback/version.json").write_text(
             json.dumps(rollback, indent=2) + "\n"
         )
-    for relative in ("THEMES/ApexTXLight", "THEMES/ApexTXDark", "SCRIPTS/TOOLS",
-                     "SOUNDS/en/SYSTEM"):
+    for relative in ("THEMES/ApexTXLight", "THEMES/ApexTXDark", "SCRIPTS/TOOLS"):
         shutil.copytree(ROOT / "sdcard" / relative, out / "resources" / relative)
     shutil.copy2(ROOT / "sdcard/THEMES/README.md", out / "resources/THEMES/README.md")
     if evidence:
@@ -163,7 +164,8 @@ def create(args):
         "sourceCommit": head, "sourceTreeSha256": source_digest(ROOT),
         "sourceDirty": source_dirty,
         "baseTag": "v2.12.4",
-        "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 4,
+        "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 5,
+        "audioPackFormat": 1, "audioLanguages": ["en", "es"],
         "languages": ["es", "en"], "homes": ["ApexTX"],
         "fonts": ["Roboto", "Barlow Condensed"],
         "orientations": [[320, 480], [480, 272]], "outputChannels": 8,

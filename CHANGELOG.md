@@ -6,6 +6,10 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Added separate, reproducible English and Spanish NB4 audio packages. Each
+  contains every system prompt, the ApexTX welcome prompt, and as many useful
+  assignable sounds as fit safely; an installer verifies, backs up, replaces,
+  and verifies the selected single-language pack.
 - Added a control-latency figure to System > Diagnostics: the time from
   sampling the wheel and trigger to handing the frame that carries them to the
   module, as minimum, average and maximum microseconds. docs/nb4/LATENCY.md

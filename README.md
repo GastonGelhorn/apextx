@@ -91,8 +91,9 @@ Read this before flashing anything:
 
 The firmware is under active development and is tested on an original Noble
 NB4. The maintained configuration uses the USART6 AFHDS3 route and
-English firmware strings; English and Spanish voice packs can coexist on the
-expanded storage volume.
+English firmware strings. The interface can be switched between English and
+Spanish, independently of the single English or Spanish voice pack installed
+on the expanded storage volume.
 
 Device-specific factory images, calibration data, OTP contents, and local build
 artifacts are intentionally excluded from this repository.
@@ -119,6 +120,7 @@ details, and validation:
 - [Build instructions](docs/nb4/BUILD.md)
 - [Install from the FlySky firmware](docs/nb4/FLASH.md)
 - [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
+- [Install English or Spanish audio](docs/nb4/AUDIO.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
 - [Control latency](docs/nb4/LATENCY.md)

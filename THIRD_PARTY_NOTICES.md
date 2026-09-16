@@ -19,3 +19,10 @@ source license; the generation scripts retain those expressions on rebuild.
 Additional inherited libraries retain their upstream notices and licenses in
 their respective source directories. A release package includes the licenses
 needed by the NB4 firmware and storage resources.
+
+The separately published English and Spanish ApexTX audio packages are derived
+from `EdgeTX/edgetx-sdcard-sounds`, licensed under GNU GPL version 2. The exact
+upstream URL, tag, commit, checksums, and conversion format are recorded in each
+package's `APEXTX-AUDIO.json`; the upstream license text is included alongside
+the sounds. ApexTX replaces only the welcome prompt in each package with its
+project-branded English or Spanish prompt.

@@ -65,6 +65,19 @@ jobs:
           build/nb4-release/native/gtests-radio \
             --gtest_output=xml:build/nb4-release/native/tests.xml
 
+      - name: Prepare the pinned NB4 audio source
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ffmpeg
+          git clone --depth 1 --branch v2.12.3 --filter=blob:none --sparse \
+            https://github.com/EdgeTX/edgetx-sdcard-sounds.git \
+            build/edgetx-sdcard-sounds
+          git -C build/edgetx-sdcard-sounds sparse-checkout set \
+            SOUNDS/en SOUNDS/es voices
+          test "$(git -C build/edgetx-sdcard-sounds rev-parse HEAD)" = \
+            4e34b6cb40ab53c6dcd293e2b1344b54d912d41c
+
       - name: Create release archives and checksums
         shell: bash
         run: |
@@ -74,6 +87,10 @@ jobs:
             --build build/nb4-release/arm-none-eabi \
             --output "dist/apextx-$version" \
             --tests build/nb4-release/native/tests.xml \
+            --release "$version"
+          python3 tools/nb4-audio-packs.py \
+            --source build/edgetx-sdcard-sounds \
+            --output dist \
             --release "$version"
           tar -C dist -czf "dist/apextx-$version.tar.gz" \
             "apextx-$version"
@@ -86,8 +103,7 @@ jobs:
               f"apextx-{version}")
           PY
           cd dist
-          sha256sum "apextx-$version.tar.gz" \
-            "apextx-$version.zip" > SHA256SUMS
+          sha256sum *.tar.gz *.zip > SHA256SUMS
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v7

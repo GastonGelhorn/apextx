@@ -27,6 +27,9 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         self.assertIn("-DAPEXTX_PUBLIC_RELEASE=ON", workflow)
         self.assertIn("SHA256SUMS", workflow)
         self.assertIn("actions/attest-build-provenance", workflow)
+        self.assertIn("tools/nb4-audio-packs.py", workflow)
+        self.assertIn("v2.12.3", workflow)
+        self.assertIn("4e34b6cb40ab53c6dcd293e2b1344b54d912d41c", workflow)
 
     def test_project_owned_sources_have_spdx_headers(self) -> None:
         patterns = (
@@ -67,16 +70,23 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         self.assertTrue((ROOT / "sdcard/THEMES/ApexTXLight/theme.yml").is_file())
         self.assertFalse((ROOT / "NB4_VERSION").exists())
 
-    def test_apextx_english_welcome_prompt_is_radio_compatible(self) -> None:
-        prompt = ROOT / "sdcard/SOUNDS/en/SYSTEM/hello.wav"
-        self.assertTrue(prompt.is_file())
-        with wave.open(str(prompt), "rb") as sound:
-            self.assertEqual(sound.getnchannels(), 1)
-            self.assertEqual(sound.getsampwidth(), 2)
-            self.assertEqual(sound.getframerate(), 16000)
-            self.assertGreater(sound.getnframes(), 8000)
-        mapping = (ROOT / "radio/util/tts_en.py").read_text(encoding="utf-8")
-        self.assertIn('(\"Welcome to Apex T X!\", \"hello\")', mapping)
+    def test_apextx_welcome_prompts_are_radio_compatible(self) -> None:
+        phrases = {
+            "en": '(\"Welcome to Apex T X!\", \"hello\")',
+            "es": '(\"Bienvenido a Apex T X\", \"hello\")',
+        }
+        for language, phrase in phrases.items():
+            with self.subTest(language=language):
+                prompt = ROOT / f"sdcard/SOUNDS/{language}/SYSTEM/hello.wav"
+                self.assertTrue(prompt.is_file())
+                with wave.open(str(prompt), "rb") as sound:
+                    self.assertEqual(sound.getnchannels(), 1)
+                    self.assertEqual(sound.getsampwidth(), 2)
+                    self.assertEqual(sound.getframerate(), 16000)
+                    self.assertGreater(sound.getnframes(), 8000)
+                mapping = (ROOT / f"radio/util/tts_{language}.py").read_text(
+                    encoding="utf-8")
+                self.assertIn(phrase, mapping)
 
 
 if __name__ == "__main__":

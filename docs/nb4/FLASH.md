@@ -288,16 +288,17 @@ Start USB Storage mode in ApexTX and set `NB4_VOLUME` to the newly mounted
 volume. Install the resources shipped by this repository:
 
 ```sh
-rsync -a --exclude='._*' sdcard/ "$NB4_VOLUME/"
+rsync -a --exclude='._*' --exclude='SOUNDS/' sdcard/ "$NB4_VOLUME/"
 ```
 
-ApexTX ships its English `SOUNDS/en/SYSTEM/hello.wav` welcome prompt in
-`sdcard/`; copying the repository resources replaces the old “Welcome to
-EdgeTX” file with “Welcome to ApexTX”. Install the rest of a compatible EdgeTX
-sound pack separately under `SOUNDS/en` and, if wanted, `SOUNDS/es`, without
-overwriting that ApexTX `hello.wav`. System prompts belong below each
-language's `SYSTEM` directory. The firmware works without WAV files, but voice
-prompts will be silent or missing.
+Install exactly one size-bounded ApexTX audio package for the desired voice
+language. Do not copy an unconverted EdgeTX sound tree or merge English and
+Spanish: the NB4 cannot hold both complete packs, and not every upstream audio
+encoding is accepted by its software WAV decoder. The menu text language and
+voice language remain independent. See [AUDIO.md](AUDIO.md) for the verified
+English and Spanish packages, their USB installer, manual instructions and
+source provenance. The firmware works without WAV files, but voice prompts
+will be silent or missing.
 
 On macOS, remove AppleDouble metadata before ejecting; every `._*.wav` consumes
 directory entries and at least one filesystem cluster:

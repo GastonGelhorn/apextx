@@ -26,8 +26,9 @@ See [GALLERY.md](GALLERY.md) for simulator-rendered interface captures and
 [MENUS.md](MENUS.md) for navigation, customizable Home, templates, quick access,
 race results, and data migration. See
 [COMPATIBILITY.md](COMPATIBILITY.md) for the verified status of each Noble
-model. Use [FLASH.md](FLASH.md) for the first installation from FlySky firmware
-and [UPDATE.md](UPDATE.md) for subsequent ApexTX application updates.
+model. Use [FLASH.md](FLASH.md) for the first installation from FlySky firmware,
+[UPDATE.md](UPDATE.md) for subsequent ApexTX application updates, and
+[AUDIO.md](AUDIO.md) to install one verified English or Spanish voice pack.
 [BUILD.md](BUILD.md), [HARDWARE.md](HARDWARE.md),
 and [VALIDATION.md](VALIDATION.md) contain the maintained engineering
 workflows.
