@@ -155,6 +155,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_eeGeneral.modelLSDisabled);
     }
   },
+#if !defined(RADIO_NB4_FAMILY)
   {
     STR_DEF(STR_MENUCUSTOMFUNC),
     [](Window* parent, coord_t x, coord_t y) {
@@ -163,6 +164,7 @@ static SetupLineDef viewOptionsPageSetupLines[] = {
                 g_eeGeneral.modelSFDisabled);
     }
   },
+#endif
 #if defined(LUA_MODEL_SCRIPTS)
   {
     STR_DEF(STR_MENUCUSTOMSCRIPTS),

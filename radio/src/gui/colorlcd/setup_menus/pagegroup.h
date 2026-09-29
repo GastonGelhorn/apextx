@@ -160,6 +160,10 @@ class PageGroupHeaderBase : public Window
   SelectedTabIcon* selectedIcon = nullptr;
   Window* carousel = nullptr;
   std::vector<PageGroupIconButton*> buttons;
+#if defined(RADIO_NB4_FAMILY)
+  bool oneDestination = false;
+  void layoutNb4Header();
+#endif
 
   coord_t getX(uint8_t idx);
   void checkEvents() override;
@@ -189,6 +193,9 @@ class PageGroupBase : public NavWindow
 
 #if defined(RADIO_NB4_FAMILY)
   void setRouteTitle(const char* title) override { header->setTitle(title); }
+  void setRouteIcon(uint8_t icon) override {
+    header->setIcon((EdgeTxIcon)icon);
+  }
   bool setHelpHandler(std::function<void()> action) override;
   void setScopeText(const std::string& text) override;
   const std::string& getScopeText() const override { return scopeText; }
@@ -248,7 +255,11 @@ class PageGroup : public PageGroupBase
 
 #if VERSION_MAJOR == 2
   static LAYOUT_VAL_SCALED(PAGE_GROUP_TOP_BAR_H, 48)
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t PAGE_GROUP_ALT_TITLE_H = 0;
+#else
   static constexpr coord_t PAGE_GROUP_ALT_TITLE_H = EdgeTxStyles::STD_FONT_HEIGHT;
+#endif
   static constexpr coord_t PAGE_GROUP_BACK_BTN_W = 0;
   static LAYOUT_VAL_SCALED(PAGE_GROUP_BACK_BTN_XO, 45)
 #else
@@ -279,7 +290,11 @@ class TabsGroup : public PageGroupBase
 
 #if VERSION_MAJOR == 2
   static LAYOUT_VAL_SCALED(TABS_GROUP_TOP_BAR_H, 48)
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t TABS_GROUP_ALT_TITLE_H = 0;
+#else
   static constexpr coord_t TABS_GROUP_ALT_TITLE_H = EdgeTxStyles::STD_FONT_HEIGHT;
+#endif
 #else
   static LAYOUT_ORIENTATION_SCALED(TABS_GROUP_TOP_BAR_H, 45, 48)
   static LAYOUT_ORIENTATION(TABS_GROUP_ALT_TITLE_H, 0, EdgeTxStyles::STD_FONT_HEIGHT)

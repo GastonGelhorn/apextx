@@ -37,7 +37,7 @@ PageHeader::PageHeader(Window* parent, EdgeTxIcon icon) :
 
   etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
-  new HeaderIcon(this, icon);
+  headerIcon = new HeaderIcon(this, icon);
 
   title = new StaticText(this,
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
@@ -55,7 +55,7 @@ PageHeader::PageHeader(Window* parent, const char* iconFile) :
 
   etx_solid_bg(lvobj, COLOR_THEME_HEADER_BG_INDEX);
 
-  new HeaderIcon(this, iconFile);
+  headerIcon = new HeaderIcon(this, iconFile);
 
   title = new StaticText(this,
                          {PAGE_TITLE_LEFT, PAGE_TITLE_TOP,
@@ -86,10 +86,16 @@ void PageHeader::setRouteTitle(const char* text)
 {
   if (title2) title2->hide();
   title->setText(text);
-  title->setHeight(44);
-  lv_label_set_long_mode(title->getLvObj(), LV_LABEL_LONG_WRAP);
-  etx_font(title->getLvObj(), getTextWidth(text, 0, FONT(STD)) > title->width()
-    ? FONT_XS_INDEX : FONT_STD_INDEX);
+  etx_font(title->getLvObj(), FONT_BOLD_INDEX);
+  title->setTop((EdgeTxStyles::MENU_HEADER_HEIGHT -
+                 getFontHeight(FONT(BOLD))) / 2);
+  title->setHeight(getFontHeight(FONT(BOLD)));
+  lv_label_set_long_mode(title->getLvObj(), LV_LABEL_LONG_CLIP);
+}
+
+void PageHeader::setRouteIcon(uint8_t icon)
+{
+  if (headerIcon) headerIcon->setIcon((EdgeTxIcon)icon);
 }
 #endif
 

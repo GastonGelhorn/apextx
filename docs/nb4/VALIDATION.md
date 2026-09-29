@@ -57,6 +57,26 @@ The automated menu checks are in `Nb4Routes`, `Nb4Ux`, `Nb4RacingUi`,
 versions and migration/rollback files. Hardware checks remain required before
 release; simulator tests cannot qualify a transmitter or receiver.
 
+## ApexTX 0.1.0-alpha.2 release validation — 2026-09-29
+
+- Clean public original-NB4 ARM build: **passed** with
+  `NB4_RF_PROFILE=RECOVERED_USART6`, `APEXTX_PUBLIC_RELEASE=ON` and compiled
+  languages EN/ES. The image manifest, target vectors and CRC were verified.
+- Native firmware suite: **362/362 passed**, 48 suites. NB4 Python tooling:
+  **61/61 passed**. The checked RF descriptor is valid and remains marked
+  `development`, for NB4-original over USART6 with addressless SLIP framing.
+- Application: **1,652,024 / 1,966,048 bytes (84.03%)**, leaving **314,024
+  bytes (306.7 KiB)**. Internal `.bss` is 66,128 bytes and SDRAM allocation is
+  3,018,752 bytes. Padded image: 2,097,152 bytes.
+- Image SHA-256:
+  `0ba73328dc0097a696a40ece6d40114d58e9f8f630132ad207f1fb73029da859`.
+- The complete simulator gallery was regenerated from the release code and
+  reviewed in both orientations. It includes the new radio-wide voice list and
+  assignment editor, unified route headers and current modal icon treatment.
+- This validation does not replace the real-radio checklist. RF qualification
+  is still explicitly a development descriptor, and the exact release artifact
+  must be exercised on hardware after GitHub rebuilds it.
+
 ## Display, touch and rendering revision — 2026-09-15
 
 - Native suite: **360/360 passed**, 48 suites. New regressions cover one shared

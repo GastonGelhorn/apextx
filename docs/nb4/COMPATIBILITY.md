@@ -93,7 +93,7 @@ turn the NB4 into a Pro+ and does not add hardware that the transmitter lacks.
 | Start mode and channel lock | Not implemented | Available |
 | Lamp and FlySky telemetry-adapter integration | Not implemented as dedicated features | Available |
 | Gear-ratio and motor-pole calculations; official sensor data recording | Not implemented as dedicated features | Available |
-| Channel voice broadcast | General EdgeTX audio and special functions are available; the Pro+ workflow is not reproduced | Available |
+| Channel voice broadcast | Radio-wide Voice assignments can play installed tracks from physical switches or radio conditions; the Pro+ workflow is not reproduced | Available |
 | Model capacity | 10 | 18 in firmware 1.0.23 |
 | Pro/Pro+ controls, enclosure, USB-C, charging hardware, and radio-specific accessories | Hardware dependent and unchanged | Native Pro+ hardware |
 

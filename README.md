@@ -12,7 +12,7 @@ It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-The current project version is **0.1.0-alpha.1**, based on EdgeTX **2.12.4**.
+The current project version is **0.1.0-alpha.2**, based on EdgeTX **2.12.4**.
 
 ## Features
 

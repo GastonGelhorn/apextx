@@ -55,6 +55,7 @@ class Window
   virtual std::function<void()> getHelpHandler() const { return {}; }
   virtual bool isHelpPage() const { return false; }
   virtual void setRouteTitle(const char*) {}
+  virtual void setRouteIcon(uint8_t) {}
   virtual void setScopeText(const std::string&) {}
   virtual const std::string& getScopeText() const {
     static const std::string empty;

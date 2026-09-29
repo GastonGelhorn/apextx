@@ -288,8 +288,9 @@ static const lv_coord_t row_dsc[] = {LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
 #define PUSH_CS_DURATION_MAX 255     // 25.5s longest duration
 
 FunctionEditPage::FunctionEditPage(uint8_t index, EdgeTxIcon icon,
-                                   const char *title, const char *prefix) :
-    Page(icon), index(index)
+                                   const char *title, const char *prefix,
+                                   int fixedFunction) :
+    Page(icon), index(index), fixedFunction(fixedFunction)
 {
   buildHeader(header, title, prefix);
 
@@ -420,7 +421,10 @@ void FunctionEditPage::updateSpecialFunctionOneWindow()
     case FUNC_BACKGND_MUSIC:
     case FUNC_PLAY_SCRIPT:
     case FUNC_RGB_LED:
-      new StaticText(line, rect_t{}, STR_VALUE);
+      new StaticText(line, rect_t{},
+                     fixedFunction == FUNC_PLAY_TRACK
+                         ? STR_NB4_UX_VOICE_TRACK
+                         : STR_VALUE);
       new FileChoice(
           line, rect_t{},
           func == FUNC_PLAY_SCRIPT || func == FUNC_RGB_LED
@@ -439,6 +443,24 @@ void FunctionEditPage::updateSpecialFunctionOneWindow()
               LUA_LOAD_MODEL_SCRIPTS();
           },
           true, funcGetLabel(func));
+      if (func == FUNC_PLAY_TRACK && fixedFunction == FUNC_PLAY_TRACK) {
+        line = specialFunctionOneWindow->newLine(grid);
+        new StaticText(line, rect_t{}, "");
+        new TextButton(line, rect_t{}, STR_PLAY_FILE, [=]() -> uint8_t {
+          if (!ZEXIST(cfn->play.name)) return 0;
+          char filename[sizeof(SOUNDS_PATH) + LEN_FUNCTION_NAME +
+                        sizeof(SOUNDS_EXT)] = SOUNDS_PATH "/";
+          strncpy(filename + SOUNDS_PATH_LNG_OFS,
+                  currentLanguagePack->id, 2);
+          strncpy(filename + sizeof(SOUNDS_PATH), cfn->play.name,
+                  LEN_FUNCTION_NAME);
+          filename[sizeof(SOUNDS_PATH) + LEN_FUNCTION_NAME] = '\0';
+          strcat(filename + sizeof(SOUNDS_PATH), SOUNDS_EXT);
+          audioQueue.stopAll();
+          audioQueue.playFile(filename, 0, ID_PLAY_FROM_SD_MANAGER);
+          return 0;
+        });
+      }
       break;
 
     case FUNC_SET_TIMER: {
@@ -653,6 +675,12 @@ void FunctionEditPage::buildBody(Window *form)
 
   CustomFunctionData *cfn = customFunctionData();
 
+  if (fixedFunction >= 0 && CFN_FUNC(cfn) != fixedFunction) {
+    CFN_FUNC(cfn) = fixedFunction;
+    CFN_RESET(cfn);
+    setDirty();
+  }
+
   // Switch
   auto line = form->newLine(grid);
   new StaticText(line, rect_t{}, STR_SF_SWITCH);
@@ -672,24 +700,26 @@ void FunctionEditPage::buildBody(Window *form)
     }
   }
 
-  // Function
-  line = form->newLine(grid);
-  new StaticText(line, rect_t{}, STR_FUNC);
-  auto functionChoice =
-      new Choice(line, rect_t{}, 0, FUNC_MAX - 1, GET_DEFAULT(getFuncSortIdx(CFN_FUNC(cfn))),
-                  [=](int32_t newValue) {
-                    Functions newFunc = cfn_sorted[newValue];
-                    // If changing from Lua script then reload to remove old reference
-                    if ((CFN_FUNC(cfn) == FUNC_PLAY_SCRIPT || CFN_FUNC(cfn) == FUNC_RGB_LED) && newFunc != FUNC_PLAY_SCRIPT && newFunc != FUNC_RGB_LED)
-                      LUA_LOAD_MODEL_SCRIPTS();
-                    CFN_FUNC(cfn) = newFunc;
-                    CFN_RESET(cfn);
-                    SET_DIRTY();
-                    updateSpecialFunctionOneWindow();
-                  });
-  functionChoice->setTextHandler([=](int val) { return funcGetLabel(cfn_sorted[val]); });
-  functionChoice->setAvailableHandler(
-      [=](int value) { return isAssignableFunctionAvailable(cfn_sorted[value]); });
+  if (fixedFunction < 0) {
+    // Function
+    line = form->newLine(grid);
+    new StaticText(line, rect_t{}, STR_FUNC);
+    auto functionChoice =
+        new Choice(line, rect_t{}, 0, FUNC_MAX - 1, GET_DEFAULT(getFuncSortIdx(CFN_FUNC(cfn))),
+                    [=](int32_t newValue) {
+                      Functions newFunc = cfn_sorted[newValue];
+                      // If changing from Lua script then reload to remove old reference
+                      if ((CFN_FUNC(cfn) == FUNC_PLAY_SCRIPT || CFN_FUNC(cfn) == FUNC_RGB_LED) && newFunc != FUNC_PLAY_SCRIPT && newFunc != FUNC_RGB_LED)
+                        LUA_LOAD_MODEL_SCRIPTS();
+                      CFN_FUNC(cfn) = newFunc;
+                      CFN_RESET(cfn);
+                      SET_DIRTY();
+                      updateSpecialFunctionOneWindow();
+                    });
+    functionChoice->setTextHandler([=](int val) { return funcGetLabel(cfn_sorted[val]); });
+    functionChoice->setAvailableHandler(
+        [=](int value) { return isAssignableFunctionAvailable(cfn_sorted[value]); });
+  }
 
   specialFunctionOneWindow = new Window(form, rect_t{});
   updateSpecialFunctionOneWindow();
@@ -700,6 +730,15 @@ void FunctionEditPage::buildBody(Window *form)
 FunctionsPage::FunctionsPage(CustomFunctionData *functions, PageDef& pageDef,
                              const char *prefix) :
     PageGroupItem(pageDef), functions(functions), prefix(prefix)
+{
+}
+
+bool FunctionsPage::acceptsFunction(const CustomFunctionData*) const
+{
+  return true;
+}
+
+void FunctionsPage::prepareNewFunction(CustomFunctionData*) const
 {
 }
 
@@ -727,6 +766,7 @@ void FunctionsPage::newSF(Window *window, bool pasteSF)
         if (pasteSF) {
           pasteSpecialFunction(window, i, nullptr);
         } else {
+          prepareNewFunction(cfn);
           editSpecialFunction(window, i, nullptr);
         }
       });
@@ -738,11 +778,12 @@ void FunctionsPage::newSF(Window *window, bool pasteSF)
 void FunctionsPage::pasteSpecialFunction(Window *window, uint8_t index,
                                          ButtonBase *button)
 {
+  if (!acceptsFunction(&clipboard.data.cfn)) return;
   CustomFunctionData *cfn = customFunctionData(index);
   if (CFN_FUNC(cfn) == FUNC_PLAY_SCRIPT) LUA_LOAD_MODEL_SCRIPTS();
   *cfn = clipboard.data.cfn;
   if (CFN_FUNC(cfn) == FUNC_PLAY_SCRIPT) LUA_LOAD_MODEL_SCRIPTS();
-  storageDirty(EE_MODEL);
+  setDirty();
   focusIndex = index;
   if (!button)
     rebuild(window);
@@ -767,7 +808,8 @@ void FunctionsPage::editSpecialFunction(Window *window, uint8_t index,
 
 void FunctionsPage::plusPopup(Window *window)
 {
-  if (clipboard.type == CLIPBOARD_TYPE_CUSTOM_FUNCTION) {
+  if (clipboard.type == CLIPBOARD_TYPE_CUSTOM_FUNCTION &&
+      acceptsFunction(&clipboard.data.cfn)) {
     Menu *menu = new Menu();
     menu->addLine(STR_NEW, [=]() { newSF(window, false); });
     menu->addLine(STR_PASTE, [=]() { newSF(window, true); });
@@ -790,7 +832,7 @@ void FunctionsPage::build(Window *window)
 
     bool isActive = (cfn->swtch != 0);
 
-    if (isActive) {
+    if (isActive && acceptsFunction(cfn)) {
       auto button = functionButton(
           window, rect_t{0, 0, window->width() - PAD_LARGE - PAD_SMALL, SF_BUTTON_H}, i);
 
@@ -818,7 +860,8 @@ void FunctionsPage::build(Window *window)
             clipboard.data.cfn = *cfn;
           });
         }
-        if (clipboard.type == CLIPBOARD_TYPE_CUSTOM_FUNCTION) {
+        if (clipboard.type == CLIPBOARD_TYPE_CUSTOM_FUNCTION &&
+            acceptsFunction(&clipboard.data.cfn)) {
           menu->addLine(STR_PASTE,
                         [=]() { pasteSpecialFunction(window, i, button); });
         }
@@ -885,7 +928,7 @@ void FunctionsPage::build(Window *window)
         }
         return 0;
       });
-    } else {
+    } else if (!isActive) {
       hasEmptyFunction = true;
     }
   }
@@ -1070,3 +1113,111 @@ FunctionLineButton *GlobalFunctionsPage::functionButton(Window *parent,
 }
 
 void GlobalFunctionsPage::setDirty() const { storageDirty(EE_GENERAL); }
+
+#if defined(RADIO_NB4_FAMILY)
+
+class VoiceAssignmentLineButton : public FunctionLineButton
+{
+ public:
+  VoiceAssignmentLineButton(Window *parent, const rect_t &rect, uint8_t index) :
+      FunctionLineButton(parent, rect, &g_eeGeneral.customFn[index], index,
+                         "VA")
+  {
+  }
+
+ protected:
+  bool isActive() const override
+  {
+    return globalFunctionsContext.activeSwitches & ((MASK_CFN_TYPE)1 << index);
+  }
+};
+
+class VoiceAssignmentEditPage : public FunctionEditPage
+{
+ public:
+  VoiceAssignmentEditPage(uint8_t index) :
+      FunctionEditPage(index, ICON_RADIO_GLOBAL_FUNCTIONS,
+                       STR_NB4_UX_VOICE, "VA", FUNC_PLAY_TRACK)
+  {
+  }
+
+ protected:
+  bool isActive() const override
+  {
+    return globalFunctionsContext.activeSwitches & ((MASK_CFN_TYPE)1 << index);
+  }
+
+  bool isSwitchAvailable(int value) const override
+  {
+    return ::isSwitchAvailable(value, GeneralCustomFunctionsContext);
+  }
+
+  CustomFunctionData *customFunctionData() const override
+  {
+    return &g_eeGeneral.customFn[index];
+  }
+
+  bool isAssignableFunctionAvailable(int function) const override
+  {
+    return function == FUNC_PLAY_TRACK;
+  }
+
+  void setDirty() const override { storageDirty(EE_GENERAL); }
+};
+
+VoiceAssignmentsPage::VoiceAssignmentsPage(PageDef& pageDef) :
+    FunctionsPage(g_eeGeneral.customFn, pageDef, "VA")
+{
+}
+
+void VoiceAssignmentsPage::build(Window* window)
+{
+  window->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_TINY);
+  auto line = new Window(window, {0, 0, LV_PCT(100), 0});
+  line->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
+  lv_obj_set_style_flex_cross_place(line->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
+  new StaticText(line, {0, 0, 0, 0}, STR_ENABLE,
+                 COLOR_THEME_PRIMARY1_INDEX);
+  new ToggleSwitch(
+      line, {0, 0, 0, 0}, []() { return (uint8_t)radioGFEnabled(); },
+      [](uint8_t on) {
+        g_eeGeneral.radioGFDisabled = !on;
+        storageDirty(EE_GENERAL);
+      });
+  FunctionsPage::build(window);
+}
+
+CustomFunctionData *VoiceAssignmentsPage::customFunctionData(
+    uint8_t index) const
+{
+  return &g_eeGeneral.customFn[index];
+}
+
+FunctionEditPage *VoiceAssignmentsPage::editPage(uint8_t index) const
+{
+  return new VoiceAssignmentEditPage(index);
+}
+
+FunctionLineButton *VoiceAssignmentsPage::functionButton(
+    Window *parent, const rect_t &rect, uint8_t index) const
+{
+  return new VoiceAssignmentLineButton(parent, rect, index);
+}
+
+void VoiceAssignmentsPage::setDirty() const { storageDirty(EE_GENERAL); }
+
+bool VoiceAssignmentsPage::acceptsFunction(
+    const CustomFunctionData* cfn) const
+{
+  return CFN_FUNC(cfn) == FUNC_PLAY_TRACK;
+}
+
+void VoiceAssignmentsPage::prepareNewFunction(CustomFunctionData* cfn) const
+{
+  CFN_FUNC(cfn) = FUNC_PLAY_TRACK;
+  CFN_PLAY_REPEAT(cfn) = 0;
+  CFN_ACTIVE(cfn) = 1;
+  setDirty();
+}
+
+#endif

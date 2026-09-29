@@ -131,7 +131,6 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
 #if defined(RADIO_NB4_FAMILY)
     new TextButton(this, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 4, 72, 40},
                    STR_NB4_BACK, [menu] { menu->onCancel(); return 0; });
-    if (menu) menu->setHelpHandler(nb4InheritedHelp());
 #endif
 
 #if VERSION_MAJOR > 2
@@ -148,6 +147,16 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     etx_txt_color(titleLabel, COLOR_THEME_HEADER_FG_INDEX);
 
 #if VERSION_MAJOR == 2
+#if defined(RADIO_NB4_FAMILY)
+    lv_obj_set_pos(titleLabel, PageHeader::PAGE_TITLE_LEFT,
+                   (PageGroup::PAGE_GROUP_TOP_BAR_H -
+                    EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+    lv_obj_set_size(titleLabel,
+                    lv_disp_get_hor_res(nullptr) -
+                        PageHeader::PAGE_TITLE_LEFT - 124,
+                    EdgeTxStyles::STD_FONT_HEIGHT);
+    lv_label_set_long_mode(titleLabel, LV_LABEL_LONG_CLIP);
+#else
     auto sep = lv_obj_create(lvobj);
     etx_solid_bg(sep);
     lv_obj_set_pos(sep, 0, EdgeTxStyles::MENU_HEADER_HEIGHT);
@@ -157,6 +166,7 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     lv_obj_set_style_pad_top(titleLabel, 1, LV_PART_MAIN);
     lv_obj_set_pos(titleLabel, 0, PageGroup::PAGE_GROUP_TOP_BAR_H);
     lv_obj_set_size(titleLabel, lv_disp_get_hor_res(nullptr), PageGroup::PAGE_GROUP_ALT_TITLE_H);
+#endif
 #else
     lv_obj_set_pos(titleLabel, PageHeader::PAGE_TITLE_LEFT, PageHeader::PAGE_TITLE_TOP + EdgeTxStyles::STD_FONT_HEIGHT);
     lv_obj_set_size(titleLabel, lv_disp_get_hor_res(nullptr) - PageHeader::PAGE_TITLE_LEFT - PageGroup::PAGE_GROUP_BACK_BTN_W * 2 - PAD_LARGE * 2, EdgeTxStyles::STD_FONT_HEIGHT);
@@ -171,6 +181,7 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     carousel->padAll(PAD_ZERO);
 #if defined(RADIO_NB4_FAMILY)
     carousel->setWidth(lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT - 124);
+    layoutNb4Header();
 #endif
     carousel->setWindowFlag(NO_FOCUS);
 
@@ -179,6 +190,27 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
 }
 
 #if VERSION_MAJOR == 2
+#if defined(RADIO_NB4_FAMILY)
+void PageGroupHeaderBase::layoutNb4Header()
+{
+  const coord_t titleLeft = PageHeader::PAGE_TITLE_LEFT;
+  const coord_t available =
+      std::max<coord_t>(0, lv_disp_get_hor_res(nullptr) - titleLeft - 124);
+  const bool titleOnly = oneDestination || pages.size() <= 1;
+  const coord_t titleWidth = titleOnly
+      ? available
+      : std::min<coord_t>(110, std::max<coord_t>(58, available / 3));
+  const coord_t titleHeight = getFontHeight(FONT(BOLD));
+  lv_obj_set_pos(titleLabel, titleLeft,
+                 (PageGroup::PAGE_GROUP_TOP_BAR_H - titleHeight) / 2);
+  lv_obj_set_size(titleLabel, titleWidth, titleHeight);
+  carousel->setPos(titleLeft + titleWidth, 0);
+  carousel->setWidth(std::max<coord_t>(0, available - titleWidth));
+  carousel->show(!titleOnly);
+  etx_font(titleLabel, FONT_BOLD_INDEX);
+}
+#endif
+
 coord_t PageGroupHeaderBase::getX(uint8_t idx)
 {
   coord_t pitch = MENU_HEADER_BUTTON_WIDTH;
@@ -220,6 +252,12 @@ void PageGroupHeaderBase::setCurrentIndex(uint8_t index)
       buttons[currentIndex]->check(false);
       currentIndex = index;
       buttons[currentIndex]->check(true);
+#if defined(RADIO_NB4_FAMILY)
+      if (oneDestination || pages.size() <= 1) {
+        selectedIcon->hide();
+        return;
+      }
+#endif
       coord_t x = getX(currentIndex);
 
       selectedIcon->show(buttons[currentIndex]->isVisible());
@@ -242,6 +280,9 @@ void PageGroupHeaderBase::setTitle(const char* title)
 #if VERSION_MAJOR == 2
     std::string s = replaceAll(title, "\n", " ");
     lv_label_set_text(titleLabel, s.c_str());
+#if defined(RADIO_NB4_FAMILY)
+    etx_font(titleLabel, FONT_BOLD_INDEX);
+#endif
 #else
     lv_label_set_text(titleLabel, title);
 #endif
@@ -257,6 +298,8 @@ void PageGroupHeaderBase::setIcon(EdgeTxIcon newIcon)
 void PageGroupHeaderBase::singleDestination()
 {
 #if VERSION_MAJOR == 2
+  oneDestination = true;
+  layoutNb4Header();
   carousel->hide();
 #endif
 }
@@ -276,6 +319,9 @@ void PageGroupHeaderBase::addTab(PageGroupItem* page)
   });
   btn->show(btn->isVisible());
   buttons.emplace_back(btn);
+#if defined(RADIO_NB4_FAMILY)
+  layoutNb4Header();
+#endif
 #endif
 }
 
@@ -407,7 +453,7 @@ bool PageGroupBase::setHelpHandler(std::function<void()> action)
 {
   helpHandler = std::move(action);
   if (!helpButton && helpHandler)
-    helpButton = new TextButton(this,
+    helpButton = new TextButton(header,
       {coord_t(lv_disp_get_hor_res(nullptr) - 120), 4, 40, 40}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
   if (helpButton) { helpButton->show(bool(helpHandler)); helpButton->bringToTop(); }
@@ -550,6 +596,9 @@ PageGroup::PageGroup(EdgeTxIcon icon, const char* title, PageDef* pages, QMPage 
     PageGroupBase(PAGE_GROUP_BODY_Y, icon)
 {
   header = new PageGroupHeader(this, icon, title);
+#if defined(RADIO_NB4_FAMILY)
+  setHelpHandler(nb4InheritedHelp());
+#endif
 
   int tabs = 0;
   for (int i = 0; pages[i].icon < EDGETX_ICONS_COUNT; i += 1) {
@@ -661,6 +710,9 @@ TabsGroup::TabsGroup(EdgeTxIcon icon, const char* parentLabel) :
     PageGroupBase(TABS_GROUP_BODY_Y, icon)
 {
   header = new TabsGroupHeader(this, icon, parentLabel);
+#if defined(RADIO_NB4_FAMILY)
+  setHelpHandler(nb4InheritedHelp());
+#endif
 
 #if defined(HARDWARE_TOUCH) && !defined(RADIO_NB4_FAMILY)
 #if VERSION_MAJOR == 2

@@ -107,7 +107,7 @@ class FunctionEditPage : public Page
 {
  public:
   FunctionEditPage(uint8_t index, EdgeTxIcon icon, const char *title,
-                   const char *prefix);
+                   const char *prefix, int fixedFunction = -1);
 
   void delayedInit() override;
 
@@ -116,6 +116,7 @@ class FunctionEditPage : public Page
   Window *specialFunctionOneWindow = nullptr;
   StaticText *headerSF = nullptr;
   bool active = false;
+  int fixedFunction = -1;
 
   virtual bool isActive() const = 0;
   virtual bool isSwitchAvailable(int value) const = 0;
@@ -170,6 +171,8 @@ class FunctionsPage : public PageGroupItem
   virtual FunctionLineButton* functionButton(Window* parent, const rect_t& rect,
                                          uint8_t index) const = 0;
   virtual void setDirty() const = 0;
+  virtual bool acceptsFunction(const CustomFunctionData* cfn) const;
+  virtual void prepareNewFunction(CustomFunctionData* cfn) const;
 };
 
 //-----------------------------------------------------------------------------
@@ -201,3 +204,24 @@ class GlobalFunctionsPage : public FunctionsPage
                                  uint8_t index) const override;
   void setDirty() const override;
 };
+
+#if defined(RADIO_NB4_FAMILY)
+// A radio-wide, audio-only view over the existing global-function storage.
+// Non-audio legacy functions remain stored and running but are deliberately
+// not exposed by this focused ApexTX page.
+class VoiceAssignmentsPage : public FunctionsPage
+{
+ public:
+  VoiceAssignmentsPage(PageDef& pageDef);
+  void build(Window* window) override;
+
+ protected:
+  CustomFunctionData* customFunctionData(uint8_t index) const override;
+  FunctionEditPage* editPage(uint8_t index) const override;
+  FunctionLineButton* functionButton(Window* parent, const rect_t& rect,
+                                     uint8_t index) const override;
+  void setDirty() const override;
+  bool acceptsFunction(const CustomFunctionData* cfn) const override;
+  void prepareNewFunction(CustomFunctionData* cfn) const override;
+};
+#endif

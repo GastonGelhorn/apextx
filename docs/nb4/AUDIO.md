@@ -19,10 +19,11 @@ remaining space is reserved for radio settings, cars, race history, themes,
 scripts, filesystem metadata and migrations.
 
 With the currently pinned upstream source, the English package contains 548
-prompts (212 required system prompts and 336 optional tracks) and the Spanish
-package contains 522 (250 required and 272 optional). The manifest in each ZIP
-records the exact file count and the number of lower-priority optional tracks
-that did not fit.
+prompts (212 required system prompts and 336 assignable tracks) and the Spanish
+package contains 522 (250 required and 272 assignable tracks). "Assignable"
+means that the track can be chosen for a switch or condition; it does not mean
+that another download is required. The manifest in each ZIP records the exact
+file count and how many lower-priority assignable tracks did not fit.
 
 The packages are derived reproducibly from the GPL-2.0-licensed
 `EdgeTX/edgetx-sdcard-sounds` tag and commit recorded in their
@@ -72,6 +73,20 @@ written.
 After restarting the radio, open **Menu > System > General > Voice language**
 and select the language of the installed package. Changing **Text language**
 does not change or install voice files.
+
+## Assign a voice to a control
+
+Open **Menu > Sound & alerts > Voice assignments**. Add a row, choose the
+physical switch or radio condition, select a voice track and use **Play** to
+preview it. Repeat controls whether it plays once or again while the trigger
+remains active. The master switch at the top can temporarily disable all voice
+assignments without deleting them.
+
+These assignments belong to the radio, so they remain available when you
+change cars. Automatic lap announcements and telemetry alarms remain in their
+respective Race and Telemetry settings because those values are car-specific.
+Only files at `SOUNDS/<voice language>/` are assignable; the `SYSTEM` folder is
+reserved for firmware prompts such as startup, warnings and confirmations.
 
 ## Build the packages from source
 

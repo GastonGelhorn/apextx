@@ -100,6 +100,16 @@ The Menu hierarchy is organised for car use. Physical buttons,
 switches, and four-way trims can also be assigned by choosing an action and
 pressing the desired control.
 
+## Sound and voice assignments
+
+| Radio-wide list | Voice-track editor |
+| --- | --- |
+| ![Radio-wide voice assignments in Spanish](images/voice-assignments-es.png) | ![Voice-track assignment editor in Spanish](images/voice-assignment-editor-es.png) |
+
+Voice assignments belong to the transmitter rather than the current car. Each
+entry selects a trigger, a WAV track, repeat behaviour and enabled state; the
+editor can preview the selected track before it is saved.
+
 ## Menu and quick access
 
 | Menu: portrait | Quick access: portrait |
@@ -153,7 +163,7 @@ The gallery must stay tied to a tested build. Generate the source frames with:
 mkdir -p build/nb4-gallery
 NB4_SCREENSHOT_DIR="$PWD/build/nb4-gallery" \
   build/nb4-device/native/gtests-radio \
-  --gtest_filter='Nb4Ux.RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors:Nb4Ux.EveryAvailableRouteActuallyOpensSomethingAndComesBack:Nb4Ux.HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors:Nb4Ux.RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations:Nb4Ux.MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames:Nb4Ux.ContextualCurveEditorListsSharedInputsAndMixes:Nb4Ux.AssignmentsAreReadableAndSaveOnlyWhenRequested:Nb4RacingUi.AllDestinationsAndEditorsInBothLanguagesAndOrientations'
+  --gtest_filter='Nb4Ux.RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors:Nb4Ux.EveryAvailableRouteActuallyOpensSomethingAndComesBack:Nb4Ux.HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors:Nb4Ux.RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations:Nb4Ux.MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames:Nb4Ux.ContextualCurveEditorListsSharedInputsAndMixes:Nb4Ux.AssignmentsAreReadableAndSaveOnlyWhenRequested:Nb4Ux.RoutedTitlesUseRouteIconsAndModalsKeepApexBranding:Nb4Ux.VoiceAssignmentsAreRadioWideAndAudioOnly:Nb4RacingUi.AllDestinationsAndEditorsInBothLanguagesAndOrientations'
 ```
 
 The tests write lossless PPM framebuffer captures. Convert only the selected

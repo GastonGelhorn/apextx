@@ -25,6 +25,7 @@
 
 class QuickMenu;
 class TextButton;
+class HeaderIcon;
 
 class PageHeader : public Window
 {
@@ -35,13 +36,15 @@ class PageHeader : public Window
   void setTitle(std::string txt) { title->setText(std::move(txt)); }
   StaticText* setTitle2(std::string txt);
 #if defined(RADIO_NB4_FAMILY)
-  void setRouteTitle(const char* text);
+  void setRouteTitle(const char* text) override;
+  void setRouteIcon(uint8_t icon) override;
 #endif
 
   static LAYOUT_VAL_SCALED(PAGE_TITLE_LEFT, 50)
   static constexpr coord_t PAGE_TITLE_TOP = PAD_TINY;
 
  protected:
+  HeaderIcon* headerIcon = nullptr;
   StaticText* title;
   StaticText* title2 = nullptr;
 };
@@ -66,6 +69,7 @@ class Page : public NavWindow
   void setScopeText(const std::string& text) override;
   const std::string& getScopeText() const override { return scopeText; }
   void setRouteTitle(const char* text) override { header->setRouteTitle(text); }
+  void setRouteIcon(uint8_t icon) override { header->setRouteIcon(icon); }
   std::function<void()> getHelpHandler() const override { return helpHandler; }
 #endif
 

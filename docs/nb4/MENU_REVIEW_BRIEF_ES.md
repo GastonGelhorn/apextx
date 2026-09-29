@@ -79,7 +79,6 @@ INICIO — ApexTX Racing
     │       │   └── Elegir / crear / editar curva [contextual]
     │       ├── Salidas — límites, centro, sentido y otros ajustes por canal
     │       ├── Lógica [requiere función habilitada]
-    │       ├── Funciones especiales del modelo [requiere función habilitada]
     │       ├── Variables del modelo (GVAR)
     │       │   ├── Activar para este coche
     │       │   └── Abrir editor de variables
@@ -233,6 +232,10 @@ INICIO — ApexTX Racing
     ├── SONIDO Y AVISOS [toda la emisora]
     │   ├── Alertas de la emisora
     │   ├── Sonido
+    │   ├── Asignaciones de voz
+    │   │   ├── Activar/desactivar todas las asignaciones
+    │   │   ├── Añadir asignación → activador, pista, reproducción de prueba y repetición
+    │   │   └── Se conserva al cambiar de coche
     │   └── Vibración
     │
     └── SISTEMA

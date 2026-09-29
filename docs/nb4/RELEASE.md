@@ -1,7 +1,7 @@
 # Release process
 
 ApexTX uses the version in the root `APEXTX_VERSION` file. A public release
-tag has the form `v0.1.0-alpha.1` and must match that file exactly. The upstream
+tag has the form `v<version>` and must match that file exactly. The upstream
 base remains recorded separately as EdgeTX 2.12.4.
 
 Before tagging, run the hardware checklist in `rf/BENCH_ACCEPTANCE.md` on a

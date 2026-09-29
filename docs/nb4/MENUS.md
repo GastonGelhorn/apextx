@@ -24,6 +24,14 @@ Settings/help dialogs also ignore taps on the backdrop: a Home icon visible
 behind a short dialog is not an implicit Back target.
 Unavailable settings explain why; unsupported Bluetooth is not offered.
 
+Destination titles live in the top bar rather than in a second strip below
+it. Views use the same left-hand route icon as their Menu tile. Their titles
+use one larger bold font, remain vertically centred and clip only the trailing
+characters when space is limited. Menu, Quick access and category modals keep
+the ApexTX logo; their section title is bold and vertically centred. Paged
+editors reserve a compact area for their tab selector without covering the
+title.
+
 ## Current car, startup checks and presets
 
 Current car > Car details replaces the former General page: only the name and labels
@@ -136,6 +144,19 @@ then a visual separator and Session resets. Timer editors return to their list;
 session resets ask for confirmation. Statistics explains its mixed radio/session
 usage counters, three car timers and throttle trace. Its counter reset now asks
 for confirmation and does not delete race history. Pit uses Timer 2.
+
+## Sound and voice assignments
+
+Sound & alerts > Voice assignments is radio-wide. It assigns one of the
+installed, assignable WAV tracks to a physical switch or radio condition and
+provides an immediate Play preview. Each row exposes only trigger, voice track,
+repeat and active state; the generic special-function selector is deliberately
+not shown. Assignments remain unchanged when another car is selected.
+
+Car-specific automatic announcements stay with the feature that owns them,
+such as lap announcements in Race setup and sensor alarms in Telemetry. The
+former model special-functions entry is not part of the ApexTX car menu; legacy
+data is retained for compatibility rather than deleted.
 
 ## Race results
 

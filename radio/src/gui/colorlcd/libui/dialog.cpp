@@ -26,7 +26,9 @@
 #include "keyboard_base.h"
 #include "button.h"
 #include "bitmaps.h"
+#include "page.h"
 #include "static.h"
+#include "theme_manager.h"
 
 #include <algorithm>
 
@@ -123,22 +125,56 @@ void BaseDialog::useSectionHeader()
   // These are navigation/help pages, not transient popups. The Home icons
   // visible behind them must not act as an invisible Back target.
   closeWhenClickOutside = false;
+  sectionHeader = true;
   // The QuickMenu header treatment, with a real section title in place of a logo.
   etx_solid_bg(header->getLvObj(), COLOR_THEME_QM_BG_INDEX);
   etx_txt_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   etx_font(header->getLvObj(), FONT_BOLD_INDEX);
-  header->padLeft(40);
+  header->setHeight(44);
+  header->padAll(PAD_ZERO);
+  header->padLeft(PageHeader::PAGE_TITLE_LEFT);
   header->padRight(helpButton ? 84 : 40);
-  header->padTop(10);
-  header->padBottom(10);
+  lv_obj_set_style_pad_top(
+      header->getLvObj(),
+      std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
+      LV_PART_MAIN);
   lv_obj_set_style_text_align(header->getLvObj(), LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_border_side(header->getLvObj(), LV_BORDER_SIDE_TOP, 0);
   lv_obj_set_style_border_width(header->getLvObj(), 3, 0);
   etx_border_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  lv_label_set_long_mode(header->getLvObj(), LV_LABEL_LONG_CLIP);
   if (closeButton) {
     closeButton->setSize(40, 40);
     etx_txt_color(closeButton->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   }
+  updateSectionTitleStyle();
+}
+
+void BaseDialog::updateSectionTitleStyle()
+{
+  if (!sectionHeader || !header) return;
+  // Route titles must remain equally legible. Long names are clipped at the
+  // trailing edge instead of shrinking every character to XS/XXS.
+  etx_font(header->getLvObj(), FONT_BOLD_INDEX);
+  lv_obj_set_style_pad_top(
+      header->getLvObj(),
+      std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
+      LV_PART_MAIN);
+}
+
+void BaseDialog::setRouteIcon(uint8_t icon)
+{
+  useSectionHeader();
+  if (!routeHeaderIcon) {
+    routeHeaderIcon = new HeaderIcon(content, (EdgeTxIcon)icon);
+    lv_obj_add_flag(routeHeaderIcon->getLvObj(), LV_OBJ_FLAG_FLOATING);
+    lv_obj_align(routeHeaderIcon->getLvObj(), LV_ALIGN_TOP_LEFT, 0, 0);
+  } else {
+    routeHeaderIcon->setIcon((EdgeTxIcon)icon);
+  }
+  routeHeaderIcon->bringToTop();
+  if (helpButton) helpButton->bringToTop();
+  if (closeButton) closeButton->bringToTop();
 }
 
 bool BaseDialog::setHelpHandler(std::function<void()> action)
@@ -176,18 +212,25 @@ void BaseDialog::useBrandHeader()
   const coord_t logoH = mask ? mask->height : 0;
   new StaticIcon(brand, 8, std::max<coord_t>(0, (44 - logoH) / 2),
                  ICON_TOP_LOGO, COLOR_THEME_QM_FG_INDEX);
+  const coord_t identityW = logoW + 16;
   lv_obj_update_layout(content->getLvObj());
   const coord_t brandW = lv_obj_get_width(brand->getLvObj());
-  new StaticText(brand, {coord_t(logoW + 16), 10,
-                         coord_t(std::max<int>(40, brandW - logoW - 72)), 24},
-                 header->getText(), COLOR_THEME_QM_FG_INDEX,
-                 FONT(XS) | CENTERED);
+  const coord_t titleH = getFontHeight(FONT(BOLD));
+  auto title = new StaticText(
+      brand,
+      {identityW, 0,
+       coord_t(std::max<int>(40, brandW - identityW - 44)), titleH},
+      header->getText(), COLOR_THEME_QM_FG_INDEX, FONT(BOLD) | CENTERED);
+  lv_obj_align(title->getLvObj(), LV_ALIGN_LEFT_MID, identityW, 0);
 }
 #endif
 
 void BaseDialog::setTitle(const char* title)
 {
   header->setText(title);
+#if defined(RADIO_NB4_FAMILY)
+  updateSectionTitleStyle();
+#endif
 }
 
 //-----------------------------------------------------------------------------

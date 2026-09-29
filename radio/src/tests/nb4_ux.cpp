@@ -1753,6 +1753,77 @@ TEST(Nb4Ux, AudioPageSelectsPlaybackModeAndOffersAPreview)
     }
   }
 }
+
+TEST(Nb4Ux, VoiceAssignmentsAreRadioWideAndAudioOnly)
+{
+  Scene scene;
+  scene.applyPalette("ApexTX Dark");
+  memcpy(g_eeGeneral.uiLanguage, "es", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  memset(g_eeGeneral.customFn, 0, sizeof(g_eeGeneral.customFn));
+  memset(g_model.customFn, 0, sizeof(g_model.customFn));
+  g_eeGeneral.radioGFDisabled = 0;
+  auto main = ViewMain::instance();
+
+  EXPECT_EQ(nb4RouteByPath("settings/advanced/automation"), nullptr);
+  const auto route =
+      nb4RouteByPath("settings/sound_alerts/voice_assignments");
+  ASSERT_NE(route, nullptr);
+  EXPECT_EQ(route->access, Nb4RouteAccess::RadioOnly);
+  ASSERT_TRUE(nb4OpenRoute(route->path));
+  for (unsigned f = 0; f < 3; ++f) render(scene.root);
+
+  auto assignments = Layer::back();
+  ASSERT_NE(assignments, nullptr);
+  EXPECT_TRUE(assignments->isPageGroup());
+  std::vector<std::string> labels;
+  collectLabels(assignments->getLvObj(), labels);
+  EXPECT_NE(std::find(labels.begin(), labels.end(),
+                      "Asignaciones de voz"), labels.end());
+  EXPECT_NE(std::find(labels.begin(), labels.end(), nb4RouteScope(*route)),
+            labels.end());
+  saveFrame("voice-assignments-list-es", lv_disp_get_hor_res(nullptr),
+            lv_disp_get_ver_res(nullptr));
+
+  ASSERT_TRUE(clickLabel(assignments->getLvObj(), LV_SYMBOL_PLUS));
+  render(scene.root);
+  ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), "VA1"));
+  for (unsigned f = 0; f < 3; ++f) render(scene.root);
+
+  EXPECT_EQ(CFN_FUNC(&g_eeGeneral.customFn[0]), FUNC_PLAY_TRACK);
+  EXPECT_TRUE(CFN_ACTIVE(&g_eeGeneral.customFn[0]));
+  EXPECT_EQ(g_model.customFn[0].swtch, 0);
+
+  labels.clear();
+  collectLabels(Layer::back()->getLvObj(), labels);
+  auto has = [&](const char* label) {
+    return std::find(labels.begin(), labels.end(), std::string(label)) !=
+           labels.end();
+  };
+  EXPECT_TRUE(has(STR_SF_SWITCH));
+  EXPECT_TRUE(has(STR_NB4_UX_VOICE_TRACK));
+  EXPECT_TRUE(has(STR_PLAY_FILE));
+  EXPECT_TRUE(has(STR_REPEAT));
+  EXPECT_TRUE(has(STR_ENABLE));
+  EXPECT_FALSE(has(STR_FUNC));
+  saveFrame("voice-assignment-editor-es", lv_disp_get_hor_res(nullptr),
+            lv_disp_get_ver_res(nullptr));
+
+  CFN_SWITCH(&g_eeGeneral.customFn[0]) = SWSRC_ON;
+  strncpy(g_eeGeneral.customFn[0].play.name, "lapbest",
+          sizeof(g_eeGeneral.customFn[0].play.name));
+  strAppend(g_model.header.name, "Otro coche", LEN_MODEL_NAME);
+  EXPECT_EQ(CFN_FUNC(&g_eeGeneral.customFn[0]), FUNC_PLAY_TRACK);
+  EXPECT_STREQ(g_eeGeneral.customFn[0].play.name, "lapbest");
+  EXPECT_EQ(g_model.customFn[0].swtch, 0);
+
+  Layer::back()->onCancel();
+  render(scene.root);
+  EXPECT_EQ(Layer::back(), assignments);
+  assignments->onCancel();
+  render(scene.root);
+  EXPECT_EQ(Layer::back(), main);
+}
 #endif
 }  // namespace
 
@@ -3013,7 +3084,8 @@ bool collectStrayControls(lv_obj_t* obj, std::vector<std::string>& out)
   if (!isControl) return controlBelow;
   if (controlBelow) return true;
   if (nb4ParamOwnsObject(obj)) return true;
-  if (labelInside(obj) == STR_NB4_BACK) return true;
+  const std::string ownLabel = labelInside(obj);
+  if (ownLabel == STR_NB4_BACK || ownLabel == "?") return true;
 
   std::string label;
   if (lv_obj_t* row = lv_obj_get_parent(obj)) {
@@ -3026,7 +3098,7 @@ bool collectStrayControls(lv_obj_t* obj, std::vector<std::string>& out)
       }
     }
   }
-  if (label.empty()) label = labelInside(obj);
+  if (label.empty()) label = ownLabel;
   if (label.empty()) label = "(sin rotulo)";
   out.push_back(label);
   return true;
@@ -3383,7 +3455,7 @@ const RouteDestination kDestinations[] = {
     {"settings/controls/trims", "Paso trim"},
     {"settings/controls/general", "Atraso switches"},
     {"settings/controls/shortcuts", "Asignar pulsando"},
-    {"settings/controls/quick_access", "Configurar acceso rápido"},
+    {"settings/controls/quick_access", "Acceso rápido"},
     {"settings/controls/monitor", "Monitor"},
     {"settings/telemetry/sensors", "Sensores"},
 
@@ -3405,6 +3477,7 @@ const RouteDestination kDestinations[] = {
 
     {"settings/sound_alerts/alerts", "Batería baja"},
     {"settings/sound_alerts/sound", "Volumen"},
+    {"settings/sound_alerts/voice_assignments", "Asignaciones de voz"},
     {"settings/sound_alerts/haptic", "Modo"},
     {"settings/sound_alerts/lights", "Luces"},
     {"settings/connectivity/usb", "Modo USB"},
@@ -3430,7 +3503,6 @@ const RouteDestination kDestinations[] = {
     {"settings/advanced/outputs", "Ampliar límites"},
     {"settings/advanced/curves", "CURVAS"},
     {"settings/advanced/logic", "Lógica"},
-    {"settings/advanced/automation", "Automatización"},
 
     {"settings/advanced/variables", "Variables del modelo (GVAR)"},
 
@@ -3492,7 +3564,8 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
       {"system/storage", QM_TOOLS_STORAGE}, {"system/diagnostics", QM_TOOLS_DEBUG},
       {"system/about", QM_RADIO_VERSION}, {"advanced/inputs", QM_MODEL_INPUTS},
       {"advanced/mixes", QM_MODEL_MIXES}, {"advanced/outputs", QM_MODEL_OUTPUTS},
-      {"advanced/logic", QM_MODEL_LS}, {"advanced/automation", QM_MODEL_SF}
+      {"advanced/logic", QM_MODEL_LS},
+      {"sound_alerts/voice_assignments", QM_RADIO_GF}
     };
     for (const auto& native : nativePages) if (!strcmp(native.first, r.destination)) {
       ASSERT_TRUE(Layer::back()->isPageGroup()) << r.path;
@@ -3626,7 +3699,7 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
         {QM_MODEL_CURVES, "curves"}, {QM_MODEL_GVARS, "variables"}, {QM_MODEL_LS, "logical-switches"},
         {QM_MODEL_SF, "safety"}, {QM_MODEL_TELEMETRY, "sensor-setup"},
         {QM_RADIO_SETUP, "radio-setup"}, {QM_RADIO_HARDWARE, "controls"},
-        {QM_RADIO_GF, "global-functions"}, {QM_TOOLS_STATS, "statistics"},
+        {QM_RADIO_GF, "voice-assignments"}, {QM_TOOLS_STATS, "statistics"},
         {QM_TOOLS_DEBUG, "diagnostics"}, {QM_RADIO_VERSION, "version"},
         {QM_TOOLS_STORAGE, "files"}, {QM_TOOLS_APPS, "lua"}, {QM_UI_THEMES, "themes"}};
       for (const auto& page : pages) { QuickMenu::openPage(page.first); capture(page.second); }
@@ -4651,6 +4724,7 @@ TEST(Nb4Ux, RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations)
       for (const char* path : {"settings/display/brightness", "settings/display/appearance",
            "settings/display/screens", "settings/display/top_bar", "settings/controls/shortcuts",
            "settings/controls/quick_access", "settings/sound_alerts/lights",
+           "settings/sound_alerts/voice_assignments",
            "settings/race/timers", "settings/race/resets", "settings/system/reset"}) {
         SCOPED_TRACE(path);
         ASSERT_TRUE(nb4OpenRoute(path)); render(scene.root);
@@ -4826,6 +4900,114 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
       Layer::back()->onCancel(); render(scene.root);
       EXPECT_EQ(Layer::back(), main);
     }
+  }
+}
+
+TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool spanish = pass % 2, landscape = pass >= 2;
+    scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
+    main->resizeToDisplay();
+    memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+
+    struct RouteHeader { const char* path; EdgeTxIcon icon; };
+    const RouteHeader routeHeaders[] = {
+        {"settings/car/general", ICON_NB4_MODEL_SETUP},
+        {"settings/controls/quick_access", ICON_QM_FAVORITES},
+        {"settings/controls/monitor", ICON_MONITOR},
+        {"settings/race/setup", ICON_MODEL_SETUP},
+        {"settings/sound_alerts/voice_assignments",
+         ICON_RADIO_GLOBAL_FUNCTIONS},
+    };
+    for (const auto& item : routeHeaders) {
+      SCOPED_TRACE(item.path);
+      const auto route = nb4RouteByPath(item.path);
+      ASSERT_NE(route, nullptr);
+      ASSERT_TRUE(nb4OpenRoute(item.path));
+      for (unsigned frame = 0; frame < 3; ++frame) render(scene.root);
+      auto owner = Layer::back();
+      ASSERT_NE(owner, main);
+      bool titleInTopBar = false;
+      bool titleUsesFixedBoldFont = false;
+      bool matchingIconInTopBar = false;
+      const auto expectedIcon = getBuiltinIcon(item.icon);
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+        if (lv_obj_check_type(obj, &lv_label_class) &&
+            !strcmp(lv_label_get_text(obj), route->label())) {
+          lv_area_t bounds;
+          lv_obj_get_coords(obj, &bounds);
+          lv_area_t parentBounds;
+          lv_obj_get_coords(lv_obj_get_parent(obj), &parentBounds);
+          if (bounds.y1 >= parentBounds.y1 &&
+              bounds.y2 <= parentBounds.y1 + 60) {
+            titleInTopBar = true;
+            titleUsesFixedBoldFont =
+                lv_obj_get_style_text_font(obj, LV_PART_MAIN) ==
+                getFont(FONT(BOLD));
+          }
+        }
+        if (lv_obj_check_type(obj, &lv_canvas_class)) {
+          auto image = lv_canvas_get_img(obj);
+          if (image && expectedIcon && image->data == expectedIcon->data)
+            matchingIconInTopBar = true;
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(owner->getLvObj());
+      EXPECT_TRUE(titleInTopBar);
+      EXPECT_TRUE(titleUsesFixedBoldFont);
+      EXPECT_TRUE(matchingIconInTopBar);
+      if (!strcmp(item.path, "settings/controls/monitor"))
+        saveFrame((std::string("header-monitor-") +
+                   (spanish ? "es-" : "en-") +
+                   (landscape ? "landscape" : "portrait")).c_str(),
+                  lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+      owner->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+
+    nb4OpenSettingsSection("controls"); render(scene.root);
+    auto modal = Layer::back();
+    unsigned sectionCount = 0;
+    const auto sections = nb4Sections(&sectionCount);
+    const char* sectionTitle = nullptr;
+    for (unsigned i = 0; i < sectionCount; ++i)
+      if (!strcmp(sections[i].id, "controls")) sectionTitle = sections[i].label();
+    ASSERT_NE(sectionTitle, nullptr);
+    lv_obj_t* title = nullptr;
+    bool apexLogo = false;
+    const auto expectedLogo = getBuiltinIcon(ICON_TOP_LOGO);
+    std::function<void(lv_obj_t*)> findTitle = [&](lv_obj_t* obj) {
+      if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) &&
+          lv_obj_check_type(obj, &lv_label_class) &&
+          !strcmp(lv_label_get_text(obj), sectionTitle))
+        title = obj;
+      if (lv_obj_check_type(obj, &lv_canvas_class)) {
+        auto image = lv_canvas_get_img(obj);
+        if (image && expectedLogo && image->data == expectedLogo->data)
+          apexLogo = true;
+      }
+      for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+        findTitle(lv_obj_get_child(obj, i));
+    };
+    findTitle(modal->getLvObj());
+    ASSERT_NE(title, nullptr);
+    EXPECT_TRUE(apexLogo);
+    EXPECT_EQ(lv_obj_get_style_text_font(title, LV_PART_MAIN),
+              getFont(FONT(BOLD)));
+    lv_area_t titleBounds, headerBounds;
+    lv_obj_get_coords(title, &titleBounds);
+    lv_obj_get_coords(lv_obj_get_parent(title), &headerBounds);
+    EXPECT_LE(std::abs((titleBounds.y1 + titleBounds.y2) -
+                       (headerBounds.y1 + headerBounds.y2)), 2);
+    modal->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
   }
 }
 

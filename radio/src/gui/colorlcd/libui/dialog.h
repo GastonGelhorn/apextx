@@ -25,6 +25,7 @@ class StaticText;
 class DynamicText;
 class Progress;
 class TextButton;
+class HeaderIcon;
 
 #define DIALOG_DEFAULT_WIDTH ((coord_t)(lv_disp_get_hor_res(nullptr) * 0.8))
 #if defined(RADIO_NB4_FAMILY)
@@ -51,6 +52,7 @@ class BaseDialog : public ModalWindow
   void setScopeText(const std::string& text) override;
   const std::string& getScopeText() const override { return scopeText; }
   void setRouteTitle(const char* text) override { setTitle(text); }
+  void setRouteIcon(uint8_t icon) override;
   bool setHelpHandler(std::function<void()> action) override;
   std::function<void()> getHelpHandler() const override { return helpHandler; }
 #endif
@@ -62,9 +64,13 @@ class BaseDialog : public ModalWindow
 #if defined(RADIO_NB4_FAMILY)
   Window* closeButton = nullptr;
   TextButton* helpButton = nullptr;
+  HeaderIcon* routeHeaderIcon = nullptr;
   StaticText* scopeLabel = nullptr;
   std::string scopeText;
   std::function<void()> helpHandler;
+  bool sectionHeader = false;
+
+  void updateSectionTitleStyle();
 #endif
 
   void onCancel() override { deleteLater(); }

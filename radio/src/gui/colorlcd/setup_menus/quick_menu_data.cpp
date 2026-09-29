@@ -118,7 +118,11 @@ PageDef radioMenuItems[] = {
   { ICON_RADIO_SD_MANAGER, STR_DEF(STR_QM_STORAGE), STR_DEF(STR_SD_CARD), PAGE_CREATE, QM_TOOLS_STORAGE, [](PageDef& pageDef) { return new RadioSdManagerPage(pageDef); }},
   { ICON_RADIO_SETUP, STR_DEF(STR_QM_RADIO_SETTINGS), STR_DEF(STR_MAIN_RADIO_SETTINGS), PAGE_CREATE, QM_RADIO_SETUP, [](PageDef& pageDef) { return new RadioSetupPage(pageDef); }},
   { ICON_RADIO_EDIT_THEME, STR_DEF(STR_QM_THEMES), STR_DEF(STR_MAIN_MENU_THEMES), PAGE_CREATE, QM_UI_THEMES, [](PageDef& pageDef) { return new ThemeSetupPage(pageDef); }, radioThemesEnabled},
+#if defined(RADIO_NB4_FAMILY)
+  { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_NB4_UX_VOICE_ASSIGNMENTS), STR_DEF(STR_NB4_UX_VOICE_ASSIGNMENTS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new VoiceAssignmentsPage(pageDef); }},
+#else
   { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_QM_GLOB_FUNC), STR_DEF(STR_MENUSPECIALFUNCS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new GlobalFunctionsPage(pageDef); }, radioGFEnabled},
+#endif
 #if !defined(RADIO_NB4_FAMILY)
   { ICON_RADIO_TRAINER, STR_DEF(STR_QM_TRAINER), STR_DEF(STR_MENUTRAINER), PAGE_CREATE, QM_RADIO_TRAINER, [](PageDef& pageDef) { return new RadioTrainerPage(pageDef); }, radioTrainerEnabled},
 #endif
@@ -258,7 +262,11 @@ PageDef modelMenuItems[] = {
 
 PageDef radioMenuItems[] = {
   { ICON_RADIO_SETUP, STR_DEF(STR_QM_RADIO_SETTINGS), STR_DEF(STR_MAIN_RADIO_SETTINGS), PAGE_CREATE, QM_RADIO_SETUP, [](PageDef& pageDef) { return new RadioSetupPage(pageDef); }},
+#if defined(RADIO_NB4_FAMILY)
+  { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_NB4_UX_VOICE_ASSIGNMENTS), STR_DEF(STR_NB4_UX_VOICE_ASSIGNMENTS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new VoiceAssignmentsPage(pageDef); }},
+#else
   { ICON_RADIO_GLOBAL_FUNCTIONS, STR_DEF(STR_QM_GLOB_FUNC), STR_DEF(STR_MENUSPECIALFUNCS), PAGE_CREATE, QM_RADIO_GF, [](PageDef& pageDef) { return new GlobalFunctionsPage(pageDef); }, radioGFEnabled},
+#endif
 #if !defined(RADIO_NB4_FAMILY)
   { ICON_RADIO_TRAINER, STR_DEF(STR_QM_TRAINER), STR_DEF(STR_MENUTRAINER), PAGE_CREATE, QM_RADIO_TRAINER, [](PageDef& pageDef) { return new RadioTrainerPage(pageDef); }, radioTrainerEnabled},
 #endif

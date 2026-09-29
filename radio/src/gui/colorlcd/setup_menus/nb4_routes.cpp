@@ -336,12 +336,13 @@ const Nb4Route routes[] = {
     AV("settings/display/screens", NB4_STR(SCREENS), openScreens, ModelData, "display/screens", UX_HELP_SCREENS, true),
     AV("settings/display/top_bar", NB4_STR(TOP_BAR), []() { page(QM_UI_SETUP); }, ModelData, "display/top_bar", UX_HELP_TOPBAR, true),
     IN("settings/controls/shortcuts", NB4_STR(KEYS_AND_NAVIGATION), nb4OpenNavigationAssignments, ModelData, "controls/shortcuts", UX_HELP_NAVIGATION, true, "display"),
-    IN("settings/controls/quick_access", NB4_STR(CONFIGURE_QUICK_ACCESS), nb4OpenQuickAccessSetup, RadioOnly, "controls/quick_access", UX_HELP_QUICK, false, "display"),
+    IN("settings/controls/quick_access", NB4_STR(QUICK_ACCESS), nb4OpenQuickAccessSetup, RadioOnly, "controls/quick_access", UX_HELP_QUICK, false, "display"),
     IN("settings/sound_alerts/lights", NB4_STR(LIGHTS), openLeds, RadioOnly, "sound_alerts/lights", UX_HELP_LIGHTS, true, "display"),
 
     // --- Sound and alerts
     AV("settings/sound_alerts/alerts", NB4_STR(ALERTS), openAlarms, RadioOnly, "sound_alerts/alerts", UX_HELP_SOUND, true),
     AV("settings/sound_alerts/sound", NB4_STR(SOUND), openSound, RadioOnly, "sound_alerts/sound", UX_HELP_SOUND, true),
+    AV("settings/sound_alerts/voice_assignments", NB4_STR(UX_VOICE_ASSIGNMENTS), []() { page(QM_RADIO_GF); }, RadioOnly, "sound_alerts/voice_assignments", UX_HELP_VOICE_ASSIGNMENTS, true),
     AV("settings/sound_alerts/haptic", NB4_STR(HAPTIC), openHaptic, RadioOnly, "sound_alerts/haptic", UX_HELP_SOUND, true),
 
     // --- System (legacy connectivity IDs are preserved for saved shortcuts)
@@ -399,12 +400,6 @@ const Nb4Route routes[] = {
           []() { page(QM_MODEL_LS); },
           modelLSEnabled,
           NB4_STR(LOGICAL_SWITCHES_ARE_SWITCHED_OFF_TURN_T), ModelData, "advanced/logic", UX_HELP_LOGIC, true),
-
-    AVIFR("settings/advanced/automation",
-          NB4_STR(MODEL_SPECIAL_FUNCTIONS),
-          []() { page(QM_MODEL_SF); },
-          modelSFEnabled,
-          NB4_STR(SPECIAL_FUNCTIONS_ARE_SWITCHED_OFF_TURN), ModelData, "advanced/automation", UX_HELP_FUNCTIONS, true),
 
     AV("settings/advanced/variables", NB4_STR(MODEL_VARIABLES_GVAR), openVariables, ModelData, "advanced/variables", UX_HELP_VARIABLES, true),
     AVIFR("settings/advanced/scripts",
@@ -508,6 +503,7 @@ const char* appTileLabel(const char* key, const char* fallback)
       {"settings/sound_alerts/lights", "Lights", "Luces"},
       {"settings/sound_alerts/alerts", "Alerts", "Avisos"},
       {"settings/sound_alerts/sound", "Sound", "Sonido"},
+      {"settings/sound_alerts/voice_assignments", "Voice", "Voces"},
       {"settings/sound_alerts/haptic", "Haptic", "Vibración"},
       {"settings/connectivity/usb", "USB", "USB"},
       {"settings/connectivity/bluetooth", "Bluetooth", "Bluetooth"},
@@ -529,7 +525,6 @@ const char* appTileLabel(const char* key, const char* fallback)
       {"settings/advanced/mixes", "Mixes", "Mezclas"},
       {"settings/advanced/outputs", "Outputs", "Salidas"},
       {"settings/advanced/logic", "Logic", "Lógica"},
-      {"settings/advanced/automation", "Actions", "Acciones"},
       {"settings/advanced/variables", "Variables", "Variables"},
       {"settings/advanced/scripts", "Scripts", "Scripts"},
   };
@@ -688,6 +683,7 @@ uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
   if (!strcmp(route.path, "settings/sound_alerts/lights")) return ICON_THEME_VIEW2;
   if (!strcmp(route.path, "settings/sound_alerts/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
   if (!strcmp(route.path, "settings/sound_alerts/sound")) return ICON_RADIO_SETUP;
+  if (!strcmp(route.path, "settings/sound_alerts/voice_assignments")) return ICON_RADIO_GLOBAL_FUNCTIONS;
   if (!strcmp(route.path, "settings/sound_alerts/haptic")) return ICON_RADIO_TRAINER;
   if (!strcmp(route.path, "settings/connectivity/usb")) return ICON_MODEL_USB;
   if (!strcmp(route.path, "settings/connectivity/bluetooth")) return ICON_RADIO_TRAINER;
@@ -709,10 +705,20 @@ uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
   if (!strcmp(route.path, "settings/advanced/mixes")) return ICON_MODEL_MIXER;
   if (!strcmp(route.path, "settings/advanced/outputs")) return ICON_MODEL_OUTPUTS;
   if (!strcmp(route.path, "settings/advanced/logic")) return ICON_MODEL_LOGICAL_SWITCHES;
-  if (!strcmp(route.path, "settings/advanced/automation")) return ICON_MODEL_SPECIAL_FUNCTIONS;
   if (!strcmp(route.path, "settings/advanced/variables")) return ICON_MODEL_GVARS;
   if (!strcmp(route.path, "settings/advanced/scripts")) return ICON_MODEL_LUA_SCRIPTS;
   return fallback;
+}
+
+EdgeTxIcon routeDisplayIcon(const Nb4Route& route)
+{
+  uint8_t fallback = ICON_RADIO;
+  for (const auto& section : sections)
+    if (nb4RouteInSection(route, section.id)) {
+      fallback = section.icon;
+      break;
+    }
+  return (EdgeTxIcon)routeIcon(route, fallback);
 }
 
 class Nb4GridModal : public BaseDialog
@@ -722,6 +728,8 @@ class Nb4GridModal : public BaseDialog
       BaseDialog(title, true, gridWidth(), gridHeight(tiles))
   {
     setScopeText(""); // Category grids contain destinations with different scopes.
+    // Navigation modals keep the ApexTX identity. Route icons belong to the
+    // destination views opened from these grids, not to the modal itself.
     useBrandHeader();
     form->setFlexLayout(LV_FLEX_FLOW_ROW_WRAP, PAD_SMALL, gridWidth(),
                         LV_SIZE_CONTENT);
@@ -739,6 +747,8 @@ class Nb4GridModal : public BaseDialog
   // Navigation grids only choose a destination. Help belongs to the editor,
   // not to a second category index; also reject route-level help injection.
   bool setHelpHandler(std::function<void()>) override { return false; }
+  void setRouteTitle(const char*) override {}
+  void setRouteIcon(uint8_t) override {}
 
   void tile(uint8_t icon, const char* label, bool openable,
             std::function<void()> action, const char* reason = nullptr,
@@ -911,16 +921,13 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
 void nb4OpenQuickAccessModal()
 {
   nb4QuickAccessNormalize();
-  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS, NB4_QUICK_ACCESS_COUNT);
+  auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS,
+                                NB4_QUICK_ACCESS_COUNT);
   modal->populate([modal] {
   for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
     const Nb4Route* route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
     if (!route) continue;
-    uint8_t icon = ICON_RADIO;
-    for (const auto& section : sections) {
-      if (nb4RouteInSection(*route, section.id)) icon = section.icon;
-    }
-    icon = routeIcon(*route, icon);
+    const auto icon = routeDisplayIcon(*route);
     modal->tile(icon, nb4QuickAccessLabel(*route).c_str(), nb4RouteIsOpenable(*route),
                 [route] { nb4OpenRoute(route->path); },
                 nb4StrOrNull(route->reason), route->path);
@@ -988,7 +995,7 @@ void nb4OpenSettingsSection(const char* id)
   for (unsigned v = 0; v < n && v < 32; ++v) {
     const auto route = views[v];
     if (!nb4RouteInSettings(*route)) continue;
-    modal->tile(routeIcon(*route, section->icon), route->label(),
+    modal->tile(routeDisplayIcon(*route), route->label(),
                 nb4RouteIsOpenable(*route),
                 [route] { nb4OpenRoute(route->path); },
                 nb4StrOrNull(route->reason), route->path);
@@ -1129,6 +1136,7 @@ bool nb4OpenRoute(const char* path)
   if (auto page = Layer::back()) {
     if (!page->isHelpPage()) page->setScopeText(nb4RouteScope(*route));
     page->setRouteTitle(route->label());
+    page->setRouteIcon(routeDisplayIcon(*route));
     // Receiver keeps its richer, field-by-field help registered by ModulePage.
     if (!page->isHelpPage() && strcmp(route->destination, "receiver_rf/module"))
       page->setHelpHandler([route] { nb4OpenHelp(route->path, true); });
