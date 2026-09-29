@@ -30,6 +30,10 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         self.assertIn("tools/nb4-audio-packs.py", workflow)
         self.assertIn("v2.12.3", workflow)
         self.assertIn("4e34b6cb40ab53c6dcd293e2b1344b54d912d41c", workflow)
+        self.assertLess(
+            workflow.index("apt\\.kitware\\.com"),
+            workflow.index("apt-get update"),
+        )
 
     def test_project_owned_sources_have_spdx_headers(self) -> None:
         patterns = (

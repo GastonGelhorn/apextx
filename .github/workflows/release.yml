@@ -68,6 +68,14 @@ jobs:
       - name: Prepare the pinned NB4 audio source
         shell: bash
         run: |
+          # The pinned EdgeTX build image currently carries an expired Kitware
+          # apt source key. CMake is already part of the image, so disable only
+          # that third-party source before installing the audio converter.
+          for source in /etc/apt/sources.list.d/*; do
+            if [[ -f "$source" ]] && grep -q 'apt\.kitware\.com' "$source"; then
+              mv "$source" "$source.disabled"
+            fi
+          done
           apt-get update
           apt-get install -y --no-install-recommends ffmpeg
           git clone --depth 1 --branch v2.12.3 --filter=blob:none --sparse \

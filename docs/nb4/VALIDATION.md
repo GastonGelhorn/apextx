@@ -57,7 +57,7 @@ The automated menu checks are in `Nb4Routes`, `Nb4Ux`, `Nb4RacingUi`,
 versions and migration/rollback files. Hardware checks remain required before
 release; simulator tests cannot qualify a transmitter or receiver.
 
-## ApexTX 0.1.0-alpha.2 release validation — 2026-09-29
+## ApexTX 0.1.0-alpha.3 release validation — 2026-09-29
 
 - Clean public original-NB4 ARM build: **passed** with
   `NB4_RF_PROFILE=RECOVERED_USART6`, `APEXTX_PUBLIC_RELEASE=ON` and compiled

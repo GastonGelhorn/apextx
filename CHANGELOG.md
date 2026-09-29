@@ -6,7 +6,7 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
-## [0.1.0-alpha.2] - 2026-09-29
+## [0.1.0-alpha.3] - 2026-09-29
 
 - Unified NB4 headers: every destination title now stays in the top bar with
   a fixed, legible font and the same icon as its Menu tile; long titles clip
@@ -43,6 +43,6 @@ First public build for the original FlySky Noble NB4.
 - English and Spanish interface, switchable on the radio.
 - Build, validation, packaging, compatibility and installation documentation.
 
-[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.2...HEAD
-[0.1.0-alpha.2]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
+[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.3...HEAD
+[0.1.0-alpha.3]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...v0.1.0-alpha.3
 [0.1.0-alpha.1]: https://github.com/GastonGelhorn/apextx/releases/tag/v0.1.0-alpha.1
