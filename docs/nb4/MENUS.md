@@ -3,7 +3,7 @@
 ## Navigation
 
 Menu uses one car-oriented route catalogue. Steering and Throttle/brake
-open their tabbed editors directly; Advanced setup is inside Current car. Each legacy editor
+open their tabbed editors directly; Advanced setup is inside Cars > Current car. Each legacy editor
 opens on its own, without unrelated tabs. Back returns to its parent; category
 grids retain their scroll and focus. Editors also have a visible Back button.
 
@@ -32,12 +32,19 @@ the ApexTX logo; their section title is bold and vertically centred. Paged
 editors reserve a compact area for their tab selector without covering the
 title.
 
-## Current car, startup checks and presets
+## Cars, startup checks and presets
 
-Current car > Car details replaces the former General page: only the name and labels
+Cars is the single entry for both the active car and the collection. Its first
+screen keeps Current car, Receiver & RF, Templates and Create car visible above
+the saved-car list; there is no separate Car/My cars pair in the main menu.
+Creating a blank car asks for its name, creates and selects it, then offers to
+open Receiver & RF immediately for binding. Templates remain an explicit
+alternative rather than an extra step in the common new-car flow.
+
+Cars > Current car > Car details replaces the former General page: only the name and labels
 remain. Receiver, timers, trims and safety keep their own destinations. Less
 frequent feature-visibility and input-filter/centre-beep preferences live in
-Current car > Advanced setup.
+Cars > Current car > Advanced setup.
 
 Startup checks explains each startup check directly below its control: notes/checklist,
 interactive checklist, throttle warning, optional custom throttle position,
@@ -118,7 +125,7 @@ changing shortcut navigation semantics does not require rewriting the schema.
 
 ## Templates
 
-My cars > Templates browses YAML templates and their optional same-name .txt
+Cars > Templates browses YAML templates and their optional same-name .txt
 description. Create car validates and stages the template before changing the
 active model. Copy, parse or promotion failures leave the previous car active,
 including its dynamic screen/widget data.

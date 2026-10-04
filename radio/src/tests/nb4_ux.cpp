@@ -2061,7 +2061,9 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
 
   nb4OpenSettingsModal();
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
-  ASSERT_TRUE(clickLabel(lv_scr_act(), nb4AppTileLabel("car", STR_NB4_CAR)));
+  ASSERT_TRUE(clickLabel(lv_scr_act(), nb4AppTileLabel("cars", STR_NB4_MODELS)));
+  for (unsigned f = 0; f < 4; ++f) render(scene.root);
+  ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_CAR));
   for (unsigned f = 0; f < 4; ++f) render(scene.root);
 
   lv_obj_t* helpTile = nullptr;
@@ -3466,7 +3468,7 @@ const RouteDestination kDestinations[] = {
     {"settings/race/statistics", "Batería"},
     {"settings/race/pit", "DEPÓSITO / PACK"},
     {"settings/race/history", "Historial de mangas"},
-    {"settings/models/management", "Lista de coches"},
+    {"settings/models/management", "Coche actual"},
     {"settings/models/templates", "Plantillas"},
     {"settings/display/top_bar", "Config. widgets"},
     {"settings/display/screens", "Inicio"},
@@ -4779,7 +4781,7 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
     currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
     nb4QuickAccessReset();
     for (const char* section : {"menu", "quick", "car", "controls", "race",
-                                "telemetry", "models", "display", "sound_alerts",
+                                "telemetry", "display", "sound_alerts",
                                 "system", "advanced"}) {
       SCOPED_TRACE(section);
       if (!strcmp(section, "menu")) nb4OpenSettingsModal();
@@ -4900,6 +4902,43 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
       Layer::back()->onCancel(); render(scene.root);
       EXPECT_EQ(Layer::back(), main);
     }
+  }
+}
+
+TEST(Nb4Ux, CarsIsOneMenuEntryWithCurrentCarReceiverTemplatesAndCreation)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (unsigned pass = 0; pass < 4; ++pass) {
+    const bool spanish = pass % 2, landscape = pass >= 2;
+    scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
+    main->resizeToDisplay();
+    memcpy(g_eeGeneral.uiLanguage, spanish ? "es" : "en", 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+
+    nb4OpenSettingsModal(); render(scene.root);
+    std::vector<std::string> labels;
+    collectLabels(Layer::back()->getLvObj(), labels);
+    const auto cars = std::string(nb4AppTileLabel("cars", STR_NB4_MODELS));
+    EXPECT_EQ(std::count(labels.begin(), labels.end(), cars), 1);
+    Layer::back()->onCancel(); render(scene.root);
+
+    nb4OpenSettingsSection("cars"); render(scene.root);
+    labels.clear(); collectLabels(Layer::back()->getLvObj(), labels);
+    for (const char* expected : {STR_NB4_CAR, STR_NB4_RECEIVER,
+                                 STR_NB4_TEMPLATES,
+                                 STR_NB4_UX_CREATE_CAR})
+      EXPECT_NE(std::find(labels.begin(), labels.end(), expected), labels.end())
+          << expected;
+
+    ASSERT_TRUE(clickLabel(lv_scr_act(), STR_NB4_UX_CREATE_CAR));
+    render(scene.root);
+    labels.clear(); collectLabels(Layer::back()->getLvObj(), labels);
+    EXPECT_NE(std::find(labels.begin(), labels.end(), STR_NB4_UX_CREATE_CAR),
+              labels.end());
+    Layer::back()->onCancel(); render(scene.root);
+    Layer::back()->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
   }
 }
 

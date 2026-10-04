@@ -1981,6 +1981,8 @@
 #define TR_NB4_UX_OPEN_SETTING "Open setting"
 #define TR_NB4_UX_SAVED_RESULT "View result"
 #define TR_NB4_UX_CREATE_CAR "Create car"
+#define TR_NB4_UX_ENTER_CAR_NAME "Enter a name for the new car."
+#define TR_NB4_UX_CAR_CREATED_BIND "The car is ready. Bind its receiver now?"
 #define TR_NB4_UX_SAVE_TEMPLATE "Save current car as template"
 #define TR_NB4_UX_DELETE_TEMPLATE "Delete personal template"
 #define TR_NB4_UX_TEMPLATE_ERROR "Template operation failed. Check storage and try again."

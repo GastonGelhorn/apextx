@@ -7,6 +7,7 @@
 #include "nb4_controls.h"
 #include "nb4_racing.h"
 #include "nb4_model_compat.h"
+#include "nb4_trim_ladder.h"
 #include "storage/yaml/yaml_datastructs.h"
 #include "storage/yaml/yaml_parser.h"
 #include "storage/yaml/yaml_tree_walker.h"
@@ -41,6 +42,16 @@ class Nb4Controls : public testing::Test {
   }
   uint32_t keysOut = 0, trimsOut = 0;
 };
+
+TEST(Nb4TrimLadder, SteeringDirectionMatchesTheProductionNb4Hardware)
+{
+  EXPECT_EQ(nb4TrimLadderBits(0, 4095), 1u << NB4_ST_DOWN);
+  EXPECT_EQ(nb4TrimLadderBits(2000, 4095), 1u << NB4_ST_UP);
+  // The throttle ladder was already correct and must not change with the
+  // steering fix.
+  EXPECT_EQ(nb4TrimLadderBits(4095, 0), 1u << NB4_TH_UP);
+  EXPECT_EQ(nb4TrimLadderBits(4095, 2000), 1u << NB4_TH_DOWN);
+}
 
 TEST_F(Nb4Controls, OldModelsKeepEveryNativeKeyAndTrim) {
   scan(0xfff);

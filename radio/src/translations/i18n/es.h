@@ -1967,6 +1967,8 @@
 #define TR_NB4_UX_OPEN_SETTING "Abrir ajuste"
 #define TR_NB4_UX_SAVED_RESULT "Ver resultado"
 #define TR_NB4_UX_CREATE_CAR "Crear coche"
+#define TR_NB4_UX_ENTER_CAR_NAME "Escribe un nombre para el coche nuevo."
+#define TR_NB4_UX_CAR_CREATED_BIND "El coche está listo. Enlazar ahora su receptor?"
 #define TR_NB4_UX_SAVE_TEMPLATE "Guardar coche actual como plantilla"
 #define TR_NB4_UX_DELETE_TEMPLATE "Borrar plantilla personal"
 #define TR_NB4_UX_TEMPLATE_ERROR "La operación de plantilla falló. Revisa el almacenamiento e inténtalo de nuevo."

@@ -441,6 +441,8 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
 {
   const auto saved = g_eeGeneral;
   for (const auto& move : std::vector<std::pair<const char*, const char*>>{
+      {"settings/models/management", "cars"},
+      {"settings/models/templates", "cars"},
       {"settings/controls/shortcuts", "display"},
       {"settings/controls/quick_access", "display"},
       {"settings/sound_alerts/lights", "display"},
@@ -458,7 +460,7 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
     EXPECT_STREQ(race[i]->path + strlen("settings/race/"), expected[i]);
   unsigned count;
   const auto sections = nb4Sections(&count);
-  const char* expectedSections[] = {"steering", "throttle_brake", "car", "controls", "receiver_rf", "race", "telemetry", "models", "display", "sound_alerts", "system", "help", "advanced"};
+  const char* expectedSections[] = {"steering", "throttle_brake", "cars", "controls", "receiver_rf", "race", "telemetry", "display", "sound_alerts", "system", "help", "car", "advanced"};
   ASSERT_EQ(count, 13u);
   for (unsigned i = 0; i < count; ++i) EXPECT_STREQ(sections[i].id, expectedSections[i]);
   unsigned rootEntries = 0;
@@ -472,6 +474,7 @@ TEST(Nb4Routes, PresentationMovesPreserveIdsAndMenuOrder)
     if (!sections[i].parent && visible) rootEntries += 1;
   }
   EXPECT_LE(rootEntries, 12u);
+  EXPECT_STREQ(sections[11].parent, "cars");
 #if !defined(BLUETOOTH)
   EXPECT_EQ(nb4RouteByPath("settings/connectivity/bluetooth"), nullptr);
 #endif

@@ -31,6 +31,7 @@
 #include "screen_setup.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_menu_pages.h"
+#include "nb4_routes.h"
 #endif
 
 static bool modelListIsFull()
@@ -219,7 +220,9 @@ class ModelButton : public Button
 class ModelsPageBody : public Window
 {
  public:
-  ModelsPageBody(Window *parent, const rect_t &rect) : Window(parent, rect)
+  ModelsPageBody(Window *parent, const rect_t &rect, int8_t fixedLayout = -1,
+                 bool fullWidth = false) :
+      Window(parent, rect), fixedLayout(fixedLayout), fullWidth(fullWidth)
   {
     padAll(PAD_TINY);
   }
@@ -247,9 +250,12 @@ class ModelsPageBody : public Window
     ModelButton *focusedButton = nullptr;
 
     int n = 0;
-    int cols = modelLayouts[g_eeGeneral.modelSelectLayout].columns;
-    coord_t w = modelLayouts[g_eeGeneral.modelSelectLayout].width;
-    coord_t h = modelLayouts[g_eeGeneral.modelSelectLayout].height;
+    const uint8_t layout = fixedLayout >= 0 ? fixedLayout
+                                            : g_eeGeneral.modelSelectLayout;
+    int cols = modelLayouts[layout].columns;
+    coord_t w = modelLayouts[layout].width;
+    if (fullWidth) w = width() - PAD_TINY * 2;
+    coord_t h = modelLayouts[layout].height;
 
     for (auto &model : models) {
       coord_t x = (n % cols) * (w + PAD_TINY);
@@ -269,7 +275,7 @@ class ModelsPageBody : public Window
       } else {
         button = new ModelButton(
             this, {x, y, w, h}, model, [=]() { focusedModel = model; },
-            g_eeGeneral.modelSelectLayout);
+            layout);
         modelButtons.push_back(button);
       }
 
@@ -349,6 +355,8 @@ class ModelsPageBody : public Window
   ModelCell *focusedModel = nullptr;
   std::vector<ModelButton*> modelButtons;
   std::function<void()> refreshLabels = nullptr;
+  int8_t fixedLayout = -1;
+  bool fullWidth = false;
 
   void checkEvents() override
   {
@@ -365,16 +373,32 @@ class ModelsPageBody : public Window
     menu->setTitle(focusedModel->modelName);
     if (g_eeGeneral.modelQuickSelect ||
         focusedModel != modelslist.getCurrentModel()) {
+#if defined(RADIO_NB4_FAMILY)
+      menu->addLine(STR_NB4_SELECT, [=]() { selectModel(focusedModel); });
+#else
       menu->addLine(STR_SELECT_MODEL, [=]() { selectModel(focusedModel); });
+#endif
     }
+#if defined(RADIO_NB4_FAMILY)
+    if (focusedModel == modelslist.getCurrentModel()) {
+      menu->addLine(STR_NB4_UX_CAR_DETAILS,
+                    []() { nb4OpenSettingsSection("car"); });
+      menu->addLine(STR_NB4_RECEIVER,
+                    []() { nb4OpenRoute("settings/receiver_rf/module"); });
+    }
+    menu->addLine(STR_DUPLICATE, [=]() { duplicateModel(focusedModel); });
+#else
     menu->addLine(STR_DUPLICATE_MODEL, [=]() { duplicateModel(focusedModel); });
     menu->addLine(STR_LABEL_MODEL, [=]() { editLabels(focusedModel); });
-#if defined(RADIO_NB4_FAMILY)
-    if (focusedModel == modelslist.getCurrentModel())
 #endif
+    if (focusedModel == modelslist.getCurrentModel())
       menu->addLine(STR_SAVE_TEMPLATE, [=]() { saveAsTemplate(focusedModel); });
     if (focusedModel != modelslist.getCurrentModel()) {
+#if defined(RADIO_NB4_FAMILY)
+      menu->addLine(STR_DELETE, [=]() { deleteModel(focusedModel); });
+#else
       menu->addLine(STR_DELETE_MODEL, [=]() { deleteModel(focusedModel); });
+#endif
     }
   }
 
@@ -441,7 +465,11 @@ class ModelsPageBody : public Window
     if (modelListIsFull()) return;
 
     new ConfirmDialog(
+#if defined(RADIO_NB4_FAMILY)
+        STR_DUPLICATE,
+#else
         STR_DUPLICATE_MODEL,
+#endif
         std::string(model->modelName, sizeof(model->modelName)).c_str(), [=] {
           storageFlushCurrentModel();
           storageCheck(true);
@@ -470,7 +498,11 @@ class ModelsPageBody : public Window
   void deleteModel(ModelCell *model)
   {
     new ConfirmDialog(
+#if defined(RADIO_NB4_FAMILY)
+        STR_DELETE,
+#else
         STR_DELETE_MODEL,
+#endif
         std::string(model->modelName, sizeof(model->modelName)).c_str(), [=] {
           modelslist.removeModel(model);
           if (refreshLabels != nullptr) refreshLabels();
@@ -593,6 +625,7 @@ ModelLabelsWindow::ModelLabelsWindow() : Page(ICON_MODEL_SELECT, PAD_ZERO, true)
   buildHead(header);
   buildBody(body);
 
+#if !defined(RADIO_NB4_FAMILY)
   // find the first label of the current model and make that label active
   auto currentModel = modelslist.getCurrentModel();
   if (currentModel != nullptr) {
@@ -609,6 +642,7 @@ ModelLabelsWindow::ModelLabelsWindow() : Page(ICON_MODEL_SELECT, PAD_ZERO, true)
       lblselector->setSelected(getLabels().size() - 1);
     }
   }
+#endif
 
   enableRefresh();
 }
@@ -636,6 +670,7 @@ void ModelLabelsWindow::onLongPressTELE()
 }
 void ModelLabelsWindow::onPressPG(bool isNext)
 {
+  if (!lblselector) return;
   int rowcount = lblselector->getRowCount();
   std::set<uint32_t> sellist;
   int select = -1;
@@ -678,6 +713,47 @@ void ModelLabelsWindow::newModel()
 {
   if (modelListIsFull()) return;
 
+#if defined(RADIO_NB4_FAMILY)
+  new LabelDialog("", LEN_MODEL_NAME, STR_NB4_UX_CREATE_CAR,
+                  [this](std::string name) {
+    const auto first = name.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+      new MessageDialog(STR_NB4_UX_CREATE_CAR,
+                        STR_NB4_UX_ENTER_CAR_NAME);
+      return;
+    }
+    name.erase(0, first);
+    const auto last = name.find_last_not_of(" \t\r\n");
+    if (last != std::string::npos) name.erase(last + 1);
+
+    storageFlushCurrentModel();
+    storageCheck(true);
+
+    MainWindow::instance()->enableWidgetRefresh(false);
+    LayoutFactory::deleteCustomScreens();
+    LayoutFactory::deleteTopBarWidgets();
+    auto newCell = modelslist.addModel("", false);
+    modelslist.setCurrentModel(newCell);
+    createModel();
+
+    strncpy(g_model.header.name, name.c_str(), LEN_MODEL_NAME);
+    LayoutFactory::loadDefaultLayout();
+    storageDirty(EE_MODEL | EE_GENERAL);
+    storageCheck(true);
+    modelslist.updateCurrentModelCell();
+    LayoutFactory::loadCustomScreens();
+    MainWindow::instance()->enableWidgetRefresh(true);
+
+    mdlselector->reload();
+    setTitle();
+
+    new ConfirmDialog(STR_NB4_BIND_RECEIVER,
+                      STR_NB4_UX_CAR_CREATED_BIND,
+                      []() {
+                        nb4OpenRoute("settings/receiver_rf/module");
+                      });
+  });
+#else
   // Save current
   storageFlushCurrentModel();
   storageCheck(true);
@@ -736,6 +812,7 @@ void ModelLabelsWindow::newModel()
     // Main view layout
     LayoutFactory::loadCustomScreens();
   });
+#endif
 }
 
 void ModelLabelsWindow::newLabel()
@@ -755,6 +832,7 @@ void ModelLabelsWindow::buildHead(Window *hdr)
   // page title
   setTitle();
 
+#if !defined(RADIO_NB4_FAMILY)
 #if !PORTRAIT
   // new model button
   new TextButton(hdr, {lv_disp_get_hor_res(nullptr) - PageGroup::PAGE_GROUP_BACK_BTN_W - NEW_BTN_W - PAD_LARGE, PAD_MEDIUM, NEW_BTN_W, EdgeTxStyles::UI_ELEMENT_HEIGHT}, STR_NEW, [=]() {
@@ -775,10 +853,56 @@ void ModelLabelsWindow::buildHead(Window *hdr)
     return 0;
   });
 #endif
+#endif
 }
 
 void ModelLabelsWindow::buildBody(Window *window)
 {
+#if defined(RADIO_NB4_FAMILY)
+  const coord_t gap = PAD_SMALL;
+  const coord_t margin = PAD_MEDIUM;
+  const coord_t buttonHeight = EdgeTxStyles::UI_ELEMENT_HEIGHT;
+  const coord_t buttonWidth =
+      (lv_disp_get_hor_res(nullptr) - margin * 2 - gap) / 2;
+
+  new TextButton(window, {margin, margin, buttonWidth, buttonHeight},
+                 STR_NB4_CAR,
+                 []() { nb4OpenSettingsSection("car"); return 0; });
+  new TextButton(window,
+                 {coord_t(margin + buttonWidth + gap), margin,
+                  buttonWidth, buttonHeight},
+                 STR_NB4_RECEIVER,
+                 []() {
+                   nb4OpenRoute("settings/receiver_rf/module");
+                   return 0;
+                 });
+  new TextButton(window,
+                 {margin, coord_t(margin + buttonHeight + gap),
+                  buttonWidth, buttonHeight},
+                 STR_NB4_TEMPLATES,
+                 []() { nb4OpenTemplates(); return 0; });
+  new TextButton(window,
+                 {coord_t(margin + buttonWidth + gap),
+                  coord_t(margin + buttonHeight + gap),
+                  buttonWidth, buttonHeight},
+                 STR_NB4_UX_CREATE_CAR,
+                 [this]() { newModel(); return 0; });
+
+  const coord_t listY = margin + (buttonHeight + gap) * 2;
+  const coord_t listHeight = lv_disp_get_ver_res(nullptr) -
+      EdgeTxStyles::MENU_HEADER_HEIGHT - listY - margin;
+  mdlselector = new ModelsPageBody(
+      window,
+      {margin, listY, coord_t(lv_disp_get_hor_res(nullptr) - margin * 2),
+       listHeight},
+      3, true);
+  auto mdl_obj = mdlselector->getLvObj();
+  etx_scrollbar(mdl_obj);
+  if (mdlselector->getSortOrder() == NO_SORT)
+    mdlselector->setSortOrder(NAME_ASC);
+  else
+    mdlselector->update();
+#else
   // Models List
   mdlselector = new ModelsPageBody(window, {MDLS_X, MDLS_Y, MDLS_W, MDLS_H});
   mdlselector->setLblRefreshFunc([=]() { labelRefreshRequest(); });
@@ -971,6 +1095,7 @@ void ModelLabelsWindow::buildBody(Window *window)
       }
     }
   });
+#endif
 }
 
 void ModelLabelsWindow::moveLabel(int selected, int direction)
@@ -1039,6 +1164,12 @@ void ModelLabelsWindow::setTitle()
   title2 += ": ";
   title2 += modelName;
 
-  header->setTitle(STR_MANAGE_MODELS);
+  header->setTitle(
+#if defined(RADIO_NB4_FAMILY)
+      STR_NB4_MODELS
+#else
+      STR_MANAGE_MODELS
+#endif
+  );
   header->setTitle2(title2);
 }

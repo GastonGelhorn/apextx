@@ -326,9 +326,10 @@ const Nb4Route routes[] = {
     AV("settings/race/timers", NB4_STR(TIMERS_85E8), nb4OpenTimers, ModelData, "race/timers", UX_HELP_TIMERS, true),
     AV("settings/race/resets", NB4_STR(SESSION_RESETS), nb4OpenSessionResets, ModelData, "race/resets", UX_HELP_RESETS, false),
 
-    // --- Models
-    AV("settings/models/management", NB4_STR(MANAGE), []() { new ModelLabelsWindow(); }, Recovery, "models/management", UX_HELP_MODELS, true),
-    AV("settings/models/templates", NB4_STR(TEMPLATES), nb4OpenTemplates, Recovery, "models/templates", UX_HELP_TEMPLATES, true),
+    // --- Cars.  The route IDs stay unchanged so saved shortcuts keep working;
+    // only their presentation category is unified with Current car.
+    IN("settings/models/management", NB4_STR(MODELS), []() { new ModelLabelsWindow(); }, Recovery, "models/management", UX_HELP_MODELS, true, "cars"),
+    IN("settings/models/templates", NB4_STR(TEMPLATES), nb4OpenTemplates, Recovery, "models/templates", UX_HELP_TEMPLATES, true, "cars"),
 
     // --- Display and appearance
     AV("settings/display/brightness", NB4_STR(BRIGHTNESS), openBrightness, RadioOnly, "display/brightness", UX_HELP_BRIGHTNESS, true),
@@ -418,16 +419,16 @@ const Nb4Route routes[] = {
 const Nb4Section2 sections[] = {
     {"steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
     {"throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
-    {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP},
+    {"cars", NB4_STR(MODELS), ICON_MODEL_SELECT},
     {"controls", NB4_STR(CONTROLS), ICON_NB4_OUTPUTS},
     {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
     {"race", NB4_STR(RACE_5527), ICON_STATS_TIMERS},
     {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"models", NB4_STR(MODELS), ICON_MODEL_SELECT},
     {"display", NB4_STR(DISPLAY), ICON_THEME},
     {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_RADIO_SETUP},
     {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
     {"help", NB4_STR(HELP), ICON_RADIO_VERSION},
+    {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP, "cars"},
     {"advanced", NB4_STR(UX_ADVANCED_SETUP), ICON_MODEL_MIXER, "car"},
 };
 
@@ -458,12 +459,12 @@ const char* appTileLabel(const char* key, const char* fallback)
   static constexpr AppTileLabel labels[] = {
       {"steering", "Steering", "Dirección"},
       {"throttle_brake", "Throttle", "Gas/freno"},
-      {"car", "Car", "Coche"},
+      {"cars", "Cars", "Coches"},
+      {"car", "Current", "Actual"},
       {"controls", "Controls", "Mandos"},
       {"receiver_rf", "Receiver", "Receptor"},
       {"race", "Race", "Carrera"},
       {"telemetry", "Telemetry", "Telemetría"},
-      {"models", "Cars", "Coches"},
       {"display", "Display", "Pantalla"},
       {"sound_alerts", "Alerts", "Avisos"},
       {"system", "System", "Sistema"},
@@ -629,7 +630,7 @@ AppTileColors appTileColors(const char* key)
     return {lv_color_hex(0xFF453A), lv_color_hex(0xFF9F0A)};
   if (strstr(key, "controls"))
     return {lv_color_hex(0x32ADE6), lv_color_hex(0x5E5CE6)};
-  if (strstr(key, "models"))
+  if (strstr(key, "models") || strstr(key, "cars"))
     return {lv_color_hex(0xFF375F), lv_color_hex(0xFF9F0A)};
   if (strstr(key, "display"))
     return {lv_color_hex(0x64D2FF), lv_color_hex(0x5E5CE6)};
@@ -977,10 +978,19 @@ bool nb4RouteInSection(const Nb4Route& route, const char* sectionId)
 void nb4OpenSettingsSection(const char* id)
 {
   nb4QuickAccessNormalize();
+  // Keep the old category URL usable while presenting one stable Cars entry.
+  if (id && !strcmp(id, "models")) id = "cars";
   const Nb4Section2* section = nullptr;
   for (const auto& item : sections) if (!strcmp(item.id, id)) section = &item;
   if (!section) return;
   // These categories already have one editor with its own tabs, not submenus.
+  if (!strcmp(id, "cars")) {
+    auto page = new ModelLabelsWindow();
+    page->setScopeText(STR_NB4_UX_SCOPE_CARS);
+    page->setHelpHandler(
+        [] { nb4OpenHelp("settings/models/management", true); });
+    return;
+  }
   const char* direct = !strcmp(id, "steering") ? "settings/steering/travel" :
     !strcmp(id, "throttle_brake") ? "settings/throttle_brake/travel" :
     !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" :
@@ -1126,8 +1136,9 @@ bool nb4OpenRoute(const char* path)
 {
   if (!path || strncmp(path, "settings/", 9)) return false;
   if (!strchr(path + 9, '/')) {
-    if (!sectionHasSomethingOpenable(path + 9)) return false;
-    nb4OpenSettingsSection(path + 9);
+    const char* section = !strcmp(path + 9, "models") ? "cars" : path + 9;
+    if (!sectionHasSomethingOpenable(section)) return false;
+    nb4OpenSettingsSection(section);
     return true;
   }
   const auto route = nb4RouteByPath(path);
@@ -1233,7 +1244,7 @@ std::string nb4RouteScope(const Nb4Route& route)
   if (!strcmp(route.path, "settings/race/statistics") ||
       !strcmp(route.path, "settings/system/backup_restore") ||
       !strcmp(route.path, "settings/system/reset")) return STR_NB4_UX_SCOPE_MIXED;
-  if (nb4RouteInSection(route, "models")) return STR_NB4_UX_SCOPE_CARS;
+  if (nb4RouteInSection(route, "cars")) return STR_NB4_UX_SCOPE_CARS;
   if (route.access != Nb4RouteAccess::ModelData &&
       strcmp(route.path, "settings/controls/monitor")) return STR_NB4_UX_SCOPE_RADIO;
   return std::string(STR_NB4_UX_SCOPE_CAR) +

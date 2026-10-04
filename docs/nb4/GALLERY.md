@@ -51,6 +51,17 @@ Restore ApexTX design asks for confirmation and affects only that screen.
 Travel, direction, centre, speed, curves, brake behaviour, and engine controls
 are grouped around the two primary axes of a surface transmitter.
 
+## My cars
+
+| Portrait | Landscape |
+| --- | --- |
+| ![Unified car manager in portrait orientation](images/cars-es.png) | ![Unified car manager in landscape orientation](images/cars-es-landscape.png) |
+
+The former Car and Cars entries are now a single stable destination. It keeps
+the current-car settings, Receiver & RF, templates, car creation, and the saved
+car list together. Creating a car asks for its name first and then offers to
+bind its receiver immediately.
+
 ## Current car, startup checks and receiver/RF
 
 | Car details | Startup checks with inline explanations (Spanish) |
@@ -163,7 +174,7 @@ The gallery must stay tied to a tested build. Generate the source frames with:
 mkdir -p build/nb4-gallery
 NB4_SCREENSHOT_DIR="$PWD/build/nb4-gallery" \
   build/nb4-device/native/gtests-radio \
-  --gtest_filter='Nb4Ux.RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors:Nb4Ux.EveryAvailableRouteActuallyOpensSomethingAndComesBack:Nb4Ux.HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors:Nb4Ux.RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations:Nb4Ux.MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames:Nb4Ux.ContextualCurveEditorListsSharedInputsAndMixes:Nb4Ux.AssignmentsAreReadableAndSaveOnlyWhenRequested:Nb4Ux.RoutedTitlesUseRouteIconsAndModalsKeepApexBranding:Nb4Ux.VoiceAssignmentsAreRadioWideAndAudioOnly:Nb4RacingUi.AllDestinationsAndEditorsInBothLanguagesAndOrientations'
+  --gtest_filter='Nb4Ux.RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors:Nb4Ux.EveryAvailableRouteActuallyOpensSomethingAndComesBack:Nb4Ux.HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors:Nb4Ux.RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations:Nb4Ux.MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames:Nb4Ux.CarsIsOneMenuEntryWithCurrentCarReceiverTemplatesAndCreation:Nb4Ux.ContextualCurveEditorListsSharedInputsAndMixes:Nb4Ux.AssignmentsAreReadableAndSaveOnlyWhenRequested:Nb4Ux.RoutedTitlesUseRouteIconsAndModalsKeepApexBranding:Nb4Ux.VoiceAssignmentsAreRadioWideAndAudioOnly:Nb4RacingUi.AllDestinationsAndEditorsInBothLanguagesAndOrientations'
 ```
 
 The tests write lossless PPM framebuffer captures. Convert only the selected

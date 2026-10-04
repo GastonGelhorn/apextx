@@ -72,9 +72,9 @@ class ModelLabelsWindow : public Page
  protected:
   ModelsSortBy sort = DEFAULT_MODEL_SORT;
   char tmpLabel[LABEL_LENGTH + 1] = "\0";
-  ListBox *lblselector;
-  ModelsPageBody *mdlselector;
-  ModelLayoutButton *mdlLayout;
+  ListBox *lblselector = nullptr;
+  ModelsPageBody *mdlselector = nullptr;
+  ModelLayoutButton *mdlLayout = nullptr;
   std::string currentLabel;
 
   LabelsVector getLabels()

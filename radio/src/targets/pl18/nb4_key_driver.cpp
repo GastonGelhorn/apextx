@@ -29,6 +29,7 @@
 #include "hal.h"
 #include "delays_driver.h"
 #include "keys.h"
+#include "nb4_trim_ladder.h"
 
 #if !defined(BOOT)
   #include "hal/adc_driver.h"
@@ -36,29 +37,10 @@
 
 #define BOOTLOADER_KEYS                 0x42
 
-enum PhysicalTrims {
-  STD = 0,   // Steering, down
-  STU,       // Steering, up
-  THD = 2,   // Throttle, down
-  THU,       // Throttle, up
-  T3D = 4,   // TR1-LR, decrease
-  T3U,
-  T4D = 6,   // TR2-LR, decrease
-  T4U,
-};
-
 #define NB4_SW1_R_MAX      299
 #define NB4_SW1_BOTH_MIN  1701
 #define NB4_SW1_BOTH_MAX  2299
 #define NB4_SW1_L_MIN     3601
-
-#define NB4_TRIM_W1_MAX    299   /* Front-back axis, positive */
-#define NB4_TRIM_W2_MIN    801   /* Left-right axis, negative */
-#define NB4_TRIM_W2_MAX   1199
-#define NB4_TRIM_W3_MIN   1801   /* Front-back axis, negative */
-#define NB4_TRIM_W3_MAX   2199
-#define NB4_TRIM_W4_MIN   2801   /* Left-right axis, positive */
-#define NB4_TRIM_W4_MAX   3199
 
 void keysInit()
 {
@@ -157,26 +139,7 @@ uint32_t readTrims()
 #else
   const uint16_t tr1 = getAnalogValue(6);   // RAW3 = channel 6  = PA6 = TR1
   const uint16_t tr2 = getAnalogValue(7);   // RAW4 = channel 14 = PC4 = TR2
-
-  if (tr1 <= NB4_TRIM_W1_MAX) {
-    result |= 1u << STU;                                   // TR1-FB positive
-  } else if (tr1 >= NB4_TRIM_W2_MIN && tr1 <= NB4_TRIM_W2_MAX) {
-    result |= 1u << T3D;                                   // TR1-LR negative
-  } else if (tr1 >= NB4_TRIM_W3_MIN && tr1 <= NB4_TRIM_W3_MAX) {
-    result |= 1u << STD;                                   // TR1-FB negative
-  } else if (tr1 >= NB4_TRIM_W4_MIN && tr1 <= NB4_TRIM_W4_MAX) {
-    result |= 1u << T3U;                                   // TR1-LR positive
-  }
-
-  if (tr2 <= NB4_TRIM_W1_MAX) {
-    result |= 1u << THU;                                   // TR2-FB positive
-  } else if (tr2 >= NB4_TRIM_W2_MIN && tr2 <= NB4_TRIM_W2_MAX) {
-    result |= 1u << T4D;                                   // TR2-LR negative
-  } else if (tr2 >= NB4_TRIM_W3_MIN && tr2 <= NB4_TRIM_W3_MAX) {
-    result |= 1u << THD;                                   // TR2-FB negative
-  } else if (tr2 >= NB4_TRIM_W4_MIN && tr2 <= NB4_TRIM_W4_MAX) {
-    result |= 1u << T4U;                                   // TR2-LR positive
-  }
+  result = nb4TrimLadderBits(tr1, tr2);
 #endif
 
   return result;
