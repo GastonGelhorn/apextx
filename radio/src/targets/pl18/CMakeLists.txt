@@ -107,6 +107,12 @@ elseif(PCBREV STREQUAL NB4)
   if(NB4_LANDSCAPE)
     add_definitions(-DRADIO_NB4_LANDSCAPE)
   endif()
+  # The Noble NB4+ shares the NB4 board map, RF route and input ladders. It
+  # differs in the haptic output and display panel.
+  option(NB4_PLUS_HW "NB4: build for Noble NB4+ hardware" OFF)
+  if(NB4_PLUS_HW)
+    add_definitions(-DRADIO_NB4PLUS_HW)
+  endif()
   set(ROTARY_ENCODER YES)
   # The original NB4 uses the same four-pixel RGB LED output as the NB4P.
   set(LED_STRIP ON)
