@@ -44,6 +44,15 @@ tested. Hardware claims need reproducible evidence. Never commit factory
 firmware, transmitter backups, calibration, OTP, device identifiers, secrets,
 or proprietary assets without redistribution permission.
 
+## Scope
+
+The repository holds the firmware and what is needed to build, test and
+install it. Tooling and notes for analysing the original firmware, such as
+disassembly or emulation scripts, memory readers, dumps, and addresses or
+offsets inside it, stay outside the repository and the issue tracker, however
+useful they were in getting a change to work. Keep that material in your own
+fork, and describe a change by how ApexTX behaves.
+
 Contributions are accepted under the repository's GPL-2.0 license and must
 preserve applicable upstream and third-party notices. New project-owned source
 files should carry an appropriate SPDX license identifier.
