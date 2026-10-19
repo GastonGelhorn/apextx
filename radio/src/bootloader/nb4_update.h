@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "hal/flash_driver.h"
+#include "nb4_update_id.h"
 
 namespace nb4update {
 constexpr uint32_t AppAddress = 0x08020000;
@@ -12,6 +13,8 @@ constexpr uint32_t StageAddress = 0xc0200000; // USB virtual address, never dere
 constexpr uint32_t ControlAddress = 0xc03f0000;
 constexpr uint32_t HeaderSize = 32;
 constexpr uint32_t StageCapacity = HeaderSize + MaxApplication;
+// The only manifest target this bootloader installs or boots.
+constexpr uint32_t Target = NB4_UPDATE_TARGET;
 
 struct Manifest {
   char magic[8];

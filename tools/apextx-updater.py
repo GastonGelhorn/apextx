@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-from nb4_update_image import FLASH_SIZE, update_package
+from nb4_update_image import FLASH_SIZE, VARIANTS, package_target, update_package
 from nb4_usb_update import run_update, discover
 
 
@@ -124,7 +124,8 @@ def main():
             image = args.firmware.read_bytes()
             if args.check:
                 package = update_package(image)
-                print(f'Valid NB4 firmware image: {len(package) - 32} application bytes.')
+                variant = VARIANTS[package_target(package)]
+                print(f'Valid {variant} firmware image: {len(package) - 32} application bytes.')
             else:
                 last = [None]
                 def progress(message, percent):
@@ -135,7 +136,8 @@ def main():
                 run_update(image, progress, args.serial)
         elif args.check:
             selection = discover(args.serial)
-            print('ApexTX NB4 Update detected.' if selection else 'No NB4 in ApexTX Update mode was detected.')
+            print(f'ApexTX {VARIANTS[selection.target]} Update detected.' if selection
+                  else 'No NB4 in ApexTX Update mode was detected.')
         else:
             serve(args.port, not args.no_browser)
     except Exception as error:

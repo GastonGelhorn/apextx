@@ -111,6 +111,11 @@ elseif(PCBREV STREQUAL NB4)
   # differs in the haptic output and display panel.
   option(NB4_PLUS_HW "NB4: build for Noble NB4+ hardware" OFF)
   if(NB4_PLUS_HW)
+    # Not publishable until an NB4+ has passed the hardware acceptance
+    # checklist; failsafe under load and charging are still unverified.
+    if(APEXTX_PUBLIC_RELEASE)
+      message(FATAL_ERROR "NB4_PLUS_HW is experimental and cannot be built as a public release")
+    endif()
     add_definitions(-DRADIO_NB4PLUS_HW)
   endif()
   set(ROTARY_ENCODER YES)
