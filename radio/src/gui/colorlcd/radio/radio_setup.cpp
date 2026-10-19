@@ -918,14 +918,25 @@ static SetupLineDef generalSetupLines[] = {
                       currentLangStrings = langStrings[newValue];
                       extern void setLanguageFont(int idx);
                       setLanguageFont(newValue);
-                      PageGroup* pg = (PageGroup*)Layer::getPageGroup();
-                      coord_t y = pg->getScrollY();
-                      pg->onCancel();
-                      QuickMenu::openPage(QM_RADIO_SETUP);
-                      pg = (PageGroup*)Layer::getPageGroup();
-                      pg->setScrollY(y);
-                      // Force QM rebuild for language change
-                      QuickMenu::shutdownQuickMenu();
+                      // Rebuild the setup page so its labels switch language, but
+                      // NOT from inside this value-change callback. Re-entering the
+                      // page builder here (onCancel + openPage) stacks a full page
+                      // build on top of the LVGL event that is still running and
+                      // overflows the UI task stack on the NB4 - the radio then
+                      // faults and drops power (display off, one beep, off). Defer
+                      // the rebuild to the next LVGL cycle, where the stack is shallow.
+                      lv_async_call(
+                          [](void*) {
+                            PageGroup* pg = (PageGroup*)Layer::getPageGroup();
+                            if (!pg) return;
+                            coord_t sy = pg->getScrollY();
+                            pg->onCancel();
+                            QuickMenu::openPage(QM_RADIO_SETUP);
+                            pg = (PageGroup*)Layer::getPageGroup();
+                            if (pg) pg->setScrollY(sy);
+                            QuickMenu::shutdownQuickMenu();
+                          },
+                          nullptr);
                       SET_DIRTY();
                     });
       choice->setAvailableHandler([=](int n) { return isTextLangAvail(n); });
