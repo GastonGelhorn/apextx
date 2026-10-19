@@ -203,7 +203,7 @@ help, update and recovery remain accessible.
 ## Verification
 
 Run the NB4 native suite and firmware build described in [VALIDATION.md](VALIDATION.md).
-The tests include route identity/availability, EN/ES rendering, both orientations,
+The tests include route identity/availability, EN/ES/DE rendering, both orientations,
 physical Back through the simulated key driver, per-screen editors, widget
 restoration, YAML round trips, migration backup failures, template write failures
 and session-specific result receipts.
