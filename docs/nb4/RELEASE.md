@@ -32,6 +32,28 @@ checksums and uploads the artifacts to a GitHub Release. Do not create
 or publish a tag merely to test the workflow; use its manual artifact-only run
 for that purpose.
 
+## One package per radio
+
+A release carries one firmware package per radio, named after it:
+`apextx-nb4-<version>.zip` (and `.tar.gz`) for the original NB4. The voice
+packs do not depend on the radio and are published once. The package manifest
+records the radio in `target` and `hardware`, taken from the marker the
+firmware carries in its own image, and the packager refuses to build a package
+whose `--model` does not match that marker. An owner who still downloads the
+wrong one is stopped by the updater and the bootloader, as described in
+[UPDATE.md](UPDATE.md).
+
+The NB4+ is not published yet. To add it once an NB4+ has passed the hardware
+checklist, remove the `APEXTX_PUBLIC_RELEASE` refusal next to `NB4_PLUS_HW` in
+`radio/src/targets/pl18/CMakeLists.txt` and add a row to the matrix in
+`.github/workflows/release.yml`:
+
+```yaml
+- model: nb4plus
+  name: Noble NB4+
+  options: -DNB4_PLUS_HW=ON
+```
+
 After GitHub finishes, download the release archive, verify `SHA256SUMS`, and
 flash that exact `firmware.bin` to a radio for the checklist. If a result
 differs from what you expect, delete the release and the tag, correct the

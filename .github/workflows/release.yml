@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build the ApexTX package for the Noble NB4
+  firmware:
+    name: Build the ApexTX package for the ${{ matrix.name }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,6 +19,19 @@ jobs:
       attestations: write
     container:
       image: ghcr.io/edgetx/edgetx-dev:2.12
+    strategy:
+      fail-fast: true
+      matrix:
+        # One package per radio, named after it, so each owner downloads the
+        # one that matches. An image for the wrong radio is refused by the
+        # updater and by the bootloader, but the name should get it right
+        # first. The NB4+ joins this list only once an NB4+ has passed the
+        # hardware acceptance checklist; until then its build refuses
+        # APEXTX_PUBLIC_RELEASE (radio/src/targets/pl18/CMakeLists.txt).
+        include:
+          - model: nb4
+            name: Noble NB4
+            options: ''
     steps:
       - name: Check out source and submodules
         uses: actions/checkout@v7
@@ -44,7 +57,7 @@ jobs:
       - name: Configure the firmware and the native tests
         run: |
           cmake -S . -B build/nb4-release \
-            -DPCB=PL18 -DPCBREV=NB4 \
+            -DPCB=PL18 -DPCBREV=NB4 ${{ matrix.options }} \
             -DNB4_RF_PROFILE=RECOVERED_USART6 \
             -DAPEXTX_PUBLIC_RELEASE=ON \
             -DTRANSLATIONS=EN \
@@ -65,12 +78,68 @@ jobs:
           build/nb4-release/native/gtests-radio \
             --gtest_output=xml:build/nb4-release/native/tests.xml
 
+      - name: Create the package archives
+        shell: bash
+        run: |
+          version="$(cat APEXTX_VERSION)"
+          package="apextx-${{ matrix.model }}-$version"
+          mkdir -p dist
+          # --model makes the packager refuse an image built for another radio.
+          python3 tools/nb4-package.py \
+            --build build/nb4-release/arm-none-eabi \
+            --output "dist/$package" \
+            --tests build/nb4-release/native/tests.xml \
+            --release "$version" \
+            --model ${{ matrix.model }}
+          tar -C dist -czf "dist/$package.tar.gz" "$package"
+          python3 - "$package" <<'PY'
+          import shutil
+          import sys
+          package = sys.argv[1]
+          shutil.make_archive(f"dist/{package}", "zip", "dist", package)
+          PY
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: apextx-firmware-${{ matrix.model }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+      - name: Attest the package archives
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  audio:
+    # The voice packs install on the radio's storage and do not depend on
+    # which radio it is, so they are built once rather than per model.
+    name: Build the audio packs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    container:
+      image: ghcr.io/edgetx/edgetx-dev:2.12
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Trust the container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Prepare the pinned NB4 audio source
         shell: bash
         run: |
           # The pinned EdgeTX build image currently carries an expired Kitware
-          # apt source key. CMake is already part of the image, so disable only
-          # that third-party source before installing the audio converter.
+          # apt source key. Disable only that third-party source before
+          # installing the audio converter.
           for source in /etc/apt/sources.list.d/*; do
             if [[ -f "$source" ]] && grep -q 'apt\.kitware\.com' "$source"; then
               mv "$source" "$source.disabled"
@@ -86,55 +155,32 @@ jobs:
           test "$(git -C build/edgetx-sdcard-sounds rev-parse HEAD)" = \
             4e34b6cb40ab53c6dcd293e2b1344b54d912d41c
 
-      - name: Create release archives and checksums
+      - name: Create the audio packs
         shell: bash
         run: |
-          version="$(cat APEXTX_VERSION)"
           mkdir -p dist
-          python3 tools/nb4-package.py \
-            --build build/nb4-release/arm-none-eabi \
-            --output "dist/apextx-$version" \
-            --tests build/nb4-release/native/tests.xml \
-            --release "$version"
           python3 tools/nb4-audio-packs.py \
             --source build/edgetx-sdcard-sounds \
             --output dist \
-            --release "$version"
-          tar -C dist -czf "dist/apextx-$version.tar.gz" \
-            "apextx-$version"
-          python3 - "$version" <<'PY'
-          import shutil
-          import sys
-          version = sys.argv[1]
-          shutil.make_archive(
-              f"dist/apextx-{version}", "zip", "dist",
-              f"apextx-{version}")
-          PY
-          cd dist
-          sha256sum *.tar.gz *.zip > SHA256SUMS
+            --release "$(cat APEXTX_VERSION)"
 
-      - name: Upload release artifact
+      - name: Upload the audio packs
         uses: actions/upload-artifact@v7
         with:
-          name: apextx-release
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/SHA256SUMS
+          name: apextx-audio
+          path: dist/*.zip
           if-no-files-found: error
 
-      - name: Attest release archives
+      - name: Attest the audio packs
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: |
-            dist/*.tar.gz
-            dist/*.zip
+          subject-path: dist/*.zip
 
   publish:
     name: Create GitHub Release
     if: github.ref_type == 'tag'
-    needs: build
+    needs: [firmware, audio]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -142,8 +188,13 @@ jobs:
       - name: Download verified artifacts
         uses: actions/download-artifact@v8
         with:
-          name: apextx-release
+          pattern: apextx-*
+          merge-multiple: true
           path: dist
+
+      - name: Record checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz *.zip > SHA256SUMS
 
       - name: Publish release
         env:
