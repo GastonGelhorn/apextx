@@ -159,7 +159,7 @@ void ModelCurvesPage::pushEditCurve(int index, std::function<void(void)> refresh
     if (!mix->srcRaw || !matches(mix->curve)) continue;
     ++users;
     uses += std::string(STR_NB4_MIXES_60C8) + " " + std::to_string(i + 1) +
-            " / CH" + std::to_string(mix->destCh + 1) + "\n";
+            " / " + STR_CH + std::to_string(mix->destCh + 1) + "\n";
   }
   if (users > 1) {
     uses = std::string(STR_NB4_UX_SHARED_CURVE) + "\n\n" + uses;

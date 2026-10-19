@@ -25,7 +25,7 @@ On the radio, verify:
 
 For the menu/Home revision, also verify:
 
-- Every route in English and Spanish, portrait and landscape, using touch and
+- Every route in English, Spanish and German, portrait and landscape, using touch and
   grip-key navigation; Back restores the previous list position and focus.
 - Home and every additional screen open their own editor regardless of the
   visible screen. Replace/remove widgets, select another layout, and restore

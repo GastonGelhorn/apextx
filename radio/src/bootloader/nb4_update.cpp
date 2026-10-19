@@ -23,7 +23,7 @@ uint32_t crc32(const void* data, uint32_t size)
 
 bool validManifest(const Manifest& m)
 {
-  return !memcmp(m.magic, "APXNB4U1", 8) && m.target == 1 && m.version == 1 &&
+  return !memcmp(m.magic, "APXNB4U1", 8) && m.target == Target && m.version == 1 &&
          m.address == AppAddress && m.size >= 8 && m.size <= MaxApplication &&
          !(m.size & 3) && crc32(&m, 28) == m.headerCrc;
 }

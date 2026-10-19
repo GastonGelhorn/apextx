@@ -16,11 +16,23 @@ import nb4_update_image as image_format
 import nb4_usb_update as usb_update
 
 
-def fixture():
+def application(hardware=b'nb4'):
     app = bytearray(b'\x55' * 8192)
     struct.pack_into('<II', app, 0, 0x1000fff0, 0x08020101)
     app[32:46] = b'apextx-nb4-1.0'
-    return image_format.finalize(b'\x00' * 0x20000 + app)
+    if hardware is not None:
+        marker = b'APXHW:' + hardware + b'\x00'
+        app[64:64 + len(marker)] = marker
+    return app
+
+
+def fixture(hardware=b'nb4'):
+    return image_format.finalize(b'\x00' * 0x20000 + application(hardware))
+
+
+def radio(target=1, serial='A'):
+    """A radio in update mode whose bootloader accepts `target`."""
+    return usb_update.Selection(None, 1, 0, 0, serial, target)
 
 
 class Images(unittest.TestCase):
@@ -84,7 +96,7 @@ class Host(unittest.TestCase):
                 operations.append(command)
             def close(self):
                 operations.append('close')
-        selections = iter([object(), None])
+        selections = iter([radio(), None])
         try:
             usb_update.run_update(fixture(), lambda *_: None,
                                   transport_factory=Fake, finder=lambda _: next(selections))
@@ -191,9 +203,7 @@ class ImageGates(unittest.TestCase):
                 image_format.update_package(good[:-32] + bytes(header))
 
     def test_an_unaligned_application_is_padded_before_the_manifest(self):
-        app = bytearray(b'\x55' * 8190)
-        struct.pack_into('<II', app, 0, 0x1000fff0, 0x08020101)
-        app[32:46] = b'apextx-nb4-1.0'
+        app = application()[:8190]
         package = image_format.update_package(
             image_format.finalize(b'\x00' * 0x20000 + bytes(app)))
         self.assertEqual(struct.unpack_from('<I', package, 16)[0], 8192)
@@ -233,7 +243,7 @@ class Discovery(unittest.TestCase):
         return Core, Util, disposed
 
     def device(self, product='ApexTX NB4 Update', serial='A', interface=None):
-        interface = interface if interface is not None else usb_update.INTERFACES[0]
+        interface = interface if interface is not None else usb_update.INTERFACES[product][0]
         class Interface:
             bInterfaceClass, bInterfaceSubClass, bInterfaceProtocol = 0xfe, 1, 2
             bInterfaceNumber, bAlternateSetting = 0, 0
@@ -284,6 +294,122 @@ class Discovery(unittest.TestCase):
         with patch.object(usb_update, 'usb_modules', return_value=(core, util, None)):
             self.assertIsNone(usb_update.discover())
 
+    def test_the_bootloader_name_says_which_radio_is_connected(self):
+        for product, target in (('ApexTX NB4 Update', 1), ('ApexTX NB4+ Update', 2)):
+            core, util, _ = self.modules([self.device(product=product)])
+            with self.subTest(product), \
+                    patch.object(usb_update, 'usb_modules', return_value=(core, util, None)):
+                self.assertEqual(usb_update.discover().target, target)
+
+    def test_a_name_and_interface_from_different_radios_are_not_accepted(self):
+        mixed = self.device(product='ApexTX NB4+ Update',
+                            interface=usb_update.INTERFACES['ApexTX NB4 Update'][0])
+        core, util, _ = self.modules([mixed])
+        with patch.object(usb_update, 'usb_modules', return_value=(core, util, None)):
+            self.assertIsNone(usb_update.discover())
+
+
+class Variants(unittest.TestCase):
+    """An image for one radio must never be installed on the other."""
+
+    @staticmethod
+    def legacy(app, target):
+        # The layout finalize produces, with a manifest written the way builds
+        # did before the hardware marker existed.
+        app = bytes(app)
+        return (b'\x00' * 0x20000 + app + b'\xff' * (image_format.MAX_APP - len(app)) +
+                image_format._manifest(app, target))
+
+    def test_the_manifest_target_comes_from_the_image(self):
+        for hardware, target in ((b'nb4', 1), (b'nb4plus', 2)):
+            with self.subTest(hardware):
+                package = image_format.update_package(fixture(hardware))
+                self.assertEqual(image_format.package_target(package), target)
+
+    def test_a_new_build_that_does_not_say_what_it_is_for_is_refused(self):
+        with self.assertRaises(ValueError) as caught:
+            fixture(hardware=None)
+        self.assertIn('hardware markers found: none', str(caught.exception))
+
+    def test_unknown_and_conflicting_hardware_markers_are_refused(self):
+        app = application(b'nb4pro')
+        with self.assertRaises(ValueError):
+            image_format.finalize(b'\x00' * 0x20000 + app)
+        app = application(b'nb4')
+        app[128:128 + 14] = b'APXHW:nb4plus\x00'
+        with self.assertRaises(ValueError):
+            image_format.finalize(b'\x00' * 0x20000 + app)
+
+    def test_an_image_from_before_the_marker_still_installs_as_an_nb4(self):
+        package = image_format.update_package(self.legacy(application(None), 1))
+        self.assertEqual(image_format.package_target(package), 1)
+        with self.assertRaises(ValueError):
+            image_format.update_package(self.legacy(application(None), 2))
+
+    def test_the_manifest_cannot_claim_other_hardware_than_the_firmware(self):
+        for hardware, claimed in ((b'nb4plus', 1), (b'nb4', 2)):
+            with self.subTest(hardware), self.assertRaises(ValueError) as caught:
+                image_format.update_package(self.legacy(application(hardware), claimed))
+            self.assertIn('disagree', str(caught.exception))
+
+    def test_an_image_for_the_other_radio_is_refused_before_anything_is_sent(self):
+        for hardware, connected, wanted in ((b'nb4plus', 1, 'NB4+'), (b'nb4', 2, 'NB4')):
+            with self.subTest(hardware), self.assertRaises(usb_update.UpdateError) as caught:
+                usb_update.run_update(fixture(hardware), lambda *_: None,
+                                      transport_factory=lambda _: self.fail('device claimed'),
+                                      finder=lambda _: radio(connected))
+            message = str(caught.exception)
+            self.assertIn(f'for the Noble {wanted},', message)
+            self.assertIn('Nothing was written', message)
+
+    def test_a_radio_that_does_not_say_what_it_is_gets_nothing(self):
+        with self.assertRaises(usb_update.UpdateError) as caught:
+            usb_update.run_update(fixture(), lambda *_: None,
+                                  transport_factory=lambda _: self.fail('device claimed'),
+                                  finder=lambda _: (object(),))
+        self.assertIn('did not say which model', str(caught.exception))
+
+    def test_a_matching_nb4plus_image_goes_ahead(self):
+        opened = []
+        with self.assertRaises(RuntimeError):
+            usb_update.run_update(fixture(b'nb4plus'), lambda *_: None,
+                                  transport_factory=lambda selection: opened.append(selection)
+                                  or (_ for _ in ()).throw(RuntimeError('stop here')),
+                                  finder=lambda _: radio(2))
+        self.assertEqual(len(opened), 1)
+
+    def test_each_bootloader_accepts_only_its_own_target(self):
+        source = r'''
+#include "bootloader/nb4_update.h"
+#include <cassert>
+#include <cstring>
+#include <initializer_list>
+using namespace nb4update;
+int main() {
+  Manifest m{};
+  memcpy(m.magic, "APXNB4U1", 8);
+  m.address = AppAddress; m.size = 8; m.version = 1;
+  for (uint32_t target : {0u, 1u, 2u, 3u}) {
+    m.target = target;
+    m.headerCrc = crc32(&m, 28);
+    assert(validManifest(m) == (target == EXPECTED));
+  }
+  assert(Target == EXPECTED);
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            directory = pathlib.Path(directory)
+            (directory / 'variant.cpp').write_text(source)
+            for flags, expected in (([], 1), (['-DRADIO_NB4PLUS_HW'], 2)):
+                with self.subTest(flags=flags):
+                    binary = directory / f'variant{expected}'
+                    subprocess.run(['c++', '-std=c++17', '-Wall', '-Wextra', *flags,
+                                    f'-DEXPECTED={expected}', '-I', str(ROOT / 'radio/src'),
+                                    str(directory / 'variant.cpp'),
+                                    str(ROOT / 'radio/src/bootloader/nb4_update.cpp'),
+                                    '-o', str(binary)], check=True, capture_output=True)
+                    subprocess.run([str(binary)], check=True)
+
 
 class Reporting(unittest.TestCase):
     """What the user is told when the update does not go to plan."""
@@ -313,7 +439,7 @@ class Reporting(unittest.TestCase):
                 if fail_at == 'restart' and command == b'APXRESET':
                     raise RuntimeError('[Errno 19] No such device')
             def close(self): pass
-        queued = iter(selections if selections is not None else [object(), None])
+        queued = iter(selections if selections is not None else [radio(), None])
         look = finder if finder else (lambda _: next(queued))
         clock = [0.0]
         def monotonic():
@@ -360,7 +486,7 @@ class Reporting(unittest.TestCase):
             if finder.calls:
                 raise usb_update.UpdateError('A USB device was found but could not be read.')
             finder.calls = 1
-            return (object(),)
+            return radio()
         finder.calls = 0
         reports = self.drive([(3, 100)], selections=None, finder=finder)
         self.assertEqual(reports[-1][0], 100)
@@ -371,7 +497,7 @@ class Reporting(unittest.TestCase):
             @staticmethod
             def dispose_resources(device): pass
         with patch.object(usb_update, 'usb_modules', return_value=(None, Util, None)):
-            reports = self.drive([(3, 100)], selections=[(object(),)] * 40)
+            reports = self.drive([(3, 100)], selections=[radio()] * 40)
         self.assertEqual(reports[-1][0], 100)
         self.assertIn('Hold the power button', reports[-1][1])
 
@@ -379,7 +505,7 @@ class Reporting(unittest.TestCase):
         calls = []
         def finder(_):
             calls.append(1)
-            return (object(),) if len(calls) > 3 else None
+            return radio() if len(calls) > 3 else None
         opened = []
         with patch.object(usb_update.time, 'sleep', lambda _: None):
             with self.assertRaises(RuntimeError):

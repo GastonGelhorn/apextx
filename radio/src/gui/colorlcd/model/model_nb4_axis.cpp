@@ -130,10 +130,12 @@ void sharedCurveRow(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   const uint8_t others = nb4CurveOtherUsers(curveNumber, view);
 
   char msg[128];
-  if (others > 0)
-    snprintf(msg, sizeof(msg),
-             STR_NB4_BOTH_SIDES_USE_CURVE_S_AND,
-             getCurveString(curveNumber), (int)others, others == 1 ? "" : "s");
+  if (others == 1)
+    snprintf(msg, sizeof(msg), STR_NB4_CURVE_SHARED_ONE,
+             getCurveString(curveNumber));
+  else if (others > 1)
+    snprintf(msg, sizeof(msg), STR_NB4_CURVE_SHARED_MANY,
+             getCurveString(curveNumber), (int)others);
   else
     snprintf(msg, sizeof(msg),
              STR_NB4_BOTH_SIDES_USE_CURVE_S_MOVING,

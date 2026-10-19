@@ -87,6 +87,6 @@ class Nb4LapWidget : public Widget
   }
 };
 
-BaseWidgetFactory<Nb4LapWidget> nb4LapWidget("NB4Lap", nullptr, "Lap");
+Nb4WidgetFactory<Nb4LapWidget> nb4LapWidget("NB4Lap", nullptr, NB4_STR(WIDGET_LAP));
 
 #endif

@@ -73,7 +73,7 @@ void loadCurves()
 
   }
   if (showWarning) {
-    POPUP_WARNING("Invalid curve data repaired", "check your curves, logic switches");
+    POPUP_WARNING(STR_NB4_CURVES_REPAIRED, STR_NB4_CURVES_REPAIRED_CHECK);
   }
 }
 

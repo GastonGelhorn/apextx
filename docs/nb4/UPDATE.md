@@ -108,9 +108,27 @@ The same updater can run from the terminal:
 ```
 
 Connect one radio at a time, or use `--serial` with the terminal updater.
-The host requires both the `ApexTX NB4 Update` product name and its exact
-interface descriptor. A matching STM32 VID/PID alone is insufficient; a ROM DFU
-device is never claimed for a normal update.
+The host requires both an ApexTX update product name and its exact interface
+descriptor. A matching STM32 VID/PID alone is insufficient; a ROM DFU device is
+never claimed for a normal update.
+
+## NB4 and NB4+ images
+
+An image is built for one radio, and only that radio's bootloader installs it.
+The original NB4 bootloader announces itself as `ApexTX NB4 Update`; one built
+with `-DNB4_PLUS_HW=ON` announces itself as `ApexTX NB4+ Update`. The updater
+compares that name with the image before sending anything, and refuses a
+mismatch with a message naming both radios. The bootloader refuses it as well,
+so an image for the other radio cannot be installed even without this updater.
+
+Every NB4 bootloader released so far accepts only NB4 images, so they already
+refuse NB4+ images. An NB4+ that was set up with an earlier experimental build
+has an NB4 bootloader and needs one installation through ROM DFU, following
+[FLASH.md](FLASH.md), before it accepts NB4+ updates.
+
+NB4+ builds are experimental. The build refuses `NB4_PLUS_HW` together with
+`APEXTX_PUBLIC_RELEASE` until an NB4+ has passed the hardware acceptance
+checklist.
 
 Firmware updates do not modify the external audio files. When a release changes
 voice resources, install one matching English, Spanish or German package
@@ -153,8 +171,11 @@ installation status on upload. Raw internal flash addresses are inaccessible.
 
 `tools/nb4_update_image.py` adds a 32-byte manifest at `0x081FFFE0` after the
 firmware binary is built. The application begins at `0x08020000`. The manifest
-contains `APXNB4U1`, target 1, application address, length, CRC32, protocol
-version 1, and a CRC32 over the first 28 header bytes (little endian integers).
+contains `APXNB4U1`, the target (1 for the NB4, 2 for the NB4+), application
+address, length, CRC32, protocol version 1, and a CRC32 over the first 28 header
+bytes (little endian integers). The target is not a build argument: it is read
+from the `APXHW:<id>` marker the firmware carries in its own image, so a manifest
+can only describe the binary it is attached to.
 The USB package contains this header followed by the application bytes; the
 host strips the bootloader and unused padding from the complete binary.
 CRC checks detect corruption; this format does not authenticate a publisher.

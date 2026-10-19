@@ -18,7 +18,7 @@ class Nb4SteerDialWidget : public Nb4DialWidget
   lv_color_t accent(int16_t) const override { return Nb4Ui::steeringColor(); }
 };
 
-BaseWidgetFactory<Nb4SteerDialWidget> nb4SteerDialWidget("NB4SteerDial", nullptr,
-                                                         "Steer dial");
+Nb4WidgetFactory<Nb4SteerDialWidget> nb4SteerDialWidget(
+    "NB4SteerDial", nullptr, NB4_STR(WIDGET_STEER_DIAL));
 
 #endif

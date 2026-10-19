@@ -52,6 +52,7 @@ enum RadioLanguage {
   // Settings store the two-letter language code, not this runtime index.
   LANG_EN,
   LANG_ES,
+  LANG_DE,
 #else
   LANG_CN,
   LANG_CZ,
@@ -81,6 +82,7 @@ enum RadioLanguage {
 #if defined(RADIO_NB4_FAMILY)
 extern const LanguagePack enLanguagePack;
 extern const LanguagePack esLanguagePack;
+extern const LanguagePack deLanguagePack;
 #else
 extern const LanguagePack cnLanguagePack;
 extern const LanguagePack czLanguagePack;
@@ -111,6 +113,7 @@ const LanguagePack * const languagePacks[] = {
 #if defined(RADIO_NB4_FAMILY)
   &enLanguagePack,
   &esLanguagePack,
+  &deLanguagePack,
 #else
   // alphabetical order
   &cnLanguagePack,

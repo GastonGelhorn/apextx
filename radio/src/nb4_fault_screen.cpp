@@ -202,7 +202,7 @@ void drawMessage()
   drawParagraph(bodyFont, STR_NB4_FAULT_ADVICE, margin, y, column, Ink);
 
   char code[24];
-  snprintf(code, sizeof(code), "FAULT %u", (unsigned)faultCode);
+  snprintf(code, sizeof(code), STR_NB4_FAULT_CODE, (unsigned)faultCode);
   drawRun(codeFont, code, (unsigned)strlen(code), margin,
           (int)pageH - codeFont->line_height - margin, Muted);
 }

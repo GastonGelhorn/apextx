@@ -93,7 +93,7 @@ const char CHR_INPUT = TR_CHR_INPUT;
 bool isTextLangAvail(int lang)
 {
 #if defined(RADIO_NB4_FAMILY)
-  return lang == LANG_EN || lang == LANG_ES;
+  return lang == LANG_EN || lang == LANG_ES || lang == LANG_DE;
 #elif defined(RADIO_LANG_SUBSET)
 
   switch (lang) {
@@ -174,7 +174,7 @@ bool isTextLangAvail(int lang)
 }
 
 #if defined(RADIO_NB4_FAMILY)
-const LangStrings* const langStrings[] = { &enLangStrings, &esLangStrings };
+const LangStrings* const langStrings[] = { &enLangStrings, &esLangStrings, &deLangStrings };
 #elif defined(COLORLCD)
 const LangStrings* const langStrings[] = {
 #if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)

@@ -238,6 +238,7 @@ etxLvglFont* etxFonts[] = {
 #if defined(RADIO_NB4_FAMILY)
   en_fontTable,            // EN
   en_fontTable,            // ES (shared Latin alphabet)
+  en_fontTable,            // DE (shared Latin alphabet)
 #else
 #if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
   cn_fontTable,   // CN

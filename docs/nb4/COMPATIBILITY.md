@@ -84,7 +84,7 @@ turn the NB4 into a Pro+ and does not add hardware that the transmitter lacks.
 | AFHDS3 bind, receiver telemetry, link quality, and receiver voltage | Available for qualified receivers and reported sensors | Available |
 | Physical-control assignment | Available, including assign-by-press, navigation, trims, timer, and lap actions | Available, including copying assignments between models |
 | Race timer, lap marking, best/last/delta, undo, pit estimate, and persistent history | Available | The official firmware provides timers and race-oriented controls; this workflow is project-specific |
-| Custom dark interface, portrait/landscape layouts, English and Spanish UI/audio | Available | Different official interface and language packages |
+| Custom dark interface, portrait/landscape layouts, English, Spanish and German UI and audio | Available | Different official interface and language packages |
 | Temperature, RPM, pack voltage, and other telemetry | Displayed when a compatible receiver or sensor reports the value | Available with supported FlySky sensors and adapters |
 | Channels | 8 | 2 ultra-fast, 4, 6, 8, 10, 12, or 18 |
 | Receiver topology | One receiver | One, dual, or multiple receiver modes |
