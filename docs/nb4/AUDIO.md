@@ -5,12 +5,13 @@ language are independent: the menus may be Spanish while the installed and
 selected voice pack is English, or the other way around.
 
 The radio exposes about 7.9 MiB of usable USB storage. Complete upstream
-English and Spanish sound trees cannot coexist there, and current upstream
+sound trees for two languages cannot coexist there, and current upstream
 files are not all encoded in a format the NB4 software decoder accepts.
-ApexTX therefore publishes two separate, size-bounded packages:
+ApexTX therefore publishes separate, size-bounded packages, one per language:
 
-- `apextx-audio-en-VERSION.zip`
-- `apextx-audio-es-VERSION.zip`
+- `apextx-audio-en-VERSION.zip` (English)
+- `apextx-audio-es-VERSION.zip` (Spanish)
+- `apextx-audio-de-VERSION.zip` (German)
 
 Each package contains every upstream `SYSTEM` prompt for that language, the
 ApexTX welcome prompt, and as many assignable tracks as fit in the 7 MiB audio
@@ -19,9 +20,10 @@ remaining space is reserved for radio settings, cars, race history, themes,
 scripts, filesystem metadata and migrations.
 
 With the currently pinned upstream source, the English package contains 548
-prompts (212 required system prompts and 336 assignable tracks) and the Spanish
-package contains 522 (250 required and 272 assignable tracks). "Assignable"
-means that the track can be chosen for a switch or condition; it does not mean
+prompts (212 required system prompts and 336 assignable tracks), the Spanish
+package contains 522 (250 required and 272 assignable tracks), and the German
+package contains the complete upstream German set of 240 (211 required and 29
+assignable tracks). "Assignable" means that the track can be chosen for a switch or condition; it does not mean
 that another download is required. The manifest in each ZIP records the exact
 file count and how many lower-priority assignable tracks did not fit.
 
@@ -60,8 +62,8 @@ replace `/Volumes/NO NAME` with the mounted drive root, such as `E:\`.
 
 Back up the existing `SOUNDS` directory to the computer. Delete that directory
 from the radio, extract exactly one ApexTX audio ZIP, and copy its `SOUNDS`
-directory to the root of the NB4 volume. Do not merge English and Spanish
-packages: doing so can fill the filesystem and leave too little space to save
+directory to the root of the NB4 volume. Do not merge packages of different
+languages: doing so can fill the filesystem and leave too little space to save
 cars or settings.
 
 After copying, safely eject the volume through the operating system before
@@ -73,6 +75,42 @@ written.
 After restarting the radio, open **Menu > System > General > Voice language**
 and select the language of the installed package. Changing **Text language**
 does not change or install voice files.
+
+## Change to another voice language
+
+Voice files live on the radio's USB storage, not in the firmware, so a
+firmware update never changes them. To switch language, install the package
+for the new language exactly as above: the helper replaces the whole `SOUNDS`
+directory and keeps a backup of the old one on the computer. Then select the
+new language under **Voice language**. Keep one language on the radio at a
+time.
+
+## When a voice file is missing
+
+The radio keeps working without voice files. What you hear depends on the
+sound:
+
+- Alerts and warnings, such as low battery, inactivity, throttle and switch
+  warnings and trim limits, fall back to beeps.
+- Spoken values, voice assignments, lap announcements and the startup
+  greeting are silent.
+
+The same happens when **Voice language** names a language that is not
+installed. **Menu > Sound & alerts > Sound > Playback > Tones only** uses
+beeps on purpose, even when the voice files are present.
+
+## Replace the startup greeting
+
+At startup the radio plays `SOUNDS/<voice language>/SYSTEM/hello.wav`. Each
+ApexTX package includes a short "Welcome to ApexTX" greeting in its language.
+To use your own, replace that file with a mono, signed 16-bit PCM WAV at 8 kHz,
+for example converted with:
+
+```sh
+ffmpeg -i greeting.mp3 -ac 1 -ar 8000 -c:a pcm_s16le hello.wav
+```
+
+Turning off **Menu > System > General > Startup sound** silences it as well.
 
 ## Assign a voice to a control
 
@@ -97,6 +135,15 @@ python3 tools/nb4-audio-packs.py \
   --source build/edgetx-sdcard-sounds \
   --output dist \
   --release "$(cat APEXTX_VERSION)"
+```
+
+The ApexTX welcome prompts in `sdcard/SOUNDS/<language>/SYSTEM/hello.wav`
+replace the upstream EdgeTX greeting. They speak the `hello` phrase of
+`radio/util/tts_<language>.py` with a fixed macOS system voice and are
+regenerated, on macOS only, with:
+
+```sh
+python3 tools/nb4-welcome-prompts.py
 ```
 
 Building requires `ffmpeg`. The generator refuses an unpinned upstream

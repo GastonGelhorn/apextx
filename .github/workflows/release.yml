@@ -82,7 +82,7 @@ jobs:
             https://github.com/EdgeTX/edgetx-sdcard-sounds.git \
             build/edgetx-sdcard-sounds
           git -C build/edgetx-sdcard-sounds sparse-checkout set \
-            SOUNDS/en SOUNDS/es voices
+            SOUNDS/en SOUNDS/es SOUNDS/de voices
           test "$(git -C build/edgetx-sdcard-sounds rev-parse HEAD)" = \
             4e34b6cb40ab53c6dcd293e2b1344b54d912d41c
 

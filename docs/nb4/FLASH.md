@@ -292,13 +292,13 @@ rsync -a --exclude='._*' --exclude='SOUNDS/' sdcard/ "$NB4_VOLUME/"
 ```
 
 Install exactly one size-bounded ApexTX audio package for the desired voice
-language. Do not copy an unconverted EdgeTX sound tree or merge English and
-Spanish: the NB4 cannot hold both complete packs, and not every upstream audio
-encoding is accepted by its software WAV decoder. The menu text language and
+language. Do not copy an unconverted EdgeTX sound tree or merge languages: the
+NB4 cannot hold two complete packs, and not every upstream audio encoding is
+accepted by its software WAV decoder. The menu text language and
 voice language remain independent. See [AUDIO.md](AUDIO.md) for the verified
-English and Spanish packages, their USB installer, manual instructions and
-source provenance. The firmware works without WAV files, but voice prompts
-will be silent or missing.
+English, Spanish and German packages, their USB installer, manual instructions
+and source provenance. The firmware works without WAV files: alerts fall back
+to beeps, and spoken prompts are silent.
 
 On macOS, remove AppleDouble metadata before ejecting; every `._*.wav` consumes
 directory entries and at least one filesystem cluster:

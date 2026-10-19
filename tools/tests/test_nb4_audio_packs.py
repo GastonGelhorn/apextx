@@ -69,6 +69,22 @@ class Nb4AudioPacksTest(unittest.TestCase):
                     package.write(path, path.relative_to(staging))
         return archive
 
+    def test_installer_accepts_every_language_the_builder_makes(self) -> None:
+        self.assertEqual(installer.SUPPORTED_LANGUAGES,
+                         audio.SUPPORTED_LANGUAGES)
+        for language in audio.SUPPORTED_LANGUAGES:
+            with self.subTest(language=language):
+                prompt = audio.ROOT / "sdcard/SOUNDS" / language / "SYSTEM/hello.wav"
+                self.assertTrue(prompt.is_file())
+                with tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary) / "extracted"
+                    archive = self.make_pack(Path(temporary), language)
+                    with ZipFile(archive) as pack:
+                        pack.extractall(root)
+                    manifest, sounds = installer.read_and_verify_pack(root)
+                    self.assertEqual(manifest["language"], language)
+                    self.assertTrue((sounds / language).is_dir())
+
     def test_budget_leaves_space_on_the_real_volume(self) -> None:
         self.assertLess(audio.DEVICE_AUDIO_BUDGET, audio.NB4_VOLUME_BYTES)
         self.assertGreaterEqual(

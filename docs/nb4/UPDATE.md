@@ -113,8 +113,8 @@ interface descriptor. A matching STM32 VID/PID alone is insufficient; a ROM DFU
 device is never claimed for a normal update.
 
 Firmware updates do not modify the external audio files. When a release changes
-voice resources, install one matching English or Spanish package separately in
-USB Storage mode as described in [AUDIO.md](AUDIO.md).
+voice resources, install one matching English, Spanish or German package
+separately in USB Storage mode as described in [AUDIO.md](AUDIO.md).
 
 ## Failure and recovery
 
