@@ -9,6 +9,7 @@
 // loop rather than from inside the alert's own nested loop.
 
 #include "gtests.h"
+#include "nb4_ui_languages.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -177,7 +178,7 @@ TEST(Nb4Alerts, EveryBootWarningRendersAndOffersItsSettingWhereThereIsOne)
   for (bool landscape : {false, true}) {
     bench.orient(landscape);
     const char* shape = landscape ? "480x320" : "320x480";
-    for (const char* language : {"en", "es"}) {
+    for (const char* language : NB4_UI_LANGUAGES) {
       bench.language(language);
       // Resolve STR_* after switching language: the tables are selected at
       // runtime, so pointers captured beforehand would keep the old language.
