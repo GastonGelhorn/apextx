@@ -31,6 +31,14 @@ TEST(Nb4Languages, LayoutChecksCoverEveryShippedLanguage)
     EXPECT_STREQ(NB4_UI_LANGUAGES[i], languagePacks[i]->id);
 }
 
+TEST(Nb4Languages, AFreshInstallStartsInEnglish)
+{
+  memset(g_eeGeneral.uiLanguage, 0, sizeof(g_eeGeneral.uiLanguage));
+  generalDefaultUILanguage();
+  EXPECT_EQ(0, strncmp(g_eeGeneral.uiLanguage, "en", 2));
+  EXPECT_EQ(LANG_EN, getLanguageId(g_eeGeneral.uiLanguage));
+}
+
 TEST(Nb4Languages, StoredCodesSurviveCompactedLanguageRegistry)
 {
   // Settings persist two bytes without a terminating NUL.
