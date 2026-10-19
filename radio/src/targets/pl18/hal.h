@@ -808,7 +808,7 @@
   #define EXTI9_5_IRQ_Priority  9
 #endif
 
-#if defined(RADIO_NB4P)
+#if defined(RADIO_NB4P) || defined(RADIO_NB4PLUS_HW)
 #define HAPTIC_PWM
 #define HAPTIC_GPIO                     GPIO_PIN(GPIOB, 0) // PB.00
 #define HAPTIC_GPIO_TIMER               TIM1

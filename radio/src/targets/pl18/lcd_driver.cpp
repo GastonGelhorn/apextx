@@ -2848,7 +2848,7 @@ void lcdInit(void)
     lcdOnFunction = LCD_ST7796S_On;
     lcdPixelClock = 14500000;
   }
-#if defined(RADIO_NB4)
+#if defined(RADIO_NB4) && !defined(RADIO_NB4PLUS_HW)
   else {
 
     TRACE("LCD INIT (default NB4): NT35310");
