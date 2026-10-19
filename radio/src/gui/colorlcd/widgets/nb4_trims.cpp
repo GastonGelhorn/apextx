@@ -91,6 +91,6 @@ class Nb4TrimsWidget : public Widget
   }
 };
 
-BaseWidgetFactory<Nb4TrimsWidget> nb4TrimsWidget("NB4Trims", nullptr, "Trims");
+Nb4WidgetFactory<Nb4TrimsWidget> nb4TrimsWidget("NB4Trims", nullptr, NB4_STR(WIDGET_TRIMS));
 
 #endif

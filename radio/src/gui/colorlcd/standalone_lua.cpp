@@ -90,15 +90,14 @@ static void luaStandaloneInit()
 void luaExecStandalone(const char * filename)
 {
   if ((nb4HealthRecovery() || nb4ModelBlocked())) {
-    POPUP_WARNING(g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's' ?
-      "Recuperacion: scripts desactivados" : "Recovery: scripts disabled");
+    POPUP_WARNING(STR_NB4_LUA_SCRIPTS_RECOVERY);
     return;
   }
   if (lsStandalone == nullptr)
     luaStandaloneInit();
 
   if (lsStandalone == nullptr) {
-    POPUP_WARNING(g_eeGeneral.uiLanguage[1] == 's' ? "Lua: memoria insuficiente" : "Lua: insufficient memory");
+    POPUP_WARNING(STR_NB4_LUA_NO_MEMORY);
     return;
   }
 

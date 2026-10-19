@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 #include "gtests.h"
+#include "nb4_ui_languages.h"
 
 #if defined(RADIO_NB4_FAMILY) && defined(COLORLCD)
 #include "layer.h"
@@ -88,8 +89,8 @@ TEST(Nb4Ui, RacingHomeRendersAndPreservesDrivingState)
     ASSERT_TRUE(lcdSetOrientation(orientation != 0));
     coord_t w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
     root->setRect({0, 0, w, h}); home->setRect({0, 0, w, h});
-  for (unsigned language = 0; language < 2; ++language) {
-    memcpy(g_eeGeneral.uiLanguage, language ? "en" : "es", 2);
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
     currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
     for (unsigned design = 0; design < 1; ++design) {
       g_eeGeneral.nb4Home = design;
@@ -100,7 +101,7 @@ TEST(Nb4Ui, RacingHomeRendersAndPreservesDrivingState)
         lv_obj_update_layout(root->getLvObj());
         lv_tick_inc(50); lv_timer_handler(); root->run();
         char name[64];
-        snprintf(name, sizeof(name), "home-%s-%s-%s-%s", orientation ? "landscape" : "portrait", language ? "en" : "es", "racing", theme ? "light" : "dark");
+        snprintf(name, sizeof(name), "home-%s-%s-%s-%s", orientation ? "landscape" : "portrait", language, "racing", theme ? "light" : "dark");
         saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"), name, w, h);
         ASSERT_EQ(lv_mem_test(), LV_RES_OK);
         EXPECT_EQ(timersStates[0].val, 127);

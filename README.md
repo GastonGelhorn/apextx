@@ -91,9 +91,9 @@ Read this before flashing anything:
 
 The firmware is under active development and is tested on an original Noble
 NB4. The maintained configuration uses the USART6 AFHDS3 route and
-English firmware strings. The interface can be switched between English and
-Spanish, independently of the single English or Spanish voice pack installed
-on the expanded storage volume.
+English firmware strings. The interface can be switched between English,
+Spanish and German, independently of the single English or Spanish voice pack
+installed on the expanded storage volume.
 
 Device-specific factory images, calibration data, OTP contents, and local build
 artifacts are intentionally excluded from this repository.

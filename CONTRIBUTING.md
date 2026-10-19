@@ -11,11 +11,15 @@ documentation in English.
 ## User-facing text
 
 NB4 interface strings live in the shared translation tables, like the rest of
-EdgeTX: add a `TR_NB4_*` define to `radio/src/translations/i18n/en.h` and
-`es.h` (and the English text to the other language files, which are not
-compiled for the NB4 but keep the table complete), list it in
+EdgeTX: add a `TR_NB4_*` define to `radio/src/translations/i18n/en.h`,
+`es.h` and `de.h` (and the English text to the other language files, which
+are not compiled for the NB4 but keep the table complete), list it in
 `string_list.h` and `sim_string_list.h`, and use `STR_NB4_*` in code. The
-firmware compiles English and Spanish together and switches at runtime.
+firmware compiles English, Spanish and German together, switches at runtime,
+and starts in English on a fresh installation. The native tests render every
+screen in each of these languages and fail when a label does not fit, and
+`tools/tests/test_nb4_i18n.py` fails when code chooses text by comparing the
+language code.
 
 Static data tables (the route catalogue, help entries, home templates,
 palettes) cannot hold `STR_NB4_*` directly because it reads the active

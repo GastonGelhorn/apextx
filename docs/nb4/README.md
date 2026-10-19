@@ -4,9 +4,10 @@ This tree contains the maintained EdgeTX port for the original FlySky Noble NB4.
 The target is `PCB=PL18`, `PCBREV=NB4` and uses the NB4 AFHDS3 hardware
 profile for USART6.
 
-The interface supports English and Spanish. Source code, comments, tests, build
-tools, and engineering documentation are written in English; Spanish text is
-kept only as localized content shown by the radio.
+The interface supports English, Spanish and German, and a fresh installation
+starts in English. Source code, comments, tests, build tools, and engineering
+documentation are written in English; Spanish and German text is kept only as
+localized content shown by the radio.
 
 The project version is read from `APEXTX_VERSION`. Development builds identify
 themselves as ApexTX development images and retain the EdgeTX 2.12.4 base

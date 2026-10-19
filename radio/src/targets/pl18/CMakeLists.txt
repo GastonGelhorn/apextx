@@ -92,8 +92,6 @@ elseif(PCBREV STREQUAL NB4P)
   set(AFHDS3 ON)
   set(KEY_DRIVER nb4p_key_driver.cpp)
   set(USE_RTC_CLOCK OFF)
-  set(TRANSLATIONS "ES")
-  set(RADIO_LANG_SET EN ES)
 
   # NB4 and NB4P share the same surface-radio product defaults.
   set(INTERNAL_MODULES AFHDS3 CACHE STRING "Internal modules" FORCE)
@@ -129,11 +127,8 @@ elseif(PCBREV STREQUAL NB4)
   # RF is configured by nb4_car.cmake after both candidates have been declared.
   # No UART or shared electrical line is assigned here.
 
-  # Spanish is the factory language and English remains selectable at runtime.
   set(HELI OFF CACHE BOOL "Heli menu" FORCE)
   set(FLIGHT_MODES OFF CACHE BOOL "Flight Modes" FORCE)
-  set(TRANSLATIONS "ES")
-  set(RADIO_LANG_SET EN ES)
 elseif(PCBREV STREQUAL PL18EV)
   set(FLAVOUR pl18ev)
   add_definitions(-DRADIO_PL18EV -DUSE_HATS_AS_KEYS)

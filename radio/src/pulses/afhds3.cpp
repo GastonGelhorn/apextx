@@ -69,7 +69,9 @@ void processFlySkySensor(const uint8_t * packet, uint8_t type);
 
 #if defined(RADIO_NB4)
 #include "afhds3_nb4.h"
-static const char* nb4RfText(const char* es, const char* en) { return g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's' ? es : en; }
+#endif
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_i18n.h"
 #endif
 
 namespace afhds3
@@ -358,13 +360,13 @@ class ProtoState
     tmr10ms_t nb4LastPoll = 0;
     tmr10ms_t nb4BindStarted = 0;
     tmr10ms_t nb4FailedAt = 0;
-    const char* nb4Error = nullptr;
+    Nb4Str nb4Error = nullptr;
     void setupNb4Frame();
     bool parseNb4Data(const AfhdsFrame* frame, uint8_t length);
     void parseNb4Telemetry(const uint8_t* data, unsigned size);
     void nb4Request(COMMAND command, uint8_t* payload = nullptr, uint8_t size = 0,
                     FRAME_TYPE type = REQUEST_GET_DATA);
-    void nb4Fail(const char* message);
+    void nb4Fail(Nb4Str message);
 
 #endif
 
@@ -503,37 +505,44 @@ void ProtoState::getStatusString(char* buffer) const
 #if defined(RADIO_NB4)
   switch (nb4::Nb4RfController::getFault()) {
     case nb4::Nb4RfFault::UartError:
-      strcpy(buffer, nb4RfText("Error de UART RF", "RF UART error")); return;
+      strcpy(buffer, STR_NB4_RF_UART_ERROR); return;
     case nb4::Nb4RfFault::UartInitFailed:
-      strcpy(buffer, nb4RfText("No se pudo iniciar UART RF", "RF UART initialization failed")); return;
+      strcpy(buffer, STR_NB4_RF_UART_INIT_FAILED); return;
     case nb4::Nb4RfFault::UnqualifiedProfile:
-      strcpy(buffer, nb4RfText("Perfil RF no disponible", "RF profile unavailable")); return;
+      strcpy(buffer, STR_NB4_RF_PROFILE_UNAVAILABLE); return;
     case nb4::Nb4RfFault::InvalidElectricalSequence:
-      strcpy(buffer, nb4RfText("Error de activación RF", "RF activation error")); return;
+      strcpy(buffer, STR_NB4_RF_ACTIVATION_ERROR); return;
     default: break;
   }
-  if (nb4Error) { strcpy(buffer, nb4Error); return; }
+  if (nb4Error) { strcpy(buffer, nb4Error()); return; }
   if (nb4Stage == Nb4Stage::Pages) {
-    snprintf(buffer, 64, nb4RfText("Configurando RF %u/4", "Configuring RF %u/4"), nb4Page + 1);
+    snprintf(buffer, 64, STR_NB4_RF_CONFIGURING, nb4Page + 1);
     return;
   }
   if (nb4Binding && !nb4ReceivedConfig && state == STATE_SYNC_DONE) {
-    strcpy(buffer, nb4RfText("Guardando receptor", "Saving receiver")); return;
+    strcpy(buffer, STR_NB4_RF_SAVING_RECEIVER); return;
   }
   if (nb4Binding && nb4ReceivedConfig && !moduleData->afhds3.telemetry) {
-    strcpy(buffer, nb4RfText("Receptor guardado. Finaliza.", "Receiver saved. Finish.")); return;
+    strcpy(buffer, STR_NB4_RF_RECEIVER_SAVED_FINISH); return;
   }
   if (nb4Stage == Nb4Stage::Active && !nb4Binding && !nb4Config.bound) {
-    strcpy(buffer, nb4RfText("Sin receptor enlazado", "No bound receiver")); return;
+    strcpy(buffer, STR_NB4_RF_NO_BOUND_RECEIVER); return;
   }
 #endif
 
 #if defined(RADIO_NB4_FAMILY)
-  if (g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's') {
-    static const char* const spanish[] = {"Sin preparar", "Error hardware", "Vinculando", "Desconectado", "Conectado", "En espera",
-      "Espera de firmware", "Actualizando", "Actualizando RX", "Fallo al actualizar RX", "Probando", "Preparado"};
-    strcpy(buffer, state <= ModuleState::STATE_READY ? spanish[state] : "Desconocido"); return;
-  }
+  static const Nb4Str stateText[] = {
+      NB4_STR(RF_STATE_NOT_READY),     NB4_STR(RF_STATE_HW_ERROR),
+      NB4_STR(RF_STATE_BINDING),       NB4_STR(RF_STATE_DISCONNECTED),
+      NB4_STR(RF_STATE_CONNECTED),     NB4_STR(RF_STATE_STANDBY),
+      NB4_STR(RF_STATE_WAITING_UPDATE), NB4_STR(RF_STATE_UPDATING),
+      NB4_STR(RF_STATE_UPDATING_RX),   NB4_STR(RF_STATE_UPDATING_RX_FAILED),
+      NB4_STR(RF_STATE_TESTING),       NB4_STR(RF_STATE_READY)};
+  static_assert(DIM(stateText) == ModuleState::STATE_READY + 1,
+                "one name per module state");
+  strcpy(buffer, state <= ModuleState::STATE_READY ? stateText[state]()
+                                                   : STR_NB4_RF_STATE_UNKNOWN);
+  return;
 #endif
   strcpy(buffer, state <= ModuleState::STATE_READY ? moduleStateText[state]
                                                    : "Unknown");
@@ -760,7 +769,7 @@ void ProtoState::nb4Request(COMMAND command, uint8_t* payload, uint8_t size,
   trsp.putFrame(command, type, payload, size);
 }
 
-void ProtoState::nb4Fail(const char* message)
+void ProtoState::nb4Fail(Nb4Str message)
 {
   nb4Error = message;
   nb4Stage = Nb4Stage::Failed;
@@ -804,10 +813,10 @@ void ProtoState::setupNb4Frame()
   // One-way has no connection feedback and deliberately waits for manual exit.
   if (nb4Binding && !isConnected() &&
       (!nb4ReceivedConfig || moduleData->afhds3.telemetry) &&
-      nb4Stage != Nb4Stage::Failed && (tmr10ms_t)(now - nb4BindStarted) > 3000)
-    nb4Fail(nb4ReceivedConfig ?
-              nb4RfText("Receptor sin confirmar", "Receiver not confirmed") :
-              nb4RfText("Tiempo de enlace agotado", "Bind timed out"));
+      nb4Stage != Nb4Stage::Failed && (tmr10ms_t)(now - nb4BindStarted) > 3000) {
+    if (nb4ReceivedConfig) nb4Fail(NB4_STR(RF_RECEIVER_NOT_CONFIRMED));
+    else nb4Fail(NB4_STR(RF_BIND_TIMED_OUT));
+  }
 
   if (nb4Stage == Nb4Stage::Failed) {
     if (nb4Pending == 0xff) {
@@ -855,7 +864,7 @@ void ProtoState::setupNb4Frame()
       state = STATE_SYNC_RUNNING;
       cfg.others.isConnected = false;
     } else {
-      nb4Fail(nb4RfText("El módulo RF no responde", "RF module not responding"));
+      nb4Fail(NB4_STR(RF_MODULE_NOT_RESPONDING));
       return;
     }
   }
@@ -968,7 +977,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
   if (frame->command == MODULE_STATE && size == 1 && (reply || notification)) {
     if (data[0] == STATE_HW_TEST) {
       state = STATE_HW_TEST;
-      nb4Fail(nb4RfText("Modo de prueba RF inesperado", "Unexpected RF test mode"));
+      nb4Fail(NB4_STR(RF_UNEXPECTED_TEST_MODE));
       return true;
     }
     if (data[0] <= STATE_READY) state = (ModuleState)data[0];
@@ -981,14 +990,14 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
   if (reply && frame->command == nb4Pending) {
     nb4Pending = 0;
     if (size != 1) {
-      nb4Fail(nb4RfText("Respuesta RF incompleta", "Incomplete RF response"));
+      nb4Fail(NB4_STR(RF_INCOMPLETE_RESPONSE));
       return true;
     }
     switch (frame->command) {
       case MODULE_READY:
         if (data[0] != MODULE_STATUS_READY) {
           if (++nb4ReadyTries >= 100)
-            nb4Fail(nb4RfText("Módulo RF no preparado", "RF module not ready"));
+            nb4Fail(NB4_STR(RF_MODULE_NOT_READY));
         } else {
           state = STATE_READY;
           nb4Stage = Nb4Stage::Standby;
@@ -997,7 +1006,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
         break;
       case MODULE_MODE:
         if (data[0] != SUCCESS) {
-          nb4Fail(nb4RfText("Modo RF rechazado", "RF mode rejected"));
+          nb4Fail(NB4_STR(RF_MODE_REJECTED));
         } else if (nb4Stage == Nb4Stage::Standby) {
           state = STATE_STANDBY;
           nb4Page = 0;
@@ -1016,7 +1025,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
         // 0xf8, not a cumulative mask of 1.
         if (++nb4Page == 4) {
           if ((data[0] & 0x0f) != 0x0f) {
-            nb4Fail(nb4RfText("Configuración RF rechazada", "RF configuration rejected"));
+            nb4Fail(NB4_STR(RF_CONFIG_REJECTED));
           } else {
             nb4Stage = nb4Binding ? Nb4Stage::Bind : Nb4Stage::Run;
             cfg.others.dirtyFlag = 0;
@@ -1026,7 +1035,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
       }
       case MODULE_APPLY_CONFIG:
         if ((data[0] & 0x0f) != 0x0f) {
-          nb4Fail(nb4RfText("Enlace RF rechazado", "RF bind rejected"));
+          nb4Fail(NB4_STR(RF_BIND_REJECTED));
         } else {
           nb4Stage = Nb4Stage::Active;
           if (state != STATE_SYNC_DONE) state = STATE_BINDING;

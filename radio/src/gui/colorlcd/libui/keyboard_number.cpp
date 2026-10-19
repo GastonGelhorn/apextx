@@ -19,12 +19,22 @@
 #include "keyboard_number.h"
 
 #include "numberedit.h"
+#include "translations/translations.h"
 
 LAYOUT_VAL_SCALED(KEYBOARD_HEIGHT, 90);
 NumberKeyboard* NumberKeyboard::_instance = nullptr;
 
-static const char* const number_kb_map[] = {"<<",  "-",   "+",   ">>",  "\n",
-                                            "MIN", "DEF", "+/-", "MAX", ""};
+// MIN, DEF and MAX are filled from the active language each time the
+// keyboard opens; the key handler compares against the same strings.
+static const char* number_kb_map[] = {"<<",    "-",     "+",   ">>",    "\n",
+                                      nullptr, nullptr, "+/-", nullptr, ""};
+
+static void numberKeyboardLabels()
+{
+  number_kb_map[5] = STR_NB4_KB_MIN;
+  number_kb_map[6] = STR_NB4_KB_DEF;
+  number_kb_map[8] = STR_NB4_KB_MAX;
+}
 
 #define LV_KB_BTN(width) LV_BTNMATRIX_CTRL_POPOVER | width
 #define LV_KB_CTRL(width) LV_KEYBOARD_CTRL_BTN_FLAGS | width
@@ -59,11 +69,11 @@ void NumberKeyboard::handleEvent(const char* btn)
     incSmall();
   else if (strcmp(btn, ">>") == 0)
     incLarge();
-  else if (strcmp(btn, "MIN") == 0)
+  else if (strcmp(btn, STR_NB4_KB_MIN) == 0)
     setMIN();
-  else if (strcmp(btn, "DEF") == 0)
+  else if (strcmp(btn, STR_NB4_KB_DEF) == 0)
     setDEF();
-  else if (strcmp(btn, "MAX") == 0)
+  else if (strcmp(btn, STR_NB4_KB_MAX) == 0)
     setMAX();
   else if (strcmp(btn, "+/-") == 0)
     changeSign();
@@ -147,6 +157,7 @@ void NumberKeyboard::onLongPressPGDN() { setDEF(); }
 NumberKeyboard::NumberKeyboard() : Keyboard(KEYBOARD_HEIGHT)
 {
   // setup custom keyboard
+  numberKeyboardLabels();
   lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_USER_1,
                       (const char**)number_kb_map, number_kb_ctrl_map);
 
@@ -158,6 +169,11 @@ NumberKeyboard::~NumberKeyboard() { _instance = nullptr; }
 void NumberKeyboard::open(FormField* field)
 {
   if (!_instance) _instance = new NumberKeyboard();
+
+  // The language may have changed since the keyboard was built.
+  numberKeyboardLabels();
+  lv_keyboard_set_map(_instance->keyboard, LV_KEYBOARD_MODE_USER_1,
+                      number_kb_map, number_kb_ctrl_map);
 
   lv_obj_clear_flag(_instance->lvobj, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(_instance->keyboard, LV_OBJ_FLAG_HIDDEN);

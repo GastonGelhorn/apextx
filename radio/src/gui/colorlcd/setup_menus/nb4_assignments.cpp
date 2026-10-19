@@ -277,7 +277,7 @@ class AssignmentsDialog : public BaseDialog
     sectionLabel(form, STR_NB4_BUTTONS);
     auto buttons = controlsGroup();
     for (unsigned i : {2u, 3u, 0u, 1u}) addControl(buttons, i);
-    sectionLabel(form, "TRIMS");
+    sectionLabel(form, STR_NB4_TRIMS);
     auto trims = controlsGroup();
     for (unsigned i = 4; i < NB4_CONTROL_COUNT; ++i) addControl(trims, i);
     new TextButton(form, {0, 0, LV_PCT(100), 44}, STR_NB4_SW2_SW3_PAIR, []() {
