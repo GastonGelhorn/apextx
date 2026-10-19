@@ -146,8 +146,7 @@ const WidgetOption Nb4SensorWidget::options[] = {
      WIDGET_OPTION_VALUE_SIGNED(-30000), WIDGET_OPTION_VALUE_SIGNED(30000)},
     {nullptr, WidgetOption::Bool}};
 
-BaseWidgetFactory<Nb4SensorWidget> nb4SensorWidget("NB4Sensor",
-                                                   Nb4SensorWidget::options,
-                                                   "Sensor");
+Nb4WidgetFactory<Nb4SensorWidget> nb4SensorWidget(
+    "NB4Sensor", Nb4SensorWidget::options, NB4_STR(WIDGET_SENSOR));
 
 #endif

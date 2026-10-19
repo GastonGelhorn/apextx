@@ -137,7 +137,7 @@ class Nb4DialWidget : public Widget
   {
     using namespace nb4w;
     if (!trimOk(trimIndex())) return "";
-    return std::string("TRIM ") + signedText(trimValue(trimIndex()));
+    return std::string(STR_NB4_TRIM_CAPTION) + " " + signedText(trimValue(trimIndex()));
   }
 
   lv_obj_t* arc = nullptr;

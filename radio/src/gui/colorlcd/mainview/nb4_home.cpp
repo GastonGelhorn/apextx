@@ -223,7 +223,7 @@ void nb4BuildAppearance(Window* parent)
   for (unsigned i = 0; i < nb4PaletteCount(); ++i) {
     const auto& palette = nb4Palette(i);
     const std::string name = palette.name;
-    selectedAction(parent, {0, y, w, 44}, palette.name,
+    selectedAction(parent, {0, y, w, 44}, palette.label(),
       [name] { applyPaletteByName(name.c_str()); },
       [name] { return name == g_eeGeneral.selectedTheme; });
     y += 50;

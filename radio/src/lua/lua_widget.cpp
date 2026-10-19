@@ -465,7 +465,7 @@ void LuaWidget::setErrorMessage(const char* funcName)
     errorMessage = (char*)malloc(err_len + 1);
 
   if (errorMessage) {
-    snprintf(errorMessage, err_len, "ERROR in %s: %s", funcName, lua_err);
+    snprintf(errorMessage, err_len, STR_NB4_LUA_WIDGET_ERROR, funcName, lua_err);
     errorMessage[err_len] = '\0';
   }
 }

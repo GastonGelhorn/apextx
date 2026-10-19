@@ -107,8 +107,7 @@ const WidgetOption Nb4BatteryWidget::options[] = {
      WIDGET_OPTION_VALUE_SIGNED(30), WIDGET_OPTION_VALUE_SIGNED(300)},
     {nullptr, WidgetOption::Bool}};
 
-BaseWidgetFactory<Nb4BatteryWidget> nb4BatteryWidget("NB4Battery",
-                                                     Nb4BatteryWidget::options,
-                                                     "Battery");
+Nb4WidgetFactory<Nb4BatteryWidget> nb4BatteryWidget(
+    "NB4Battery", Nb4BatteryWidget::options, NB4_STR(WIDGET_BATTERY));
 
 #endif

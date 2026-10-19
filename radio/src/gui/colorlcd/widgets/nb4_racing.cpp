@@ -4,6 +4,7 @@
 
 #include "edgetx.h"
 #include "widget.h"
+#include "nb4_widget_kit.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -71,9 +72,9 @@ class Nb4RacingWidget : public Widget
     y += rowH + PAD_TINY;
     }
 
-    y = addBar(y, w, rowH, "ST", &steerBox, &steerBar, &steerTick,
+    y = addBar(y, w, rowH, STR_NB4_ST, &steerBox, &steerBar, &steerTick,
                &steerValue, g_model.nb4Racing.steeringChannel);
-    y = addBar(y, w, rowH, "TH", &thrBox, &thrBar, &thrTick,
+    y = addBar(y, w, rowH, STR_NB4_TH, &thrBox, &thrBar, &thrTick,
                &thrValue, g_model.nb4Racing.throttleChannel);
 
     coord_t lapH = 0;
@@ -98,14 +99,11 @@ class Nb4RacingWidget : public Widget
       new DynamicText(
           this, {PAD_SMALL, h - lapH, w - PAD_SMALL * 2, lapH},
           []() {
-            char buf[40];
-            char* p = buf;
-            *p++ = 'V';
-            *p++ = ' ';
-            p = strAppendUnsigned(p, nb4RacingLaps());
-            p = appendLapTime(p, " U ", nb4RacingLastLap());
-            p = appendLapTime(p, " M ", nb4RacingBestLap());
-            *p = '\0';
+            char last[16], best[16], buf[64];
+            nb4RacingFormatTime(last, nb4RacingLastLap());
+            nb4RacingFormatTime(best, nb4RacingBestLap());
+            snprintf(buf, sizeof(buf), STR_NB4_RACING_LAP_LINE,
+                     (unsigned)nb4RacingLaps(), last, best);
             return std::string(buf);
           },
           COLOR_THEME_PRIMARY1_INDEX, FONT(XS) | CENTERED);
@@ -138,15 +136,6 @@ class Nb4RacingWidget : public Widget
   DynamicText* timerText = nullptr;
   int16_t lastSteer = INT16_MIN;
   int16_t lastThr = INT16_MIN;
-
-  static char* appendLapTime(char* p, const char* label, uint32_t cs)
-  {
-    while (*label) *p++ = *label++;
-    char t[16];
-    nb4RacingFormatTime(t, cs);
-    for (char* q = t; *q; q++) *p++ = *q;
-    return p;
-  }
 
   static int16_t channelPercent(uint8_t ch)
   {
@@ -216,7 +205,7 @@ class Nb4RacingWidget : public Widget
   static LAYOUT_VAL_SCALED(TICK_W, 2)
 };
 
-BaseWidgetFactory<Nb4RacingWidget> nb4RacingWidget("NB4Racing", nullptr,
-                                                   "Racing");
+Nb4WidgetFactory<Nb4RacingWidget> nb4RacingWidget("NB4Racing", nullptr,
+                                                  NB4_STR(WIDGET_RACING));
 
 #endif  // RADIO_NB4_FAMILY

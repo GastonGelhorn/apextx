@@ -6,6 +6,8 @@
 #include "nb4_ui_languages.h"
 
 #if defined(RADIO_NB4_FAMILY)
+#include "widget.h"
+
 TEST(Nb4Languages, OnlyTheShippedLanguagesAreSelectable)
 {
   ASSERT_EQ(3, LANG_COUNT);
@@ -37,6 +39,22 @@ TEST(Nb4Languages, AFreshInstallStartsInEnglish)
   generalDefaultUILanguage();
   EXPECT_EQ(0, strncmp(g_eeGeneral.uiLanguage, "en", 2));
   EXPECT_EQ(LANG_EN, getLanguageId(g_eeGeneral.uiLanguage));
+}
+
+TEST(Nb4Languages, WidgetNamesFollowTheLanguageAndKeepTheirIds)
+{
+  char saved[sizeof(g_eeGeneral.uiLanguage)];
+  memcpy(saved, g_eeGeneral.uiLanguage, sizeof(saved));
+  for (const char* code : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, code, 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    auto racing = WidgetFactory::getWidgetFactory("NB4Racing");
+    ASSERT_NE(racing, nullptr) << code;
+    EXPECT_STREQ(racing->getName(), "NB4Racing") << code;
+    EXPECT_STREQ(racing->getDisplayName(), STR_NB4_WIDGET_RACING) << code;
+  }
+  memcpy(g_eeGeneral.uiLanguage, saved, sizeof(saved));
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
 }
 
 TEST(Nb4Languages, StoredCodesSurviveCompactedLanguageRegistry)

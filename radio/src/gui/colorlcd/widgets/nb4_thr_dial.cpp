@@ -21,7 +21,7 @@ class Nb4ThrDialWidget : public Nb4DialWidget
   }
 };
 
-BaseWidgetFactory<Nb4ThrDialWidget> nb4ThrDialWidget("NB4ThrDial", nullptr,
-                                                     "Thr dial");
+Nb4WidgetFactory<Nb4ThrDialWidget> nb4ThrDialWidget(
+    "NB4ThrDial", nullptr, NB4_STR(WIDGET_THR_DIAL));
 
 #endif

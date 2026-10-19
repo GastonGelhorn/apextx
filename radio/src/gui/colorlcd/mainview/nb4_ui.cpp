@@ -353,7 +353,7 @@ StaticText* trimChip(Window* parent, rect_t r, lv_color_t accent)
 {
   auto box = new Window(parent, r);
   Nb4Ui::chip(box->getLvObj());
-  caption(box, {6, 7, 24, 12}, "TRIM");
+  caption(box, {6, 7, 24, 12}, STR_NB4_TRIM_CAPTION);
   auto value = nb4Label(box, {34, 4, 28, 17}, "--", FONT(XS) | RIGHT);
   lv_obj_set_style_text_color(value->getLvObj(), accent, 0);
   return value;
@@ -513,7 +513,7 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   ruleSpan = wellWidth - 2 * ruleX0 - 2;
   const coord_t ruleY = landscape ? 11 : 23;
   wedgeY = (coord_t)(ruleY - 8);
-  if (!landscape) caption(box, {4, 2, (coord_t)(wellWidth - 10), 12}, "TRIM", CENTERED);
+  if (!landscape) caption(box, {4, 2, (coord_t)(wellWidth - 10), 12}, STR_NB4_TRIM_CAPTION, CENTERED);
   solidRect(box->getLvObj(), ruleX0, ruleY, ruleSpan, 1, COLOR_THEME_SECONDARY2_INDEX);
   for (unsigned i = 0; i < 5; ++i)
     solidRect(box->getLvObj(), (coord_t)(ruleX0 + i * ruleSpan / 4), (coord_t)(ruleY + 1), 1, 5,
@@ -619,7 +619,7 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
   auto trimWell = new Window(this, {4, trimTop, 40, (coord_t)(2 * semi + 34)});
   Nb4Ui::well(trimWell->getLvObj());
   trimAxisY = axisY - trimTop - 1;  // Subtract the track border
-  caption(trimWell, {1, 4, 36, 12}, "TRIM", CENTERED);
+  caption(trimWell, {1, 4, 36, 12}, STR_NB4_TRIM_CAPTION, CENTERED);
   solidRect(trimWell->getLvObj(), 32, (coord_t)(trimAxisY - semi), 1,
             (coord_t)(2 * semi), COLOR_THEME_SECONDARY2_INDEX);
   const char* scale[] = {"+100", "+50", "0", "-50", "-100"};
@@ -785,7 +785,7 @@ Nb4Telltale::Nb4Telltale(Window* parent, rect_t r, uint8_t kind, bool boxed) :
     lv_obj_set_style_radius(pillBox->getLvObj(), 7, 0);
     etx_border_color(pillBox->getLvObj(), COLOR_THEME_EDIT_INDEX);
     auto charging = caption(pillBox, {2, 1, (coord_t)(pillW - 4), 12},
-                            "Charging", CENTERED, COLOR_THEME_EDIT_INDEX);
+                            STR_NB4_CHARGING_PILL, CENTERED, COLOR_THEME_EDIT_INDEX);
     lv_obj_set_style_text_letter_space(charging->getLvObj(), 0, LV_PART_MAIN);
     chargePill = pillBox->getLvObj();
     lv_obj_add_flag(chargePill, LV_OBJ_FLAG_HIDDEN);
