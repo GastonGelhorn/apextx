@@ -14,6 +14,7 @@
 #include "nb4_home_templates.h"
 #include "telemetry/telemetry.h"
 #include "hal/adc_driver.h"
+#include "nb4_i18n.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -270,3 +271,19 @@ struct RangeBar {
 };
 
 }  // namespace nb4w
+
+// A widget factory whose name in the picker follows the interface language.
+// The id is what a saved screen stores, so it never changes.
+template <class T>
+class Nb4WidgetFactory : public BaseWidgetFactory<T>
+{
+ public:
+  Nb4WidgetFactory(const char* id, const WidgetOption* options, Nb4Str label) :
+      BaseWidgetFactory<T>(id, options), label(label)
+  {
+  }
+  const char* getDisplayName() const override { return label(); }
+
+ private:
+  Nb4Str label;
+};

@@ -89,7 +89,7 @@ class Nb4ThrColumnWidget : public Widget
   int16_t last = INT16_MIN;
 };
 
-BaseWidgetFactory<Nb4ThrColumnWidget> nb4ThrColumnWidget("NB4ThrColumn", nullptr,
-                                                         "Thr column");
+Nb4WidgetFactory<Nb4ThrColumnWidget> nb4ThrColumnWidget(
+    "NB4ThrColumn", nullptr, NB4_STR(WIDGET_THR_COLUMN));
 
 #endif

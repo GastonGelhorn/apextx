@@ -45,7 +45,7 @@ class Nb4HomeScreen : public WidgetsContainer
   bool instruments;
   void build();
   void refresh(const Nb4CarState& state);
-  bool spanish = false;
+  char builtLanguage[sizeof(g_eeGeneral.uiLanguage)] = {};
   bool blockedModel = false;
   uint32_t builtTheme = 0;
 

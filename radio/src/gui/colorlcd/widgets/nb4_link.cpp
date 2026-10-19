@@ -66,7 +66,7 @@ class Nb4LinkWidget : public Widget
       state->setText(q < 0 ? STR_NB4_NO_LINK
                    : q < g_model.rfAlarms.critical ? STR_NB4_CRITICAL
                    : q < g_model.rfAlarms.warning ? STR_NB4_WEAK
-                   : "OK");
+                   : STR_NB4_LINK_GOOD);
       recolorPill(state, color);
     }
   }
@@ -94,6 +94,6 @@ class Nb4LinkWidget : public Widget
   }
 };
 
-BaseWidgetFactory<Nb4LinkWidget> nb4LinkWidget("NB4Link", nullptr, "Link");
+Nb4WidgetFactory<Nb4LinkWidget> nb4LinkWidget("NB4Link", nullptr, NB4_STR(WIDGET_LINK));
 
 #endif

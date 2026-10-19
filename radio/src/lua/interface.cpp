@@ -238,7 +238,7 @@ void luaGetOutputs(ScriptInputsOutputs & sid)
 
 void luaDisable()
 {
-  POPUP_WARNING("Lua disabled!");
+  POPUP_WARNING(STR_NB4_LUA_DISABLED);
   luaState = INTERPRETER_PANIC;
 }
 

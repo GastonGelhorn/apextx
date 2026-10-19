@@ -198,8 +198,8 @@ class DateTimeWindow : public Window
 static const char* nb4AudioPlaybackTitle_FN() { return STR_NB4_PLAYBACK; }
 static const char* nb4AudioTestTitle_FN() { return STR_NB4_TEST; }
 #else
-static const char* nb4AudioPlaybackTitle = "Playback";
-static const char* nb4AudioTestTitle = "Test";
+static const char* nb4AudioPlaybackTitle = STR_NB4_PLAYBACK;
+static const char* nb4AudioTestTitle = STR_NB4_TEST;
 #endif
 #endif
 static SetupLineDef soundPageSetupLines[] = {

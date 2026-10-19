@@ -13,7 +13,8 @@
 #define NB4_PALETTE_COLORS 13
 
 struct Nb4Palette {
-  const char* name;
+  const char* name;  // Stored in the settings; never translated.
+  Nb4Str label;      // What the Appearance page shows.
   Nb4Str info;
 
   bool dark;

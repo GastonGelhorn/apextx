@@ -84,6 +84,6 @@ class Nb4SessionWidget : public Widget
   }
 };
 
-BaseWidgetFactory<Nb4SessionWidget> nb4SessionWidget("NB4Session", nullptr, "Session");
+Nb4WidgetFactory<Nb4SessionWidget> nb4SessionWidget("NB4Session", nullptr, NB4_STR(WIDGET_SESSION));
 
 #endif

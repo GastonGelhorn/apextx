@@ -72,7 +72,7 @@ class Nb4SteerBarWidget : public Widget
   bool lastOk = true;
 };
 
-BaseWidgetFactory<Nb4SteerBarWidget> nb4SteerBarWidget("NB4SteerBar", nullptr,
-                                                       "Steer bar");
+Nb4WidgetFactory<Nb4SteerBarWidget> nb4SteerBarWidget(
+    "NB4SteerBar", nullptr, NB4_STR(WIDGET_STEER_BAR));
 
 #endif
