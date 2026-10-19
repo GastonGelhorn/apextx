@@ -12,7 +12,7 @@ foreach(feature HELI FLIGHT_MODES PXX1 PXX2 XJT PPM DSM2 DSMP SBUS CROSSFIRE
   set(${feature} OFF CACHE BOOL "Excluded from NB4 car firmware" FORCE)
 endforeach()
 set(AFHDS3 ON CACHE BOOL "Original AFHDS3 module" FORCE)
-set(RADIO_LANG_SET EN ES)
+set(RADIO_LANG_SET EN ES DE)
 
 if(PCBREV STREQUAL NB4)
   # RECOVERED_USART6 is the route this firmware ships and is the default.
