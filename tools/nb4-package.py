@@ -11,6 +11,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from nb4_source_digest import source_digest
+from nb4_update_image import TARGETS, VARIANTS, package_target, update_package
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_VERSION = (ROOT / "APEXTX_VERSION").read_text(encoding="utf-8").strip()
@@ -98,6 +99,13 @@ def create(args):
     if public_image:
         verify_command.append("--public")
     subprocess.run(verify_command, check=True, cwd=ROOT)
+    # The package is labelled from what the image says it is for, never from
+    # what the caller expects, so an archive cannot carry the wrong radio's
+    # name. --model only states the expectation, and a mismatch stops here.
+    radio = package_target(update_package((build / "firmware.bin").read_bytes()))
+    hardware = {number: name for name, number in TARGETS.items()}[radio]
+    if args.model and args.model != hardware:
+        raise ValueError(f"The firmware is built for {hardware}, not {args.model}")
     installation = None
     rollback = None
     if baseline:
@@ -159,7 +167,8 @@ def create(args):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, target)
     manifest = {
-        "formatVersion": 3, "release": args.release, "target": "NB4",
+        "formatVersion": 3, "release": args.release, "target": VARIANTS[radio],
+        "hardware": hardware,
         "projectVersion": PROJECT_VERSION, "edgeTxBase": "2.12.4",
         "sourceCommit": head, "sourceTreeSha256": source_digest(ROOT),
         "sourceDirty": source_dirty,
@@ -209,6 +218,8 @@ def main():
     parser.add_argument("--baseline", type=Path, help="Directory containing the previously installed firmware.bin and verified install.json")
     parser.add_argument("--tests", type=Path)
     parser.add_argument("--release", default=PROJECT_VERSION)
+    parser.add_argument("--model", choices=sorted(TARGETS),
+                        help="Radio the package is expected to be for; refused if the image says otherwise")
     args = parser.parse_args()
     if args.verify:
         verify(args.verify)
