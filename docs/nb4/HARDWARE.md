@@ -44,8 +44,8 @@ repository.
 
 FrFTL reserves pages for translation tables and wear management, leaving
 7.875 MiB of logical storage. The filesystem uses 512-byte clusters. One
-size-bounded English or Spanish ApexTX voice pack can coexist with radio
-settings; complete packs for both languages cannot. The factory and retired
+size-bounded ApexTX voice pack in one language can coexist with radio
+settings; complete packs for two languages cannot. The factory and retired
 custom regions are no longer read by the firmware and have been reclaimed.
 Changing the filesystem layout requires a filesystem backup, format, and
 restore.

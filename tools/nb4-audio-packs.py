@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Build size-bounded, NB4-compatible English and Spanish audio packs."""
+"""Build size-bounded, NB4-compatible English, Spanish and German audio packs."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ NB4_VOLUME_BYTES = 8_204_800
 # Leave at least 844 KiB for the ApexTX themes/scripts, settings, models,
 # history, FAT metadata and future migrations. Only one audio pack is installed.
 DEVICE_AUDIO_BUDGET = 7 * 1024 * 1024
-SUPPORTED_LANGUAGES = ("en", "es")
+SUPPORTED_LANGUAGES = ("en", "es", "de")
 
 
 @dataclass(frozen=True)

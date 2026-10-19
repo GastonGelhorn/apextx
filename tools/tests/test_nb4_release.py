@@ -78,6 +78,7 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         phrases = {
             "en": '(\"Welcome to Apex T X!\", \"hello\")',
             "es": '(\"Bienvenido a Apex T X\", \"hello\")',
+            "de": '(\"Willkommen bei Apex T X\", \"hello\")',
         }
         for language, phrase in phrases.items():
             with self.subTest(language=language):

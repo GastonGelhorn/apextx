@@ -174,7 +174,7 @@ def create(args):
         "sourceDirty": source_dirty,
         "baseTag": "v2.12.4",
         "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 5,
-        "audioPackFormat": 1, "audioLanguages": ["en", "es"],
+        "audioPackFormat": 1, "audioLanguages": ["en", "es", "de"],
         "languages": ["en", "es", "de"], "homes": ["ApexTX"],
         "fonts": ["Roboto", "Barlow Condensed"],
         "orientations": [[320, 480], [480, 272]], "outputChannels": 8,

@@ -29,7 +29,8 @@ race results, and data migration. See
 [COMPATIBILITY.md](COMPATIBILITY.md) for the verified status of each Noble
 model. Use [FLASH.md](FLASH.md) for the first installation from FlySky firmware,
 [UPDATE.md](UPDATE.md) for subsequent ApexTX application updates, and
-[AUDIO.md](AUDIO.md) to install one verified English or Spanish voice pack.
+[AUDIO.md](AUDIO.md) to install one verified English, Spanish or German voice
+pack.
 [BUILD.md](BUILD.md), [HARDWARE.md](HARDWARE.md),
 and [VALIDATION.md](VALIDATION.md) contain the maintained engineering
 workflows.
