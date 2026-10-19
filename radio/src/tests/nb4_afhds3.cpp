@@ -209,6 +209,7 @@ TEST(Nb4Afhds3, WithoutAddressTheReceiverFillsTheGapAfterChecking)
 #include "storage/yaml/yaml_parser.h"
 #include "storage/yaml/yaml_tree_walker.h"
 #include "nb4_car_state.h"
+#include "nb4_ui_languages.h"
 #include <vector>
 
 namespace {
@@ -476,7 +477,7 @@ TEST_F(Nb4Afhds3Bind, HardwareTestStateClearsAnEarlierConnection) {
   receive(MODULE_STATE, {0xff}, 91, REQUEST_SET_NO_RESP);
   EXPECT_FALSE(afhds3::isConnected(0));
   char status[64]; getStatusString(0, status);
-  EXPECT_NE(std::string(status).find("prueba"), std::string::npos);
+  EXPECT_STREQ(status, STR_NB4_RF_UNEXPECTED_TEST_MODE);
 }
 
 TEST_F(Nb4Afhds3Bind, Observed169ByteReceiverIsSavedWithoutCopyingReservedTail) {
@@ -509,7 +510,7 @@ TEST_F(Nb4Afhds3Bind, Observed169ByteReceiverIsSavedWithoutCopyingReservedTail) 
   EXPECT_FALSE(afhds3::isConnected(0));
   g_tmr10ms += 3001;
   next(); char status[64]; getStatusString(0, status);
-  EXPECT_NE(std::string(status).find("sin confirmar"), std::string::npos);
+  EXPECT_STREQ(status, STR_NB4_RF_RECEIVER_NOT_CONFIRMED);
   EXPECT_EQ(getBindPhase(0), BindPhase::Failed);
   EXPECT_FALSE(afhds3::isConnected(0));
   // A timeout must not destroy the learned identity or report it connected.
@@ -584,8 +585,20 @@ TEST_F(Nb4Afhds3Bind, RejectedPageStopsInsteadOfStartingBind) {
   f = next(); EXPECT_EQ(f.command, MODULE_MODE); EXPECT_EQ(f.value, 1);
   EXPECT_FALSE(afhds3::isConnected(0));
   char status[64]; afhds3::getStatusString(0, status);
-  EXPECT_NE(std::string(status).find("rechazada"), std::string::npos);
+  EXPECT_STREQ(status, STR_NB4_RF_CONFIG_REJECTED);
   EXPECT_EQ(getBindPhase(0), BindPhase::Failed);
+
+  // The stored failure follows a later language change.
+  char language[sizeof(g_eeGeneral.uiLanguage)];
+  memcpy(language, g_eeGeneral.uiLanguage, sizeof(language));
+  for (const char* code : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, code, 2);
+    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    afhds3::getStatusString(0, status);
+    EXPECT_STREQ(status, STR_NB4_RF_CONFIG_REJECTED) << code;
+  }
+  memcpy(g_eeGeneral.uiLanguage, language, sizeof(language));
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
 }
 
 TEST_F(Nb4Afhds3Bind, TruncatedReplyIsNotSuccess) {
@@ -838,7 +851,7 @@ TEST_F(Nb4Afhds3Bind, UartFaultIsVisibleAndReleasedContextDoesNotCrashOnNextTick
   next(); nb4::Nb4RfController::notifyUartErrorFromIsr();
   ProtoDriver.sendPulses(context, nullptr, nullptr, 0);
   char status[64]; getStatusString(0, status);
-  EXPECT_STREQ(status, "Error de UART RF");
+  EXPECT_STREQ(status, STR_NB4_RF_UART_ERROR);
   ProtoDriver.sendPulses(context, nullptr, nullptr, 0);
   EXPECT_FALSE(ProtoDriver.txCompleted(context));
   ProtoDriver.processData(context, 0xc0, rxBuffer, &rxCount);

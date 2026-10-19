@@ -254,7 +254,7 @@ Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect, bool instrument
 void Nb4HomeScreen::build()
 {
   clear();
-  spanish = strncmp(g_eeGeneral.uiLanguage, "es", 2) == 0;
+  memcpy(builtLanguage, g_eeGeneral.uiLanguage, sizeof(builtLanguage));
   builtWidth = width(); builtHeight = height(); builtTheme = nb4ThemeKey();
   blockedModel = nb4ModelBlocked();
   builtIdentity = modelIdentity();
@@ -403,7 +403,8 @@ void Nb4HomeScreen::checkEvents()
   const auto& state = nb4UiCarState();
   const uint8_t panel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   if (builtWidth != width() || builtHeight != height() || blockedModel != nb4ModelBlocked() ||
-      spanish != (strncmp(g_eeGeneral.uiLanguage, "es", 2) == 0) || builtTheme != nb4ThemeKey() ||
+      memcmp(builtLanguage, g_eeGeneral.uiLanguage, sizeof(builtLanguage)) ||
+      builtTheme != nb4ThemeKey() ||
       builtPanel != panel || builtIdentity != modelIdentity()) build();
   else refresh(state);
 }
