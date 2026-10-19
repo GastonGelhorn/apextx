@@ -177,7 +177,7 @@ def create(args):
         "audioPackFormat": 1, "audioLanguages": ["en", "es", "de"],
         "languages": ["en", "es", "de"], "homes": ["ApexTX"],
         "fonts": ["Roboto", "Barlow Condensed"],
-        "orientations": [[320, 480], [480, 272]], "outputChannels": 8,
+        "orientations": [[320, 480], [480, 320]], "outputChannels": 8,
         "rf": f"AFHDS3; {rf_profile}; {verify_framing}",
         # What this package can honestly claim: it compiled, its automated
         # tests passed, and nothing certifies a hardware session.
