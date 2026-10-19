@@ -552,6 +552,7 @@ enum AutomaticPromptsEvents {
 void pushPrompt(uint16_t prompt, uint8_t id=0, uint8_t fragmentVolume = USE_SETTINGS_VOLUME);
 void pushUnit(uint8_t unit, uint8_t idx, uint8_t id, uint8_t fragmentVolume = USE_SETTINGS_VOLUME);
 void playModelName();
+void playStartupGreeting();
 
 #define PUSH_NUMBER_PROMPT(p)    pushPrompt((p), id, fragmentVolume)
 #define PUSH_UNIT_PROMPT(p, i)   pushUnit((p), (i), id, fragmentVolume)

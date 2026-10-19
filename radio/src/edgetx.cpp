@@ -1619,7 +1619,10 @@ void edgeTxInit()
 
 #if defined(GUI)
     if (!calibration_needed && !(startOptions & OPENTX_START_NO_SPLASH)) {
-      if (!g_eeGeneral.dontPlayHello) AUDIO_HELLO();
+      if (!g_eeGeneral.dontPlayHello) {
+        AUDIO_HELLO();
+        playStartupGreeting();
+      }
 
       waitSplash();
     }

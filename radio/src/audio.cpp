@@ -1201,6 +1201,17 @@ void pushPrompt(uint16_t prompt, uint8_t id, uint8_t fragmentVolume)
   audioQueue.playFile(filename, 0, id, fragmentVolume);
 }
 
+// Optional spoken startup greeting. Plays SOUNDS/<lang>/SYSTEM/welcome.wav for
+// the current language pack if the file exists; playFile() is a no-op when it
+// is absent, in quiet mode, or (on the NB4) when "tones only" is set.
+void playStartupGreeting()
+{
+  char filename[AUDIO_FILENAME_MAXLEN+1];
+  char * str = strAppendSystemAudioPath(filename);
+  strcpy(str, "welcome" SOUNDS_EXT);
+  audioQueue.playFile(filename);
+}
+
 void onKeyError()
 {
   audioKeyError();
