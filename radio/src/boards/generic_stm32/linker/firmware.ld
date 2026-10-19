@@ -41,6 +41,8 @@ SECTIONS
 
     _stext = .;
     KEEP(*(.fwversiondata))
+    /* After the version, which is found by scanning from the start. */
+    KEEP(*(.nb4hardware))
 
     INCLUDE common_text.ld
 

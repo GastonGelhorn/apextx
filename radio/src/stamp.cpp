@@ -25,6 +25,16 @@
 
 #include <string.h>
 
+#if defined(RADIO_NB4) && defined(STM32) && !defined(SIMU) && !defined(BOOT)
+#include "bootloader/nb4_update_id.h"
+// The hardware this image is for. tools/nb4_update_image.py reads it to stamp
+// the update manifest, so a manifest can only ever describe the binary it is
+// attached to. Nothing references it at run time, so it lives in a section the
+// linker script keeps. The prefix must not be "apextx-": getFirmwareVersion
+// takes the first string with that prefix as the version.
+__SECTION_USED(".nb4hardware") const char nb4_hardware[] = "APXHW:" NB4_HARDWARE_ID;
+#endif
+
 #define STR2(s) #s
 #define DEFNUMSTR(s)  STR2(s)
 

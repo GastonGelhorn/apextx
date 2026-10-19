@@ -2,18 +2,26 @@
 """ApexTX's RAM-staged NB4 updater transport. Never writes a ROM DFU device."""
 import struct
 import time
+from collections import namedtuple
 from pathlib import Path
 
-from nb4_update_image import HEADER, update_package
+from nb4_update_image import HEADER, VARIANTS, package_target, update_package
 
 STAGE = 0xc0200000
 CONTROL = 0xc03f0000
 TRANSFER = 4096
-PRODUCT = 'ApexTX NB4 Update'
-# Staging is 15 x 128 KiB. The first bootloaders advertised one sector more
+# The bootloader names the hardware it was built for, and so the only manifest
+# target it installs (radio/src/bootloader/nb4_update_id.h). Bootloaders from
+# before the NB4+ build option existed are all original NB4 bootloaders.
+PRODUCTS = {'ApexTX NB4 Update': 1, 'ApexTX NB4+ Update': 2}
+# Staging is 15 x 128 KiB. The first NB4 bootloaders advertised one sector more
 # than they had; they are otherwise identical, so keep accepting them.
-INTERFACES = ('@ApexTX NB4 Update /0xC0200000/015*128Kg',
-              '@ApexTX NB4 Update /0xC0200000/016*128Kg')
+INTERFACES = {'ApexTX NB4 Update': ('@ApexTX NB4 Update /0xC0200000/015*128Kg',
+                                    '@ApexTX NB4 Update /0xC0200000/016*128Kg'),
+              'ApexTX NB4+ Update': ('@ApexTX NB4+ Update /0xC0200000/015*128Kg',)}
+
+# A radio in update mode, and the manifest target its bootloader accepts.
+Selection = namedtuple('Selection', 'device config interface alternate serial target')
 
 
 class UpdateError(RuntimeError):
@@ -71,7 +79,7 @@ def discover(serial=None):
                 # not even be the radio.
                 unreadable += 1
                 continue
-            if product != PRODUCT:
+            if product not in PRODUCTS:
                 continue
             if serial and serial != identity:
                 continue
@@ -79,9 +87,10 @@ def discover(serial=None):
                 for interface in config:
                     if ((interface.bInterfaceClass, interface.bInterfaceSubClass,
                          interface.bInterfaceProtocol) == (0xfe, 1, 2) and
-                            util.get_string(device, interface.iInterface) in INTERFACES):
-                        found.append((device, config.bConfigurationValue,
-                                      interface.bInterfaceNumber, interface.bAlternateSetting, identity))
+                            util.get_string(device, interface.iInterface) in INTERFACES[product]):
+                        found.append(Selection(device, config.bConfigurationValue,
+                                               interface.bInterfaceNumber, interface.bAlternateSetting,
+                                               identity, PRODUCTS[product]))
         finally:
             if not any(entry[0] is device for entry in found):
                 util.dispose_resources(device)
@@ -98,7 +107,7 @@ def discover(serial=None):
 
 class Transport:
     def __init__(self, selection):
-        self.device, config, self.interface, alternate, self.serial = selection
+        self.device, config, self.interface, alternate, self.serial, _ = selection
         _, self.util, _ = usb_modules()
         try:
             current = self.device.get_active_configuration().bConfigurationValue
@@ -173,10 +182,19 @@ class Transport:
         self.download(2, command)
 
 
+def release(selection):
+    """Let go of a discovered device that is not going to be used."""
+    device = getattr(selection, 'device', None)
+    if device is not None:
+        _, util, _ = usb_modules()
+        util.dispose_resources(device)
+
+
 def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=Transport,
                finder=discover):
     package = update_package(image)  # Validate before any USB operation.
     _, _, _, size, crc, _, _ = HEADER.unpack(package[:32])
+    wanted = package_target(package)
     progress('Waiting for ApexTX Update. Connect the radio and select Settings > System > Update.', 0)
     deadline = time.monotonic() + wait_seconds
     selection = finder(serial)
@@ -185,6 +203,17 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
         selection = finder(serial)
     if selection is None:
         raise UpdateError('ApexTX Update was not detected. Confirm that a compatible bootloader is installed and the radio displays ApexTX Update.')
+    radio = getattr(selection, 'target', None)
+    if radio != wanted:
+        # Refuse before claiming the device: nothing has been sent, so there is
+        # nothing to undo. The bootloader would refuse the image too, but only
+        # after the whole transfer, and with a far less useful message.
+        release(selection)
+        if radio not in VARIANTS:
+            raise UpdateError('The connected radio did not say which model it is. Nothing was written.')
+        raise UpdateError(f'This firmware is for the Noble {VARIANTS[wanted]}, but the connected '
+                          f'radio is a Noble {VARIANTS[radio]}. Nothing was written. Download the '
+                          'firmware for this radio.')
     transport = transport_factory(selection)
     # How far the radio has got, so a lost connection can be explained.
     reached = ['transfer']
@@ -253,8 +282,7 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
         if selection is None:
             progress('Firmware verified. Confirm that the radio has returned to the home screen.', 100)
             return
-        _, util, _ = usb_modules()
-        util.dispose_resources(selection[0])
+        release(selection)
         time.sleep(.5)
     # The firmware is written and verified; only the restart did not happen.
     # That is a finished update with an instruction, not a failure.

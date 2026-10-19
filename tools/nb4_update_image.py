@@ -20,6 +20,15 @@ HEADER = struct.Struct('<8s6I')
 # pin setup would drive this radio's power, display and RF incorrectly.
 FLAVOUR = re.compile(rb'apextx-(nb4[a-z0-9]*)-[0-9]')
 
+# The hardware variant inside the NB4 build, as the firmware states it in its
+# own image ("APXHW:<id>", from radio/src/bootloader/nb4_update_id.h),
+# and the manifest target the matching bootloader accepts. The manifest target
+# is always taken from the image, never passed in, so a manifest can only
+# describe the binary it is attached to.
+HARDWARE = re.compile(rb'APXHW:([a-z0-9]+)\x00')
+TARGETS = {'nb4': 1, 'nb4plus': 2}
+VARIANTS = {1: 'NB4', 2: 'NB4+'}
+
 
 def validate_vectors(app):
     if len(app) < 8:
@@ -38,13 +47,39 @@ def validate_vectors(app):
                          f'original Noble NB4 (target markers found: {listed}).')
 
 
+def image_target(app, legacy=False):
+    """The manifest target for the hardware this application says it is for.
+
+    Images from before the marker existed are original NB4 images; they are
+    accepted only when `legacy` is set, which validating an existing release
+    needs and building a new one must not.
+    """
+    found = {match.group(1).decode() for match in HARDWARE.finditer(app)}
+    if not found and legacy:
+        return TARGETS['nb4']
+    if len(found) != 1 or not found <= TARGETS.keys():
+        listed = ', '.join(sorted(found)) or 'none'
+        raise ValueError('The image does not identify the radio it was built for '
+                         f'(hardware markers found: {listed}).')
+    return TARGETS[found.pop()]
+
+
+def package_target(package):
+    """The manifest target of a package returned by update_package."""
+    return HEADER.unpack(package[:HEADER_SIZE])[1]
+
+
+def _manifest(app, target):
+    header = struct.pack('<8s5I', b'APXNB4U1', target, APP_ADDRESS, len(app),
+                         zlib.crc32(app), 1)
+    return header + struct.pack('<I', zlib.crc32(header))
+
+
 def manifest_for(app):
     validate_vectors(app)
     if len(app) > MAX_APP or len(app) % 4:
         raise ValueError('The NB4 application size is invalid.')
-    header = struct.pack('<8s5I', b'APXNB4U1', 1, APP_ADDRESS, len(app),
-                         zlib.crc32(app), 1)
-    return header + struct.pack('<I', zlib.crc32(header))
+    return _manifest(app, image_target(app))
 
 
 def update_package(image):
@@ -53,13 +88,19 @@ def update_package(image):
         raise ValueError('Select a 2 MiB firmware.bin image built for ApexTX Update.')
     header = image[-HEADER_SIZE:]
     magic, target, address, size, crc, version, header_crc = HEADER.unpack(header)
-    if (magic != b'APXNB4U1' or target != 1 or address != APP_ADDRESS or version != 1 or
-            not 8 <= size <= MAX_APP or size % 4 or zlib.crc32(header[:28]) != header_crc):
+    if (magic != b'APXNB4U1' or target not in VARIANTS or address != APP_ADDRESS or
+            version != 1 or not 8 <= size <= MAX_APP or size % 4 or
+            zlib.crc32(header[:28]) != header_crc):
         raise ValueError('The NB4 firmware manifest is invalid or corrupt.')
     app = image[BOOT_SIZE:BOOT_SIZE + size]
     if zlib.crc32(app) != crc:
         raise ValueError('The firmware checksum does not match. Select an intact firmware image.')
     validate_vectors(app)
+    # The manifest decides which bootloader will install the image, so it has
+    # to agree with what the firmware inside says it is.
+    if image_target(app, legacy=True) != target:
+        raise ValueError('The firmware manifest and the firmware disagree about which radio '
+                         'it is for. Rebuild the image.')
     return header + app
 
 
@@ -85,4 +126,5 @@ if __name__ == '__main__':
     temporary = args.image.with_suffix(args.image.suffix + '.tmp')
     temporary.write_bytes(result)
     temporary.replace(args.image)
-    print(f'ApexTX NB4 update manifest: {len(result)} bytes, CRC verified')
+    variant = VARIANTS[package_target(update_package(result))]
+    print(f'ApexTX {variant} update manifest: {len(result)} bytes, CRC verified')

@@ -73,7 +73,7 @@ static uint16_t mediaStatus(uint32_t, uint8_t, uint8_t* status)
   return USBD_OK;
 }
 static const USBD_DFU_MediaTypeDef media = {
-  reinterpret_cast<const uint8_t*>("@ApexTX NB4 Update /0xC0200000/015*128Kg"),
+  reinterpret_cast<const uint8_t*>(NB4_UPDATE_INTERFACE),
   mediaInit, mediaDeInit, mediaErase, mediaWrite, mediaRead, mediaStatus,
 };
 
