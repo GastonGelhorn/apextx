@@ -93,7 +93,8 @@ void nb4LedRefresh()
 #if defined(LED_STRIP_GPIO)
 
   extern uint8_t nb4BatteryPercent(uint16_t cellMv);
-  const uint8_t percent = nb4BatteryPercent((uint16_t)(g_vbat100mV * 10));
+  // g_vbat100mV is expressed in 100 mV units; the battery curve expects mV.
+  const uint8_t percent = nb4BatteryPercent((uint16_t)(g_vbat100mV * 100));
 
   const Nb4LedRgb c =
       nb4LedColorNow(g_eeGeneral.nb4LedMode, g_eeGeneral.nb4LedColor,
