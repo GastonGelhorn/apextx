@@ -356,8 +356,14 @@ RadioVersionPage::RadioVersionPage(PageDef& pageDef) :
 }
 
 #if defined(PCBPL18)
+#if defined(SIMU)
+// placeholders so the simulator shows the same lines as the radio
+static const char* boardLcdType = "Simulator";
+static const char* boardTouchType = "Simulator";
+#else
 extern const char* boardLcdType;
 extern const char* boardTouchType;
+#endif
 #endif
 
 void RadioVersionPage::build(Window* window)
@@ -394,10 +400,21 @@ void RadioVersionPage::build(Window* window)
   new QRCode(qrBox, (qw - QR_SZ) / 2, qh - QR_SZ - PAD_MEDIUM, QR_SZ,
              firmware_url);
 
+  // Version text in its own scrolling area above a fixed button, so the
+  // button can't cover the text when it doesn't fit (e.g. PL18 family on
+  // portrait LCD) and stays visible when the text is scrolled.
   auto infoBox = new Window(window, {ix, iy, iw, ih});
   infoBox->padAll(PAD_SMALL);
   infoBox->padLeft(PAD_LARGE);
   infoBox->padRight(PAD_LARGE);
+  infoBox->padBottom(PAD_LARGE);
+  infoBox->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_SMALL, iw, ih);
+  lv_obj_clear_flag(infoBox->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+
+  auto textBox = new Window(infoBox, {0, 0, LV_PCT(100), 0});
+  textBox->padAll(PAD_ZERO);
+  lv_obj_set_flex_grow(textBox->getLvObj(), 1);
+  etx_scrollbar(textBox->getLvObj());
 
   std::string nl("\n");
   std::string version;
@@ -419,7 +436,7 @@ void RadioVersionPage::build(Window* window)
   version += '0' + hardwareOptions.pcbrev;
 #endif
 
-#if defined(PCBPL18) && !defined(SIMU)
+#if defined(PCBPL18)
   version += nl;
   version += "LCD: ";
   version += boardLcdType;
@@ -434,25 +451,19 @@ void RadioVersionPage::build(Window* window)
   version += APEXTX_VERSION;
 #endif
 
-  new StaticText(infoBox, {0, 0, LV_PCT(100), LV_SIZE_CONTENT}, version);
+  new StaticText(textBox, {0, 0, LV_PCT(100), LV_SIZE_CONTENT}, version);
 
   // Module and receivers versions
-#if defined(RADIO_NB4_FAMILY)
-  new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT * 2 - PAD_LARGE - PAD_SMALL * 2, LV_PCT(100), 0},
+  new TextButton(infoBox, {0, 0, LV_PCT(100), 0},
                   STR_MODULES_RX_VERSION, [=]() {
                     new VersionDialog();
                     return 0;
                   });
 
-  new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_LARGE - PAD_SMALL, LV_PCT(100), 0},
+#if defined(RADIO_NB4_FAMILY)
+  new TextButton(infoBox, {0, 0, LV_PCT(100), 0},
                   STR_ANALOGS_BTN, [=]() {
                     new RadioAnalogsDiagsViewPageGroup(QM_RADIO_VERSION);
-                    return 0;
-                  });
-#else
-  new TextButton(infoBox, {0, ih - EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_LARGE - PAD_SMALL, LV_PCT(100), 0},
-                  STR_MODULES_RX_VERSION, [=]() {
-                    new VersionDialog();
                     return 0;
                   });
 #endif

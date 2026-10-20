@@ -46,7 +46,10 @@ SetupWidgetsPageSlot::SetupWidgetsPageSlot(Window* parent, const rect_t& rect,
         menu->addLine(STR_WIDGET_SETTINGS,
                       [=]() { new WidgetSettings(widget); });
       menu->addLine(STR_REMOVE_WIDGET,
-                    [=]() { container->removeWidget(slotIndex); });
+                    [=]() {
+                      container->removeWidget(slotIndex);
+                      storageDirty(EE_MODEL);
+                    });
     } else {
       addNewWidget(container, slotIndex);
     }
@@ -110,6 +113,7 @@ void SetupWidgetsPageSlot::addNewWidget(WidgetsContainer* container,
       auto widget = container->getWidget(slotIndex);
       if (widget->hasOptions())
         new WidgetSettings(widget);
+      storageDirty(EE_MODEL);
     });
     if (cur && strcmp(cur, factory->getDisplayName()) == 0)
       selected = index;
@@ -178,11 +182,6 @@ void SetupWidgetsPage::onCancel()
 {
   deleteLater();
   QuickMenu::openPage((QMPage)(QM_UI_SCREEN1 + customScreenIdx));
-}
-
-void SetupWidgetsPage::deleteLater(bool detach, bool trash)
-{
-  Window::deleteLater(detach, trash);
 #if defined(RADIO_NB4_FAMILY)
   // Only restore layers still present; shutdown/recovery may have removed one.
   Layer::walk([this](Window* window) {
@@ -193,15 +192,12 @@ void SetupWidgetsPage::deleteLater(bool detach, bool trash)
   suspendedLayers.clear();
 #endif
 
-  // and continue async deletion...
   auto screen = customScreens[customScreenIdx];
   if (screen) {
     auto viewMain = ViewMain::instance();
     viewMain->setCurrentMainView(savedView);
     viewMain->showTopBarEdgeTxButton();
   }
-
-  storageDirty(EE_MODEL);
 }
 
 void SetupWidgetsPage::onEvent(event_t event)

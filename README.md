@@ -12,7 +12,8 @@ It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-The current project version is **0.1.0-alpha.4**, based on EdgeTX **2.12.4**.
+The current development tree is based on EdgeTX **2.12.5**. The latest ApexTX
+release version remains **0.1.0-alpha.4** until the next release is prepared.
 
 ## Features
 

@@ -63,6 +63,8 @@ mutex_handle_t audioMutex;
 bool perMainEnabled = true;
 #endif
 
+__attribute__((weak)) void customShutdownActions() {}
+
 static void menusTask()
 {
 #if defined(RADIO_NB4_FAMILY)
@@ -120,6 +122,10 @@ static void menusTask()
   drawSleepBitmap();
 #endif
   edgeTxClose();
+
+  // Radio specific shutdown actions
+  customShutdownActions();
+
   boardOff();
 }
 
@@ -180,6 +186,10 @@ bool isUiTask()
 void tasksStart()
 {
   mutex_create(&audioMutex);
+
+#if defined(LUA)
+  telemetryQueuesInit();
+#endif
 
 #if defined(CLI) && !defined(SIMU)
   cliStart();

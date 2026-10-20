@@ -155,7 +155,7 @@ class ImageGates(unittest.TestCase):
 
     def test_sibling_radio_image_is_refused_even_with_an_incidental_marker(self):
         app = bytearray(self.application())
-        app[2048:2068] = b'apextx-nb4p-2.12.4-x'
+        app[2048:2068] = b'apextx-nb4p-2.12.5-x'
         with self.assertRaises(ValueError) as caught:
             image_format.validate_vectors(bytes(app))
         self.assertIn('nb4p', str(caught.exception))

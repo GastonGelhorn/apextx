@@ -172,10 +172,10 @@ def create(args):
     manifest = {
         "formatVersion": 3, "release": args.release, "target": VARIANTS[radio],
         "hardware": hardware,
-        "projectVersion": PROJECT_VERSION, "edgeTxBase": "2.12.4",
+        "projectVersion": PROJECT_VERSION, "edgeTxBase": "2.12.5",
         "sourceCommit": head, "sourceTreeSha256": source_digest(ROOT),
         "sourceDirty": source_dirty,
-        "baseTag": "v2.12.4",
+        "baseTag": "v2.12.5",
         "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 5,
         "audioPackFormat": 1, "audioLanguages": ["en", "es", "de"],
         "languages": ["en", "es", "de"], "homes": ["ApexTX"],

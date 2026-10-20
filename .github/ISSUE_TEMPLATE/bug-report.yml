@@ -1,11 +1,11 @@
 name: Bug report
-description: Report a reproducible problem on the original Noble NB4
+description: Report a reproducible problem on the Noble NB4 or NB4+
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Please report only issues reproduced with ApexTX on the original FlySky Noble NB4. General EdgeTX issues belong in the upstream EdgeTX repository.
+        Please report only issues reproduced with ApexTX on a FlySky Noble NB4 or NB4+. General EdgeTX issues belong in the upstream EdgeTX repository.
   - type: input
     id: revision
     attributes:
@@ -62,7 +62,7 @@ body:
     attributes:
       label: Checks
       options:
-        - label: I reproduced this on the original Noble NB4 with an unmodified ApexTX build.
+        - label: I reproduced this on a Noble NB4 or NB4+ with an unmodified ApexTX build.
           required: true
         - label: I searched the existing issues for the same problem.
           required: true

@@ -26,6 +26,7 @@
 #endif
 #include "hal/adc_driver.h"
 #include "input_mapping.h"
+#include "lib_file.h"
 #include "mixes.h"
 
 void clearInputs()
@@ -196,7 +197,7 @@ void setModelDefaults(uint8_t id)
 
 #if defined(LUA) && defined(PCBTARANIS)
   if (isFileAvailable(WIZARD_PATH "/" WIZARD_NAME)) {
-    f_chdir(WIZARD_PATH);
+    etxChdir(WIZARD_PATH);
     luaExec(WIZARD_NAME);
   }
 #endif

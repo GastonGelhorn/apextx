@@ -10,7 +10,7 @@ documentation are written in English; Spanish and German text is kept only as
 localized content shown by the radio.
 
 The project version is read from `APEXTX_VERSION`. Development builds identify
-themselves as ApexTX development images and retain the EdgeTX 2.12.4 base
+themselves as ApexTX development images and retain the EdgeTX 2.12.5 base
 version in their firmware metadata.
 
 The NB4 additions are grouped around these areas:

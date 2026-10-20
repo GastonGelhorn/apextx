@@ -127,12 +127,9 @@ void SetupTopBarWidgetsPage::onClicked()
   // block event forwarding (window is transparent)
 }
 
-void SetupTopBarWidgetsPage::onCancel() { deleteLater(); }
-
-void SetupTopBarWidgetsPage::deleteLater(bool detach, bool trash)
+void SetupTopBarWidgetsPage::onCancel()
 {
-  // and continue async deletion...
-  Window::deleteLater(detach, trash);
+  deleteLater();
 #if defined(RADIO_NB4_FAMILY)
   Layer::walk([this](Window* window) {
     for (auto suspended : suspendedLayers)
@@ -144,11 +141,8 @@ void SetupTopBarWidgetsPage::deleteLater(bool detach, bool trash)
   viewMain->setCurrentMainView(savedView);
   viewMain->updateTopbarVisibility();
 #endif
-
   // restore screen setting tab on top
   QuickMenu::openPage(QM_UI_SETUP);
-
-  storageDirty(EE_MODEL);
 }
 
 void SetupTopBarWidgetsPage::onEvent(event_t event)
@@ -270,6 +264,8 @@ void TopBar::removeWidget(unsigned int index)
   g_model.getTopbarData()->clearZone(index);
 
   WidgetsContainer::removeWidget(index);
+
+  storageDirty(EE_MODEL);
 }
 
 void TopBar::load()

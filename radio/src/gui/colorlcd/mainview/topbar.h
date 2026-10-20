@@ -42,7 +42,6 @@ class SetupTopBarWidgetsPage : public Window
   void onClicked() override;
   void onCancel() override;
   void onEvent(event_t event)  override;
-  void deleteLater(bool detach = true, bool trash = true) override;
 #if defined(RADIO_NB4_FAMILY)
  private:
   unsigned savedView = 0;

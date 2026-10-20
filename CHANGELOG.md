@@ -6,6 +6,9 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Updated the maintained EdgeTX base from 2.12.4 to 2.12.5, retaining the
+  ApexTX NB4/NB4+ interface, AFHDS3 support and guarded update workflow.
+
 ## [0.1.0-alpha.4] - 2026-10-20
 
 - Added separately named original-NB4 and experimental-NB4+ firmware packages
