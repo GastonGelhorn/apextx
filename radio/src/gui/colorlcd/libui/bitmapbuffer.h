@@ -149,7 +149,8 @@ class BitmapBuffer
 
   uint32_t getDataSize() const
   {
-    return uint32_t(_width) * uint32_t(_height) * sizeof(pixel_t);
+    return static_cast<uint32_t>(uint64_t(_width) * uint64_t(_height) *
+                                 sizeof(pixel_t));
   }
 
 #if !defined(BOOT)
