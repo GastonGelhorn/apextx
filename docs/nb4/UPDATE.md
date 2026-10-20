@@ -126,9 +126,11 @@ refuse NB4+ images. An NB4+ that was set up with an earlier experimental build
 has an NB4 bootloader and needs one installation through ROM DFU, following
 [FLASH.md](FLASH.md), before it accepts NB4+ updates.
 
-NB4+ builds are experimental. The build refuses `NB4_PLUS_HW` together with
-`APEXTX_PUBLIC_RELEASE` until an NB4+ has passed the hardware acceptance
-checklist.
+NB4+ builds are experimental and are published only in the separately named
+`apextx-nb4plus-*` package. Full recovery and normal update have worked on real
+NB4+ hardware, but that does not replace the remaining charging, RF/failsafe
+under load and peripheral checks. The first status LED can still flicker red
+(issue #19).
 
 Firmware updates do not modify the external audio files. When a release changes
 voice resources, install one matching English, Spanish or German package

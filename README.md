@@ -7,16 +7,16 @@
 [![ApexTX CI](https://github.com/GastonGelhorn/apextx/actions/workflows/ci.yml/badge.svg)](https://github.com/GastonGelhorn/apextx/actions/workflows/ci.yml)
 [![License: GPL-2.0-only](https://img.shields.io/badge/license-GPL--2.0--only-blue.svg)](LICENSE)
 
-ApexTX is independent firmware for the original FlySky Noble NB4 transmitter.
+ApexTX is independent firmware for the FlySky Noble NB4 family.
 It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-The current project version is **0.1.0-alpha.3**, based on EdgeTX **2.12.4**.
+The current project version is **0.1.0-alpha.4**, based on EdgeTX **2.12.4**.
 
 ## Features
 
-The original Noble NB4 build includes:
+The Noble NB4 builds include:
 
 - Full-color dark and light themes designed for the NB4 display.
 - Portrait and landscape layouts with the same controls and information in
@@ -49,17 +49,32 @@ The original Noble NB4 build includes:
 See the [complete interface gallery](docs/nb4/GALLERY.md) for vehicle setup,
 race timing, telemetry, and physical-control assignments.
 
-The currently supported target is the original Noble NB4:
+The supported target is the original Noble NB4:
 
 ```text
 PCB=PL18
 PCBREV=NB4
 ```
 
-The NB4+ target currently compiles as an experimental port candidate. It has
-not been validated on hardware. NB4 Pro and NB4 Pro+ require separate board
-ports and are not supported. See the [Noble compatibility and feature
-matrix](docs/nb4/COMPATIBILITY.md).
+The NB4+ has a separate **experimental alpha** package. Its full-image recovery,
+wrong-model refusal, normal update and boot have been tested on real hardware;
+charging, RF/failsafe under load and the complete peripheral checklist are not
+yet qualified. The first NB4+ status LED can still flicker red (issue #19).
+NB4 Pro and NB4 Pro+ require separate board ports and are not supported. See
+the [Noble compatibility and feature matrix](docs/nb4/COMPATIBILITY.md).
+
+## Choose the correct download
+
+Each release has two deliberately separate firmware packages:
+
+| Your transmitter | Download |
+| --- | --- |
+| Original Noble NB4 | `apextx-nb4-<version>.zip` |
+| Noble NB4+ | `apextx-nb4plus-<version>.zip` |
+
+Never cross-flash the packages. The host updater and the ApexTX bootloader both
+check the embedded hardware identity and refuse the wrong model, but choosing
+the correct, clearly named archive is the first safety check.
 
 ## Before you install
 

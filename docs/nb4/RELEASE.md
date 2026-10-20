@@ -35,7 +35,8 @@ for that purpose.
 ## One package per radio
 
 A release carries one firmware package per radio, named after it:
-`apextx-nb4-<version>.zip` (and `.tar.gz`) for the original NB4. The voice
+`apextx-nb4-<version>.zip` (and `.tar.gz`) for the original NB4 and
+`apextx-nb4plus-<version>.zip` (and `.tar.gz`) for the NB4+. The voice
 packs do not depend on the radio and are published once. The package manifest
 records the radio in `target` and `hardware`, taken from the marker the
 firmware carries in its own image, and the packager refuses to build a package
@@ -43,16 +44,12 @@ whose `--model` does not match that marker. An owner who still downloads the
 wrong one is stopped by the updater and the bootloader, as described in
 [UPDATE.md](UPDATE.md).
 
-The NB4+ is not published yet. To add it once an NB4+ has passed the hardware
-checklist, remove the `APEXTX_PUBLIC_RELEASE` refusal next to `NB4_PLUS_HW` in
-`radio/src/targets/pl18/CMakeLists.txt` and add a row to the matrix in
-`.github/workflows/release.yml`:
-
-```yaml
-- model: nb4plus
-  name: Noble NB4+
-  options: -DNB4_PLUS_HW=ON
-```
+NB4+ packages remain experimental alpha builds. Full ROM DFU recovery,
+wrong-model refusal, normal update and boot have run successfully on real
+hardware, but charging, RF/failsafe under load and the complete peripheral
+checklist remain open. Release notes must retain that distinction and list any
+known hardware issue; currently the first NB4+ status LED can flicker red
+(issue #19).
 
 After GitHub finishes, download the release archive, verify `SHA256SUMS`, and
 flash that exact `firmware.bin` to a radio for the checklist. If a result

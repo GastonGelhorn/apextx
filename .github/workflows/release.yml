@@ -25,13 +25,15 @@ jobs:
         # One package per radio, named after it, so each owner downloads the
         # one that matches. An image for the wrong radio is refused by the
         # updater and by the bootloader, but the name should get it right
-        # first. The NB4+ joins this list only once an NB4+ has passed the
-        # hardware acceptance checklist; until then its build refuses
-        # APEXTX_PUBLIC_RELEASE (radio/src/targets/pl18/CMakeLists.txt).
+        # first. NB4+ remains an experimental alpha target, but its update and
+        # recovery paths have been exercised successfully on real hardware.
         include:
           - model: nb4
             name: Noble NB4
             options: ''
+          - model: nb4plus
+            name: Noble NB4+
+            options: -DNB4_PLUS_HW=ON
     steps:
       - name: Check out source and submodules
         uses: actions/checkout@v7
@@ -243,8 +245,25 @@ jobs:
           # someone should install.
           prerelease=()
           case "$version" in *-*) prerelease=(--prerelease);; esac
+          cat > release-notes.md <<EOF
+          ## Choose your radio
+
+          | Radio | Firmware package |
+          | --- | --- |
+          | Original Noble NB4 | \`apextx-nb4-$version.zip\` |
+          | Noble NB4+ | \`apextx-nb4plus-$version.zip\` |
+
+          **Never install one model's package on the other model.** The updater
+          and bootloader also refuse a mismatch. NB4 Pro and NB4 Pro+ are not
+          supported.
+
+          The NB4+ build is experimental. Installation and update have been
+          verified on real NB4+ hardware, but the first status LED can still
+          flicker red; see issue #19. Voice packs are shared by both radios.
+          EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "ApexTX $version" \
+            --notes-file release-notes.md \
             --generate-notes "${prerelease[@]}"

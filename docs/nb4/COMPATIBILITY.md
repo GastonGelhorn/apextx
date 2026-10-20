@@ -9,31 +9,38 @@ target named by its release.
 | Transmitter | Repository target | Status | What remains |
 | --- | --- | --- | --- |
 | Noble NB4 | `PCB=PL18`, `PCBREV=NB4` | Supported and tested on hardware | Continue release validation on the original NB4 |
-| Noble NB4+ | `PCB=PL18`, `PCBREV=NB4P` | Compiles; experimental port candidate | Factory backups and complete testing on a real NB4+ |
+| Noble NB4+ | `PCB=PL18`, `PCBREV=NB4`, `NB4_PLUS_HW=ON` | Hardware-tested experimental alpha | Charging, RF/failsafe under load and the complete peripheral checklist |
 | Noble NB4 Pro | None | Not supported | New board target, hardware map, drivers, and device validation |
 | Noble NB4 Pro+ | None | Not supported | New board target, hardware map, drivers, charge-controller handling, and device validation |
 
-`NB4P` is the EdgeTX target name for the Noble NB4+. Upstream EdgeTX lists the
-radio in its target catalogue and nightly build matrix, and a full release ARM
-build also completes in this repository. That indicates much of the common
-PL18 and car interface code can be reused, but it says nothing about whether
-this fork's generated image is safe to flash.
+`NB4P` is the older upstream EdgeTX target name for the Noble NB4+. ApexTX uses
+the maintained NB4 board target plus `NB4_PLUS_HW=ON` so the image carries an
+explicit NB4+ identity and the updater can enforce the model boundary.
+
+Full STM32 ROM DFU installation and recovery have succeeded on a real NB4+:
+the mandatory 2 MiB backup was valid, the complete image wrote and read back,
+the radio booted, and an original-NB4 image was refused before any write.
+Normal ApexTX Update mode has also completed and verified on that hardware.
+This is meaningful installation-path validation, not complete qualification of
+every control, charging state, RF condition or receiver/failsafe scenario.
 
 Never install an NB4 image on an NB4+, Pro, or Pro+, or install one model's
 official updater on another model.
 
-The compile-only NB4+ check used on 2026-09-13 was:
+The release-equivalent NB4+ build is:
 
 ```sh
 cmake -S . -B build/nb4plus-check \
-  -DPCB=PL18 -DPCBREV=NB4P -DCMAKE_BUILD_TYPE=Release \
+  -DPCB=PL18 -DPCBREV=NB4 -DNB4_PLUS_HW=ON \
+  -DNB4_RF_PROFILE=RECOVERED_USART6 \
+  -DAPEXTX_PUBLIC_RELEASE=ON -DCMAKE_BUILD_TYPE=Release \
   -DPython3_EXECUTABLE="$PWD/.venv/bin/python" \
   -DTRANSLATIONS=EN -DDISABLE_COMPANION=ON
 cmake --build build/nb4plus-check --target firmware-size -j8
 ```
 
-This command is maintained as a build check. Its output is not an installable
-release from this project until NB4+ hardware qualification is complete.
+The tagged workflow publishes this image in a separate `apextx-nb4plus-*`
+package. It remains an experimental alpha while the checklist below is open.
 
 ## Why the NB4+ is the closest candidate
 
@@ -42,12 +49,12 @@ resolution, AFHDS3 protocol, 4096 channel resolution, and 520 g weight. The
 NB4+ changes the panel to IPS, uses USB-C and a 4.35 V battery system, and has
 its own product identity.
 
-The source already accounts for several board differences. The NB4+ target
-uses a different key driver, haptic output, battery scaling, and a USART3
-internal-RF route. The original NB4 uses the USART6 route this firmware ships.
-Those differences are enough to make cross-flashing unsafe.
+The source accounts for the known NB4+ display and haptic differences while
+retaining the recovered USART6 internal-RF route used by the maintained NB4
+board target. Its image and USB updater identities are separate. Those
+differences are enough to make cross-flashing unsafe.
 
-A first NB4+ hardware qualification must verify:
+Completing NB4+ hardware qualification still requires verifying:
 
 1. Factory MCU, OTP, option-byte, calibration, and external-flash backups.
 2. DFU identity, flash layout, bootloader entry, power hold, and shutdown.

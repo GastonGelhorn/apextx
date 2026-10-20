@@ -6,6 +6,20 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.4] - 2026-10-20
+
+- Added separately named original-NB4 and experimental-NB4+ firmware packages
+  to each release, with an explicit model table and cross-flash warning.
+- Published the hardened Windows installer/recovery app with mandatory backup,
+  exact model and DFU-layout checks, full-image read-back, and same-device
+  verification immediately before writing.
+- Corrected mismatched memory deallocation, a FlySky trace-buffer boundary,
+  wrap-safe PWM detection timing, integer-size calculations and loop counters
+  reported by CodeQL.
+- Removed an unused legacy Python 2 CGI build endpoint inherited from OpenTX.
+- Fixed inverted steering-trim direction and simplified adding a new car by
+  bringing car creation, activation and binding into the same workflow.
+
 ## [0.1.0-alpha.3] - 2026-09-29
 
 - Unified NB4 headers: every destination title now stays in the top bar with
@@ -43,6 +57,7 @@ First public build for the original FlySky Noble NB4.
 - English and Spanish interface, switchable on the radio.
 - Build, validation, packaging, compatibility and installation documentation.
 
-[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.3...HEAD
+[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.4...HEAD
+[0.1.0-alpha.4]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...v0.1.0-alpha.3
 [0.1.0-alpha.1]: https://github.com/GastonGelhorn/apextx/releases/tag/v0.1.0-alpha.1
