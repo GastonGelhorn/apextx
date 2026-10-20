@@ -99,7 +99,7 @@ class ChannelsViewPage : public PageGroupItem
 #endif
 
     // Channels bars
-    for (uint8_t i = 0, j = 0; j < rows * cols; i += 1) {
+    for (int i = 0, j = 0; j < rows * cols; i += 1) {
       uint8_t chan = startChan + i;
       if (chan >= MAX_OUTPUT_CHANNELS) break;
       if (ALL_CHANNELS || isChannelUsed(chan)) {

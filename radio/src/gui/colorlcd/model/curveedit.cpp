@@ -213,7 +213,7 @@ class CurveDataEdit : public Window
             "100", COLOR_THEME_SECONDARY1_INDEX, CENTERED);
       }
     } else {
-      for (uint8_t i = 0; i < count; i++) {
+      for (int i = 0; i < count; i++) {
         new StaticText(
             parent,
             rect_t{PTNUM_X + (i * (NUM_BTN_WIDTH + PAD_TINY)), y + PAD_MEDIUM,
@@ -230,7 +230,7 @@ class CurveDataEdit : public Window
         "Y", COLOR_THEME_PRIMARY1_INDEX, CENTERED);
 
     // y value
-    for (uint8_t i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
       new NumberEdit(parent,
           {PTNUM_X + (i * (NUM_BTN_WIDTH + PAD_TINY)), y, NUM_BTN_WIDTH,
            EdgeTxStyles::UI_ELEMENT_HEIGHT},

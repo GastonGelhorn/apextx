@@ -1396,7 +1396,7 @@ void LvglWidgetTriangle::build(lua_State *L)
   h = max(max(pts[0].y, pts[1].y), pts[2].y) - y + 1;
 
   // Allocate mask
-  size_t size = w * h;
+  size_t size = size_t(w) * size_t(h);
   mask = (MaskBitmap*)malloc(size + 4);
   if (mask) {
     mask->width = w;

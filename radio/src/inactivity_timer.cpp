@@ -64,7 +64,7 @@ bool inactivityCheckInputs()
   auto max_sticks = adcGetMaxInputs(ADC_INPUT_MAIN);
   auto max_inputs = max_sticks + adcGetMaxInputs(ADC_INPUT_FLEX);
 
-  for (uint8_t i = 0; i < max_inputs; i++) {
+  for (int i = 0; i < max_inputs; i++) {
     if (i < max_sticks || IS_POT_AVAILABLE(i - max_sticks))
       sum += getAnalogValue(i) >> INAC_STICKS_SHIFT;
   }

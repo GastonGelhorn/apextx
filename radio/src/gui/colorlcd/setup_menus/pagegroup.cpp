@@ -327,7 +327,7 @@ void PageGroupHeaderBase::addTab(PageGroupItem* page)
 
 bool PageGroupHeaderBase::hasSubMenu(QMPage qmPage)
 {
-  for (uint8_t i = 0; i < pages.size(); i += 1) {
+  for (size_t i = 0; i < pages.size(); i += 1) {
     if (pages[i]->pageId() == qmPage)
       return true;
   }
@@ -341,7 +341,7 @@ void PageGroupHeaderBase::deleteLater(bool detach, bool trash)
   // Tear down controls (and their focus callbacks) while their page data is
   // still alive. Window deletion itself is deferred until the end of the frame.
   Window::deleteLater(detach, trash);
-  for (uint8_t i = 0; i < pages.size(); i += 1)
+  for (size_t i = 0; i < pages.size(); i += 1)
     delete pages[i];
   pages.clear();
 }
@@ -399,7 +399,7 @@ class PageGroupHeader : public PageGroupHeaderBase
 
   void updateLayout()
   {
-    for (uint8_t i = 0; i < pages.size(); i += 1) {
+    for (size_t i = 0; i < pages.size(); i += 1) {
       pages[i]->update(i);
     }
   }

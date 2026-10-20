@@ -332,9 +332,9 @@ bool checkFlySkyFrameCrc(const uint8_t* ptr, uint8_t size)
 inline void debugFrame(const uint8_t* rxBuffer, uint8_t rxBufferCount)
 {
   // debug print the content of the packet
-  char buffer[64 * 3];
+  char buffer[64 * 3 + 1];
   char* pos = buffer;
-  if (rxBufferCount * 3 > sizeof(buffer)) rxBufferCount = 64;
+  if (rxBufferCount > 64) rxBufferCount = 64;
   for (int i = 0; i < rxBufferCount; i++) {
     pos += snprintf(pos, buffer + sizeof(buffer) - pos, "%02X ", rxBuffer[i]);
   }

@@ -581,7 +581,7 @@ void BitmapBuffer::resizeToLVGL(coord_t w, coord_t h)
       }
     }
 
-    delete data;
+    free(data);
     data = (pixel_t*)ndata;
     _width = scaledw;
     _height = scaledh;

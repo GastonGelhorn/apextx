@@ -821,7 +821,8 @@ void OpenTxSimulator::checkOutputsChanged()
   static size_t chansDim = DIM(channelOutputs);
   const static int16_t limit = 512 * 2;
   qint32 tmpVal;
-  uint8_t i, idx;
+  size_t i;
+  uint8_t idx;
   const uint8_t phase = getFlightMode();  // edgetx.cpp
 
   for (i=0; i < chansDim; i++) {

@@ -217,7 +217,7 @@ class RadioKeyDiagsWindow : public Window
   {
     char s[10] = "0";
 
-    for (uint8_t i = 0; i < keysGetMaxTrims() * 2; i++) {
+    for (int i = 0; i < keysGetMaxTrims() * 2; i++) {
       s[0] = keysGetTrimState(_trimMap[i]) + '0';
       lv_label_set_text(trimValues[i], s);
     }

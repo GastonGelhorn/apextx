@@ -864,7 +864,7 @@ uint64_t sdcard_spi_get_capacity(sdcard_info_t *card)
     uint32_t block_len = (1 << card->csd.v1.READ_BL_LEN);
     uint32_t mult = 1 << (card->csd.v1.C_SIZE_MULT + 2);
     uint32_t blocknr = (card->csd.v1.C_SIZE + 1) * mult;
-    return blocknr * block_len;
+    return (uint64_t)blocknr * block_len;
   }
   else if (card->csd_structure == SD_CSD_V2) {
     return (card->csd.v2.C_SIZE + 1) * (((uint64_t)SD_HC_BLOCK_SIZE) << 10);

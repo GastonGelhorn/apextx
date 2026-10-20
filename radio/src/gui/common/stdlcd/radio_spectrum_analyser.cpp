@@ -145,13 +145,13 @@ void menuRadioSpectrumAnalyser(event_t event)
   }
 
   // Signal bar
-  for (uint8_t i=0; i<LCD_W; i++) {
+  for (int i=0; i<LCD_W; i++) {
     uint8_t h = min<uint8_t >(reusableBuffer.spectrumAnalyser.bars[i] >> 1, LCD_H);
     lcdDrawSolidVerticalLine(i, LCD_H - h, h);
   }
 
   // Signal max
-  for (uint8_t i=0; i<LCD_W; i++) {
+  for (int i=0; i<LCD_W; i++) {
     uint8_t h = min<uint8_t >(reusableBuffer.spectrumAnalyser.max[i] >> 1, LCD_H);
     lcdDrawPoint(i, LCD_H - h);
     if (reusableBuffer.spectrumAnalyser.max[i] > 1)

@@ -56,7 +56,7 @@ void menuRadioDiagKeys(event_t event)
 
   lcdDrawText(24*FW, MENU_HEADER_HEIGHT + 1, STR_VTRIM);
 
-  for (uint8_t i = 0; i < keysGetMaxTrims() * 2; i++) {
+  for (int i = 0; i < keysGetMaxTrims() * 2; i++) {
     coord_t y = MENU_HEADER_HEIGHT + 1 + FH + FH * (i / 2);
     if (i & 1) lcdDraw1bitBitmap(24 * FW, y, sticks, i / 2, 0);
     displayTrimState(i & 1 ? 30 * FW : 28 * FW, y, i);

@@ -174,7 +174,7 @@ void lcdRefresh()
     lcdInitFinish();
   }
 
-  for (uint8_t y=0; y<LCD_H; y++) {
+  for (int y=0; y<LCD_H; y++) {
     uint8_t * p = &displayBuf[y/2 * LCD_W];
 
     lcdWriteAddress(0, y);

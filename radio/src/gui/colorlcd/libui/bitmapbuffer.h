@@ -147,7 +147,10 @@ class BitmapBuffer
 
   inline pixel_t* getData() const { return data; }
 
-  uint32_t getDataSize() const { return _width * _height * sizeof(pixel_t); }
+  uint32_t getDataSize() const
+  {
+    return uint32_t(_width) * uint32_t(_height) * sizeof(pixel_t);
+  }
 
 #if !defined(BOOT)
   lv_obj_t* addCanvas(Window* parent, lv_img_cf_t fmt = LV_IMG_CF_TRUE_COLOR);

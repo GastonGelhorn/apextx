@@ -89,7 +89,9 @@ MaskBitmap* MainViewSlider::getTicksMask()
     if (mask->width == w && mask->height == h) return mask;
   }
 
-  MaskBitmap* mask =(MaskBitmap*)malloc(w * h + sizeof(uint16_t) * 2);
+  const size_t maskSize = size_t(w) * size_t(h);
+  MaskBitmap* mask =
+      (MaskBitmap*)malloc(maskSize + sizeof(uint16_t) * 2);
   if (!mask) {
     TRACE("Could not create Slider mask");
     return nullptr;
@@ -97,13 +99,13 @@ MaskBitmap* MainViewSlider::getTicksMask()
 
   mask->width = w;
   mask->height = h;
-  memset(mask->data, 0, w * h);
+  memset(mask->data, 0, maskSize);
 
   if (isVertical) {
     // Create vertical mask for tick lines
     int sliderTicksCount = h / SLIDER_TICK_SPACING;
     y = 0;
-    for (uint8_t i = 0; i <= sliderTicksCount; i++) {
+    for (int i = 0; i <= sliderTicksCount; i++) {
       if (i == 0 || i == sliderTicksCount / 2 || i == sliderTicksCount) {
         x = 0;
         l = w;
@@ -118,7 +120,7 @@ MaskBitmap* MainViewSlider::getTicksMask()
     // Create horizontal mask for tick lines
     int sliderTicksCount = w / SLIDER_TICK_SPACING;
     x = 0;
-    for (uint8_t i = 0; i <= sliderTicksCount; i++) {
+    for (int i = 0; i <= sliderTicksCount; i++) {
       if (i == 0 || i == sliderTicksCount / 2 || i == sliderTicksCount) {
         y = 0;
         l = h;
@@ -126,7 +128,7 @@ MaskBitmap* MainViewSlider::getTicksMask()
         y = PAD_TINY;
         l = h - PAD_TINY * 2;
       }
-      for (uint8_t n = y; n < y + l; n += 1)
+      for (int n = y; n < y + l; n += 1)
         mask->data[n * w + x] = 0xFF;
       x += SLIDER_TICK_SPACING;
     }

@@ -56,13 +56,13 @@ LuaWidgetFactory::~LuaWidgetFactory() {
   luaL_unref(lsWidgets, LUA_REGISTRYINDEX, backgroundFunction);
   luaL_unref(lsWidgets, LUA_REGISTRYINDEX, translateFunction);
 
-  if (name) delete name;
-  if (displayName) delete displayName;
+  if (name) free(const_cast<char*>(name));
+  if (displayName) free(const_cast<char*>(displayName));
 
   auto option = getDefaultOptions();
   while (option && option->name != nullptr) {
     if (option->displayName) {
-      delete option->displayName;
+      free(const_cast<char*>(option->displayName));
     }
     option++;
   }

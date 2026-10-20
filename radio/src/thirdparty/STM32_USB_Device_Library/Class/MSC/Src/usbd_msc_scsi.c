@@ -1072,7 +1072,7 @@ static int8_t SCSI_ReportLuns(USBD_HandleTypeDef *pdev, uint8_t lun, uint8_t *pa
   USBD_MSC_BOT_HandleTypeDef *hmsc;
   uint32_t lun_list_length;
   uint32_t total_length;
-  uint8_t lun_idx;
+  uint32_t lun_idx;
 
   UNUSED(lun);
   UNUSED(params);
@@ -1083,6 +1083,11 @@ static int8_t SCSI_ReportLuns(USBD_HandleTypeDef *pdev, uint8_t lun, uint8_t *pa
   hmsc = (USBD_MSC_BOT_HandleTypeDef *)pdev->pClassDataCmsit[pdev->classId];
 
   if (hmsc == NULL)
+  {
+    return -1;
+  }
+
+  if (hmsc->max_lun > MSC_BOT_MAX_LUN)
   {
     return -1;
   }
@@ -1101,7 +1106,7 @@ static int8_t SCSI_ReportLuns(USBD_HandleTypeDef *pdev, uint8_t lun, uint8_t *pa
   for (lun_idx = 0U; lun_idx <= hmsc->max_lun; lun_idx++)
   {
     /* LUN identifier is placed at the second byte of each 8-byte entry */
-    lun_report[(8U * (lun_idx + 1U)) + 1U] = lun_idx;
+    lun_report[(8U * (lun_idx + 1U)) + 1U] = (uint8_t)lun_idx;
   }
 
   /* Calculate the total length of the report LUNs buffer */

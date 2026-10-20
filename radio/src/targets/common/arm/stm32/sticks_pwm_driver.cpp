@@ -104,7 +104,7 @@ bool sticks_pwm_detect(const stick_pwm_timer_t* timer,
   sticks_pwm_init(timer);
 
   uint32_t timeout = timersGetMsTick() + PWM_DETECT_MS;
-  while (timersGetMsTick() - timeout > 0) {}
+  while ((int32_t)(timersGetMsTick() - timeout) < 0) {}
 
   bool valid_input = true;
   for (unsigned i = 0; i < n_inputs; i++) {
