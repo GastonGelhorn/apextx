@@ -346,8 +346,31 @@ button-entry problem before attempting another write.
 
 The following restores only the MCU image. It does not restore the external NOR:
 
+If the backup came from ApexTX Flasher, first set `FACTORY_MCU` to its `.bin`
+file and verify the adjacent `.bin.json` record. Confirm that `radio_variant`
+names this physical transmitter before continuing:
+
+```sh
+export FACTORY_MCU="$HOME/ApexTX-Backups/NB4-firmware-backup-SERIAL-DATE.bin"
+python3 - "$FACTORY_MCU" "$FACTORY_MCU.json" <<'PY'
+import hashlib, json, pathlib, sys
+image = pathlib.Path(sys.argv[1]).read_bytes()
+record = json.loads(pathlib.Path(sys.argv[2]).read_text())
+assert record['size'] == len(image) == 0x200000
+assert record['sha256'] == hashlib.sha256(image).hexdigest()
+print('Verified private backup for', record['radio_variant'])
+PY
+```
+
+For a backup created by `nb4-backup-mcu.sh`, use its original location instead:
+
 ```sh
 export FACTORY_MCU="$NB4_BACKUP_ROOT/mcu/internal-flash-2MiB.bin"
+```
+
+Then write and read back the exact file:
+
+```sh
 dfu-util -d 0483:df11 -a 0 -s 0x08000000 -D "$FACTORY_MCU"
 dfu-util -d 0483:df11 -a 0 -s 0x08000000:0x200000 \
   -U "$NB4_BACKUP_ROOT/mcu/factory-readback.bin"

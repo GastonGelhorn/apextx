@@ -4,7 +4,6 @@ set -euo pipefail
 
 readonly USB_ID="0483:df11"
 SERIAL="${NB4_DFU_SERIAL:-}"
-readonly BOOTLOADER_SIZE=$((0x20000))
 readonly FLASH_SIZE=$((0x200000))
 readonly BOOT_ADDRESS="0x08000000"
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -39,16 +38,28 @@ else
   fail "shasum or sha256sum is required"
 fi
 
-dfu_list=$(dfu-util -l 2>/dev/null || true)
-if [[ -z "$SERIAL" ]]; then
-  serials=$(printf '%s\n' "$dfu_list" |
-    grep "\[$USB_ID\]" |
-    sed -n 's/.*serial="\([^"]*\)".*/\1/p' |
-    sort -u)
-  serial_count=$(printf '%s\n' "$serials" | sed '/^$/d' | wc -l | tr -d ' ')
-  (( serial_count == 1 )) ||
-    fail "expected one STM32 DFU device; set NB4_DFU_SERIAL when more than one is connected"
-  SERIAL="$serials"
+discover_dfu_serial() {
+  python3 - "$ROOT" "${1:-}" <<'PY'
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]) / "tools"))
+from nb4_rom_flash import RomFlashError, discover_rom_dfu
+
+try:
+    serial = discover_rom_dfu(sys.argv[2] or None)
+except RomFlashError as error:
+    print(error, file=sys.stderr)
+    raise SystemExit(1)
+if not serial:
+    print("No compatible Noble ROM DFU device was found.", file=sys.stderr)
+    raise SystemExit(1)
+print(serial)
+PY
+}
+
+if ! SERIAL=$(discover_dfu_serial "$SERIAL"); then
+  fail "connect exactly one Noble with the expected 2 MiB internal-flash layout"
 fi
 readonly SERIAL
 
@@ -58,44 +69,32 @@ age=$(( $(date +%s) - modified ))
 
 cp "$SOURCE_IMAGE" "$IMAGE"
 size=$(wc -c < "$IMAGE" | tr -d ' ')
-(( size > BOOTLOADER_SIZE )) || fail "image is smaller than the reserved bootloader region"
-(( size <= FLASH_SIZE )) || fail "image exceeds the 2 MiB internal flash"
+(( size == FLASH_SIZE )) || fail "image must be the exact 2 MiB ApexTX firmware.bin"
 
-python3 - "$IMAGE" <<'PY'
-import struct
+python3 - "$ROOT" "$IMAGE" <<'PY'
+import pathlib
 import sys
 
-image = open(sys.argv[1], "rb").read()
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]) / "tools"))
+from nb4_rom_flash import validate_full_image
 
-def ram_address(value):
-    return 0x10000000 < value <= 0x10010000 or 0x20000000 < value <= 0x20030000
-
-def code_address(value, lower, upper):
-    return lower <= value < upper and value & 1
-
-boot_stack, boot_reset = struct.unpack_from("<II", image, 0)
-app_stack, app_reset = struct.unpack_from("<II", image, 0x20000)
-errors = []
-if not ram_address(boot_stack):
-    errors.append(f"invalid bootloader stack pointer {boot_stack:#010x}")
-if not code_address(boot_reset, 0x08000000, 0x08020000):
-    errors.append(f"invalid bootloader reset vector {boot_reset:#010x}")
-if not ram_address(app_stack):
-    errors.append(f"invalid application stack pointer {app_stack:#010x}")
-if not code_address(app_reset, 0x08020000, 0x08000000 + len(image)):
-    errors.append(f"invalid application reset vector {app_reset:#010x}")
-if errors:
-    raise SystemExit("; ".join(errors))
+variant = validate_full_image(pathlib.Path(sys.argv[2]).read_bytes())
+print(f"  validated complete ApexTX image for Noble {variant}")
 PY
-
-interfaces=$(printf '%s\n' "$dfu_list" | grep -c "serial=\"$SERIAL\"" || true)
-(( interfaces > 0 )) || fail "no STM32 DFU device found with serial $SERIAL"
 
 printf 'Noble NB4 DFU flash\n'
 printf '  image:  %s\n' "$SOURCE_IMAGE"
 printf '  size:   %s bytes\n' "$size"
 printf '  sha256: %s\n' "$(sha256_file "$IMAGE")"
-printf '  device: %s DFU interfaces, serial %s\n' "$interfaces" "$SERIAL"
+printf '  device: verified 2 MiB STM32 ROM DFU, serial %s\n' "$SERIAL"
+
+# Re-identify the same compatible device immediately before the destructive
+# write, rather than trusting the generic STM32 VID/PID or an earlier listing.
+if ! verified_serial=$(discover_dfu_serial "$SERIAL"); then
+  fail "the selected Noble left ROM DFU before writing; nothing was written"
+fi
+[[ "$verified_serial" == "$SERIAL" ]] ||
+  fail "the connected ROM DFU device changed before writing; nothing was written"
 
 dfu-util -d "$USB_ID" -S "$SERIAL" -a 0 -s "$BOOT_ADDRESS" -D "$IMAGE"
 dfu-util -d "$USB_ID" -S "$SERIAL" -a 0 -s "$BOOT_ADDRESS:$size" -U "$READBACK"

@@ -2,31 +2,212 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ApexTX Updater</title>
+<title>ApexTX Flasher</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101216;color:#f4f4f5;font:16px/1.5 system-ui,-apple-system,sans-serif}main{max-width:760px;margin:8vh auto;padding:0 24px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}.brand{font-size:24px;font-weight:800;letter-spacing:-1px}.brand span{color:#ff982e}.tag{font-size:12px;background:#252932;border:1px solid #373d47;border-radius:20px;padding:6px 12px;color:#cbd0d8}h1{font-size:42px;letter-spacing:-1.5px;line-height:1.12;margin:0 0 16px}.intro{color:#adb5c3;max-width:600px;margin-bottom:30px}.steps{display:flex;gap:12px;margin:28px 0}.step{flex:1;padding:16px;background:#1a1e25;border:1px solid #303640;border-radius:12px;font-size:14px}.step b{display:block;color:#ffad56;margin-bottom:8px;font-size:12px}.panel{border:1px solid #373d47;background:#1a1e25;padding:26px;border-radius:16px}.file{display:block;border:1px dashed #626b7a;border-radius:10px;padding:20px;cursor:pointer;background:#222731}.file strong{display:block;font-size:17px}.file span{display:block;color:#b3bccb;font-size:13px;overflow-wrap:anywhere;margin-top:4px}input{display:block;margin-top:16px;max-width:100%;color:#b3bccb}input::file-selector-button{border:1px solid #717b8b;border-radius:6px;padding:8px;background:#303844;color:#fff;margin-right:10px;cursor:pointer}button{width:100%;background:#ff982e;color:#17120b;border:0;border-radius:10px;padding:15px;font:700 16px system-ui;cursor:pointer;margin-top:18px}button:disabled{background:#303640;color:#8c95a4;cursor:default}progress{appearance:none;width:100%;height:9px;margin:24px 0 10px;display:block}progress::-webkit-progress-bar{background:#303640;border-radius:8px}progress::-webkit-progress-value{background:#ff982e;border-radius:8px}progress::-moz-progress-bar{background:#ff982e;border-radius:8px}.status-row{display:flex;gap:20px;font-size:14px;color:#c9d1dd}.status-row span:first-child{flex:1}.error{color:#ffb6b6}.good{color:#9fe4b6}.note{color:#aab3c1;font-size:13px;margin:24px 0}footer{font-size:12px;color:#818d9f;margin:32px 0}@media(max-width:620px){main{margin-top:30px}h1{font-size:34px}.steps{flex-direction:column}.step b{display:inline;margin-right:8px}.panel{padding:18px}}
+:root{
+  --bg:#0c0d0f; --bg2:#101113; --panel:#141619; --panel2:#181b1f;
+  --line:#23262b; --line2:#333840; --text:#f0f0f0; --muted:#9aa3ad; --muted2:#6b7480;
+  --blue:#20a0f0; --blue2:#54b7f6; --ink:#061320;
+  --orange:#f07020; --orange2:#ffb070; --good:#5fd39a; --bad:#ff8f8f;
+}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:radial-gradient(1150px 540px at 82% -10%,rgba(32,160,240,.16),transparent 60%),radial-gradient(760px 420px at 4% 112%,rgba(240,112,32,.06),transparent 55%),var(--bg);color:var(--text);min-height:100vh;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:800px;margin:0 auto;padding:34px 24px 54px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:34px}
+.brand img{height:96px;width:auto;display:block;filter:drop-shadow(0 6px 22px rgba(32,160,240,.22))}
+.hgroup{display:flex;align-items:center;gap:12px}
+.tag{font-size:11px;font-weight:700;letter-spacing:.09em;background:rgba(32,160,240,.12);border:1px solid rgba(32,160,240,.34);border-radius:999px;padding:7px 12px;color:var(--blue2);white-space:nowrap}
+.lang{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:5px 10px;border-radius:999px;line-height:1}
+.lang button.on{background:var(--blue);color:#05121d}
+h1{font-size:36px;letter-spacing:-1.2px;line-height:1.08;margin:0 0 12px;font-weight:800}
+.intro{color:var(--muted);max-width:620px;margin:0 0 22px;font-size:16px}
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin:0 0 20px;max-width:440px}
+.tabs button{all:unset;flex:1;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);padding:10px;border-radius:9px}
+.tabs button.on{background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink)}
+.panel{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:24px;border-radius:18px;box-shadow:0 26px 64px -34px rgba(0,0,0,.85)}
+.panel.hide{display:none}
+.panel::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,var(--blue),var(--orange))}
+.warn{display:flex;gap:11px;align-items:flex-start;background:rgba(240,112,32,.09);border:1px solid rgba(240,112,32,.34);border-radius:12px;padding:13px 15px;margin:0 0 18px;font-size:13.5px;color:var(--orange2)}
+.warn svg{width:19px;height:19px;flex:none;margin-top:1px;color:var(--orange)}
+.file{display:block;border:1.5px dashed var(--line2);border-radius:13px;padding:19px;cursor:pointer;background:rgba(255,255,255,.012);transition:border-color .15s,background .15s}
+.file:hover{border-color:var(--blue);background:rgba(32,160,240,.05)}
+.file strong{display:flex;align-items:center;gap:9px;font-size:16px}
+.file strong svg{width:19px;height:19px;color:var(--blue);flex:none}
+.file span{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere;margin-top:6px;padding-left:28px}
+input[type=file]{display:block;margin-top:15px;max-width:100%;color:var(--muted);font-size:13px}
+input[type=file]::file-selector-button{border:1px solid var(--line2);border-radius:8px;padding:9px 12px;background:#20242a;color:#fff;margin-right:11px;cursor:pointer;font:inherit;font-size:13px}
+.model{display:none;margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(32,160,240,.06);font-size:14px}
+.model b{color:var(--blue2)}
+.radio-choice{margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(255,255,255,.018);font-size:14px}
+.radio-choice strong{display:block;margin-bottom:8px}
+.radio-options{display:flex;gap:20px;flex-wrap:wrap;color:var(--muted)}
+.radio-options label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.radio-options input{width:17px;height:17px;accent-color:var(--blue)}
+.confirm{display:none;margin:14px 2px 0;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted)}
+.confirm input{margin-top:3px;width:17px;height:17px;accent-color:var(--blue);flex:none}
+button.cta{width:100%;background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink);border:0;border-radius:12px;padding:16px;font:800 16px system-ui,sans-serif;cursor:pointer;margin-top:18px;transition:filter .15s;box-shadow:0 12px 28px -12px rgba(32,160,240,.7)}
+button.cta:hover:not(:disabled){filter:brightness(1.07)}
+button.cta:disabled{background:#23272d;color:#6b7480;cursor:default;box-shadow:none}
+progress{appearance:none;-webkit-appearance:none;width:100%;height:10px;margin:22px 0 11px;display:block;border:0;background:transparent}
+progress::-webkit-progress-bar{background:#23272d;border-radius:999px}
+progress::-webkit-progress-value{background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px;transition:width .3s}
+progress::-moz-progress-bar{background:var(--blue);border-radius:999px}
+.status-row{display:flex;gap:20px;font-size:14px;color:var(--muted);align-items:baseline}
+.status-row #message{flex:1}
+.status-row #percent{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+.error{color:var(--bad)!important}.good{color:var(--good)!important}
+.note{color:var(--muted);font-size:13px;margin:24px 2px 0;display:flex;gap:9px;align-items:flex-start}
+.note svg{width:17px;height:17px;color:var(--blue2);flex:none;margin-top:1px}
+footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:18px}
+footer .meta{display:inline-block;margin-top:7px;color:var(--muted2)}
+footer a{color:var(--blue2);text-decoration:none}
+footer a:hover{text-decoration:underline}
+@media(max-width:640px){main{padding:24px 16px 42px}h1{font-size:28px}.brand img{height:64px}.panel{padding:18px}header{flex-wrap:wrap;margin-bottom:26px}}
 </style>
 <main>
-<header><div class="brand">APEX<span>TX</span> <span style="color:#aab3c1;font-size:16px;font-weight:400;letter-spacing:0">Updater</span></div><div class="tag">NOBLE NB4</div></header>
-<h1>Firmware update</h1>
-<p class="intro">Install ApexTX firmware on your Noble NB4. The updater verifies the transfer and installation before restarting the radio.</p>
-<div class="steps"><div class="step"><b>01 · UPDATE MODE</b>On the radio, select Settings → System → Update.</div><div class="step"><b>02 · USB CONNECTION</b>Connect the radio to this computer.</div><div class="step"><b>03 · FIRMWARE IMAGE</b>Select a compatible firmware.bin file.</div></div>
-<section class="panel">
-<label class="file"><strong>Firmware image</strong><span id="fileinfo">firmware.bin · ApexTX for the original Noble NB4</span><input id="file" type="file" accept=".bin,application/octet-stream"></label>
-<button id="start" disabled>Update firmware</button>
-<progress id="bar" max="100" value="0" aria-label="Firmware update progress"></progress>
-<div class="status-row" aria-live="polite"><span id="message">Select a firmware image to continue.</span><span id="percent">0%</span></div>
+<header>
+  <div class="brand"><img src="__LOGO_DATA__" alt="ApexTX"></div>
+  <div class="hgroup">
+    <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button></div>
+    <div class="tag">NOBLE&nbsp;NB4 / NB4+</div>
+  </div>
+</header>
+
+<h1 data-k="h1">Update your radio</h1>
+<p class="intro" data-k="intro">Install or update ApexTX on your FlySky Noble NB4 or NB4+. Everything runs locally and is verified on the radio.</p>
+
+<div class="tabs" id="tabs">
+  <button data-mode="update" class="on" data-k="tabUpdate">Update</button>
+  <button data-mode="recover" data-k="tabRecover">Install / Recovery</button>
+</div>
+
+<!-- UPDATE MODE -->
+<section class="panel" id="updatePanel">
+  <label class="file">
+    <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span data-k="imglabel">Firmware image</span></strong>
+    <span id="fileinfo"></span>
+    <input id="file" type="file" accept=".bin,application/octet-stream">
+  </label>
+  <button class="cta" id="start" disabled>Update firmware</button>
 </section>
-<p class="note">The radio must display <strong>ApexTX Update</strong>. A compatible bootloader is required. Keep the radio powered and the USB cable connected during installation.</p>
-<footer>ApexTX Updater runs locally on this computer. Firmware files are transferred directly to the radio.</footer>
+
+<!-- INSTALL / RECOVERY MODE -->
+<section class="panel hide" id="recoverPanel">
+  <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span data-k="rwarn">This replaces the complete firmware including the bootloader — for first installation or recovery. The radio must be in STM32 ROM DFU mode (hold the recessed grip button while switching it on). Your current firmware is backed up first.</span></div>
+  <label class="file">
+    <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span data-k="rimglabel">Complete firmware image</span></strong>
+    <span id="rfileinfo"></span>
+    <input id="rfile" type="file" accept=".bin,application/octet-stream">
+  </label>
+  <div class="radio-choice">
+    <strong data-k="radioPrompt">Which radio are you connecting?</strong>
+    <div class="radio-options">
+      <label><input type="radio" name="radioVariant" value="NB4"> Noble NB4</label>
+      <label><input type="radio" name="radioVariant" value="NB4+"> Noble NB4+</label>
+    </div>
+  </div>
+  <div class="model" id="rmodel"></div>
+  <label class="confirm" id="rconfirmWrap"><input type="checkbox" id="rconfirm"><span id="rconfirmLabel"></span></label>
+  <button class="cta" id="rstart" disabled>Back up &amp; install</button>
+</section>
+
+<progress id="bar" max="100" value="0" aria-label="Progress"></progress>
+<div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div>
+
+<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.</span></p>
+<footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
-const token='__SESSION_TOKEN__',file=document.querySelector('#file'),start=document.querySelector('#start'),message=document.querySelector('#message'),bar=document.querySelector('#bar'),percent=document.querySelector('#percent');let running=false,submitted=false;
-const IMAGE_SIZE=2097152;
-// Check the size here too: a rejected upload closes the connection, which
-// aborts the browser's own request and loses the server's explanation.
-file.onchange=()=>{const f=file.files[0];document.querySelector('#fileinfo').textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:'firmware.bin · ApexTX for the original Noble NB4';if(f&&f.size!==IMAGE_SIZE){message.textContent='Select a 2 MiB firmware.bin image built for ApexTX Update.';message.className='error';start.disabled=true;return}message.textContent=f?'Ready to update.':'Select a firmware image to continue.';message.className='';start.disabled=!f||running;};
-start.onclick=async()=>{if(!file.files[0]||running)return;running=true;submitted=true;start.disabled=true;file.disabled=true;message.className='';message.textContent='Validating firmware image...';try{const response=await fetch('/api/update',{method:'POST',headers:{'X-ApexTX-Token':token},body:file.files[0]});const result=await response.json();if(!response.ok)throw Error(result.error);}catch(error){message.textContent=error.message;message.className='error';running=false;submitted=false;start.disabled=false;file.disabled=false;}};
-async function poll(){try{const response=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!response.ok)throw Error('The updater session has ended.');const s=await response.json();if(s.running||submitted||s.progress||s.error){running=s.running;message.textContent=s.message;message.className=s.error?'error':s.progress===100?'good':'';bar.value=s.progress;percent.textContent=`${s.progress}%`;file.disabled=running;start.disabled=running||!file.files[0];start.textContent=running?'Updating firmware...':s.error?'Retry update':'Update firmware';}}catch(error){message.textContent='The updater is unavailable. Check the terminal and radio display.';message.className='error';start.disabled=true;}setTimeout(poll,600)}poll();
+const T={
+ en:{h1:"Update your radio",intro:"Install or update ApexTX on your FlySky Noble NB4 or NB4+. Everything runs locally and is verified on the radio.",
+  tabUpdate:"Update",tabRecover:"Install / Recovery",
+  imglabel:"Firmware image",fileinfo:"firmware.bin · ApexTX for the Noble NB4 / NB4+",
+  note:"Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.",
+  footer:"ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.",
+  rwarn:"This writes the COMPLETE firmware, including the bootloader. Use it only for the first ApexTX installation or recovery; use Update for normal upgrades. The radio must be in STM32 ROM DFU mode. Its current internal firmware is backed up first. Recovery normally remains possible through the STM32 ROM bootloader, but choosing the correct model and keeping the backup are essential. Windows must have a WinUSB-compatible driver for the connected device.",
+  rdone:"Installation complete and verified. Now switch the radio OFF (hold the power button until it is fully off), then switch it ON again to start it.",
+  rimglabel:"Complete firmware image",rfileinfo:"Complete firmware.bin (bootloader + application)",
+  radioPrompt:"Which radio are you connecting?",rmodelFor:"This image appears to be for: ",rmodelUnknown:"The app will validate the model marker, manifest and checksum before writing.",
+  rconfirm:"I confirm my radio is {radio} and this image is for {image}.",rconfirmGeneric:"I confirm the selected model is my radio and this is the correct ApexTX image.",
+  select:"Select a firmware image to continue.",ready:"Ready to update.",rready:"Ready. Your current firmware is backed up before writing.",
+  sizeerr:"Select a 2 MiB firmware.bin image built for ApexTX Update.",rsizeerr:"Select a complete firmware.bin (bootloader + application).",
+  validating:"Validating firmware image…",update:"Update firmware",retry:"Retry update",updating:"Updating firmware…",
+  rbtn:"Back up & install",rretry:"Retry",rworking:"Backing up & installing…"},
+ de:{h1:"Fernbedienung aktualisieren",intro:"ApexTX auf deiner FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Alles läuft lokal und wird auf der Fernbedienung verifiziert.",
+  tabUpdate:"Update",tabRecover:"Installation / Recovery",
+  imglabel:"Firmware-Image",fileinfo:"firmware.bin · ApexTX für die Noble NB4 / NB4+",
+  note:"Fernbedienung während des Schreibens eingeschaltet und verbunden lassen — nicht abziehen. Bei einem Recovery-Fehler eingeschaltet lassen und im STM32-ROM-DFU erneut versuchen.",
+  footer:"Der ApexTX Flasher läuft komplett auf diesem Computer. Die Firmware wird direkt per USB an die Fernbedienung gesendet und nirgends hochgeladen.",
+  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader. Nur für die Erstinstallation von ApexTX oder Recovery nutzen; für normale Updates den Update-Tab verwenden. Die Fernbedienung muss im STM32-ROM-DFU sein. Die aktuelle interne Firmware wird vorher gesichert. Recovery bleibt normalerweise über den STM32-ROM-Bootloader möglich, aber das richtige Modell und die Sicherung sind unverzichtbar. Windows benötigt einen WinUSB-kompatiblen Treiber für das verbundene Gerät.",
+  rdone:"Installation abgeschlossen und verifiziert. Jetzt die Fernbedienung AUSschalten (Power-Taste lang halten, bis sie ganz aus ist), dann wieder EINschalten, damit sie startet.",
+  rimglabel:"Vollständiges Firmware-Image",rfileinfo:"Vollständige firmware.bin (Bootloader + Anwendung)",
+  radioPrompt:"Welche Fernbedienung ist verbunden?",rmodelFor:"Dieses Image scheint bestimmt für: ",rmodelUnknown:"Die App prüft Modellmarkierung, Manifest und Prüfsumme vor dem Schreiben.",
+  rconfirm:"Ich bestätige: Meine Fernbedienung ist {radio} und das Image ist für {image}.",rconfirmGeneric:"Ich bestätige das gewählte Modell und das richtige ApexTX-Image.",
+  select:"Wähle ein Firmware-Image, um fortzufahren.",ready:"Bereit zum Aktualisieren.",rready:"Bereit. Deine aktuelle Firmware wird vor dem Schreiben gesichert.",
+  sizeerr:"Wähle eine 2-MiB-firmware.bin für ApexTX Update.",rsizeerr:"Wähle eine vollständige firmware.bin (Bootloader + Anwendung).",
+  validating:"Firmware-Image wird geprüft…",update:"Firmware aktualisieren",retry:"Erneut versuchen",updating:"Firmware wird aktualisiert…",
+  rbtn:"Sichern & installieren",rretry:"Erneut versuchen",rworking:"Sichern & installieren…"},
+ es:{h1:"Actualiza tu emisora",intro:"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. Todo se ejecuta localmente y se verifica en la emisora.",
+  tabUpdate:"Actualizar",tabRecover:"Instalación / Recuperación",
+  imglabel:"Imagen de firmware",fileinfo:"firmware.bin · ApexTX para la Noble NB4 / NB4+",
+  note:"Mantén la emisora encendida y conectada durante la escritura — no la desconectes. Si falla la recuperación, déjala encendida y reintenta en modo STM32 ROM DFU.",
+  footer:"ApexTX Flasher se ejecuta por completo en este ordenador. El firmware se envía directamente a la emisora por USB y no se sube a ningún sitio.",
+  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader. Úsalo solo para la primera instalación de ApexTX o para recuperar una emisora; para una actualización normal usa Actualizar. La emisora debe estar en STM32 ROM DFU. Antes se guarda una copia del firmware interno actual. Normalmente la recuperación seguirá disponible mediante el bootloader ROM del STM32, pero es imprescindible elegir el modelo correcto y conservar la copia. Windows necesita un controlador compatible con WinUSB para el dispositivo conectado.",
+  rdone:"Instalación completada y verificada. Ahora APAGA la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a ENCENDERLA para arrancarla.",
+  rimglabel:"Imagen de firmware completa",rfileinfo:"firmware.bin completa (bootloader + aplicación)",
+  radioPrompt:"¿Qué emisora estás conectando?",rmodelFor:"Esta imagen parece ser para: ",rmodelUnknown:"La aplicación validará el marcador de modelo, el manifiesto y el checksum antes de escribir.",
+  rconfirm:"Confirmo que mi emisora es {radio} y que la imagen es para {image}.",rconfirmGeneric:"Confirmo el modelo elegido y que esta es la imagen ApexTX correcta.",
+  select:"Elige una imagen de firmware para continuar.",ready:"Lista para actualizar.",rready:"Lista. Tu firmware actual se respalda antes de escribir.",
+  sizeerr:"Elige una firmware.bin de 2 MiB para ApexTX Update.",rsizeerr:"Elige una firmware.bin completa (bootloader + aplicación).",
+  validating:"Verificando la imagen…",update:"Actualizar firmware",retry:"Reintentar",updating:"Actualizando firmware…",
+  rbtn:"Respaldar e instalar",rretry:"Reintentar",rworking:"Respaldando e instalando…"}
+};
+const $=s=>document.querySelector(s);
+const token='__SESSION_TOKEN__';
+const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
+const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
+let running=false,submitted=false,lang='en',mode='update',rVariant=null;
+const IMG=2097152;
+function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const n=(navigator.language||'en').slice(0,2);return T[n]?n:'en';}
+function setMode(m){mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  $('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');
+  if(!running&&!submitted){const d=T[lang];message.className='';message.textContent=m==='update'?(file.files[0]?d.ready:d.select):(rfile.files[0]?d.rready:d.select);}}
+function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l;
+  document.querySelectorAll('[data-k]').forEach(el=>{const k=el.getAttribute('data-k');if(d[k]!=null)el.textContent=d[k];});
+  document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
+  if(!running&&!submitted){const uf=file.files[0];fileinfo.textContent=uf?`${uf.name} · ${(uf.size/1048576).toFixed(2)} MiB`:d.fileinfo;start.textContent=d.update;
+    const rf=rfile.files[0];rfileinfo.textContent=rf?`${rf.name} · ${(rf.size/1048576).toFixed(2)} MiB`:d.rfileinfo;rstart.textContent=d.rbtn;refreshModel();setMode(mode);}
+  try{localStorage.setItem('apextxLang',l);}catch(e){}}
+function refreshModel(){const d=T[lang];if(!rfile.files[0]){rmodel.style.display='none';rconfirmWrap.style.display='none';return;}
+  rmodel.style.display='block';rconfirmWrap.style.display='flex';
+  rmodel.innerHTML=rVariant?`${d.rmodelFor}<b>Noble ${rVariant}</b>`:d.rmodelUnknown;
+  const radio=selectedRadio();
+  rconfirmLabel.textContent=rVariant&&radio?d.rconfirm.replace('{radio}','Noble '+radio).replace('{image}','Noble '+rVariant):d.rconfirmGeneric;}
+function selectedRadio(){const picked=document.querySelector('input[name="radioVariant"]:checked');return picked?picked.value:null;}
+document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>applyLang(b.dataset.lang));
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+document.querySelectorAll('input[name="radioVariant"]').forEach(b=>b.onchange=()=>{rconfirm.checked=false;refreshModel();updateRstate();});
+applyLang(pick());
+// UPDATE mode
+file.onchange=()=>{const d=T[lang],f=file.files[0];fileinfo.textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:d.fileinfo;if(f&&f.size!==IMG){message.textContent=d.sizeerr;message.className='error';start.disabled=true;return}message.textContent=f?d.ready:d.select;message.className='';start.disabled=!f||running;};
+start.onclick=()=>send('/api/update',file.files[0],start);
+// RECOVERY mode
+rfile.onchange=async()=>{const d=T[lang],f=rfile.files[0];rfileinfo.textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:d.rfileinfo;rVariant=null;rconfirm.checked=false;
+  if(f&&f.size!==IMG){message.textContent=d.rsizeerr;message.className='error';refreshModel();rstart.disabled=true;return}
+  if(f){try{const s=new TextDecoder('latin1').decode(await f.arrayBuffer());rVariant=(s.includes('apextx-nb4plus-')||s.includes('APXHW:nb4plus'))?'NB4+':(s.includes('apextx-nb4-')||s.includes('APXHW:nb4'))?'NB4':null;}catch(e){}}
+  message.textContent=f?d.rready:d.select;message.className='';refreshModel();updateRstate();};
+rconfirm.onchange=updateRstate;
+function updateRstate(){rstart.disabled=running||!rfile.files[0]||!selectedRadio()||!rconfirm.checked;}
+rstart.onclick=()=>{if(!rconfirm.checked||!selectedRadio())return;send('/api/recover',rfile.files[0],rstart,{'X-ApexTX-Radio-Variant':selectedRadio()});};
+async function send(url,f,btn,extra={}){if(!f||running)return;running=true;submitted=true;btn.disabled=true;file.disabled=rfile.disabled=true;message.className='';message.textContent=T[lang].validating;
+  try{const r=await fetch(url,{method:'POST',headers:{'X-ApexTX-Token':token,...extra},body:f});const j=await r.json();if(!r.ok)throw Error(j.error);}
+  catch(e){message.textContent=e.message;message.className='error';running=false;submitted=false;file.disabled=rfile.disabled=false;btn.disabled=false;updateRstate();start.disabled=!file.files[0];}}
+async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error('ended');const s=await r.json();
+  if(s.running||submitted||s.progress||s.error){running=s.running;message.textContent=(!s.error&&s.progress===100&&mode==='recover')?T[lang].rdone:s.message;message.className=s.error?'error':s.progress===100?'good':'';bar.value=s.progress;percent.textContent=`${s.progress}%`;
+    file.disabled=rfile.disabled=running;
+    start.textContent=running&&mode==='update'?T[lang].updating:s.error?T[lang].retry:T[lang].update;start.disabled=running||!file.files[0];
+    rstart.textContent=running&&mode==='recover'?T[lang].rworking:s.error?T[lang].rretry:T[lang].rbtn;updateRstate();}}
+  catch(e){message.textContent='The updater is unavailable. Check the radio display.';message.className='error';start.disabled=rstart.disabled=true;}setTimeout(poll,600)}poll();
 </script>
 </html>

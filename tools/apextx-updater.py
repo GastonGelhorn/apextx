@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""ApexTX Updater: local browser interface or command-line NB4 update."""
+"""ApexTX Flasher: local browser interface or command-line NB4 update."""
 import argparse
 import json
 import secrets
@@ -12,6 +12,46 @@ from urllib.parse import urlparse, parse_qs
 
 from nb4_update_image import FLASH_SIZE, VARIANTS, package_target, update_package
 from nb4_usb_update import run_update, discover
+import nb4_rom_flash
+
+import base64
+import datetime
+import functools
+import os
+import sys
+
+APP_VERSION = '1.0'
+
+
+def _enable_bundled_libusb():
+    """Make the bundled libusb runtime loadable in a frozen Windows build.
+
+    This supplies the user-mode DLL; Windows must still associate the USB
+    device with a WinUSB-compatible kernel driver.
+    """
+    candidates = []
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass:
+        candidates.append(Path(meipass))
+    candidates.append(Path(__file__).resolve().parent)
+    for folder in candidates:
+        if (folder / 'libusb-1.0.dll').is_file():
+            os.environ['PATH'] = str(folder) + os.pathsep + os.environ.get('PATH', '')
+            try:
+                os.add_dll_directory(str(folder))
+            except (OSError, AttributeError):
+                pass
+            return
+
+
+@functools.lru_cache(maxsize=1)
+def _logo_data_uri():
+    """Inline the ApexTX brand logo so the page stays a single response."""
+    try:
+        raw = Path(__file__).with_name('apextx-updater-logo.png').read_bytes()
+        return 'data:image/png;base64,' + base64.b64encode(raw).decode('ascii')
+    except Exception:
+        return ''
 
 
 def serve(port=0, open_browser=True):
@@ -26,6 +66,45 @@ def serve(port=0, open_browser=True):
     def update(image):
         try:
             run_update(image, progress)
+        except Exception as error:
+            with lock:
+                status.update(message=str(error), error=True)
+        finally:
+            with lock:
+                status['running'] = False
+
+    def recover(image, radio_variant):
+        try:
+            wanted = nb4_rom_flash.validate_full_image(image)
+            if wanted != radio_variant:
+                raise nb4_rom_flash.RomFlashError(
+                    f'This image is for the Noble {wanted}, but you selected Noble '
+                    f'{radio_variant}. Nothing was written.')
+            serial = nb4_rom_flash.discover_rom_dfu()
+            if serial is None:
+                raise nb4_rom_flash.RomFlashError(
+                    'No radio in STM32 ROM DFU mode was found. Put the radio into ROM DFU '
+                    '(hold the recessed grip button while switching it on) and connect USB.')
+            # 1) Mandatory backup of the radio's current firmware.
+            folder = Path.home() / 'ApexTX-Backups'
+            folder.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+            safe_serial = nb4_rom_flash.safe_serial(serial)
+            backup = folder / f'{radio_variant.replace("+", "plus")}-firmware-backup-{safe_serial}-{stamp}.bin'
+            nb4_rom_flash.backup_internal(backup, progress, serial)
+            metadata = nb4_rom_flash.write_backup_metadata(backup, radio_variant, serial)
+            # 2) Detect the current firmware and cross-check the image's model.
+            current = nb4_rom_flash.inspect_flash(backup.read_bytes())
+            if (current['firmware'] == 'ApexTX' and
+                    current['variant'] != radio_variant):
+                raise nb4_rom_flash.RomFlashError(
+                    f"You selected Noble {radio_variant}, but the radio currently runs ApexTX "
+                    f"for the Noble {current['variant']}. Your backup was saved to {backup}. "
+                    "Select the image for your radio; nothing else was written.")
+            progress(f'Backup saved: {backup} (verification: {metadata}). '
+                     'Installing the complete image...', 23)
+            # 3) Write the full image, verify by read-back, then start the radio.
+            nb4_rom_flash.run_install(image, progress, serial)
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
@@ -54,7 +133,7 @@ def serve(port=0, open_browser=True):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
             self.end_headers()
             self.wfile.write(data)
 
@@ -63,7 +142,10 @@ def serve(port=0, open_browser=True):
                 self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
             elif urlparse(self.path).path == '/':
                 page = Path(__file__).with_name('apextx-updater.html').read_text(encoding='utf-8')
-                self.reply(200, page.replace('__SESSION_TOKEN__', token).encode(), 'text/html; charset=utf-8')
+                page = (page.replace('__SESSION_TOKEN__', token)
+                            .replace('__LOGO_DATA__', _logo_data_uri())
+                            .replace('__APP_VERSION__', APP_VERSION))
+                self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/status':
                 with lock:
                     snapshot = dict(status)
@@ -75,32 +157,71 @@ def serve(port=0, open_browser=True):
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
                 return
-            if self.path != '/api/update':
+            request_path = urlparse(self.path).path
+            if request_path not in ('/api/update', '/api/recover'):
                 self.reply(404, {'error': 'Not found.'})
                 return
+            recovery = request_path == '/api/recover'
+            radio_variant = None
             try:
                 size = int(self.headers.get('Content-Length', '0'))
-                if size != FLASH_SIZE:
-                    raise ValueError('Select a 2 MiB firmware.bin image built for ApexTX Update.')
                 self.connection.settimeout(15)
-                image = self.rfile.read(size)
-                update_package(image)
-            except (ValueError, OSError) as error:
+                if recovery:
+                    if size != FLASH_SIZE:
+                        raise ValueError('Select an exact 2 MiB ApexTX firmware.bin.')
+                    radio_variant = self.headers.get('X-ApexTX-Radio-Variant', '')
+                    if radio_variant not in VARIANTS.values():
+                        raise ValueError('Select whether your radio is a Noble NB4 or NB4+.')
+                    image = self.rfile.read(size)
+                    image_variant = nb4_rom_flash.validate_full_image(image)
+                    if image_variant != radio_variant:
+                        raise ValueError(f'This image is for the Noble {image_variant}, but '
+                                         f'you selected Noble {radio_variant}.')
+                else:
+                    if size != FLASH_SIZE:
+                        raise ValueError('Select a 2 MiB firmware.bin image built for ApexTX Update.')
+                    image = self.rfile.read(size)
+                    update_package(image)
+            except (ValueError, OSError, nb4_rom_flash.RomFlashError) as error:
                 self.reply(400, {'error': str(error)})
                 return
             with lock:
                 if status['running']:
-                    self.reply(409, {'error': 'An update is already in progress.'})
+                    self.reply(409, {'error': 'An operation is already in progress.'})
                     return
-                status.update(running=True, error=False, progress=0, message='Waiting for the radio...')
+                status.update(running=True, error=False, progress=0,
+                              message='Backing up and installing...' if recovery else 'Waiting for the radio...')
             # Non-daemon: closing the UI/server must not kill an active write.
-            threading.Thread(target=update, args=(image,), daemon=False).start()
+            target = recover if recovery else update
+            args = (image, radio_variant) if recovery else (image,)
+            threading.Thread(target=target, args=args, daemon=False).start()
             self.reply(202, {'ok': True})
 
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     address = f'http://127.0.0.1:{server.server_port}/?token={token}'
-    print(f'ApexTX Updater: {address}', flush=True)
+    print(f'ApexTX Flasher: {address}', flush=True)
     print('Local updater running. Press Ctrl+C to close; an active installation will finish before exit.', flush=True)
+    import os
+    if os.environ.get('APEXTX_UPDATER_WINDOW') == '1':
+        # Show the UI in a native application window; serve in the background.
+        # Fall back to the default browser where no system WebView is present,
+        # so the app still runs on any Windows.
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            import webview
+            webview.create_window('ApexTX Flasher', address,
+                                  width=860, height=940, min_size=(560, 680))
+            webview.start()
+        except Exception:
+            webbrowser.open(address)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
+        finally:
+            server.shutdown()
+            server.server_close()
+        return
     if open_browser:
         webbrowser.open(address)
     try:
@@ -119,6 +240,7 @@ def main():
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--no-browser', action='store_true')
     args = parser.parse_args()
+    _enable_bundled_libusb()
     try:
         if args.firmware:
             image = args.firmware.read_bytes()
@@ -139,6 +261,9 @@ def main():
             print(f'ApexTX {VARIANTS[selection.target]} Update detected.' if selection
                   else 'No NB4 in ApexTX Update mode was detected.')
         else:
+            # A packaged build opens the UI in a native window by default.
+            if getattr(sys, 'frozen', False):
+                os.environ.setdefault('APEXTX_UPDATER_WINDOW', '1')
             serve(args.port, not args.no_browser)
     except Exception as error:
         parser.exit(1, f'Error: {error}\n')
