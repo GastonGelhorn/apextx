@@ -38,16 +38,28 @@ else
   fail "shasum or sha256sum is required"
 fi
 
-dfu_list=$(dfu-util -l 2>/dev/null || true)
-if [[ -z "$SERIAL" ]]; then
-  serials=$(printf '%s\n' "$dfu_list" |
-    grep "\[$USB_ID\]" |
-    sed -n 's/.*serial="\([^"]*\)".*/\1/p' |
-    sort -u)
-  serial_count=$(printf '%s\n' "$serials" | sed '/^$/d' | wc -l | tr -d ' ')
-  (( serial_count == 1 )) ||
-    fail "expected one STM32 DFU device; set NB4_DFU_SERIAL when more than one is connected"
-  SERIAL="$serials"
+discover_dfu_serial() {
+  python3 - "$ROOT" "${1:-}" <<'PY'
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]) / "tools"))
+from nb4_rom_flash import RomFlashError, discover_rom_dfu
+
+try:
+    serial = discover_rom_dfu(sys.argv[2] or None)
+except RomFlashError as error:
+    print(error, file=sys.stderr)
+    raise SystemExit(1)
+if not serial:
+    print("No compatible Noble ROM DFU device was found.", file=sys.stderr)
+    raise SystemExit(1)
+print(serial)
+PY
+}
+
+if ! SERIAL=$(discover_dfu_serial "$SERIAL"); then
+  fail "connect exactly one Noble with the expected 2 MiB internal-flash layout"
 fi
 readonly SERIAL
 
@@ -70,14 +82,19 @@ variant = validate_full_image(pathlib.Path(sys.argv[2]).read_bytes())
 print(f"  validated complete ApexTX image for Noble {variant}")
 PY
 
-interfaces=$(printf '%s\n' "$dfu_list" | grep -c "serial=\"$SERIAL\"" || true)
-(( interfaces > 0 )) || fail "no STM32 DFU device found with serial $SERIAL"
-
 printf 'Noble NB4 DFU flash\n'
 printf '  image:  %s\n' "$SOURCE_IMAGE"
 printf '  size:   %s bytes\n' "$size"
 printf '  sha256: %s\n' "$(sha256_file "$IMAGE")"
-printf '  device: %s DFU interfaces, serial %s\n' "$interfaces" "$SERIAL"
+printf '  device: verified 2 MiB STM32 ROM DFU, serial %s\n' "$SERIAL"
+
+# Re-identify the same compatible device immediately before the destructive
+# write, rather than trusting the generic STM32 VID/PID or an earlier listing.
+if ! verified_serial=$(discover_dfu_serial "$SERIAL"); then
+  fail "the selected Noble left ROM DFU before writing; nothing was written"
+fi
+[[ "$verified_serial" == "$SERIAL" ]] ||
+  fail "the connected ROM DFU device changed before writing; nothing was written"
 
 dfu-util -d "$USB_ID" -S "$SERIAL" -a 0 -s "$BOOT_ADDRESS" -D "$IMAGE"
 dfu-util -d "$USB_ID" -S "$SERIAL" -a 0 -s "$BOOT_ADDRESS:$size" -U "$READBACK"
