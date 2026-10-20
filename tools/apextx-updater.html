@@ -39,6 +39,11 @@ input[type=file]{display:block;margin-top:15px;max-width:100%;color:var(--muted)
 input[type=file]::file-selector-button{border:1px solid var(--line2);border-radius:8px;padding:9px 12px;background:#20242a;color:#fff;margin-right:11px;cursor:pointer;font:inherit;font-size:13px}
 .model{display:none;margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(32,160,240,.06);font-size:14px}
 .model b{color:var(--blue2)}
+.radio-choice{margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(255,255,255,.018);font-size:14px}
+.radio-choice strong{display:block;margin-bottom:8px}
+.radio-options{display:flex;gap:20px;flex-wrap:wrap;color:var(--muted)}
+.radio-options label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.radio-options input{width:17px;height:17px;accent-color:var(--blue)}
 .confirm{display:none;margin:14px 2px 0;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted)}
 .confirm input{margin-top:3px;width:17px;height:17px;accent-color:var(--blue);flex:none}
 button.cta{width:100%;background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink);border:0;border-radius:12px;padding:16px;font:800 16px system-ui,sans-serif;cursor:pointer;margin-top:18px;transition:filter .15s;box-shadow:0 12px 28px -12px rgba(32,160,240,.7)}
@@ -95,6 +100,13 @@ footer a:hover{text-decoration:underline}
     <span id="rfileinfo"></span>
     <input id="rfile" type="file" accept=".bin,application/octet-stream">
   </label>
+  <div class="radio-choice">
+    <strong data-k="radioPrompt">Which radio are you connecting?</strong>
+    <div class="radio-options">
+      <label><input type="radio" name="radioVariant" value="NB4"> Noble NB4</label>
+      <label><input type="radio" name="radioVariant" value="NB4+"> Noble NB4+</label>
+    </div>
+  </div>
   <div class="model" id="rmodel"></div>
   <label class="confirm" id="rconfirmWrap"><input type="checkbox" id="rconfirm"><span id="rconfirmLabel"></span></label>
   <button class="cta" id="rstart" disabled>Back up &amp; install</button>
@@ -103,7 +115,7 @@ footer a:hover{text-decoration:underline}
 <progress id="bar" max="100" value="0" aria-label="Progress"></progress>
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div>
 
-<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. A ROM bootloader is in the chip, so the radio can always be re-flashed.</span></p>
+<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.</span></p>
 <footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
@@ -111,13 +123,13 @@ const T={
  en:{h1:"Update your radio",intro:"Install or update ApexTX on your FlySky Noble NB4 or NB4+. Everything runs locally and is verified on the radio.",
   tabUpdate:"Update",tabRecover:"Install / Recovery",
   imglabel:"Firmware image",fileinfo:"firmware.bin · ApexTX for the Noble NB4 / NB4+",
-  note:"Keep the radio powered and connected during the write — do not unplug. A ROM bootloader is in the chip, so the radio can always be re-flashed.",
+  note:"Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.",
   footer:"ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.",
-  rwarn:"This writes the COMPLETE firmware, including the bootloader — the small program the radio runs first at power-on. Use it only to install ApexTX for the first time (from FlySky) or to recover a radio; for a normal version update use the Update tab. The radio must be in STM32 ROM DFU mode (hold the recessed grip button while switching it on). Your current firmware is backed up first, and because a recovery bootloader sits permanently in the chip, the radio can always be re-flashed — it cannot be permanently bricked. When it finishes, switch the radio off and on once to start it.",
+  rwarn:"This writes the COMPLETE firmware, including the bootloader. Use it only for the first ApexTX installation or recovery; use Update for normal upgrades. The radio must be in STM32 ROM DFU mode. Its current internal firmware is backed up first. Recovery normally remains possible through the STM32 ROM bootloader, but choosing the correct model and keeping the backup are essential. Windows must have a WinUSB-compatible driver for the connected device.",
   rdone:"Installation complete and verified. Now switch the radio OFF (hold the power button until it is fully off), then switch it ON again to start it.",
   rimglabel:"Complete firmware image",rfileinfo:"Complete firmware.bin (bootloader + application)",
-  rmodelFor:"This image is for: ",rmodelUnknown:"Model not detected in this file — make sure it matches your radio.",
-  rconfirm:"I confirm this is the correct image for my radio ({m}).",rconfirmGeneric:"I confirm this is the correct image for my radio.",
+  radioPrompt:"Which radio are you connecting?",rmodelFor:"This image appears to be for: ",rmodelUnknown:"The app will validate the model marker, manifest and checksum before writing.",
+  rconfirm:"I confirm my radio is {radio} and this image is for {image}.",rconfirmGeneric:"I confirm the selected model is my radio and this is the correct ApexTX image.",
   select:"Select a firmware image to continue.",ready:"Ready to update.",rready:"Ready. Your current firmware is backed up before writing.",
   sizeerr:"Select a 2 MiB firmware.bin image built for ApexTX Update.",rsizeerr:"Select a complete firmware.bin (bootloader + application).",
   validating:"Validating firmware image…",update:"Update firmware",retry:"Retry update",updating:"Updating firmware…",
@@ -125,13 +137,13 @@ const T={
  de:{h1:"Fernbedienung aktualisieren",intro:"ApexTX auf deiner FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Alles läuft lokal und wird auf der Fernbedienung verifiziert.",
   tabUpdate:"Update",tabRecover:"Installation / Recovery",
   imglabel:"Firmware-Image",fileinfo:"firmware.bin · ApexTX für die Noble NB4 / NB4+",
-  note:"Fernbedienung während des Schreibens eingeschaltet und verbunden lassen — nicht abziehen. Ein ROM-Bootloader sitzt fest im Chip, daher ist sie immer neu flashbar.",
+  note:"Fernbedienung während des Schreibens eingeschaltet und verbunden lassen — nicht abziehen. Bei einem Recovery-Fehler eingeschaltet lassen und im STM32-ROM-DFU erneut versuchen.",
   footer:"Der ApexTX Flasher läuft komplett auf diesem Computer. Die Firmware wird direkt per USB an die Fernbedienung gesendet und nirgends hochgeladen.",
-  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader — das kleine Programm, das die Fernbedienung beim Einschalten zuerst ausführt. Nur für die Erstinstallation von ApexTX (von FlySky) oder zum Reparieren (Recovery) nutzen; für ein normales Versions-Update den Update-Tab. Die Fernbedienung muss im STM32-ROM-DFU sein (versenkte Griff-Taste beim Einschalten halten). Deine aktuelle Firmware wird vorher gesichert, und weil ein Recovery-Bootloader fest im Chip sitzt, ist sie immer neu flashbar — sie kann nicht dauerhaft gebrickt werden. Zum Schluss die Fernbedienung einmal aus- und wieder einschalten, damit sie startet.",
+  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader. Nur für die Erstinstallation von ApexTX oder Recovery nutzen; für normale Updates den Update-Tab verwenden. Die Fernbedienung muss im STM32-ROM-DFU sein. Die aktuelle interne Firmware wird vorher gesichert. Recovery bleibt normalerweise über den STM32-ROM-Bootloader möglich, aber das richtige Modell und die Sicherung sind unverzichtbar. Windows benötigt einen WinUSB-kompatiblen Treiber für das verbundene Gerät.",
   rdone:"Installation abgeschlossen und verifiziert. Jetzt die Fernbedienung AUSschalten (Power-Taste lang halten, bis sie ganz aus ist), dann wieder EINschalten, damit sie startet.",
   rimglabel:"Vollständiges Firmware-Image",rfileinfo:"Vollständige firmware.bin (Bootloader + Anwendung)",
-  rmodelFor:"Dieses Image ist für: ",rmodelUnknown:"Modell in dieser Datei nicht erkannt — stelle sicher, dass es zu deiner Fernbedienung passt.",
-  rconfirm:"Ich bestätige, dass dies das richtige Image für meine Fernbedienung ist ({m}).",rconfirmGeneric:"Ich bestätige, dass dies das richtige Image für meine Fernbedienung ist.",
+  radioPrompt:"Welche Fernbedienung ist verbunden?",rmodelFor:"Dieses Image scheint bestimmt für: ",rmodelUnknown:"Die App prüft Modellmarkierung, Manifest und Prüfsumme vor dem Schreiben.",
+  rconfirm:"Ich bestätige: Meine Fernbedienung ist {radio} und das Image ist für {image}.",rconfirmGeneric:"Ich bestätige das gewählte Modell und das richtige ApexTX-Image.",
   select:"Wähle ein Firmware-Image, um fortzufahren.",ready:"Bereit zum Aktualisieren.",rready:"Bereit. Deine aktuelle Firmware wird vor dem Schreiben gesichert.",
   sizeerr:"Wähle eine 2-MiB-firmware.bin für ApexTX Update.",rsizeerr:"Wähle eine vollständige firmware.bin (Bootloader + Anwendung).",
   validating:"Firmware-Image wird geprüft…",update:"Firmware aktualisieren",retry:"Erneut versuchen",updating:"Firmware wird aktualisiert…",
@@ -139,13 +151,13 @@ const T={
  es:{h1:"Actualiza tu emisora",intro:"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. Todo se ejecuta localmente y se verifica en la emisora.",
   tabUpdate:"Actualizar",tabRecover:"Instalación / Recuperación",
   imglabel:"Imagen de firmware",fileinfo:"firmware.bin · ApexTX para la Noble NB4 / NB4+",
-  note:"Mantén la emisora encendida y conectada durante la escritura — no la desconectes. Un bootloader ROM está en el chip, así que siempre se puede volver a flashear.",
+  note:"Mantén la emisora encendida y conectada durante la escritura — no la desconectes. Si falla la recuperación, déjala encendida y reintenta en modo STM32 ROM DFU.",
   footer:"ApexTX Flasher se ejecuta por completo en este ordenador. El firmware se envía directamente a la emisora por USB y no se sube a ningún sitio.",
-  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader — el pequeño programa que la emisora ejecuta primero al encender. Úsalo solo para instalar ApexTX por primera vez (desde FlySky) o para recuperar una emisora; para una actualización de versión normal usa la pestaña Actualizar. La emisora debe estar en STM32 ROM DFU (mantén el botón del puño mientras la enciendes). Tu firmware actual se respalda primero, y como un bootloader de recuperación está permanentemente en el chip, siempre se puede volver a flashear — no se puede inutilizar de forma permanente. Al terminar, apaga y enciende la emisora una vez para arrancarla.",
+  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader. Úsalo solo para la primera instalación de ApexTX o para recuperar una emisora; para una actualización normal usa Actualizar. La emisora debe estar en STM32 ROM DFU. Antes se guarda una copia del firmware interno actual. Normalmente la recuperación seguirá disponible mediante el bootloader ROM del STM32, pero es imprescindible elegir el modelo correcto y conservar la copia. Windows necesita un controlador compatible con WinUSB para el dispositivo conectado.",
   rdone:"Instalación completada y verificada. Ahora APAGA la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a ENCENDERLA para arrancarla.",
   rimglabel:"Imagen de firmware completa",rfileinfo:"firmware.bin completa (bootloader + aplicación)",
-  rmodelFor:"Esta imagen es para: ",rmodelUnknown:"Modelo no detectado en este archivo — asegúrate de que coincide con tu emisora.",
-  rconfirm:"Confirmo que es la imagen correcta para mi emisora ({m}).",rconfirmGeneric:"Confirmo que es la imagen correcta para mi emisora.",
+  radioPrompt:"¿Qué emisora estás conectando?",rmodelFor:"Esta imagen parece ser para: ",rmodelUnknown:"La aplicación validará el marcador de modelo, el manifiesto y el checksum antes de escribir.",
+  rconfirm:"Confirmo que mi emisora es {radio} y que la imagen es para {image}.",rconfirmGeneric:"Confirmo el modelo elegido y que esta es la imagen ApexTX correcta.",
   select:"Elige una imagen de firmware para continuar.",ready:"Lista para actualizar.",rready:"Lista. Tu firmware actual se respalda antes de escribir.",
   sizeerr:"Elige una firmware.bin de 2 MiB para ApexTX Update.",rsizeerr:"Elige una firmware.bin completa (bootloader + aplicación).",
   validating:"Verificando la imagen…",update:"Actualizar firmware",retry:"Reintentar",updating:"Actualizando firmware…",
@@ -156,7 +168,7 @@ const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
 let running=false,submitted=false,lang='en',mode='update',rVariant=null;
-const IMG=2097152,BOOT=131072;
+const IMG=2097152;
 function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const n=(navigator.language||'en').slice(0,2);return T[n]?n:'en';}
 function setMode(m){mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   $('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');
@@ -170,23 +182,26 @@ function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l;
 function refreshModel(){const d=T[lang];if(!rfile.files[0]){rmodel.style.display='none';rconfirmWrap.style.display='none';return;}
   rmodel.style.display='block';rconfirmWrap.style.display='flex';
   rmodel.innerHTML=rVariant?`${d.rmodelFor}<b>Noble ${rVariant}</b>`:d.rmodelUnknown;
-  rconfirmLabel.textContent=rVariant?d.rconfirm.replace('{m}','Noble '+rVariant):d.rconfirmGeneric;}
+  const radio=selectedRadio();
+  rconfirmLabel.textContent=rVariant&&radio?d.rconfirm.replace('{radio}','Noble '+radio).replace('{image}','Noble '+rVariant):d.rconfirmGeneric;}
+function selectedRadio(){const picked=document.querySelector('input[name="radioVariant"]:checked');return picked?picked.value:null;}
 document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>applyLang(b.dataset.lang));
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+document.querySelectorAll('input[name="radioVariant"]').forEach(b=>b.onchange=()=>{rconfirm.checked=false;refreshModel();updateRstate();});
 applyLang(pick());
 // UPDATE mode
 file.onchange=()=>{const d=T[lang],f=file.files[0];fileinfo.textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:d.fileinfo;if(f&&f.size!==IMG){message.textContent=d.sizeerr;message.className='error';start.disabled=true;return}message.textContent=f?d.ready:d.select;message.className='';start.disabled=!f||running;};
 start.onclick=()=>send('/api/update',file.files[0],start);
 // RECOVERY mode
 rfile.onchange=async()=>{const d=T[lang],f=rfile.files[0];rfileinfo.textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:d.rfileinfo;rVariant=null;rconfirm.checked=false;
-  if(f&&!(f.size>BOOT&&f.size<=IMG)){message.textContent=d.rsizeerr;message.className='error';refreshModel();rstart.disabled=true;return}
+  if(f&&f.size!==IMG){message.textContent=d.rsizeerr;message.className='error';refreshModel();rstart.disabled=true;return}
   if(f){try{const s=new TextDecoder('latin1').decode(await f.arrayBuffer());rVariant=(s.includes('apextx-nb4plus-')||s.includes('APXHW:nb4plus'))?'NB4+':(s.includes('apextx-nb4-')||s.includes('APXHW:nb4'))?'NB4':null;}catch(e){}}
   message.textContent=f?d.rready:d.select;message.className='';refreshModel();updateRstate();};
 rconfirm.onchange=updateRstate;
-function updateRstate(){rstart.disabled=running||!rfile.files[0]||!rconfirm.checked;}
-rstart.onclick=()=>{if(!rconfirm.checked)return;send('/api/recover',rfile.files[0],rstart);};
-async function send(url,f,btn){if(!f||running)return;running=true;submitted=true;btn.disabled=true;file.disabled=rfile.disabled=true;message.className='';message.textContent=T[lang].validating;
-  try{const r=await fetch(url,{method:'POST',headers:{'X-ApexTX-Token':token},body:f});const j=await r.json();if(!r.ok)throw Error(j.error);}
+function updateRstate(){rstart.disabled=running||!rfile.files[0]||!selectedRadio()||!rconfirm.checked;}
+rstart.onclick=()=>{if(!rconfirm.checked||!selectedRadio())return;send('/api/recover',rfile.files[0],rstart,{'X-ApexTX-Radio-Variant':selectedRadio()});};
+async function send(url,f,btn,extra={}){if(!f||running)return;running=true;submitted=true;btn.disabled=true;file.disabled=rfile.disabled=true;message.className='';message.textContent=T[lang].validating;
+  try{const r=await fetch(url,{method:'POST',headers:{'X-ApexTX-Token':token,...extra},body:f});const j=await r.json();if(!r.ok)throw Error(j.error);}
   catch(e){message.textContent=e.message;message.className='error';running=false;submitted=false;file.disabled=rfile.disabled=false;btn.disabled=false;updateRstate();start.disabled=!file.files[0];}}
 async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error('ended');const s=await r.json();
   if(s.running||submitted||s.progress||s.error){running=s.running;message.textContent=(!s.error&&s.progress===100&&mode==='recover')?T[lang].rdone:s.message;message.className=s.error?'error':s.progress===100?'good':'';bar.value=s.progress;percent.textContent=`${s.progress}%`;

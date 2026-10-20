@@ -24,8 +24,11 @@ APP_VERSION = '1.0'
 
 
 def _enable_bundled_libusb():
-    """Make a bundled libusb-1.0.dll loadable (Windows frozen build), so pyusb
-    finds it with no manual libusb/driver install. A no-op when run from source."""
+    """Make the bundled libusb runtime loadable in a frozen Windows build.
+
+    This supplies the user-mode DLL; Windows must still associate the USB
+    device with a WinUSB-compatible kernel driver.
+    """
     candidates = []
     meipass = getattr(sys, '_MEIPASS', None)
     if meipass:
@@ -70,8 +73,13 @@ def serve(port=0, open_browser=True):
             with lock:
                 status['running'] = False
 
-    def recover(image):
+    def recover(image, radio_variant):
         try:
+            wanted = nb4_rom_flash.validate_full_image(image)
+            if wanted != radio_variant:
+                raise nb4_rom_flash.RomFlashError(
+                    f'This image is for the Noble {wanted}, but you selected Noble '
+                    f'{radio_variant}. Nothing was written.')
             serial = nb4_rom_flash.discover_rom_dfu()
             if serial is None:
                 raise nb4_rom_flash.RomFlashError(
@@ -80,18 +88,21 @@ def serve(port=0, open_browser=True):
             # 1) Mandatory backup of the radio's current firmware.
             folder = Path.home() / 'ApexTX-Backups'
             folder.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-            backup = folder / f'NB4-firmware-backup-{serial or "radio"}-{stamp}.bin'
+            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+            safe_serial = nb4_rom_flash.safe_serial(serial)
+            backup = folder / f'{radio_variant.replace("+", "plus")}-firmware-backup-{safe_serial}-{stamp}.bin'
             nb4_rom_flash.backup_internal(backup, progress, serial)
+            metadata = nb4_rom_flash.write_backup_metadata(backup, radio_variant, serial)
             # 2) Detect the current firmware and cross-check the image's model.
             current = nb4_rom_flash.inspect_flash(backup.read_bytes())
-            want = nb4_rom_flash.image_variant(image)
-            if current['firmware'] == 'ApexTX' and want and current['variant'] != want:
+            if (current['firmware'] == 'ApexTX' and
+                    current['variant'] != radio_variant):
                 raise nb4_rom_flash.RomFlashError(
-                    f"This image is for the Noble {want}, but the radio currently runs ApexTX "
+                    f"You selected Noble {radio_variant}, but the radio currently runs ApexTX "
                     f"for the Noble {current['variant']}. Your backup was saved to {backup}. "
                     "Select the image for your radio; nothing else was written.")
-            progress(f'Backup saved: {backup}. Installing the complete image...', 4)
+            progress(f'Backup saved: {backup} (verification: {metadata}). '
+                     'Installing the complete image...', 23)
             # 3) Write the full image, verify by read-back, then start the radio.
             nb4_rom_flash.run_install(image, progress, serial)
         except Exception as error:
@@ -146,18 +157,26 @@ def serve(port=0, open_browser=True):
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
                 return
-            if self.path not in ('/api/update', '/api/recover'):
+            request_path = urlparse(self.path).path
+            if request_path not in ('/api/update', '/api/recover'):
                 self.reply(404, {'error': 'Not found.'})
                 return
-            recovery = self.path == '/api/recover'
+            recovery = request_path == '/api/recover'
+            radio_variant = None
             try:
                 size = int(self.headers.get('Content-Length', '0'))
                 self.connection.settimeout(15)
                 if recovery:
-                    if not (nb4_rom_flash.BOOT_SIZE < size <= FLASH_SIZE):
-                        raise ValueError('Select a complete firmware.bin (bootloader + application).')
+                    if size != FLASH_SIZE:
+                        raise ValueError('Select an exact 2 MiB ApexTX firmware.bin.')
+                    radio_variant = self.headers.get('X-ApexTX-Radio-Variant', '')
+                    if radio_variant not in VARIANTS.values():
+                        raise ValueError('Select whether your radio is a Noble NB4 or NB4+.')
                     image = self.rfile.read(size)
-                    nb4_rom_flash.validate_full_image(image)
+                    image_variant = nb4_rom_flash.validate_full_image(image)
+                    if image_variant != radio_variant:
+                        raise ValueError(f'This image is for the Noble {image_variant}, but '
+                                         f'you selected Noble {radio_variant}.')
                 else:
                     if size != FLASH_SIZE:
                         raise ValueError('Select a 2 MiB firmware.bin image built for ApexTX Update.')
@@ -173,7 +192,9 @@ def serve(port=0, open_browser=True):
                 status.update(running=True, error=False, progress=0,
                               message='Backing up and installing...' if recovery else 'Waiting for the radio...')
             # Non-daemon: closing the UI/server must not kill an active write.
-            threading.Thread(target=recover if recovery else update, args=(image,), daemon=False).start()
+            target = recover if recovery else update
+            args = (image, radio_variant) if recovery else (image,)
+            threading.Thread(target=target, args=args, daemon=False).start()
             self.reply(202, {'ok': True})
 
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)

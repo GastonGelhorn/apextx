@@ -11,7 +11,8 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from nb4_source_digest import source_digest
-from nb4_update_image import TARGETS, VARIANTS, package_target, update_package
+from nb4_update_image import (TARGETS, VARIANTS, package_target, update_package,
+                              validate_full_image_auth)
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_VERSION = (ROOT / "APEXTX_VERSION").read_text(encoding="utf-8").strip()
@@ -102,7 +103,9 @@ def create(args):
     # The package is labelled from what the image says it is for, never from
     # what the caller expects, so an archive cannot carry the wrong radio's
     # name. --model only states the expectation, and a mismatch stops here.
-    radio = package_target(update_package((build / "firmware.bin").read_bytes()))
+    firmware_image = (build / "firmware.bin").read_bytes()
+    validate_full_image_auth(firmware_image)
+    radio = package_target(update_package(firmware_image))
     hardware = {number: name for name, number in TARGETS.items()}[radio]
     if args.model and args.model != hardware:
         raise ValueError(f"The firmware is built for {hardware}, not {args.model}")

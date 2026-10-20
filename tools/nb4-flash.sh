@@ -4,7 +4,6 @@ set -euo pipefail
 
 readonly USB_ID="0483:df11"
 SERIAL="${NB4_DFU_SERIAL:-}"
-readonly BOOTLOADER_SIZE=$((0x20000))
 readonly FLASH_SIZE=$((0x200000))
 readonly BOOT_ADDRESS="0x08000000"
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,34 +57,17 @@ age=$(( $(date +%s) - modified ))
 
 cp "$SOURCE_IMAGE" "$IMAGE"
 size=$(wc -c < "$IMAGE" | tr -d ' ')
-(( size > BOOTLOADER_SIZE )) || fail "image is smaller than the reserved bootloader region"
-(( size <= FLASH_SIZE )) || fail "image exceeds the 2 MiB internal flash"
+(( size == FLASH_SIZE )) || fail "image must be the exact 2 MiB ApexTX firmware.bin"
 
-python3 - "$IMAGE" <<'PY'
-import struct
+python3 - "$ROOT" "$IMAGE" <<'PY'
+import pathlib
 import sys
 
-image = open(sys.argv[1], "rb").read()
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]) / "tools"))
+from nb4_rom_flash import validate_full_image
 
-def ram_address(value):
-    return 0x10000000 < value <= 0x10010000 or 0x20000000 < value <= 0x20030000
-
-def code_address(value, lower, upper):
-    return lower <= value < upper and value & 1
-
-boot_stack, boot_reset = struct.unpack_from("<II", image, 0)
-app_stack, app_reset = struct.unpack_from("<II", image, 0x20000)
-errors = []
-if not ram_address(boot_stack):
-    errors.append(f"invalid bootloader stack pointer {boot_stack:#010x}")
-if not code_address(boot_reset, 0x08000000, 0x08020000):
-    errors.append(f"invalid bootloader reset vector {boot_reset:#010x}")
-if not ram_address(app_stack):
-    errors.append(f"invalid application stack pointer {app_stack:#010x}")
-if not code_address(app_reset, 0x08020000, 0x08000000 + len(image)):
-    errors.append(f"invalid application reset vector {app_reset:#010x}")
-if errors:
-    raise SystemExit("; ".join(errors))
+variant = validate_full_image(pathlib.Path(sys.argv[2]).read_bytes())
+print(f"  validated complete ApexTX image for Noble {variant}")
 PY
 
 interfaces=$(printf '%s\n' "$dfu_list" | grep -c "serial=\"$SERIAL\"" || true)

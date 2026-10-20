@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Build/validate the NB4 application manifest used by the ApexTX bootloader."""
 import argparse
+import hashlib
 import re
 import struct
 import zlib
@@ -11,8 +12,11 @@ FLASH_SIZE = 0x200000
 BOOT_SIZE = 0x20000
 APP_ADDRESS = 0x08020000
 HEADER_SIZE = 32
-MAX_APP = FLASH_SIZE - BOOT_SIZE - HEADER_SIZE
 HEADER = struct.Struct('<8s6I')
+FULL_IMAGE_AUTH = struct.Struct('<8s32s')
+FULL_IMAGE_AUTH_OFFSET = FLASH_SIZE - HEADER_SIZE - FULL_IMAGE_AUTH.size
+MAX_APP = FLASH_SIZE - BOOT_SIZE - HEADER_SIZE
+FULL_IMAGE_MAX_APP = FULL_IMAGE_AUTH_OFFSET - BOOT_SIZE
 
 
 # Every ApexTX build carries its target as "apextx-<flavour>-<version>". The
@@ -77,7 +81,7 @@ def _manifest(app, target):
 
 def manifest_for(app):
     validate_vectors(app)
-    if len(app) > MAX_APP or len(app) % 4:
+    if len(app) > FULL_IMAGE_MAX_APP or len(app) % 4:
         raise ValueError('The NB4 application size is invalid.')
     return _manifest(app, image_target(app))
 
@@ -104,16 +108,52 @@ def update_package(image):
     return header + app
 
 
+def _full_image_digest(image):
+    """Hash every byte except the digest record itself."""
+    return hashlib.sha256(image[:FULL_IMAGE_AUTH_OFFSET] +
+                          image[FULL_IMAGE_AUTH_OFFSET + FULL_IMAGE_AUTH.size:]).digest()
+
+
+def authenticate_full_image(image):
+    """Add the host-side checksum used before replacing the bootloader."""
+    if len(image) != FLASH_SIZE:
+        raise ValueError('Only an exact 2 MiB image can be authenticated.')
+    result = bytearray(image)
+    result[FULL_IMAGE_AUTH_OFFSET:FULL_IMAGE_AUTH_OFFSET + FULL_IMAGE_AUTH.size] = \
+        FULL_IMAGE_AUTH.pack(b'APXFULL1', _full_image_digest(result))
+    return bytes(result)
+
+
+def validate_full_image_auth(image):
+    """Verify the bootloader, application padding and manifest as one image."""
+    if len(image) != FLASH_SIZE:
+        raise ValueError('Select an exact 2 MiB ApexTX firmware.bin.')
+    magic, expected = FULL_IMAGE_AUTH.unpack_from(image, FULL_IMAGE_AUTH_OFFSET)
+    if magic != b'APXFULL1' or expected != _full_image_digest(image):
+        raise ValueError('The complete-image checksum is missing or does not match. '
+                         'Select an intact current ApexTX firmware.bin.')
+
+
 def finalize(image):
     if len(image) == FLASH_SIZE:
-        update_package(image)
-        return image
+        package = update_package(image)
+        auth = image[FULL_IMAGE_AUTH_OFFSET:FULL_IMAGE_AUTH_OFFSET + FULL_IMAGE_AUTH.size]
+        if auth.startswith(b'APXFULL1'):
+            validate_full_image_auth(image)
+            return image
+        if auth != b'\xff' * FULL_IMAGE_AUTH.size:
+            raise ValueError('The complete-image checksum area is not empty or valid.')
+        if len(package) - HEADER_SIZE > FULL_IMAGE_MAX_APP:
+            raise ValueError('The application leaves no room for the complete-image checksum.')
+        return authenticate_full_image(image)
     if not BOOT_SIZE + 8 <= len(image) <= FLASH_SIZE - HEADER_SIZE:
         raise ValueError('The image must contain both the NB4 bootloader and application.')
     app = image[BOOT_SIZE:]
     app += b'\xff' * (-len(app) % 4)
     header = manifest_for(app)
-    return image[:BOOT_SIZE] + app + b'\xff' * (MAX_APP - len(app)) + header
+    result = image[:BOOT_SIZE] + app + b'\xff' * (FULL_IMAGE_MAX_APP - len(app))
+    result += b'\xff' * FULL_IMAGE_AUTH.size + header
+    return authenticate_full_image(result)
 
 
 if __name__ == '__main__':
@@ -126,5 +166,7 @@ if __name__ == '__main__':
     temporary = args.image.with_suffix(args.image.suffix + '.tmp')
     temporary.write_bytes(result)
     temporary.replace(args.image)
+    validate_full_image_auth(result)
     variant = VARIANTS[package_target(update_package(result))]
-    print(f'ApexTX {variant} update manifest: {len(result)} bytes, CRC verified')
+    print(f'ApexTX {variant} update manifest: {len(result)} bytes, '
+          'CRC and complete-image SHA-256 verified')
