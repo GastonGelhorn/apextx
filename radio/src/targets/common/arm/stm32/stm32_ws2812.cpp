@@ -48,6 +48,12 @@ static uint8_t _b_offset;
 #define WS2812_ZERO            (1 * WS2812_TIMER_PERIOD / 4)
 #define WS2812_DMA_IRQ_PRIO    3
 
+// Hold the line low for 80 us at the start of every DMA transfer.  The line is
+// already kept low between frames, but including the reset interval in the
+// transfer also makes the first bit deterministic on hardware where restarting
+// the timer and DMA briefly races the output compare preload.
+#define WS2812_LEAD_RESET_SLOTS    64
+
 // Zero slots appended to the frame: the line stays low while they are sent,
 // so the end-of-frame IRQ may run late without emitting a spurious bit.
 #define WS2812_TRAIL_SLOTS          4
@@ -57,7 +63,8 @@ static uint8_t _b_offset;
 #endif
 
 #define WS2812_FRAME_SLOTS \
-  (LED_STRIP_LENGTH * WS2812_SLOTS_PER_LED + WS2812_TRAIL_SLOTS)
+  (WS2812_LEAD_RESET_SLOTS + LED_STRIP_LENGTH * WS2812_SLOTS_PER_LED + \
+   WS2812_TRAIL_SLOTS)
 
 // Debug facility
 #if defined(LED_STRIP_DEBUG_GPIO) && defined(LED_STRIP_DEBUG_GPIO_PIN)
@@ -204,7 +211,8 @@ void ws2812_init(const stm32_pulse_timer_t* timer, uint8_t* strip_colors,
 
   _led_colors = strip_colors;
   _led_strip_len = strip_len;
-  _frame_slots = strip_len * WS2812_SLOTS_PER_LED + WS2812_TRAIL_SLOTS;
+  _frame_slots = WS2812_LEAD_RESET_SLOTS +
+                 strip_len * WS2812_SLOTS_PER_LED + WS2812_TRAIL_SLOTS;
   memset(_led_colors, 0, strip_len * WS2812_BYTES_PER_LED);
   memset(_led_dma_buffer, 0, sizeof(_led_dma_buffer));
 
@@ -258,10 +266,15 @@ void ws2812_update(const stm32_pulse_timer_t* tim)
   WS2812_DBG_HIGH;
   if (!stm32_pulse_if_not_running_disable(tim)) return;
 
-  // Build the whole frame up front, trailing slots left at 0
-  _fill_pulses(_led_colors, _led_dma_buffer,
+  // Build the whole frame up front, with deterministic low reset slots before
+  // the first pixel and after the final one.
+  memset(_led_dma_buffer, 0,
+         WS2812_LEAD_RESET_SLOTS * sizeof(led_timer_value_t) * pulse_inc);
+  auto* pixel_pulses =
+      &_led_dma_buffer[WS2812_LEAD_RESET_SLOTS * pulse_inc];
+  _fill_pulses(_led_colors, pixel_pulses,
                _led_strip_len * WS2812_BYTES_PER_LED);
-  memset(&_led_dma_buffer[_led_strip_len * WS2812_SLOTS_PER_LED * pulse_inc],
+  memset(&pixel_pulses[_led_strip_len * WS2812_SLOTS_PER_LED * pulse_inc],
          0, WS2812_TRAIL_SLOTS * sizeof(led_timer_value_t) * pulse_inc);
 
   // NDTR and the address are not reloaded by enabling the stream again
