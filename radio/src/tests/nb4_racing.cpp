@@ -5,6 +5,7 @@
 #include "gtests.h"
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
+#include "boards/generic_stm32/rgb_leds.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -596,6 +597,41 @@ TEST(Nb4Leds, TheColourFollowsTheModeExceptWhenItMatters)
   const Nb4LedRgb crit1 = nb4LedColorNow(NB4_LED_BATTERY, NB4_LED_BLUE, false, 5, 1200);
   EXPECT_EQ(crit0.g, 0); EXPECT_EQ(crit0.b, 0);      // Red
   EXPECT_FALSE(crit0 == crit1);
+}
+
+TEST(Nb4Leds, BatteryAndChargingFollowLiveRadioState)
+{
+  const auto oldMode = g_eeGeneral.nb4LedMode;
+  const auto oldColor = g_eeGeneral.nb4LedColor;
+  const auto oldBattery = g_vbat100mV;
+  const auto oldChargeSource = nb4SimuChargeSource;
+
+  g_vbat100mV = 40;  // 4000 mV, not 400 mV.
+  g_eeGeneral.nb4LedMode = NB4_LED_BATTERY;
+  nb4SimuChargeSource = 0;
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x00FF00u);
+
+  g_eeGeneral.nb4LedMode = NB4_LED_FIXED;
+  g_eeGeneral.nb4LedColor = NB4_LED_BLUE;
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x0000FFu);
+
+  nb4SimuChargeSource = 2;  // USB attached during operation.
+  nb4LedRefresh();
+  const auto chargingColor = rgbGetLedColor(0);
+  EXPECT_NE(chargingColor, 0x0000FFu);
+  EXPECT_EQ(chargingColor & 0xFF00FFu, 0u);
+
+  nb4SimuChargeSource = 0;  // Unplugging restores the selected colour.
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x0000FFu);
+
+  g_eeGeneral.nb4LedMode = oldMode;
+  g_eeGeneral.nb4LedColor = oldColor;
+  g_vbat100mV = oldBattery;
+  nb4SimuChargeSource = oldChargeSource;
+  nb4LedRefresh();
 }
 
 TEST(Nb4Racing, NitroPresetIdlesButStillBrakes)
