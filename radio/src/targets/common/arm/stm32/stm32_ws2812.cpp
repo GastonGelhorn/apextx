@@ -124,21 +124,28 @@ uint8_t pulse_inc = 1;
 // The whole frame is emitted in a single DMA transfer: the buffer is filled
 // before the transfer starts and no refill deadline exists, so an ISR delayed
 // by a higher priority IRQ (SDMMC, USB) can no longer corrupt a frame.
+//
+// NB4/NB4+: the factory driver sends the frame twice by running a circular
+// DMA and stopping it in the second transfer-complete interrupt. That leaves
+// the interrupt one bit period (1.2 us) before the circular buffer starts a
+// third pass: if it runs late, the third pass emits the first bits of the
+// frame again and is cut wherever the interrupt finally stops it, so the
+// pixel being written at that moment, and every pixel after it, latches
+// garbage. A late interrupt hits the far end of the chain first, which is
+// what the NB4+ shows while the UI redraws. Both copies are therefore laid
+// out in the buffer and sent in normal mode: the stream stops by itself on
+// the final low slot and the interrupt has no deadline. The waveform on the
+// line is unchanged.
 #if defined(STM32_SUPPORT_32BIT_TIMERS)
 alignas(uint32_t) static led_timer_value_t
-    _led_dma_buffer[WS2812_FRAME_SLOTS * 2] __DMA_NO_CACHE;
+    _led_dma_buffer[WS2812_FRAME_SLOTS * WS2812_FRAME_REPEATS * 2] __DMA_NO_CACHE;
 #else
-static led_timer_value_t _led_dma_buffer[WS2812_FRAME_SLOTS] __DMA_NO_CACHE;
+static led_timer_value_t
+    _led_dma_buffer[WS2812_FRAME_SLOTS * WS2812_FRAME_REPEATS] __DMA_NO_CACHE;
 #endif
 
-// Number of slots actually sent, from the strip length given at init
+// Number of slots in one copy of the frame, from the strip length given at init
 static uint32_t _frame_slots;
-
-#if defined(RADIO_NB4_FAMILY)
-// The stock driver runs the circular buffer twice, then stops it in the second
-// transfer-complete interrupt while the 182 us low tail is still being sent.
-static volatile uint8_t _completed_frames;
-#endif
 
 static void _fill_byte(uint8_t c, led_timer_value_t* dma_buffer)
 {
@@ -194,9 +201,6 @@ void ws2812_dma_isr(const stm32_pulse_timer_t* tim)
 {
   if (LL_DMA_IsEnabledIT_TC(tim->DMAx, tim->DMA_Stream) &&
       stm32_dma_check_tc_flag(tim->DMAx, tim->DMA_Stream)) {
-#if defined(RADIO_NB4_FAMILY)
-    if (++_completed_frames < WS2812_FRAME_REPEATS) return;
-#endif
     _end_of_frame(tim);
   }
 }
@@ -255,11 +259,8 @@ static void _init_timer(const stm32_pulse_timer_t* tim)
   // pulse driver uses DMA to ARR, but we need CCRx
   _led_set_dma_periph_addr(tim);
 
-#if defined(RADIO_NB4_FAMILY)
-  LL_DMA_SetMode(tim->DMAx, tim->DMA_Stream, LL_DMA_MODE_CIRCULAR);
-#else
+  // Normal mode on every target: on NB4 the repeats are in the buffer.
   LL_DMA_SetMode(tim->DMAx, tim->DMA_Stream, LL_DMA_MODE_NORMAL);
-#endif
 
   // we need to use a higher prio to avoid having
   // issues with some other things used during boot
@@ -350,17 +351,24 @@ void ws2812_update(const stm32_pulse_timer_t* tim)
   memset(&pixel_pulses[_led_strip_len * WS2812_SLOTS_PER_LED * pulse_inc],
          0, WS2812_TRAIL_SLOTS * sizeof(led_timer_value_t) * pulse_inc);
 
+  // Further copies of the frame, each with its own low tail.
+  const uint32_t frame_values = _frame_slots * pulse_inc;
+  for (uint32_t r = 1; r < WS2812_FRAME_REPEATS; r++) {
+    memcpy(&_led_dma_buffer[r * frame_values], _led_dma_buffer,
+           frame_values * sizeof(led_timer_value_t));
+  }
+
 #if defined(RADIO_NB4_FAMILY)
   // The stock implementation reinitialises TIM5, DMA1/S0 and PH12 for every
   // colour change, then returns PH12 to a driven-low GPIO in the TC callback.
   _init_timer(tim);
-  _completed_frames = 0;
 #endif
 
   // NDTR and the address are not reloaded by enabling the stream again
   stm32_dma_clear_flags(tim->DMAx, tim->DMA_Stream);
   LL_DMA_SetMemoryAddress(tim->DMAx, tim->DMA_Stream, (uint32_t)_led_dma_buffer);
-  LL_DMA_SetDataLength(tim->DMAx, tim->DMA_Stream, _frame_slots);
+  LL_DMA_SetDataLength(tim->DMAx, tim->DMA_Stream,
+                       _frame_slots * WS2812_FRAME_REPEATS);
 
   LL_DMA_EnableIT_TC(tim->DMAx, tim->DMA_Stream);
   LL_DMA_EnableStream(tim->DMAx, tim->DMA_Stream);
