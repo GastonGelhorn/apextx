@@ -29,6 +29,14 @@
 #include "globals.h"
 #include "lcd_driver.h"
 
+#if defined(RADIO_NB4_FAMILY)
+  // 1 MHz tick, 1000 counts per period: 1 kHz, as in the FlySky firmware.
+  #define BACKLIGHT_PWM_STEPS 10
+#else
+  // 1 MHz tick, 100 counts per period: 10 kHz (same as FrOS).
+  #define BACKLIGHT_PWM_STEPS 1
+#endif
+
 void backlightLowInit( void )
 {
   gpio_init(BACKLIGHT_GPIO, GPIO_OUT, GPIO_PIN_SPEED_LOW);
@@ -47,10 +55,16 @@ void backlightInit()
   gpio_init_af(BACKLIGHT_GPIO, BACKLIGHT_GPIO_AF, GPIO_PIN_SPEED_LOW);
 
   stm32_timer_enable_clock(BACKLIGHT_TIMER);
-  // Count 0..99: the public 0..100 brightness scale now reaches a genuine
-  // 100% duty cycle at its maximum without driving the LED above its normal
-  // current. The timer remains at the original 10 kHz frequency.
-  BACKLIGHT_TIMER->ARR = BACKLIGHT_LEVEL_MAX - 1;
+  // The public 0..100 brightness scale maps onto BACKLIGHT_PWM_STEPS counts
+  // per level; the maximum level still exceeds the reload value, so 100%
+  // holds the output active for the whole period.
+  //
+  // NB4/NB4+: the FlySky firmware drives PA15 (TIM2_CH1) at 1 kHz with a
+  // 1 MHz tick and a 0..1000 compare range (recovered from both factory
+  // images). The 10 kHz used elsewhere switches the backlight supply ten
+  // times more often; on the NB4+ the last WS2812 pixels of the strip started
+  // to flicker exactly when the backlight came up, so keep the factory rate.
+  BACKLIGHT_TIMER->ARR = BACKLIGHT_LEVEL_MAX * BACKLIGHT_PWM_STEPS - 1;
   BACKLIGHT_TIMER->PSC = BACKLIGHT_TIMER_FREQ / 1000000 - 1;
   BACKLIGHT_TIMER->CCMR1 = TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1PE; // PWM mode 1
   BACKLIGHT_TIMER->CCER = TIM_CCER_CC1E | TIM_CCER_CC1NE;
@@ -64,7 +78,7 @@ uint8_t lastDutyCycle = 0;
 
 void backlightEnable(uint8_t dutyCycle)
 {
-  BACKLIGHT_TIMER->CCR1 = dutyCycle;
+  BACKLIGHT_TIMER->CCR1 = (uint32_t)dutyCycle * BACKLIGHT_PWM_STEPS;
   if(!dutyCycle) {
     //experimental to turn off LCD when no backlight
     if(lcdOffFunction) lcdOffFunction();
