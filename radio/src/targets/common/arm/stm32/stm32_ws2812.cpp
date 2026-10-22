@@ -225,7 +225,14 @@ static void _led_set_dma_periph_addr(const stm32_pulse_timer_t* tim)
 
 static void _init_timer(const stm32_pulse_timer_t* tim)
 {
+#if defined(RADIO_NB4_FAMILY)
+  // Keep PH12 driven low while TIM5 and DMA are reset. FlySky switches the pin
+  // to AF only after configuring the timer; the generic pulse initializer
+  // would release the pin before clearing the old timer state.
+  stm32_pulse_init(tim, WS2812_TIMER_TICK_FREQ, false);
+#else
   stm32_pulse_init(tim, WS2812_TIMER_TICK_FREQ);
+#endif
   stm32_pulse_config_output(tim, true, LL_TIM_OCMODE_PWM1, 0);
   LL_TIM_SetAutoReload(tim->TIMx, WS2812_TIMER_PERIOD - 1);
 

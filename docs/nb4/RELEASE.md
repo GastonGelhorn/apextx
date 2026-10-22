@@ -48,8 +48,8 @@ NB4+ packages remain experimental alpha builds. Full ROM DFU recovery,
 wrong-model refusal, normal update and boot have run successfully on real
 hardware, but charging, RF/failsafe under load and the complete peripheral
 checklist remain open. Release notes must retain that distinction and list any
-known hardware issue; currently the first NB4+ status LED can flicker red
-(issue #19).
+known hardware issue: on the tested NB4+, the last two LEDs in the data chain
+can show wrong colours or flicker with a mixed-colour pattern (issue #19).
 
 After GitHub finishes, download the release archive, verify `SHA256SUMS`, and
 flash that exact `firmware.bin` to a radio for the checklist. If a result

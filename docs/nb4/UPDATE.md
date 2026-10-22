@@ -129,8 +129,10 @@ has an NB4 bootloader and needs one installation through ROM DFU, following
 NB4+ builds are experimental and are published only in the separately named
 `apextx-nb4plus-*` package. Full recovery and normal update have worked on real
 NB4+ hardware, but that does not replace the remaining charging, RF/failsafe
-under load and peripheral checks. The first status LED can still flicker red
-(issue #19).
+under load and peripheral checks. On the tested NB4+, the last two LEDs in
+the data chain (the left side of the strip) can show wrong colours or flicker
+with a mixed-colour pattern (issue #19). A uniform colour is not a sufficient
+test of the strip.
 
 Firmware updates do not modify the external audio files. When a release changes
 voice resources, install one matching English, Spanish or German package
