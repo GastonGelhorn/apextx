@@ -28,6 +28,7 @@
 #include "nb4_routes.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "hal/usb_driver.h"
 
 namespace {
 int pendingOrientation = -1;
@@ -239,7 +240,24 @@ void nb4BuildAppearance(Window* parent)
   action(parent, {0, y, w, 44}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
   label(parent, {8, y, w - 16, 22}, STR_NB4_ORIENTATION, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
   selectedAction(parent, {0, y, w, 44}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
+  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; }); y += 54;
+  label(parent, {8, y, w - 16, 22}, STR_NB4_THEME_EDITOR, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
+  auto info = label(parent, {8, y, w - 16, 66}, STR_NB4_THEME_EDITOR_INFO, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
+  lv_label_set_long_mode(info->getLvObj(), LV_LABEL_LONG_WRAP); y += 70;
+  action(parent, {0, y, w, 44}, STR_NB4_THEME_EDITOR_CONNECT, [] { nb4ConnectThemeEditor(); });
+}
+
+// The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
+// Selecting the mode here skips the USB popup; the main loop starts it as soon
+// as the cable is in.
+void nb4ConnectThemeEditor()
+{
+#if !defined(SIMU)
+  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
+  if (usbPlugged()) return;
+#endif
+  new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
+                    nullptr, LEFT);
 }
 
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
