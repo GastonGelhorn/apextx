@@ -1210,6 +1210,7 @@ PACK(struct RadioData {
 
   NOBACKUP(uint8_t nb4LedMode);
   NOBACKUP(uint8_t nb4LedColor);
+  NOBACKUP(uint8_t nb4LedBrightness);  // 10..100 %, 0 = not set yet
 #endif
 #endif
 

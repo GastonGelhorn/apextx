@@ -60,8 +60,15 @@ Nb4LedRgb nb4LedPalette(uint8_t color)
   return kPalette[color];
 }
 
-Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
-                         uint8_t batteryPercent, uint32_t ms)
+uint8_t nb4LedBrightnessOrDefault(uint8_t stored)
+{
+  if (stored < NB4_LED_BRIGHTNESS_MIN || stored > NB4_LED_BRIGHTNESS_MAX)
+    return NB4_LED_BRIGHTNESS_DEFAULT;
+  return stored;
+}
+
+static Nb4LedRgb nb4LedColorFull(uint8_t mode, uint8_t color, bool charging,
+                                 uint8_t batteryPercent, uint32_t ms)
 {
 
   if (mode == NB4_LED_OFF) return {0, 0, 0};
@@ -85,6 +92,14 @@ Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
   const Nb4LedRgb base = nb4LedPalette(color);
   if (mode == NB4_LED_BREATHE) return scale(base, breathLevel(ms), 100);
   return base;
+}
+
+Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
+                         uint8_t batteryPercent, uint32_t ms,
+                         uint8_t brightness)
+{
+  const Nb4LedRgb c = nb4LedColorFull(mode, color, charging, batteryPercent, ms);
+  return scale(c, nb4LedBrightnessOrDefault(brightness), 100);
 }
 
 enum Nb4BootStage : uint8_t { NB4_BOOT_BLINK, NB4_BOOT_SPLASH, NB4_BOOT_DONE };
@@ -141,7 +156,8 @@ void nb4LedRefresh()
 
   const Nb4LedRgb c =
       nb4LedColorNow(g_eeGeneral.nb4LedMode, g_eeGeneral.nb4LedColor,
-                     nb4LedChargerActive(), percent, timersGetMsTick());
+                     nb4LedChargerActive(), percent, timersGetMsTick(),
+                     g_eeGeneral.nb4LedBrightness);
 
   for (uint8_t i = 0; i < LED_STRIP_LENGTH; i += 1)
     rgbSetLedColor(i, c.r, c.g, c.b);

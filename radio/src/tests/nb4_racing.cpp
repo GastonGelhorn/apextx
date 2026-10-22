@@ -574,6 +574,26 @@ TEST(Nb4Leds, TheBootBlinkIsBlueAtFourHertzUntilBootCompletes)
   EXPECT_TRUE(nb4LedBootColor(1125) == off);
 }
 
+TEST(Nb4Leds, TheBrightnessScalesTheStripAndUnsetReadsAsDefault)
+{
+  EXPECT_EQ(nb4LedBrightnessOrDefault(0), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(5), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(101), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(10), 10);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(100), 100);
+  EXPECT_EQ(NB4_LED_BRIGHTNESS_DEFAULT, 80);
+
+  const Nb4LedRgb full = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 100);
+  EXPECT_TRUE(full == nb4LedPalette(NB4_LED_WHITE));
+  const Nb4LedRgb half = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 50);
+  EXPECT_EQ(half.r, 127); EXPECT_EQ(half.g, 127); EXPECT_EQ(half.b, 127);
+  const Nb4LedRgb unset = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 0);
+  EXPECT_EQ(unset.r, 204);  // 255 * 80 / 100
+  // Charging green follows the same scale.
+  const Nb4LedRgb chg = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_BLUE, true, 100, 0, 20);
+  EXPECT_EQ(chg.g, 51); EXPECT_EQ(chg.r, 0); EXPECT_EQ(chg.b, 0);
+}
+
 TEST(Nb4Leds, TheColourFollowsTheModeExceptWhenItMatters)
 {
   const Nb4LedRgb off{0, 0, 0};
@@ -618,6 +638,8 @@ TEST(Nb4Leds, BatteryAndChargingFollowLiveRadioState)
   const auto oldColor = g_eeGeneral.nb4LedColor;
   const auto oldBattery = g_vbat100mV;
   const auto oldChargeSource = nb4SimuChargeSource;
+  const auto oldBrightness = g_eeGeneral.nb4LedBrightness;
+  g_eeGeneral.nb4LedBrightness = NB4_LED_BRIGHTNESS_MAX;
 
   g_vbat100mV = 40;  // 4000 mV, not 400 mV.
   g_eeGeneral.nb4LedMode = NB4_LED_BATTERY;
@@ -656,6 +678,7 @@ TEST(Nb4Leds, BatteryAndChargingFollowLiveRadioState)
   g_eeGeneral.nb4LedColor = oldColor;
   g_vbat100mV = oldBattery;
   nb4SimuChargeSource = oldChargeSource;
+  g_eeGeneral.nb4LedBrightness = oldBrightness;
   nb4LedRefresh();
 }
 
