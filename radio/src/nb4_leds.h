@@ -42,4 +42,13 @@ Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
 
 void nb4LedRefresh();
 
+// Boot indication: fast blue blink from the power press until the splash
+// appears (the press may be released), solid blue until the settings are
+// loaded, then the user colour.
+Nb4LedRgb nb4LedBootColor(uint32_t ms);
+void nb4LedBootRefresh(uint32_t ms);
+void nb4LedBootSplash();
+void nb4LedBootComplete();
+bool nb4LedBootIsComplete();
+
 #endif  // RADIO_NB4_FAMILY

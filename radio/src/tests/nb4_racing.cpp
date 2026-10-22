@@ -561,6 +561,19 @@ TEST(Nb4Racing, FactoryResetIsThreeSeparatePromises)
   setModelDefaults();
 }
 
+TEST(Nb4Leds, TheBootBlinkIsBlueAtFourHertzUntilBootCompletes)
+{
+  const Nb4LedRgb off{0, 0, 0};
+  const Nb4LedRgb on = nb4LedBootColor(0);
+  EXPECT_EQ(on.r, 0); EXPECT_EQ(on.g, 0); EXPECT_GT((int)on.b, 0);
+  EXPECT_TRUE(nb4LedBootColor(100) == on);
+  EXPECT_TRUE(nb4LedBootColor(125) == off);
+  EXPECT_TRUE(nb4LedBootColor(249) == off);
+  EXPECT_TRUE(nb4LedBootColor(250) == on);
+  EXPECT_TRUE(nb4LedBootColor(1000) == on);
+  EXPECT_TRUE(nb4LedBootColor(1125) == off);
+}
+
 TEST(Nb4Leds, TheColourFollowsTheModeExceptWhenItMatters)
 {
   const Nb4LedRgb off{0, 0, 0};
@@ -609,6 +622,18 @@ TEST(Nb4Leds, BatteryAndChargingFollowLiveRadioState)
   g_vbat100mV = 40;  // 4000 mV, not 400 mV.
   g_eeGeneral.nb4LedMode = NB4_LED_BATTERY;
   nb4SimuChargeSource = 0;
+
+  // Until boot completes the strip only shows the boot blink.
+  if (!nb4LedBootIsComplete()) {
+    nb4LedRefresh();
+    EXPECT_EQ(rgbGetLedColor(0) & 0xFFFF00u, 0u);
+    // Once the splash is up the strip holds solid blue.
+    nb4LedBootSplash();
+    nb4LedRefresh();
+    EXPECT_EQ(rgbGetLedColor(0), 0x000032u);
+    nb4LedBootComplete();
+  }
+
   nb4LedRefresh();
   EXPECT_EQ(rgbGetLedColor(0), 0x00FF00u);
 
