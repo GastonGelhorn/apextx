@@ -26,6 +26,8 @@
 #include "nb4_home_templates.h"
 #include "nb4_i18n.h"
 #include "nb4_home.h"
+#include "nb4_ui.h"
+#include "nb4_palettes.h"
 #include "nb4_model_compat.h"
 #include "nb4_pit.h"
 #include "nb4_racing.h"
@@ -149,10 +151,15 @@ const char* nb4MetricName(uint8_t metric)
 
 uint32_t nb4ThemeKey()
 {
+  // Theme instrument colours, card opacity and background rebuild screens too.
+  const auto& ext = nb4ThemeExt();
   return ((uint32_t)lcdColorTable[COLOR_THEME_FOCUS_INDEX] << 16) ^
          ((uint32_t)lcdColorTable[COLOR_THEME_ACTIVE_INDEX] << 8) ^
          (uint32_t)lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] ^
-         ((uint32_t)lcdColorTable[COLOR_THEME_PRIMARY3_INDEX] << 4);
+         ((uint32_t)lcdColorTable[COLOR_THEME_PRIMARY3_INDEX] << 4) ^
+         ext.steering ^ (ext.throttle << 3) ^ (ext.brake << 5) ^ (ext.aux << 7) ^
+         ((uint32_t)ext.cardOpacity << 24) ^
+         (Nb4Ui::backgroundShown() ? 0x80000000u : 0);
 }
 
 // ---------------------------------------------------------------------------

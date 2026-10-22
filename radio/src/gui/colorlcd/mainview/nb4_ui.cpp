@@ -5,6 +5,8 @@
 #include "edgetx.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_ui.h"
+#include "nb4_palettes.h"
+#include "mainwindow.h"
 #include "nb4_home.h"
 #include "nb4_racing.h"
 #include "etx_lv_theme.h"
@@ -66,9 +68,29 @@ namespace Nb4Ui {
 lv_color_t color(LcdColorIndex i) { return makeLvColor(COLOR(i)); }
 static bool light() { return lv_color_brightness(color(COLOR_THEME_PRIMARY2_INDEX)) > 150; }
 
-lv_color_t throttleColor() { return lv_color_hex(light() ? 0x1B7A34 : 0x3FD956); }
-lv_color_t steeringColor() { return lv_color_hex(light() ? 0x0A5FA8 : 0x35A7F0); }
-lv_color_t brakeColor()    { return lv_color_hex(light() ? 0xB02A18 : 0xFF5A3C); }
+// An external theme may override the instrument inks (theme.yml "nb4:").
+static lv_color_t themeInk(uint32_t value, uint32_t fallback)
+{
+  return lv_color_hex(value ? value & 0xFFFFFF : fallback);
+}
+
+lv_color_t throttleColor() { return themeInk(nb4ThemeExt().throttle, light() ? 0x1B7A34 : 0x3FD956); }
+lv_color_t steeringColor() { return themeInk(nb4ThemeExt().steering, light() ? 0x0A5FA8 : 0x35A7F0); }
+lv_color_t brakeColor()    { return themeInk(nb4ThemeExt().brake, light() ? 0xB02A18 : 0xFF5A3C); }
+lv_color_t auxColor()
+{
+  const auto aux = nb4ThemeExt().aux;
+  return aux ? lv_color_hex(aux & 0xFFFFFF) : color(COLOR_THEME_PRIMARY3_INDEX);
+}
+
+bool backgroundShown() { return MainWindow::instance()->backgroundFits(); }
+
+// Over a theme background, surfaces use the theme's card opacity.
+static void translucent(lv_obj_t* o)
+{
+  if (backgroundShown())
+    lv_obj_set_style_bg_opa(o, (lv_opa_t)(nb4ThemeExt().cardOpacity * 255 / 100), 0);
+}
 
 void panel(lv_obj_t* o)
 {
@@ -77,6 +99,7 @@ void panel(lv_obj_t* o)
   lv_obj_set_style_radius(o, 9, 0);
   lv_obj_set_style_border_width(o, 1, 0);
   etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
+  translucent(o);
 }
 
 void card(lv_obj_t* o)
@@ -88,7 +111,9 @@ void card(lv_obj_t* o)
   etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
   lv_obj_set_style_pad_all(o, 0, 0);
   lv_obj_remove_event_cb(o, drawNearBlackCard);
-  if (lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] == RGB(8, 8, 8) &&
+  if (backgroundShown()) {
+    translucent(o);
+  } else if (lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] == RGB(8, 8, 8) &&
       lcdColorTable[COLOR_THEME_SECONDARY3_INDEX] == RGB(0, 0, 0)) {
     etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
     lv_obj_add_event_cb(o, drawNearBlackCard, LV_EVENT_DRAW_MAIN, nullptr);
@@ -104,6 +129,7 @@ void well(lv_obj_t* o)
   lv_obj_set_style_border_width(o, 1, 0);
   etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
   lv_obj_set_style_pad_all(o, 0, 0);
+  translucent(o);
 }
 
 void chip(lv_obj_t* o)

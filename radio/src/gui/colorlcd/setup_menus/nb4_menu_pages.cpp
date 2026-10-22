@@ -17,6 +17,7 @@
 #include "nb4_help.h"
 #include "timer_setup.h"
 #include "model_nb4_axis.h"
+#include "hal/usb_driver.h"
 
 namespace {
 class MenuPage : public BaseDialog {
@@ -186,10 +187,24 @@ void nb4OpenScreens() {
   if (!customScreens[0]) LayoutFactory::loadCustomScreens();
   new ScreensPage();
 }
+// The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
+// Selecting the mode here skips the USB popup; the main loop starts it as soon
+// as the cable is in.
+static void connectThemeEditor() {
+#if !defined(SIMU)
+  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
+  if (usbPlugged()) return;
+#endif
+  new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
+                    nullptr, LEFT);
+}
+
 void nb4OpenAppearance() {
   auto page = new MenuPage(STR_NB4_UX_APPEARANCE);
   page->setScopeText(STR_NB4_UX_SCOPE_RADIO);
   nb4BuildAppearance(page->content());
+  page->note(STR_NB4_THEME_EDITOR_INFO);
+  page->button(STR_NB4_THEME_EDITOR_CONNECT, [] { connectThemeEditor(); });
 }
 void nb4OpenHelp(const char* path, bool contextual) {
   if (path) {

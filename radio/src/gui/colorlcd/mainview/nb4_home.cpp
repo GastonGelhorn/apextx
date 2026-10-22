@@ -268,6 +268,8 @@ void Nb4HomeScreen::build()
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
   etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
+  // Let the theme's background image show around the cards.
+  if (Nb4Ui::backgroundShown()) lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, 0);
   telltales[0] = telltales[1] = telltales[2] = nullptr;
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 

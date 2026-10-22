@@ -88,9 +88,39 @@ PACK(struct YAMLThemeColors {
   uint32_t colors[THEME_COLOR_COUNT - 1];  // We don't use CUSTOM
 });
 
+#if defined(RADIO_NB4_FAMILY)
+PACK(struct YAMLThemeNb4 {
+  uint32_t steering;
+  uint32_t throttle;
+  uint32_t brake;
+  uint32_t aux;
+  uint8_t cardOpacity;
+});
+
+// Instrument colours keep 24 bits plus a "set" flag, so that an explicit black
+// is distinguishable from an absent entry.
+static uint32_t r_nb4_color(const YamlNode* node, const char* val, uint8_t val_len)
+{
+  if (val_len > 2 && val[0] == '0' && (val[1] == 'x' || val[1] == 'X'))
+    return NB4_THEME_COLOR_SET | (yaml_hex2uint(val + 2, val_len - 2) & 0xFFFFFF);
+  TRACE("Theme: Invalid nb4 color value");
+  return 0;
+}
+
+static bool w_nb4_color(const YamlNode* node, uint32_t val, yaml_writer_func wf,
+                        void* opaque)
+{
+  if (!wf(opaque, "0x", 2)) return false;
+  return wf(opaque, yaml_rgb2hex(val & 0xFFFFFF), 3 * 2);
+}
+#endif
+
 PACK(struct YAMLTheme {
   struct YAMLThemeSummary summary;
   struct YAMLThemeColors colors;
+#if defined(RADIO_NB4_FAMILY)
+  struct YAMLThemeNb4 nb4;
+#endif
 
   YAMLTheme() { memset(this, 0, sizeof(YAMLTheme)); }
 });
@@ -116,6 +146,16 @@ static const struct YamlNode struct_YAMLThemeColors[] = {
     YAML_UNSIGNED_CUST("QM_FG", 32, r_color, w_color),
     YAML_END};
 
+#if defined(RADIO_NB4_FAMILY)
+static const struct YamlNode struct_YAMLThemeNb4[] = {
+    YAML_UNSIGNED_CUST("STEERING", 32, r_nb4_color, w_nb4_color),
+    YAML_UNSIGNED_CUST("THROTTLE", 32, r_nb4_color, w_nb4_color),
+    YAML_UNSIGNED_CUST("BRAKE", 32, r_nb4_color, w_nb4_color),
+    YAML_UNSIGNED_CUST("AUX", 32, r_nb4_color, w_nb4_color),
+    YAML_UNSIGNED("CARD_OPACITY", 8),
+    YAML_END};
+#endif
+
 // This hack is required to ensure the YAML file written is backward compatible
 // with the old parser. Otherwise older versions of EdgeTX will not load the
 // theme files.
@@ -133,6 +173,9 @@ static const struct YamlNode r_struct_YAMLTheme[] = {
                 struct_YAMLThemeSummary, NULL),
     YAML_STRUCT("colors", (THEME_COLOR_COUNT - 1) * 32, struct_YAMLThemeColors,
                 NULL),
+#if defined(RADIO_NB4_FAMILY)
+    YAML_STRUCT("nb4", (4 * 32 + 8), struct_YAMLThemeNb4, NULL),
+#endif
     YAML_END};
 
 static const char* const colorNames[THEME_COLOR_COUNT] = {
@@ -180,6 +223,9 @@ ThemeFile& ThemeFile::operator=(const ThemeFile& theme)
   colorList.assign(theme.colorList.begin(), theme.colorList.end());
   _imageFileNames.assign(theme._imageFileNames.begin(),
                          theme._imageFileNames.end());
+#if defined(RADIO_NB4_FAMILY)
+  nb4Ext = theme.nb4Ext;
+#endif
 
   return *this;
 };
@@ -222,6 +268,9 @@ void ThemeFile::deSerialize()
   // initialize the color table to defaults (in case of missing entries)
   for (uint8_t i = COLOR_THEME_PRIMARY1_INDEX; i < THEME_COLOR_COUNT - 1; i += 1)
     yt.colors.colors[i] = defaultColors[i];
+#if defined(RADIO_NB4_FAMILY)
+  yt.nb4.cardOpacity = 100;
+#endif
 
   YamlTreeWalker tree;
   tree.reset(&themeRootNode, (uint8_t*)&yt);
@@ -237,6 +286,14 @@ void ThemeFile::deSerialize()
       colorList.emplace_back(
           ColorEntry{(LcdColorIndex)(i), yt.colors.colors[i]});
     }
+#if defined(RADIO_NB4_FAMILY)
+    nb4Ext.steering = yt.nb4.steering;
+    nb4Ext.throttle = yt.nb4.throttle;
+    nb4Ext.brake = yt.nb4.brake;
+    nb4Ext.aux = yt.nb4.aux;
+    // Readable cards need some opacity even over a busy background.
+    nb4Ext.cardOpacity = limit<uint8_t>(30, yt.nb4.cardOpacity, 100);
+#endif
   } else {
     valid = false;
     TRACE("Theme: skipping invalid file %s: %s", path.c_str(), err);
@@ -301,6 +358,7 @@ void ThemeFile::applyTheme()
 #if defined(RADIO_NB4_FAMILY)
 
   nb4ApplyAccent();
+  nb4SetThemeExt(nb4Ext);
 #endif
   applyBackground();
   styles->applyColors();

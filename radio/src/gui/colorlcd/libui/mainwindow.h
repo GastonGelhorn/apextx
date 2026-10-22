@@ -51,6 +51,8 @@ class MainWindow: public Window
   void run(bool trash=true);
 
   void setBackgroundImage(const char* fileName);
+  // A theme background exists and matches the current display orientation.
+  bool backgroundFits() const;
 
   void shutdown();
 
