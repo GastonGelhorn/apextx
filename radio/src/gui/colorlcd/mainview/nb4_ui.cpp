@@ -85,11 +85,22 @@ lv_color_t auxColor()
 
 bool backgroundShown() { return MainWindow::instance()->backgroundFits(); }
 
-// Over a theme background, surfaces use the theme's card opacity.
-static void translucent(lv_obj_t* o)
+// Only the main views sit directly on the background image. Menus and dialogs
+// stay opaque, so scrolling them never blends the full-screen bitmap.
+static bool onMainView(lv_obj_t* o)
 {
-  if (backgroundShown())
-    lv_obj_set_style_bg_opa(o, (lv_opa_t)(nb4ThemeExt().cardOpacity * 255 / 100), 0);
+  const auto main = ViewMain::instance()->getLvObj();
+  for (auto p = lv_obj_get_parent(o); p; p = lv_obj_get_parent(p))
+    if (p == main) return true;
+  return false;
+}
+
+// Over a theme background, main-view surfaces use the theme's card opacity.
+static bool translucent(lv_obj_t* o)
+{
+  if (!backgroundShown() || !onMainView(o)) return false;
+  lv_obj_set_style_bg_opa(o, (lv_opa_t)(nb4ThemeExt().cardOpacity * 255 / 100), 0);
+  return true;
 }
 
 void panel(lv_obj_t* o)
@@ -111,9 +122,7 @@ void card(lv_obj_t* o)
   etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
   lv_obj_set_style_pad_all(o, 0, 0);
   lv_obj_remove_event_cb(o, drawNearBlackCard);
-  if (backgroundShown()) {
-    translucent(o);
-  } else if (lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] == RGB(8, 8, 8) &&
+  if (!translucent(o) && lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] == RGB(8, 8, 8) &&
       lcdColorTable[COLOR_THEME_SECONDARY3_INDEX] == RGB(0, 0, 0)) {
     etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
     lv_obj_add_event_cb(o, drawNearBlackCard, LV_EVENT_DRAW_MAIN, nullptr);

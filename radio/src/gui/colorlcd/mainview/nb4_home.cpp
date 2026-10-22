@@ -248,12 +248,11 @@ void nb4BuildAppearance(Window* parent)
 }
 
 // The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
-// Selecting the mode here skips the USB popup; the main loop starts it as soon
-// as the cable is in.
+// The main loop starts it now, or as soon as the cable is in.
 void nb4ConnectThemeEditor()
 {
+  nb4UsbSelectMassStorage();
 #if !defined(SIMU)
-  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
   if (usbPlugged()) return;
 #endif
   new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
