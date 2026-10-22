@@ -87,6 +87,40 @@ Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
   return base;
 }
 
+enum Nb4BootStage : uint8_t { NB4_BOOT_BLINK, NB4_BOOT_SPLASH, NB4_BOOT_DONE };
+static Nb4BootStage _bootStage = NB4_BOOT_BLINK;
+
+static const Nb4LedRgb kBootBlue = {0, 0, 50};
+
+Nb4LedRgb nb4LedBootColor(uint32_t ms)
+{
+  // 4 Hz: 125 ms blue, 125 ms off.
+  if ((ms / 125) & 1) return {0, 0, 0};
+  return kBootBlue;
+}
+
+void nb4LedBootSplash()
+{
+  if (_bootStage == NB4_BOOT_BLINK) _bootStage = NB4_BOOT_SPLASH;
+}
+
+void nb4LedBootComplete() { _bootStage = NB4_BOOT_DONE; }
+
+bool nb4LedBootIsComplete() { return _bootStage == NB4_BOOT_DONE; }
+
+void nb4LedBootRefresh(uint32_t ms)
+{
+#if defined(LED_STRIP_GPIO)
+  const Nb4LedRgb c =
+      _bootStage == NB4_BOOT_SPLASH ? kBootBlue : nb4LedBootColor(ms);
+  for (uint8_t i = 0; i < LED_STRIP_LENGTH; i += 1)
+    rgbSetLedColor(i, c.r, c.g, c.b);
+  rgbLedColorApply();
+#else
+  (void)ms;
+#endif
+}
+
 #if defined(LED_STRIP_GPIO)
 
 void rgbLedOnUpdate() { nb4LedRefresh(); }
@@ -95,6 +129,11 @@ void rgbLedOnUpdate() { nb4LedRefresh(); }
 void nb4LedRefresh()
 {
 #if defined(LED_STRIP_GPIO)
+
+  if (_bootStage != NB4_BOOT_DONE) {
+    nb4LedBootRefresh(timersGetMsTick());
+    return;
+  }
 
   extern uint8_t nb4BatteryPercent(uint16_t cellMv);
   // The battery curve expects mV; the measured voltage is in 100 mV units.

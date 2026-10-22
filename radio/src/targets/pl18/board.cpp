@@ -36,6 +36,9 @@
 #include "boards/generic_stm32/analog_inputs.h"
 #include "boards/generic_stm32/module_ports.h"
 #include "boards/generic_stm32/rgb_leds.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_leds.h"
+#endif
 
 #include "globals.h"
 #include "sdcard.h"
@@ -153,6 +156,47 @@ void disableVoiceChip()
   gpio_init(VOICE_CHIP_EN_GPIO, GPIO_OUT, GPIO_PIN_SPEED_LOW);
   gpio_clear(VOICE_CHIP_EN_GPIO);
 }
+
+// The amplifier shutdown line (PH9, active low) is only driven once the DAC
+// driver starts, after the startup press has been qualified. Until then it
+// floats, so the amplifier is live while the power latch closes and opens and
+// the speaker clicks on every press. Mute it before anything else, in the
+// bootloader as well as on every firmware entry and exit; audio playback
+// un-mutes it again through audioUnmute().
+void nb4AudioMuteEarly()
+{
+  gpio_init(AUDIO_MUTE_GPIO, GPIO_OUT, GPIO_PIN_SPEED_LOW);
+#if defined(INVERTED_MUTE_PIN)
+  gpio_clear(AUDIO_MUTE_GPIO);
+#else
+  gpio_set(AUDIO_MUTE_GPIO);
+#endif
+  disableVoiceChip();
+}
+
+#if defined(BOOT)
+void* _nb4_audio_init_hook[] __INIT_HOOK = {
+  (void*)nb4AudioMuteEarly,
+};
+#endif
+
+#if defined(LED_STRIP_GPIO) && !defined(BOOT)
+// Fast blue blink from the moment the power button is pressed until the
+// radio is fully up; nb4LedRefresh() carries the same pattern on once the
+// scheduler runs and switches to the user colour when boot completes.
+static void nb4BootLedBlink()
+{
+  nb4LedBootRefresh(timersGetMsTick());
+}
+
+// A press that did not qualify: leave the strip dark, and give the frame time
+// to go out before the latch opens or the next press is awaited.
+static void nb4BootLedOff()
+{
+  rgbLedClearAll();
+  delay_ms(2);
+}
+#endif
 #endif
 
 void boardBLEarlyInit()
@@ -209,6 +253,9 @@ static bool nb4PowerButtonHeldForStartup()
   const uint32_t pressStart = timersGetMsTick();
   while (pwrPressed()) {
     if (timersGetMsTick() - pressStart >= POWER_ON_DELAY) return true;
+#if defined(LED_STRIP_GPIO) && !defined(BOOT)
+    nb4BootLedBlink();
+#endif
     delay_ms(10);
   }
   return false;
@@ -244,6 +291,10 @@ void boardInit()
 #if defined(RADIO_NB4) && !defined(SIMU)
 
   delaysInit();
+#endif
+
+#if defined(RADIO_NB4_FAMILY)
+  nb4AudioMuteEarly();
 #endif
 
 #if defined(RADIO_NV14_FAMILY)
@@ -314,6 +365,9 @@ void boardInit()
     // wait for a new long press instead of entering an unrecoverable stop mode.
     pwrOn();
     while (!nb4PowerButtonHeldForStartup()) {
+#if defined(LED_STRIP_GPIO) && !defined(BOOT)
+      nb4BootLedOff();
+#endif
       if (!nb4ExternalPowerPresent()) {
         pwrOff();
         while (true) {
@@ -368,7 +422,9 @@ void boardInit()
   rtcInit(); // RTC must be initialized before rambackupRestore() is called
 #endif
 #if defined(LED_STRIP_GPIO)
-#if !defined(POWER_LED_BLUE)
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4BootLedBlink();
+#elif !defined(POWER_LED_BLUE)
   ledBlue();
 #else
   ledGreen();
@@ -380,6 +436,10 @@ extern void rtcDisableBackupReg();
 
 void boardOff()
 {
+#if defined(RADIO_NB4_FAMILY)
+  // Keep the amplifier silent while the latch opens.
+  nb4AudioMuteEarly();
+#endif
   lcdOff();
 
 #if defined(RADIO_NB4)
