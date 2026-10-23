@@ -27,6 +27,7 @@
 #include "debug.h"
 #include "edgetx.h"
 #include "sdcard.h"
+#include "nb4_palettes.h"
 
 struct ColorEntry
 {
@@ -89,6 +90,10 @@ class ThemeFile
     std::string info;
     std::vector<ColorEntry> colorList;
     std::vector<std::string> _imageFileNames;
+#if defined(RADIO_NB4_FAMILY)
+    // Read from the optional "nb4:" section; not written back by serialize().
+    Nb4ThemeExt nb4Ext;
+#endif
 
     void applyColors();
     void applyBackground();
@@ -212,6 +217,12 @@ class HeaderBackIcon : public StaticIcon
     if (action) action();
   }
 };
+
+#if defined(RADIO_NB4_FAMILY)
+// Applies the current theme again, so its background matches a new display
+// orientation.
+void nb4ReloadThemeBackground();
+#endif
 
 class UsbSDConnected : public Window
 {

@@ -1,0 +1,1733 @@
+{
+ "layouts": [
+  {
+   "id": "ApexTXRacing",
+   "name": "ApexTX Racing",
+   "zones": [],
+   "options": [],
+   "racing": true
+  },
+  {
+   "id": "Layout1P2",
+   "name": "1 + 2",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     30
+    ],
+    [
+     0,
+     30,
+     60,
+     15
+    ],
+    [
+     0,
+     45,
+     60,
+     15
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1P3",
+   "name": "1 + 3",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     60
+    ],
+    [
+     30,
+     0,
+     30,
+     20
+    ],
+    [
+     30,
+     20,
+     30,
+     20
+    ],
+    [
+     30,
+     40,
+     30,
+     20
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1P4",
+   "name": "1 + 4",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     60
+    ],
+    [
+     30,
+     0,
+     30,
+     15
+    ],
+    [
+     30,
+     15,
+     30,
+     15
+    ],
+    [
+     30,
+     30,
+     30,
+     15
+    ],
+    [
+     30,
+     45,
+     30,
+     15
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x1",
+   "name": "Full screen",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     60
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x1AM",
+   "name": "App mode",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     60
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x2",
+   "name": "1 x 2",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     30
+    ],
+    [
+     0,
+     30,
+     60,
+     30
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x3",
+   "name": "1 x 3",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     20
+    ],
+    [
+     0,
+     20,
+     60,
+     20
+    ],
+    [
+     0,
+     40,
+     60,
+     20
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x4",
+   "name": "1 x 4",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     15
+    ],
+    [
+     0,
+     15,
+     60,
+     15
+    ],
+    [
+     0,
+     30,
+     60,
+     15
+    ],
+    [
+     0,
+     45,
+     60,
+     15
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout1x6",
+   "name": "1 x 6",
+   "zones": [
+    [
+     0,
+     0,
+     60,
+     10
+    ],
+    [
+     0,
+     10,
+     60,
+     10
+    ],
+    [
+     0,
+     20,
+     60,
+     10
+    ],
+    [
+     0,
+     30,
+     60,
+     10
+    ],
+    [
+     0,
+     40,
+     60,
+     10
+    ],
+    [
+     0,
+     50,
+     60,
+     10
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    },
+    {
+     "name": "PANEL_BACKGROUND",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "PANEL_COLOR",
+     "type": "Color",
+     "default": "0x323232"
+    }
+   ]
+  },
+  {
+   "id": "Layout2P1",
+   "name": "2 + 1",
+   "zones": [
+    [
+     30,
+     0,
+     30,
+     60
+    ],
+    [
+     0,
+     0,
+     30,
+     30
+    ],
+    [
+     0,
+     30,
+     30,
+     30
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout2P3",
+   "name": "2 + 3",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     30
+    ],
+    [
+     0,
+     30,
+     30,
+     30
+    ],
+    [
+     30,
+     0,
+     30,
+     20
+    ],
+    [
+     30,
+     20,
+     30,
+     20
+    ],
+    [
+     30,
+     40,
+     30,
+     20
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout2x1",
+   "name": "2 x 1",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     60
+    ],
+    [
+     30,
+     0,
+     30,
+     60
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout2x2",
+   "name": "2 x 2",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     30
+    ],
+    [
+     0,
+     30,
+     30,
+     30
+    ],
+    [
+     30,
+     0,
+     30,
+     30
+    ],
+    [
+     30,
+     30,
+     30,
+     30
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout2x3",
+   "name": "2 x 3",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     20
+    ],
+    [
+     0,
+     20,
+     30,
+     20
+    ],
+    [
+     0,
+     40,
+     30,
+     20
+    ],
+    [
+     30,
+     20,
+     30,
+     20
+    ],
+    [
+     30,
+     40,
+     30,
+     20
+    ],
+    [
+     30,
+     0,
+     30,
+     20
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout2x4",
+   "name": "2 x 4",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     15
+    ],
+    [
+     0,
+     15,
+     30,
+     15
+    ],
+    [
+     0,
+     30,
+     30,
+     15
+    ],
+    [
+     0,
+     45,
+     30,
+     15
+    ],
+    [
+     30,
+     0,
+     30,
+     15
+    ],
+    [
+     30,
+     15,
+     30,
+     15
+    ],
+    [
+     30,
+     30,
+     30,
+     15
+    ],
+    [
+     30,
+     45,
+     30,
+     15
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    },
+    {
+     "name": "PANEL1_BACKGROUND",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "PANEL_COLOR",
+     "type": "Color",
+     "default": "0x4D70CB"
+    },
+    {
+     "name": "PANEL2_BACKGROUND",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "PANEL_COLOR",
+     "type": "Color",
+     "default": "0x4D70CB"
+    }
+   ]
+  },
+  {
+   "id": "Layout4P2",
+   "name": "4 + 2",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     15
+    ],
+    [
+     0,
+     15,
+     30,
+     15
+    ],
+    [
+     0,
+     30,
+     30,
+     15
+    ],
+    [
+     0,
+     45,
+     30,
+     15
+    ],
+    [
+     30,
+     0,
+     30,
+     30
+    ],
+    [
+     30,
+     30,
+     30,
+     30
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "id": "Layout4P2B",
+   "name": "4 + 2B",
+   "zones": [
+    [
+     0,
+     0,
+     30,
+     15
+    ],
+    [
+     0,
+     15,
+     30,
+     15
+    ],
+    [
+     0,
+     30,
+     30,
+     15
+    ],
+    [
+     0,
+     45,
+     30,
+     15
+    ],
+    [
+     30,
+     0,
+     30,
+     45
+    ],
+    [
+     30,
+     45,
+     30,
+     15
+    ]
+   ],
+   "options": [
+    {
+     "name": "TOP_BAR",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "FLIGHT_MODE",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "SLIDERS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 1
+    },
+    {
+     "name": "MIRROR",
+     "type": "Bool",
+     "default": 0
+    }
+   ]
+  }
+ ],
+ "widgets": [
+  {
+   "id": "ApexSteering",
+   "label": {
+    "en": "Steering",
+    "de": "Lenkung",
+    "es": "Dirección"
+   },
+   "options": [],
+   "nb4": true,
+   "racing": true
+  },
+  {
+   "id": "ApexThrottle",
+   "label": {
+    "en": "Throttle & brake",
+    "de": "Gas & Bremse",
+    "es": "Gas y freno"
+   },
+   "options": [],
+   "nb4": true,
+   "racing": true
+  },
+  {
+   "id": "ApexTimer",
+   "label": {
+    "en": "Chrono",
+    "de": "Chrono",
+    "es": "Crono"
+   },
+   "options": [],
+   "nb4": true,
+   "racing": true
+  },
+  {
+   "id": "ApexStats",
+   "label": {
+    "en": "Statistics",
+    "de": "Statistik",
+    "es": "Estadísticas"
+   },
+   "options": [],
+   "nb4": true,
+   "racing": true
+  },
+  {
+   "id": "NB4Battery",
+   "label": {
+    "en": "Battery",
+    "de": "Akku",
+    "es": "Batería"
+   },
+   "options": [
+    {
+     "name": "MIN",
+     "type": "Integer",
+     "default": 46,
+     "min": 30,
+     "max": 300,
+     "label": {
+      "en": "Min",
+      "de": "Min",
+      "es": "Min"
+     }
+    },
+    {
+     "name": "MAX",
+     "type": "Integer",
+     "default": 84,
+     "min": 30,
+     "max": 300,
+     "label": {
+      "en": "Max",
+      "de": "Max",
+      "es": "Máx"
+     }
+    }
+   ],
+   "nb4": true
+  },
+  {
+   "id": "NB4Aux",
+   "label": {
+    "en": "CH3 / CH4",
+    "de": "CH3 / CH4",
+    "es": "CH3 / CH4"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4Lap",
+   "label": {
+    "en": "Lap",
+    "de": "Runde",
+    "es": "Vuelta"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4Link",
+   "label": {
+    "en": "Link",
+    "de": "Verbindung",
+    "es": "Enlace"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4Racing",
+   "label": {
+    "en": "Racing",
+    "de": "Rennen",
+    "es": "Carrera"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4Sensor",
+   "label": {
+    "en": "Sensor",
+    "de": "Sensor",
+    "es": "Sensor"
+   },
+   "options": [
+    {
+     "name": "SOURCE",
+     "type": "Source",
+     "default": "MIXSRC_FIRST_TELEM",
+     "label": {
+      "en": "Source",
+      "de": "Quelle",
+      "es": "Fuente"
+     }
+    },
+    {
+     "name": "MIN",
+     "type": "Integer",
+     "default": 0,
+     "min": -30000,
+     "max": 30000,
+     "label": {
+      "en": "Min",
+      "de": "Min",
+      "es": "Min"
+     }
+    },
+    {
+     "name": "MAX",
+     "type": "Integer",
+     "default": 100,
+     "min": -30000,
+     "max": 30000,
+     "label": {
+      "en": "Max",
+      "de": "Max",
+      "es": "Máx"
+     }
+    }
+   ],
+   "nb4": true
+  },
+  {
+   "id": "NB4Session",
+   "label": {
+    "en": "Session",
+    "de": "Sitzung",
+    "es": "Sesión"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4SteerBar",
+   "label": {
+    "en": "Steer bar",
+    "de": "Lenkbalken",
+    "es": "Barra dirección"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4SteerCar",
+   "label": {
+    "en": "Steer car",
+    "de": "Lenkung Auto",
+    "es": "Coche dirección"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4SteerDial",
+   "label": {
+    "en": "Steer dial",
+    "de": "Lenkskala",
+    "es": "Dial dirección"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4SteerBig",
+   "label": {
+    "en": "Steer number",
+    "de": "Lenkung Zahl",
+    "es": "Número dirección"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4SteerWheel",
+   "label": {
+    "en": "Steer wheel",
+    "de": "Lenkrad",
+    "es": "Volante"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrSplit",
+   "label": {
+    "en": "Thr + brake",
+    "de": "Gas + Bremse",
+    "es": "Gas + freno"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrBar",
+   "label": {
+    "en": "Thr bar",
+    "de": "Gasbalken",
+    "es": "Barra gas"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrColumn",
+   "label": {
+    "en": "Thr column",
+    "de": "Gassäule",
+    "es": "Columna gas"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrDial",
+   "label": {
+    "en": "Thr dial",
+    "de": "Gasskala",
+    "es": "Dial gas"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrRing",
+   "label": {
+    "en": "Thr ring",
+    "de": "Gasring",
+    "es": "Anillo gas"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4ThrSegments",
+   "label": {
+    "en": "Thr segments",
+    "de": "Gassegmente",
+    "es": "Segmentos gas"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "NB4Trims",
+   "label": {
+    "en": "Trims",
+    "de": "Trimmungen",
+    "es": "Trims"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
+   "id": "Date Time",
+   "label": {
+    "en": "Date & Time",
+    "de": "Datum & Uhrzeit",
+    "es": "Fecha y hora"
+   },
+   "options": [
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_PRIMARY2_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Gauge",
+   "label": {
+    "en": "Gauge",
+    "de": "Pegel",
+    "es": "Indicador"
+   },
+   "options": [
+    {
+     "name": "SOURCE",
+     "type": "Source",
+     "default": 1,
+     "label": {
+      "en": "Source",
+      "de": "Quelle",
+      "es": "Fuente"
+     }
+    },
+    {
+     "name": "MIN",
+     "type": "Integer",
+     "default": "WIDGET_OPTION_VALUE_SIGNED(-RESX)",
+     "min": "WIDGET_OPTION_VALUE_SIGNED(-RESX)",
+     "max": "WIDGET_OPTION_VALUE_SIGNED(RESX)",
+     "label": {
+      "en": "Min",
+      "de": "Min",
+      "es": "Min"
+     }
+    },
+    {
+     "name": "MAX",
+     "type": "Integer",
+     "default": "WIDGET_OPTION_VALUE_SIGNED(RESX)",
+     "min": "WIDGET_OPTION_VALUE_SIGNED(-RESX)",
+     "max": "WIDGET_OPTION_VALUE_SIGNED(RESX)",
+     "label": {
+      "en": "Max",
+      "de": "Max",
+      "es": "Máx"
+     }
+    },
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_WARNING_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Internal GPS",
+   "label": {
+    "en": "Internal GPS",
+    "de": "Internes GPS",
+    "es": "GPS interno"
+   },
+   "options": [],
+   "nb4": false
+  },
+  {
+   "id": "ModelBmp",
+   "label": {
+    "en": "Model info",
+    "de": "Modellinfo",
+    "es": "Models"
+   },
+   "options": [
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_SECONDARY1_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    },
+    {
+     "name": "SIZE",
+     "type": "TextSize",
+     "default": "FONT_STD_INDEX",
+     "label": {
+      "en": "Size",
+      "de": "Größe",
+      "es": "Tamaño"
+     }
+    },
+    {
+     "name": "FILL_BACKGROUND",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Fill background?",
+      "de": "Hintergrund füllen?",
+      "es": "Rellenar fondo"
+     }
+    },
+    {
+     "name": "BG_COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_SECONDARY3_INDEX)",
+     "label": {
+      "en": "BG Color",
+      "de": "Hintergrundfarbe",
+      "es": "Color BG"
+     }
+    },
+    {
+     "name": "USE_THEME_COLOR",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Use theme color",
+      "de": "Farbe des Themes verwenden",
+      "es": "Usar color del tema"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Outputs",
+   "label": {
+    "en": "Outputs",
+    "de": "Ausgänge",
+    "es": "Salidas"
+   },
+   "options": [
+    {
+     "name": "FIRST_CHANNEL",
+     "type": "Integer",
+     "default": "{1}",
+     "min": "{1}",
+     "max": "{32}",
+     "label": {
+      "en": "First channel",
+      "de": "Erster Kanal",
+      "es": "Primer canal"
+     }
+    },
+    {
+     "name": "FILL_BACKGROUND",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Fill background?",
+      "de": "Hintergrund füllen?",
+      "es": "Rellenar fondo"
+     }
+    },
+    {
+     "name": "BG_COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_SECONDARY3_INDEX)",
+     "label": {
+      "en": "BG Color",
+      "de": "Hintergrundfarbe",
+      "es": "Color BG"
+     }
+    },
+    {
+     "name": "TEXT_COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_PRIMARY1_INDEX)",
+     "label": {
+      "en": "Text color",
+      "de": "Textfarbe",
+      "es": "Color texto"
+     }
+    },
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_SECONDARY1_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Radio Info",
+   "label": {
+    "en": "Radio Info",
+    "de": "Fernst. Info",
+    "es": "Información de radio"
+   },
+   "options": [
+    {
+     "name": "LOW_BATT_COLOR",
+     "type": "Color",
+     "default": "RGB2FLAGS(0xF4, 0x43, 0x36)",
+     "label": {
+      "en": "Low battery",
+      "de": "Farbe Akku fast leer",
+      "es": "Batería baja"
+     }
+    },
+    {
+     "name": "MID_BATT_COLOR",
+     "type": "Color",
+     "default": "RGB2FLAGS(0xFF, 0xC1, 0x07)",
+     "label": {
+      "en": "Mid battery",
+      "de": "Farbe Akku mittel",
+      "es": "Batería media"
+     }
+    },
+    {
+     "name": "HIGH_BATT_COLOR",
+     "type": "Color",
+     "default": "RGB2FLAGS(0x4C, 0xAF, 0x50)",
+     "label": {
+      "en": "High battery",
+      "de": "Farbe Akku voll",
+      "es": "Batería alta"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Text",
+   "label": {
+    "en": "Text",
+    "de": "Text",
+    "es": "Texto"
+   },
+   "options": [
+    {
+     "name": "TEXT",
+     "type": "String",
+     "default": "WIDGET_OPTION_VALUE_STRING(TEXT_WIDGET_DEFAULT_LABEL)",
+     "label": {
+      "en": "Text",
+      "de": "Text",
+      "es": "Texto"
+     }
+    },
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_SECONDARY1_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    },
+    {
+     "name": "SIZE",
+     "type": "TextSize",
+     "default": 0,
+     "label": {
+      "en": "Size",
+      "de": "Größe",
+      "es": "Tamaño"
+     }
+    },
+    {
+     "name": "SHADOW",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Shadow",
+      "de": "Schatten",
+      "es": "Sombra"
+     }
+    },
+    {
+     "name": "ALIGNMENT",
+     "type": "Align",
+     "default": "ALIGN_LEFT",
+     "label": {
+      "en": "Alignment",
+      "de": "Ausrichtung",
+      "es": "Alinear"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Timer",
+   "label": {
+    "en": "Timer",
+    "de": "Timer",
+    "es": "Cronómetro"
+   },
+   "options": [
+    {
+     "name": "TIMER_SOURCE",
+     "type": "Timer",
+     "default": 0,
+     "label": {
+      "en": "Timer source",
+      "de": "Timer Quelle",
+      "es": "Entrada timer"
+     }
+    }
+   ],
+   "nb4": false
+  },
+  {
+   "id": "Value",
+   "label": {
+    "en": "Value",
+    "de": "Wert",
+    "es": "Valor"
+   },
+   "options": [
+    {
+     "name": "SOURCE",
+     "type": "Source",
+     "default": "MIXSRC_FIRST_STICK",
+     "label": {
+      "en": "Source",
+      "de": "Quelle",
+      "es": "Fuente"
+     }
+    },
+    {
+     "name": "COLOR",
+     "type": "Color",
+     "default": "COLOR2FLAGS(COLOR_THEME_PRIMARY2_INDEX)",
+     "label": {
+      "en": "Color",
+      "de": "Farbe",
+      "es": "Color"
+     }
+    },
+    {
+     "name": "SHADOW",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Shadow",
+      "de": "Schatten",
+      "es": "Sombra"
+     }
+    },
+    {
+     "name": "ALIGN_LABEL",
+     "type": "Align",
+     "default": "ALIGN_LEFT",
+     "label": {
+      "en": "Align label",
+      "de": "Name ausrichten",
+      "es": "Alinear marbete"
+     }
+    },
+    {
+     "name": "ALIGN_VALUE",
+     "type": "Align",
+     "default": "ALIGN_LEFT",
+     "label": {
+      "en": "Align value",
+      "de": "Wert ausrichten",
+      "es": "Alinear valor"
+     }
+    }
+   ],
+   "nb4": false
+  }
+ ],
+ "layoutOptionLabels": {
+  "TOP_BAR": {
+   "en": "Top bar",
+   "de": "Infozeile",
+   "es": "Barra superior"
+  },
+  "FLIGHT_MODE": {
+   "en": "Flight mode",
+   "de": "Flugphase",
+   "es": "Modo de vuelo"
+  },
+  "SLIDERS": {
+   "en": "Sliders",
+   "de": "Schieber",
+   "es": "Deslizadores"
+  },
+  "TRIMS": {
+   "en": "Trims",
+   "de": "Trimmer",
+   "es": "Trims"
+  },
+  "MIRROR": {
+   "en": "Mirror",
+   "de": "Spiegeln",
+   "es": "Reflejar"
+  }
+ }
+}

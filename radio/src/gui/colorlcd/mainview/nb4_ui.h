@@ -17,6 +17,10 @@ lv_color_t throttleColor();
 lv_color_t steeringColor();
 
 lv_color_t brakeColor();
+lv_color_t auxColor();
+
+/* The theme's background image fills the screen, so surfaces let it through. */
+bool backgroundShown();
 
 void panel(lv_obj_t* object);
 

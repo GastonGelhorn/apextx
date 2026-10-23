@@ -336,6 +336,7 @@ const Nb4Route routes[] = {
     AV("settings/display/appearance", NB4_STR(UX_APPEARANCE), nb4OpenAppearance, RadioOnly, "display/appearance", UX_HELP_APPEARANCE, true),
     AV("settings/display/screens", NB4_STR(SCREENS), openScreens, ModelData, "display/screens", UX_HELP_SCREENS, true),
     AV("settings/display/top_bar", NB4_STR(TOP_BAR), []() { page(QM_UI_SETUP); }, ModelData, "display/top_bar", UX_HELP_TOPBAR, true),
+    AV("settings/display/theme_editor", NB4_STR(THEME_EDITOR), nb4ConnectThemeEditor, RadioOnly, "display/theme_editor", THEME_EDITOR_INFO, false),
     IN("settings/controls/shortcuts", NB4_STR(KEYS_AND_NAVIGATION), nb4OpenNavigationAssignments, ModelData, "controls/shortcuts", UX_HELP_NAVIGATION, true, "display"),
     IN("settings/controls/quick_access", NB4_STR(QUICK_ACCESS), nb4OpenQuickAccessSetup, RadioOnly, "controls/quick_access", UX_HELP_QUICK, false, "display"),
     IN("settings/sound_alerts/lights", NB4_STR(LIGHTS), openLeds, RadioOnly, "sound_alerts/lights", UX_HELP_LIGHTS, true, "display"),
@@ -497,6 +498,7 @@ const char* appTileLabel(const char* key, const char* fallback)
       {"settings/display/appearance", NB4_STR(TILE_STYLE)},
       {"settings/display/screens", NB4_STR(TILE_SCREENS)},
       {"settings/display/top_bar", NB4_STR(TILE_TOP_BAR)},
+      {"settings/display/theme_editor", NB4_STR(TILE_THEME_EDITOR)},
       {"settings/controls/shortcuts", NB4_STR(TILE_KEYS)},
       {"settings/controls/quick_access", NB4_STR(TILE_SHORTCUTS)},
       {"settings/sound_alerts/lights", NB4_STR(TILE_LIGHTS)},
@@ -580,6 +582,8 @@ AppTileColors appTileColors(const char* key)
     return {lv_color_hex(0x0A84FF), lv_color_hex(0x64D2FF)};
   if (strstr(key, "display/top_bar"))
     return {lv_color_hex(0x32ADE6), lv_color_hex(0x30D158)};
+  if (strstr(key, "display/theme_editor"))
+    return {lv_color_hex(0xFF2D55), lv_color_hex(0x64D2FF)};
   if (strstr(key, "controls/shortcuts"))
     return {lv_color_hex(0x5E5CE6), lv_color_hex(0x64D2FF)};
   if (strstr(key, "controls/quick_access"))
@@ -675,6 +679,7 @@ uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
   if (!strcmp(route.path, "settings/display/appearance")) return ICON_RADIO_EDIT_THEME;
   if (!strcmp(route.path, "settings/display/screens")) return ICON_THEME;
   if (!strcmp(route.path, "settings/display/top_bar")) return ICON_THEME_SETUP;
+  if (!strcmp(route.path, "settings/display/theme_editor")) return ICON_MODEL_USB;
   if (!strcmp(route.path, "settings/controls/shortcuts")) return ICON_RADIO_HARDWARE;
   if (!strcmp(route.path, "settings/controls/quick_access")) return ICON_QM_FAVORITES;
   if (!strcmp(route.path, "settings/sound_alerts/lights")) return ICON_THEME_VIEW2;

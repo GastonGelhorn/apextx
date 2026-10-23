@@ -28,6 +28,7 @@
 #include "nb4_routes.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "hal/usb_driver.h"
 
 namespace {
 int pendingOrientation = -1;
@@ -191,6 +192,7 @@ void nb4ProcessOrientation()
   pendingOrientation = -1;
   orientationAttempts = 0;
   main->resizeToDisplay();
+  nb4ReloadThemeBackground();
   LayoutFactory::loadCustomScreens();
   if (reopenAfterOrientation) nb4OpenSection(Nb4Section::Appearance);
 }
@@ -242,6 +244,25 @@ void nb4BuildAppearance(Window* parent)
   selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
 }
 
+// The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
+// Only this connection (or the next one) opens as storage; the USB mode in
+// System > USB stays as it is, and the radio restarts after the session.
+void nb4ConnectThemeEditor()
+{
+#if !defined(SIMU)
+  if (usbStarted() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+    new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_CONNECTED,
+                      nullptr, LEFT);
+    return;
+  }
+  nb4UsbSelectMassStorage();
+  // With the cable in, the main loop switches to storage right away.
+  if (usbPlugged()) return;
+#endif
+  new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
+                    nullptr, LEFT);
+}
+
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
 
 Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect, bool instruments) :
@@ -268,6 +289,8 @@ void Nb4HomeScreen::build()
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
   etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
+  // Let the theme's background image show around the cards.
+  if (Nb4Ui::backgroundShown()) lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, 0);
   telltales[0] = telltales[1] = telltales[2] = nullptr;
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 

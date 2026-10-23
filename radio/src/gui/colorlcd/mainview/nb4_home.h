@@ -20,6 +20,7 @@ void nb4OpenRaceRecord(uint32_t id);
 void nb4OpenSection(Nb4Section section);
 void nb4Navigate(Nb4Section section);
 void nb4BuildAppearance(Window* parent);
+void nb4ConnectThemeEditor();
 void nb4BuildCards(Window* parent);
 void nb4SetRacingHomeData(unsigned index);
 bool nb4MigrateHome(const char* modelPath);

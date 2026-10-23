@@ -105,6 +105,13 @@ void MainWindow::shutdown()
   backgroundBitmap = nullptr;
 }
 
+bool MainWindow::backgroundFits() const
+{
+  return backgroundBitmap &&
+         backgroundBitmap->width() == lv_disp_get_hor_res(nullptr) &&
+         backgroundBitmap->height() == lv_disp_get_ver_res(nullptr);
+}
+
 void MainWindow::setBackgroundImage(const char* fileName)
 {
   // ensure you delete old bitmap
