@@ -2797,6 +2797,16 @@ void lcdSetInitalFrameBuffer(void* fbAddress)
 
 const char* boardLcdType = "";
 
+#if defined(RADIO_NB4_FAMILY)
+  // The FlySky NB4 and NB4+ panel tables both clock the ST7796S at 13.5 MHz;
+  // 14.5 MHz is the PL18 value and 12 MHz the generic fallback.
+  #define LCD_ST7796S_PIXEL_CLOCK 13500000
+  #define LCD_ST7796S_DEFAULT_PIXEL_CLOCK 13500000
+#else
+  #define LCD_ST7796S_PIXEL_CLOCK 14500000
+  #define LCD_ST7796S_DEFAULT_PIXEL_CLOCK 12000000
+#endif
+
 extern "C"
 void lcdInit(void)
 {
@@ -2846,7 +2856,7 @@ void lcdInit(void)
     lcdInitFunction = LCD_ST7796S_Init;
     lcdOffFunction = LCD_ST7796S_Off;
     lcdOnFunction = LCD_ST7796S_On;
-    lcdPixelClock = 14500000;
+    lcdPixelClock = LCD_ST7796S_PIXEL_CLOCK;
   }
 #if defined(RADIO_NB4) && !defined(RADIO_NB4PLUS_HW)
   else {
@@ -2865,7 +2875,7 @@ void lcdInit(void)
     lcdInitFunction = LCD_ST7796S_Init;
     lcdOffFunction = LCD_ST7796S_Off;
     lcdOnFunction = LCD_ST7796S_On;
-    lcdPixelClock = 12000000;
+    lcdPixelClock = LCD_ST7796S_DEFAULT_PIXEL_CLOCK;
   }
 #endif
 

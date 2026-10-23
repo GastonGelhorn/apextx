@@ -23,6 +23,7 @@
 #include "module_setup.h"
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
+#include "nb4_params.h"
 #include "nb4_home.h"
 #include "model_nb4_axis.h"
 #include "model_nb4_racing.h"
@@ -223,6 +224,33 @@ class Nb4LedsDialog : public BaseDialog
       }
     });
     updateColorRow();
+
+    auto brightLine = new Window(form, {0, 0, LV_PCT(100), 0});
+    brightLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
+    lv_obj_set_style_flex_cross_place(brightLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
+    new StaticText(brightLine, {0, 0, 0, 0}, STR_NB4_BRIGHTNESS,
+                   COLOR_THEME_PRIMARY1_INDEX);
+    // [-] value [+], as on the model parameter rows.
+    auto getBright = []() {
+      return (int)nb4LedBrightnessOrDefault(g_eeGeneral.nb4LedBrightness);
+    };
+    auto setBright = [](int v) {
+      g_eeGeneral.nb4LedBrightness =
+          (uint8_t)limit<int>(NB4_LED_BRIGHTNESS_MIN, v, NB4_LED_BRIGHTNESS_MAX);
+      storageDirty(EE_GENERAL);
+    };
+    auto nudge = [getBright, setBright](int32_t delta) {
+      setBright(getBright() + delta);
+    };
+    const rect_t btnRect{0, 0, EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_LARGE, 0};
+    nb4StepButton(brightLine, btnRect, LV_SYMBOL_MINUS, nudge, -5);
+    auto bright = new NumberEdit(
+        brightLine, {0, 0, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, 0},
+        NB4_LED_BRIGHTNESS_MIN, NB4_LED_BRIGHTNESS_MAX, getBright, setBright);
+    bright->setStep(5);
+    bright->setDefault(NB4_LED_BRIGHTNESS_DEFAULT);
+    bright->setSuffix("%");
+    nb4StepButton(brightLine, btnRect, LV_SYMBOL_PLUS, nudge, 5);
 
     auto note = new StaticText(
         form, {0, 0, LV_PCT(100), 0},

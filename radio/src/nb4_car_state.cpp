@@ -5,6 +5,7 @@
 #include "edgetx.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_car_state.h"
+#include "nb4_leds.h"
 #include "nb4_racing.h"
 #include "nb4_controls.h"
 #include "hal/adc_driver.h"
@@ -45,6 +46,7 @@ void nb4VisualDefaults()
   g_eeGeneral.nb4UiVersion = NB4_UI_VERSION;
   g_eeGeneral.nb4Home = NB4_HOME_INSTRUMENTS;
   g_eeGeneral.nb4Orientation = 0;
+  g_eeGeneral.nb4LedBrightness = NB4_LED_BRIGHTNESS_DEFAULT;
   strAppend(g_eeGeneral.selectedTheme, "ApexTX Dark", SELECTED_THEME_NAME_LEN);
 
   g_eeGeneral.modelGVDisabled = 1;

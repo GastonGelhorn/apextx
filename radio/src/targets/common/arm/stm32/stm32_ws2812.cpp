@@ -42,11 +42,25 @@ static uint8_t _b_offset;
 
 #define WS2812_SLOTS_PER_LED        (WS2812_BYTES_PER_LED * 8)
 
-#define WS2812_FREQ            800000UL // 800 kHz
-#define WS2812_TIMER_PERIOD    20UL
-#define WS2812_ONE             (3 * WS2812_TIMER_PERIOD / 4)
-#define WS2812_ZERO            (1 * WS2812_TIMER_PERIOD / 4)
 #define WS2812_DMA_IRQ_PRIO    3
+
+#if defined(RADIO_NB4_FAMILY)
+// Match the factory NB4+ driver: TIM5 runs directly from its 84 MHz clock and
+// emits a 1.214 us bit cell. These values were recovered from the stock image;
+// the complete ApexTX sequence still requires NB4+ hardware validation.
+#define WS2812_TIMER_TICK_FREQ     LED_STRIP_TIMER_FREQ
+#define WS2812_TIMER_PERIOD        102UL
+#define WS2812_ONE                 54UL
+#define WS2812_ZERO                25UL
+#define WS2812_LEAD_RESET_SLOTS    0
+#define WS2812_TRAIL_SLOTS         152
+#define WS2812_FRAME_REPEATS       2
+#else
+#define WS2812_FREQ                800000UL // 800 kHz
+#define WS2812_TIMER_PERIOD        20UL
+#define WS2812_TIMER_TICK_FREQ     (WS2812_FREQ * WS2812_TIMER_PERIOD)
+#define WS2812_ONE                 (3 * WS2812_TIMER_PERIOD / 4)
+#define WS2812_ZERO                (1 * WS2812_TIMER_PERIOD / 4)
 
 // Hold the line low for 80 us at the start of every DMA transfer.  The line is
 // already kept low between frames, but including the reset interval in the
@@ -57,6 +71,8 @@ static uint8_t _b_offset;
 // Zero slots appended to the frame: the line stays low while they are sent,
 // so the end-of-frame IRQ may run late without emitting a spurious bit.
 #define WS2812_TRAIL_SLOTS          4
+#define WS2812_FRAME_REPEATS        1
+#endif
 
 #if !defined(LED_STRIP_LENGTH)
   #define LED_STRIP_LENGTH           1
@@ -65,6 +81,15 @@ static uint8_t _b_offset;
 #define WS2812_FRAME_SLOTS \
   (WS2812_LEAD_RESET_SLOTS + LED_STRIP_LENGTH * WS2812_SLOTS_PER_LED + \
    WS2812_TRAIL_SLOTS)
+
+#if defined(RADIO_NB4_FAMILY)
+static_assert(LED_STRIP_TIMER_FREQ == 84000000UL,
+              "NB4 WS2812 timings require an 84 MHz TIM5 clock");
+static_assert(LED_STRIP_TIMER_CHANNEL == LL_TIM_CHANNEL_CH3,
+              "NB4 WS2812 DMA request is wired to TIM5 channel 3");
+static_assert(LED_STRIP_LENGTH == 4 && WS2812_FRAME_SLOTS == 248,
+              "NB4 WS2812 frame must contain 96 data and 152 reset slots");
+#endif
 
 // Debug facility
 #if defined(LED_STRIP_DEBUG_GPIO) && defined(LED_STRIP_DEBUG_GPIO_PIN)
@@ -99,13 +124,27 @@ uint8_t pulse_inc = 1;
 // The whole frame is emitted in a single DMA transfer: the buffer is filled
 // before the transfer starts and no refill deadline exists, so an ISR delayed
 // by a higher priority IRQ (SDMMC, USB) can no longer corrupt a frame.
+//
+// NB4/NB4+: the factory driver sends the frame twice by running a circular
+// DMA and stopping it in the second transfer-complete interrupt. That leaves
+// the interrupt one bit period (1.2 us) before the circular buffer starts a
+// third pass: if it runs late, the third pass emits the first bits of the
+// frame again and is cut wherever the interrupt finally stops it, so the
+// pixel being written at that moment, and every pixel after it, latches
+// garbage. A late interrupt hits the far end of the chain first, which is
+// what the NB4+ shows while the UI redraws. Both copies are therefore laid
+// out in the buffer and sent in normal mode: the stream stops by itself on
+// the final low slot and the interrupt has no deadline. The waveform on the
+// line is unchanged.
 #if defined(STM32_SUPPORT_32BIT_TIMERS)
-static led_timer_value_t _led_dma_buffer[WS2812_FRAME_SLOTS * 2] __DMA_NO_CACHE;
+alignas(uint32_t) static led_timer_value_t
+    _led_dma_buffer[WS2812_FRAME_SLOTS * WS2812_FRAME_REPEATS * 2] __DMA_NO_CACHE;
 #else
-static led_timer_value_t _led_dma_buffer[WS2812_FRAME_SLOTS] __DMA_NO_CACHE;
+static led_timer_value_t
+    _led_dma_buffer[WS2812_FRAME_SLOTS * WS2812_FRAME_REPEATS] __DMA_NO_CACHE;
 #endif
 
-// Number of slots actually sent, from the strip length given at init
+// Number of slots in one copy of the frame, from the strip length given at init
 static uint32_t _frame_slots;
 
 static void _fill_byte(uint8_t c, led_timer_value_t* dma_buffer)
@@ -129,6 +168,11 @@ static void _end_of_frame(const stm32_pulse_timer_t* tim)
 {
   WS2812_DBG_HIGH;
 
+#if defined(RADIO_NB4_FAMILY)
+  LL_TIM_DisableDMAReq_CC3(tim->TIMx);
+#else
+  LL_TIM_DisableDMAReq_UPDATE(tim->TIMx);
+#endif
   LL_DMA_DisableIT_TC(tim->DMAx, tim->DMA_Stream);
   LL_DMA_DisableStream(tim->DMAx, tim->DMA_Stream);
 
@@ -137,13 +181,18 @@ static void _end_of_frame(const stm32_pulse_timer_t* tim)
     __NOP();  // Wait
   }
 
-  // Stop the request source, but leave the channel and the counter running
-  // with a null compare value: the output is then actively held low between
-  // frames. Disabling the channel releases the pad instead (OSSR = 0), the
-  // line floats, and a WS2812 that misses its reset gap keeps counting bits
-  // across frames -- which shifts the whole strip by one LED.
-  LL_TIM_DisableDMAReq_UPDATE(tim->TIMx);
+#if defined(RADIO_NB4_FAMILY)
+  // FlySky leaves PH12 as a push-pull GPIO driven low between frames.
+  LL_TIM_CC_DisableChannel(tim->TIMx, tim->TIM_Channel);
+  LL_TIM_DisableCounter(tim->TIMx);
   stm32_pulse_set_cmp_val(tim, 0);
+  gpio_clear(tim->GPIO);
+  gpio_init(tim->GPIO, GPIO_OUT, GPIO_PIN_SPEED_VERY_HIGH);
+#else
+  // Leave the channel and counter running with a null compare value: the
+  // output is then actively held low between frames.
+  stm32_pulse_set_cmp_val(tim, 0);
+#endif
 
   WS2812_DBG_LOW;
 }
@@ -180,20 +229,37 @@ static void _led_set_dma_periph_addr(const stm32_pulse_timer_t* tim)
 
 static void _init_timer(const stm32_pulse_timer_t* tim)
 {
-  stm32_pulse_init(tim, WS2812_FREQ * WS2812_TIMER_PERIOD);
+#if defined(RADIO_NB4_FAMILY)
+  // Keep PH12 driven low while TIM5 and DMA are reset. FlySky switches the pin
+  // to AF only after configuring the timer; the generic pulse initializer
+  // would release the pin before clearing the old timer state.
+  stm32_pulse_init(tim, WS2812_TIMER_TICK_FREQ, false);
+#else
+  stm32_pulse_init(tim, WS2812_TIMER_TICK_FREQ);
+#endif
   stm32_pulse_config_output(tim, true, LL_TIM_OCMODE_PWM1, 0);
   LL_TIM_SetAutoReload(tim->TIMx, WS2812_TIMER_PERIOD - 1);
 
+#if defined(RADIO_NB4_FAMILY)
+  // Preserve the exact timer and pin configuration used by the factory
+  // firmware. CCDS routes the CC3 DMA request through the update event.
+  LL_TIM_EnableARRPreload(tim->TIMx);
+  LL_TIM_SetUpdateSource(tim->TIMx, LL_TIM_UPDATESOURCE_COUNTER);
+  LL_TIM_CC_SetDMAReqTrigger(tim->TIMx, LL_TIM_CCDMAREQUEST_UPDATE);
+  gpio_init_af(tim->GPIO, tim->GPIO_Alternate, GPIO_PIN_SPEED_VERY_HIGH);
+  LL_GPIO_SetPinPull(gpio_get_port(tim->GPIO), 1 << gpio_get_pin(tim->GPIO),
+                     LL_GPIO_PULL_UP);
+#else
   // Insurance for the windows where the timer does not drive the pad (boot,
   // de-init): a floating WS2812 input can miss the inter-frame reset.
   LL_GPIO_SetPinPull(gpio_get_port(tim->GPIO), 1 << gpio_get_pin(tim->GPIO),
                      LL_GPIO_PULL_DOWN);
+#endif
 
   // pulse driver uses DMA to ARR, but we need CCRx
   _led_set_dma_periph_addr(tim);
 
-  // One shot per frame: NDTR and the memory address are re-programmed by
-  // ws2812_update() before every transfer.
+  // Normal mode on every target: on NB4 the repeats are in the buffer.
   LL_DMA_SetMode(tim->DMAx, tim->DMA_Stream, LL_DMA_MODE_NORMAL);
 
   // we need to use a higher prio to avoid having
@@ -222,11 +288,19 @@ void ws2812_init(const stm32_pulse_timer_t* timer, uint8_t* strip_colors,
 
   _init_timer(timer);
 
+#if defined(RADIO_NB4_FAMILY)
+  // Match the factory idle state until the first frame is requested.
+  LL_TIM_CC_DisableChannel(timer->TIMx, timer->TIM_Channel);
+  LL_TIM_DisableCounter(timer->TIMx);
+  gpio_clear(timer->GPIO);
+  gpio_init(timer->GPIO, GPIO_OUT, GPIO_PIN_SPEED_VERY_HIGH);
+#else
   // Drive the data line low right away, and keep it driven until the first
   // frame: an idle WS2812 input must never be left floating.
   stm32_pulse_set_cmp_val(timer, 0);
   LL_TIM_CC_EnableChannel(timer->TIMx, timer->TIM_Channel);
   LL_TIM_EnableCounter(timer->TIMx);
+#endif
 }
 
 void ws2812_set_color_in_buf(uint8_t* buf, uint8_t led,
@@ -277,16 +351,34 @@ void ws2812_update(const stm32_pulse_timer_t* tim)
   memset(&pixel_pulses[_led_strip_len * WS2812_SLOTS_PER_LED * pulse_inc],
          0, WS2812_TRAIL_SLOTS * sizeof(led_timer_value_t) * pulse_inc);
 
+  // Further copies of the frame, each with its own low tail.
+  const uint32_t frame_values = _frame_slots * pulse_inc;
+  for (uint32_t r = 1; r < WS2812_FRAME_REPEATS; r++) {
+    memcpy(&_led_dma_buffer[r * frame_values], _led_dma_buffer,
+           frame_values * sizeof(led_timer_value_t));
+  }
+
+#if defined(RADIO_NB4_FAMILY)
+  // The stock implementation reinitialises TIM5, DMA1/S0 and PH12 for every
+  // colour change, then returns PH12 to a driven-low GPIO in the TC callback.
+  _init_timer(tim);
+#endif
+
   // NDTR and the address are not reloaded by enabling the stream again
   stm32_dma_clear_flags(tim->DMAx, tim->DMA_Stream);
   LL_DMA_SetMemoryAddress(tim->DMAx, tim->DMA_Stream, (uint32_t)_led_dma_buffer);
-  LL_DMA_SetDataLength(tim->DMAx, tim->DMA_Stream, _frame_slots);
+  LL_DMA_SetDataLength(tim->DMAx, tim->DMA_Stream,
+                       _frame_slots * WS2812_FRAME_REPEATS);
 
   LL_DMA_EnableIT_TC(tim->DMAx, tim->DMA_Stream);
   LL_DMA_EnableStream(tim->DMAx, tim->DMA_Stream);
 
   LL_TIM_SetCounter(tim->TIMx, 0);
+#if defined(RADIO_NB4_FAMILY)
+  LL_TIM_EnableDMAReq_CC3(tim->TIMx);
+#else
   LL_TIM_EnableDMAReq_UPDATE(tim->TIMx);
+#endif
   LL_TIM_CC_EnableChannel(tim->TIMx, tim->TIM_Channel);
   LL_TIM_EnableCounter(tim->TIMx);
 

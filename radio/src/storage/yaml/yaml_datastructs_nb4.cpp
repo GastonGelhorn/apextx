@@ -409,6 +409,7 @@ static const struct YamlNode struct_RadioData[] = {
   YAML_ARRAY("nb4QuickAccess", 32, 8, struct_unsigned_32, NULL),
   YAML_UNSIGNED( "nb4LedMode", 8 ),
   YAML_UNSIGNED( "nb4LedColor", 8 ),
+  YAML_UNSIGNED( "nb4LedBrightness", 8 ),
   YAML_UNSIGNED( "labelSingleSelect", 1 ),
   YAML_UNSIGNED( "labelMultiMode", 1 ),
   YAML_UNSIGNED( "favMultiMode", 1 ),
