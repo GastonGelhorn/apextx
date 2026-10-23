@@ -2174,7 +2174,7 @@
 #define TR_NB4_THEME_EDITOR "Theme Editor"
 #define TR_NB4_THEME_EDITOR_INFO "Design themes, screens and widgets comfortably on a PC with the ApexTX Theme Editor."
 #define TR_NB4_THEME_EDITOR_CONNECT "Connect to Theme Editor"
-#define TR_NB4_THEME_EDITOR_PLUG_USB "Connect the radio to the PC with a USB cable. It appears there as a drive and the Theme Editor finds it automatically. Unplug the cable when you are done; the radio restarts."
+#define TR_NB4_THEME_EDITOR_PLUG_USB "USB is now set to storage, as in System > USB. Connect the radio to the PC with a USB cable; if it is already connected, unplug it and plug it in again. The radio appears as a drive and the Theme Editor finds it. Unplug the cable when you are done; the radio restarts."
 #define TR_NB4_FAULT_CODE "FAULT %u"
 #define TR_NB4_CURVE_SHARED_ONE "Both sides use curve %s, and 1 more setting in the model does too. Moving its points moves them all."
 #define TR_NB4_CURVE_SHARED_MANY "Both sides use curve %s, and %d more settings in the model do too. Moving its points moves them all."

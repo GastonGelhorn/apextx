@@ -2169,7 +2169,7 @@
 #define TR_NB4_THEME_EDITOR "Theme-Editor"
 #define TR_NB4_THEME_EDITOR_INFO "Themes, Bildschirme und Widgets bequem am PC gestalten, mit dem ApexTX Theme Editor."
 #define TR_NB4_THEME_EDITOR_CONNECT "Mit Theme-Editor verbinden"
-#define TR_NB4_THEME_EDITOR_PLUG_USB "Verbinde die Fernbedienung per USB-Kabel mit dem PC. Sie erscheint dort als Laufwerk und der Theme-Editor findet sie automatisch. Wenn du fertig bist, Kabel abziehen; die Fernbedienung startet neu."
+#define TR_NB4_THEME_EDITOR_PLUG_USB "USB steht jetzt auf USB-Speicher, wie unter System > USB. Verbinde die Fernbedienung per USB-Kabel mit dem PC; steckt es schon, einmal ab- und wieder anstecken. Sie erscheint als Laufwerk und der Theme-Editor findet sie. Wenn du fertig bist, Kabel abziehen; die Fernbedienung startet neu."
 #define TR_NB4_FAULT_CODE "FEHLER %u"
 #define TR_NB4_CURVE_SHARED_ONE "Beide Seiten nutzen Kurve %s, und 1 weitere Einstellung im Modell ebenfalls. Das Verschieben ihrer Punkte ändert alle."
 #define TR_NB4_CURVE_SHARED_MANY "Beide Seiten nutzen Kurve %s, und %d weitere Einstellungen im Modell ebenfalls. Das Verschieben ihrer Punkte ändert alle."
