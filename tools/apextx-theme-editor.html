@@ -173,6 +173,7 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
         <select id="radioThemes" style="flex:1;min-width:200px"></select>
         <button class="btn" id="loadRadio" data-t="loadRadio"></button>
         <button class="btn primary" id="saveRadio" data-t="saveRadio"></button>
+        <label class="checks" style="flex-basis:100%"><label><input type="checkbox" id="activateTheme" checked><span data-t="activateTheme"></span></label></label>
       </div>
       <div class="row">
         <button class="btn" id="dlZip" data-t="dlZip"></button>
@@ -288,7 +289,7 @@ const T = {
     secBg: 'Background', hintBg: 'A ready-made background in your theme colours, or your own image. Saved as background.png (320×480); the cards become translucent above it.',
     dropBg: 'Use your own image: drop it here or click', bgDim: 'Darken', cardOpacity: 'Card opacity', bgFit: 'Own image',
     secExport: 'Save theme', hintExport: 'A theme is a THEMES/<Name>/ folder with theme.yml (and background.png). Select it on the transmitter under Appearance or in the Transmitter tab.',
-    saveRadio: 'Save to transmitter', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
+    saveRadio: 'Save to transmitter', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
     secCar: 'Car', hintCar: 'Screens belong to a car. Load a car from the transmitter, change its screens and save.',
     reload: 'Load again', saveScreens: 'Save screens', demoCar: 'Example car (not on a transmitter)',
     notEditable: 'Open this car once on the transmitter (ApexTX sets up its screens), then load it again.',
@@ -334,7 +335,7 @@ const T = {
     secBg: 'Hintergrund', hintBg: 'Fertige Hintergründe in deinen Theme-Farben oder ein eigenes Bild. Wird als background.png (320×480) gespeichert; die Karten werden darüber durchscheinend.',
     dropBg: 'Eigenes Bild verwenden: hier ablegen oder klicken', bgDim: 'Abdunkeln', cardOpacity: 'Deckkraft der Karten', bgFit: 'Eigenes Bild',
     secExport: 'Theme speichern', hintExport: 'Ein Theme ist ein Ordner THEMES/<Name>/ mit theme.yml (und background.png). Auswahl an der Fernbedienung unter Erscheinungsbild oder im Reiter Fernbedienung.',
-    saveRadio: 'Auf Fernbedienung speichern', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
+    saveRadio: 'Auf Fernbedienung speichern', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
     secCar: 'Auto', hintCar: 'Bildschirme gehören zu einem Auto. Auto von der Fernbedienung laden, Bildschirme ändern, speichern.',
     reload: 'Neu laden', saveScreens: 'Bildschirme speichern', demoCar: 'Beispiel-Auto (nicht auf einer Fernbedienung)',
     notEditable: 'Dieses Auto einmal an der Fernbedienung öffnen (ApexTX richtet dabei die Bildschirme ein), dann neu laden.',
@@ -380,7 +381,7 @@ const T = {
     secBg: 'Fondo', hintBg: 'Fondos listos en los colores de tu tema o tu propia imagen. Se guarda como background.png (320×480); las tarjetas se vuelven translúcidas encima.',
     dropBg: 'Usar tu propia imagen: suéltala aquí o haz clic', bgDim: 'Oscurecer', cardOpacity: 'Opacidad de las tarjetas', bgFit: 'Imagen propia',
     secExport: 'Guardar tema', hintExport: 'Un tema es una carpeta THEMES/<Nombre>/ con theme.yml (y background.png). Selecciónalo en la emisora en Apariencia o en la pestaña Emisora.',
-    saveRadio: 'Guardar en la emisora', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
+    saveRadio: 'Guardar en la emisora', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
     secCar: 'Coche', hintCar: 'Las pantallas pertenecen a un coche. Carga un coche de la emisora, cambia sus pantallas y guarda.',
     reload: 'Volver a cargar', saveScreens: 'Guardar pantallas', demoCar: 'Coche de ejemplo (no está en una emisora)',
     notEditable: 'Abre este coche una vez en la emisora (ApexTX prepara sus pantallas) y vuelve a cargarlo.',
@@ -1497,7 +1498,22 @@ async function themeFiles() {
   const files = [{name: dir + 'theme.yml', data: new TextEncoder().encode(themeYml())}];
   const png = await backgroundPng();
   if (png) files.push({name: dir + 'background.png', data: png});
+  files.push({name: dir + 'logo.png', data: await previewPng()});
   return files;
+}
+
+// logo.png is the picture the theme selector on the radio shows: the current
+// preview at half size, without the editor's tile outlines.
+function previewPng() {
+  const view = state.view;
+  state.view = 'theme';
+  render();
+  state.view = view;
+  const c = document.createElement('canvas');
+  c.width = cv.width / (SCALE * devicePixelRatio) / 2;
+  c.height = cv.height / (SCALE * devicePixelRatio) / 2;
+  c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
 }
 function status(id, msg, bad) { const s = $(id); s.textContent = msg; s.style.color = bad ? 'var(--bad)' : ''; }
 
@@ -1639,7 +1655,16 @@ $('saveRadio').onclick = async () => {
   try {
     const files = (await themeFiles()).map(f => ({name: f.name, data: bytesB64(f.data)}));
     const res = await api('/api/save', {target: target(), files});
-    status('themeStatus', t('saved') + res.folder);
+    let msg = t('saved') + res.folder;
+    // Same setting as the Transmitter tab: the radio uses the theme from its next start.
+    if ($('activateTheme').checked && radioRoot()) {
+      const fresh = await api('/api/radio?target=' + q(radioRoot()));
+      const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {selectedTheme: state.name.trim()}});
+      radio = {hash: done.hash, settings: {...fresh.settings, selectedTheme: state.name.trim()}};
+      fillRadioThemes();
+      msg += '  ·  ' + t('activated');
+    }
+    status('themeStatus', msg);
     loadThemeList().catch(() => {});
   } catch (e) { status('themeStatus', e.message, true); }
 };
