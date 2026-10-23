@@ -258,6 +258,7 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
   <div class="seg" id="segOrient"></div>
   <div class="radio"><canvas id="screen"></canvas></div>
   <div class="seg" id="segSim"></div>
+  <p class="status" id="previewStatus" style="margin:0;text-align:center;max-width:420px"></p>
   <p class="note" data-t="previewNote"></p>
 </div>
 </main>
@@ -289,7 +290,7 @@ const T = {
     secBg: 'Background', hintBg: 'A ready-made background in your theme colours, or your own image. Saved as background.png (320×480); the cards become translucent above it.',
     dropBg: 'Use your own image: drop it here or click', bgDim: 'Darken', cardOpacity: 'Card opacity', bgFit: 'Own image',
     secExport: 'Save theme', hintExport: 'A theme is a THEMES/<Name>/ folder with theme.yml (and background.png). Select it on the transmitter under Appearance or in the Transmitter tab.',
-    saveRadio: 'Save to transmitter', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
+    saveRadio: 'Save to transmitter', orientSaved: 'Orientation stored on the transmitter; active after unplugging the cable.', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
     secCar: 'Car', hintCar: 'Screens belong to a car. Load a car from the transmitter, change its screens and save.',
     reload: 'Load again', saveScreens: 'Save screens', demoCar: 'Example car (not on a transmitter)',
     notEditable: 'Open this car once on the transmitter (ApexTX sets up its screens), then load it again.',
@@ -335,7 +336,7 @@ const T = {
     secBg: 'Hintergrund', hintBg: 'Fertige Hintergründe in deinen Theme-Farben oder ein eigenes Bild. Wird als background.png (320×480) gespeichert; die Karten werden darüber durchscheinend.',
     dropBg: 'Eigenes Bild verwenden: hier ablegen oder klicken', bgDim: 'Abdunkeln', cardOpacity: 'Deckkraft der Karten', bgFit: 'Eigenes Bild',
     secExport: 'Theme speichern', hintExport: 'Ein Theme ist ein Ordner THEMES/<Name>/ mit theme.yml (und background.png). Auswahl an der Fernbedienung unter Erscheinungsbild oder im Reiter Fernbedienung.',
-    saveRadio: 'Auf Fernbedienung speichern', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
+    saveRadio: 'Auf Fernbedienung speichern', orientSaved: 'Ausrichtung auf der Fernbedienung gespeichert; aktiv nach dem Abziehen des Kabels.', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
     secCar: 'Auto', hintCar: 'Bildschirme gehören zu einem Auto. Auto von der Fernbedienung laden, Bildschirme ändern, speichern.',
     reload: 'Neu laden', saveScreens: 'Bildschirme speichern', demoCar: 'Beispiel-Auto (nicht auf einer Fernbedienung)',
     notEditable: 'Dieses Auto einmal an der Fernbedienung öffnen (ApexTX richtet dabei die Bildschirme ein), dann neu laden.',
@@ -381,7 +382,7 @@ const T = {
     secBg: 'Fondo', hintBg: 'Fondos listos en los colores de tu tema o tu propia imagen. Se guarda como background.png (320×480); las tarjetas se vuelven translúcidas encima.',
     dropBg: 'Usar tu propia imagen: suéltala aquí o haz clic', bgDim: 'Oscurecer', cardOpacity: 'Opacidad de las tarjetas', bgFit: 'Imagen propia',
     secExport: 'Guardar tema', hintExport: 'Un tema es una carpeta THEMES/<Nombre>/ con theme.yml (y background.png). Selecciónalo en la emisora en Apariencia o en la pestaña Emisora.',
-    saveRadio: 'Guardar en la emisora', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
+    saveRadio: 'Guardar en la emisora', orientSaved: 'Orientación guardada en la emisora; activa al desconectar el cable.', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
     secCar: 'Coche', hintCar: 'Las pantallas pertenecen a un coche. Carga un coche de la emisora, cambia sus pantallas y guarda.',
     reload: 'Volver a cargar', saveScreens: 'Guardar pantallas', demoCar: 'Coche de ejemplo (no está en una emisora)',
     notEditable: 'Abre este coche una vez en la emisora (ApexTX prepara sus pantallas) y vuelve a cargarlo.',
@@ -1631,9 +1632,26 @@ async function loadRadio() {
   fillSelect($('rOrient'), t('orients').map((n, i) => [i, n]), +(s.nb4Orientation || 0));
   fillSelect($('rLedMode'), t('ledModes').map((n, i) => [i, n]), +(s.nb4LedMode || 0));
   fillSelect($('rLedColor'), t('ledColors').map((n, i) => [i, n]), +(s.nb4LedColor || 0));
+  state.landscape = +(s.nb4Orientation || 0) === 1;
+  buildCommon();
   status('radioStatus', '');
 }
-$('rOrient').onchange = () => { state.landscape = $('rOrient').value === '1'; buildCommon(); };
+$('rOrient').onchange = () => setOrientation($('rOrient').value === '1');
+
+// The preview orientation is the transmitter's orientation: switching it here
+// stores nb4Orientation on a connected transmitter right away.
+async function setOrientation(landscape) {
+  state.landscape = landscape;
+  buildCommon();
+  if (!radioRoot() || !radio || +radio.settings.nb4Orientation === (landscape ? 1 : 0)) return;
+  try {
+    const fresh = await api('/api/radio?target=' + q(radioRoot()));
+    const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {nb4Orientation: landscape ? 1 : 0}});
+    radio = {hash: done.hash, settings: {...fresh.settings, nb4Orientation: landscape ? '1' : '0'}};
+    $('rOrient').value = landscape ? 1 : 0;
+    status('previewStatus', t('orientSaved'));
+  } catch (e) { status('previewStatus', e.message, true); }
+}
 $('radioReload').onclick = () => loadRadio().then(() => status('radioStatus', t('loaded'))).catch(e => status('radioStatus', e.message, true));
 $('radioSave').onclick = async () => {
   try {
@@ -1697,7 +1715,7 @@ function showView(v) {
 }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showView(b.dataset.view));
 function buildCommon() {
-  segment($('segOrient'), [['p', t('portrait')], ['l', t('landscape')]], () => state.landscape ? 'l' : 'p', v => state.landscape = v === 'l');
+  segment($('segOrient'), [['p', t('portrait')], ['l', t('landscape')]], () => state.landscape ? 'l' : 'p', v => setOrientation(v === 'l'));
   segment($('segSim'), [['drift', t('simDrift')], ['race', t('simRace')], ['crawl', t('simCrawl')], ['idle', t('simIdle')]], () => state.sim, v => state.sim = v);
 }
 function refreshAll() { bgCache = null; buildThemeControls(); syncThemeInputs(); buildCommon(); buildScreens(); }
