@@ -241,6 +241,11 @@ void usbStop()
   USBD_DeInit(&hUsbDevice);
 #if defined(RADIO_NB4)
   NVIC_ClearPendingIRQ(OTG_FS_IRQn);
+  // USBD_DeInit only gates the OTG clock: the FS transceiver stays powered
+  // and its pull-downs keep D+/D- low, which the NB4 cable probe reads as a
+  // host. Reset the block so the transceiver powers down until the next start.
+  LL_AHB2_GRP1_ForceReset(LL_AHB2_GRP1_PERIPH_OTGFS);
+  LL_AHB2_GRP1_ReleaseReset(LL_AHB2_GRP1_PERIPH_OTGFS);
 #endif
 }
 

@@ -545,7 +545,8 @@ static uint8_t nb4UsbConnected()
   _nb4UsbQuietArmed = false;
 
   uint8_t raw = NB4_CHARGE_RAW();
-  if (raw == NB4_CHARGE_BASE) return 0;
+  // Charging from the base pack does not rule out a host: fall through to the
+  // data-line probe, which only reports a cable when the host pulls both down.
 
   if (_nb4UsbBurnRaw != 0xff) {
     if (raw != _nb4UsbBurnRaw || (int32_t)(now - _nb4UsbBurnUntil) >= 0) {
