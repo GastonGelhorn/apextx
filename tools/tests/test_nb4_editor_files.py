@@ -118,6 +118,19 @@ class EditorFilesTest(unittest.TestCase):
         with self.assertRaises(files.EditorFileError):
             files.read_model(self.root, '../RADIO/radio.yml')
 
+    def test_radio_checksum_is_recomputed(self):
+        body = RADIO.replace('\n', '\r\n').encode()
+        stored = b'checksum: %d\r\n' % files.radio_checksum(body) + body
+        (self.root / 'RADIO' / 'radio.yml').write_bytes(stored)
+        radio = files.read_radio(self.root)
+        self.assertEqual(radio['settings']['selectedTheme'], 'ApexTX Dark')
+        files.write_radio(self.root, radio['hash'], {'selectedTheme': 'Drift Neon'}, self.backups)
+        raw = (self.root / 'RADIO' / 'radio.yml').read_bytes()
+        header, rest = raw.split(b'\r\n', 1)
+        self.assertEqual(int(header.split(b': ')[1]), files.radio_checksum(rest))
+        self.assertIn(b'selectedTheme: "Drift Neon"\r\n', rest)
+        self.assertNotIn(b'checksum', rest)
+
     def test_radio_settings(self):
         radio = files.read_radio(self.root)
         self.assertEqual(radio['settings']['selectedTheme'], 'ApexTX Dark')

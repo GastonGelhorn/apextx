@@ -192,6 +192,7 @@ void nb4ProcessOrientation()
   pendingOrientation = -1;
   orientationAttempts = 0;
   main->resizeToDisplay();
+  nb4ReloadThemeBackground();
   LayoutFactory::loadCustomScreens();
   if (reopenAfterOrientation) nb4OpenSection(Nb4Section::Appearance);
 }

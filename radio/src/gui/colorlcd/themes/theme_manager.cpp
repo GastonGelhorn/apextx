@@ -324,6 +324,18 @@ void ThemeFile::applyBackground()
   auto pos = backgroundImageFileName.rfind('/');
   if (pos != std::string::npos) {
     auto rootDir = backgroundImageFileName.substr(0, pos + 1);
+#if defined(RADIO_NB4_FAMILY)
+    // The NB4 switches between portrait and landscape at run time, so a theme
+    // may carry one image per orientation; nb4ReloadThemeBackground() picks
+    // again after a switch.
+    const auto current = rootDir + "background_" +
+                         std::to_string(lv_disp_get_hor_res(nullptr)) + "x" +
+                         std::to_string(lv_disp_get_ver_res(nullptr)) + ".png";
+    if (isFileAvailable(current.c_str())) {
+      instance->setBackgroundImage(current.c_str());
+      return;
+    }
+#endif
 #if defined(LCD_DUAL_ORIENTATION)
 
     rootDir = rootDir + "background_" + std::to_string(LCD_PHYS_W) + "x" +
@@ -351,6 +363,14 @@ void ThemeFile::applyBackground()
   // TODO: This needs to be made user configurable
   instance->setBackgroundImage("");
 }
+
+#if defined(RADIO_NB4_FAMILY)
+void nb4ReloadThemeBackground()
+{
+  auto themes = ThemePersistance::instance();
+  themes->applyTheme(themes->getThemeIndex());
+}
+#endif
 
 void ThemeFile::applyTheme()
 {

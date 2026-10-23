@@ -25,6 +25,7 @@
 #include "widget.h"
 #include "nb4_health.h"
 #include "nb4_home.h"
+#include "theme_manager.h"
 
 WidgetsContainer* customScreens[MAX_CUSTOM_SCREENS] = {};
 
@@ -192,9 +193,10 @@ void LayoutFactory::loadCustomScreens()
   auto viewMain = ViewMain::instance();
 
 #if defined(RADIO_NB4_FAMILY)
-  if (lcdSetOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1))
+  if (lcdSetOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1)) {
     viewMain->resizeToDisplay();
-  else
+    nb4ReloadThemeBackground();
+  } else
     nb4RequestOrientation(!nb4HealthRecovery() && g_eeGeneral.nb4Orientation == 1, false);
   if (nb4HealthRecovery() || !g_model.nb4ScreenVersion || nb4ModelBlocked()) {
     customScreens[0] = new Nb4HomeScreen(viewMain, viewMain->getRect());

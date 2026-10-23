@@ -218,6 +218,12 @@ class HeaderBackIcon : public StaticIcon
   }
 };
 
+#if defined(RADIO_NB4_FAMILY)
+// Applies the current theme again, so its background matches a new display
+// orientation.
+void nb4ReloadThemeBackground();
+#endif
+
 class UsbSDConnected : public Window
 {
  public:

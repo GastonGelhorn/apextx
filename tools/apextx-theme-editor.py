@@ -21,7 +21,7 @@ import nb4_editor_files as radio_files
 APP_VERSION = '1.0'
 MAX_THEME_BYTES = 4 * 1024 * 1024
 # Only the files a theme directory may hold (see sdcard/THEMES/README.md).
-THEME_FILE = re.compile(r'^THEMES/[A-Za-z0-9_-]{1,26}/(theme\.yml|background\.png|logo\.png)$')
+THEME_FILE = re.compile(r'^THEMES/[A-Za-z0-9_-]{1,26}/(theme\.yml|background\.png|background_480x320\.png|logo\.png)$')
 THEME_FOLDER = re.compile(r'^[A-Za-z0-9_-]{1,26}$')
 
 
@@ -128,8 +128,8 @@ def read_theme(target, folder):
 def save_theme(target, files):
     """Write the theme files below target; returns the theme directory."""
     _checked_target(target)
-    if not files or len(files) > 3:
-        raise ValueError('A theme consists of theme.yml, logo.png and an optional background.png.')
+    if not files or len(files) > 4:
+        raise ValueError('A theme consists of theme.yml, logo.png and optional backgrounds.')
     total, written = 0, None
     for entry in files:
         name = entry.get('name', '')

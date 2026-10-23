@@ -785,8 +785,8 @@ function cachedBackground(W, H) {
   }
   return bgCache.canvas;
 }
-// The firmware shows the background in portrait (its file is 320x480).
-const hasBg = () => state.bgPattern !== 'none' && (state.bgPattern !== 'image' || state.bgImage) && !state.landscape;
+// Saved for both orientations (background.png, background_480x320.png).
+const hasBg = () => state.bgPattern !== 'none' && (state.bgPattern !== 'image' || state.bgImage);
 
 // ---------------------------------------------------------------------------
 // Car screens (MODELS/<car>.yml, raw values as the radio writes them)
@@ -1454,10 +1454,12 @@ function parseYml(src) {
   }
   if (RESERVED.includes(state.name)) state.name = state.name.replace('ApexTX ', '') + ' Custom';
 }
-function backgroundPng() {
+// One image per orientation: background.png (portrait) and
+// background_480x320.png, which the firmware picks in landscape.
+function backgroundPng(w = 320, h = 480) {
   if (state.bgPattern === 'none' || (state.bgPattern === 'image' && !state.bgImage)) return Promise.resolve(null);
-  const c = document.createElement('canvas'); c.width = 320; c.height = 480;
-  paintBackground(c.getContext('2d'), 320, 480);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  paintBackground(c.getContext('2d'), w, h);
   return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
 }
 function updateOutputs() {
@@ -1498,6 +1500,8 @@ async function themeFiles() {
   const files = [{name: dir + 'theme.yml', data: new TextEncoder().encode(themeYml())}];
   const png = await backgroundPng();
   if (png) files.push({name: dir + 'background.png', data: png});
+  const wide = await backgroundPng(480, 320);
+  if (wide) files.push({name: dir + 'background_480x320.png', data: wide});
   files.push({name: dir + 'logo.png', data: await previewPng()});
   return files;
 }
@@ -1505,10 +1509,13 @@ async function themeFiles() {
 // logo.png is the picture the theme selector on the radio shows: the current
 // preview at half size, without the editor's tile outlines.
 function previewPng() {
-  const view = state.view;
+  // In the orientation the radio uses, so the selector can show it large.
+  const view = state.view, landscape = state.landscape;
   state.view = 'theme';
+  if (radio && radio.settings.nb4Orientation !== undefined) state.landscape = +radio.settings.nb4Orientation === 1;
   render();
   state.view = view;
+  state.landscape = landscape;
   const c = document.createElement('canvas');
   c.width = cv.width / (SCALE * devicePixelRatio) / 2;
   c.height = cv.height / (SCALE * devicePixelRatio) / 2;

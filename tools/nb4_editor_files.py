@@ -6,6 +6,7 @@ in a model file and single top-level keys in ``RADIO/radio.yml``. Everything
 else stays byte-for-byte as the radio wrote it. Every write is preceded by a
 backup on the PC and refused if the file changed since it was read.
 """
+import binascii
 import datetime
 import hashlib
 import re
@@ -202,11 +203,25 @@ def read_radio(root):
     return {'hash': digest(raw), 'settings': settings}
 
 
+CHECKSUM = re.compile(rb'checksum: (\d+)\r?\n')
+
+
+def radio_checksum(body):
+    """CRC-16/CCITT (0x1021, start 0xFFFF) as the firmware writes it in the
+    first line of radio.yml (nb4QueueSettings(), readYamlFile())."""
+    return binascii.crc_hqx(body, 0xFFFF)
+
+
 def write_radio(root, expected_hash, settings, backup_root):
     path = Path(root) / 'RADIO' / 'radio.yml'
     raw = path.read_bytes()
     if digest(raw) != expected_hash:
         raise EditorFileError('The radio settings changed meanwhile. Load them again.')
+    # The firmware rejects a file whose checksum line does not match and
+    # restores the previous copy, so the line is recomputed after editing.
+    header = CHECKSUM.match(raw)
+    if header:
+        raw = raw[header.end():].lstrip(b'\r\n')
     lines, newline = _split_lines(raw)
     for key, value in settings.items():
         if key not in RADIO_KEYS:
@@ -227,5 +242,8 @@ def write_radio(root, expected_hash, settings, backup_root):
             at = len(lines) - (1 if lines and lines[-1] == '' else 0)
             lines.insert(at, line)
     saved = backup(path, backup_root)
-    path.write_bytes(newline.join(lines).encode('utf-8'))
+    body = newline.join(lines).encode('utf-8')
+    if header:
+        body = b'checksum: %d\r\n' % radio_checksum(body) + body
+    path.write_bytes(body)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}
