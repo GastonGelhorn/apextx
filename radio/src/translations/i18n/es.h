@@ -2178,7 +2178,7 @@
 #define TR_NB4_THEME_EDITOR_INFO "Diseña temas, pantallas y widgets cómodamente en el PC con el ApexTX Theme Editor."
 #define TR_NB4_THEME_EDITOR_CONNECT "Conectar con el editor de temas"
 #define TR_NB4_THEME_EDITOR_PLUG_USB "Conecta ahora la emisora al PC con un cable USB. Esta conexión se abre como almacenamiento USB y el editor de temas la encuentra. Cuando termines, desconecta el cable; la emisora se reinicia con tu modo USB habitual."
-#define TR_NB4_THEME_EDITOR_UNPLUG_FIRST "Desconecta primero el cable USB, vuelve a tocar Editor de temas y conecta el cable de nuevo."
+#define TR_NB4_THEME_EDITOR_CONNECTED "La emisora ya está conectada como almacenamiento USB. Abre el editor de temas en el PC. Cuando termines, desconecta el cable; la emisora se reinicia."
 #define TR_NB4_TILE_THEME_EDITOR "Editor"
 #define TR_NB4_FAULT_CODE "FALLO %u"
 #define TR_NB4_CURVE_SHARED_ONE "Los dos lados usan la curva %s, y 1 ajuste más del modelo también. Mover sus puntos los mueve todos."

@@ -91,6 +91,8 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count);
 void nb4OpenSettingsModal();
 void nb4OpenSettingsSection(const char* section);
 void nb4OpenAppearance();
+// Opens the current or next USB connection as mass storage.
+void nb4UsbSelectMassStorage();
 void nb4OpenScreens();
 void nb4OpenQuickAccessSetup();
 void nb4OpenTimers();

@@ -152,6 +152,29 @@ void closeUsbMenu()
 static UsbSDConnected* usbConnectedWindow = nullptr;
 #endif
 
+#if defined(RADIO_NB4_FAMILY)
+// Theme Editor: open the current or next connection as mass storage. The
+// default mode starts the joystick as soon as the cable is in, so a running
+// connection in another mode is stopped first; handleUsbConnection() then
+// starts mass storage with the usual storage hand-over.
+void nb4UsbSelectMassStorage()
+{
+  _usbDisabled = false;
+#if defined(COLORLCD)
+  if (_usbMenu) _usbMenu->deleteLater();
+#endif
+#if !defined(SIMU)
+  if (usbStarted() && getSelectedUsbMode() != USB_MASS_STORAGE_MODE) {
+#if defined(USB_SERIAL)
+    if (getSelectedUsbMode() == USB_SERIAL_MODE) serialStop(SP_VCP);
+#endif
+    usbStop();
+  }
+#endif
+  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
+}
+#endif
+
 void handleUsbConnection()
 {
 #if defined(STM32) && !defined(SIMU)

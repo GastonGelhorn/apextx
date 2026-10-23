@@ -245,18 +245,19 @@ void nb4BuildAppearance(Window* parent)
 }
 
 // The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
-// Only the next connection opens as storage; the USB mode in System > USB
-// stays as it is, and the radio restarts after the storage session anyway.
+// Only this connection (or the next one) opens as storage; the USB mode in
+// System > USB stays as it is, and the radio restarts after the session.
 void nb4ConnectThemeEditor()
 {
 #if !defined(SIMU)
-  // A running connection keeps its mode, so the cable has to come out first.
-  if (usbPlugged()) {
-    new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_UNPLUG_FIRST,
+  if (usbStarted() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+    new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_CONNECTED,
                       nullptr, LEFT);
     return;
   }
-  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
+  nb4UsbSelectMassStorage();
+  // With the cable in, the main loop switches to storage right away.
+  if (usbPlugged()) return;
 #endif
   new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
                     nullptr, LEFT);
