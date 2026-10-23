@@ -240,11 +240,7 @@ void nb4BuildAppearance(Window* parent)
   action(parent, {0, y, w, 44}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
   label(parent, {8, y, w - 16, 22}, STR_NB4_ORIENTATION, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
   selectedAction(parent, {0, y, w, 44}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; }); y += 54;
-  label(parent, {8, y, w - 16, 22}, STR_NB4_THEME_EDITOR, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  auto info = label(parent, {8, y, w - 16, 66}, STR_NB4_THEME_EDITOR_INFO, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-  lv_label_set_long_mode(info->getLvObj(), LV_LABEL_LONG_WRAP); y += 70;
-  action(parent, {0, y, w, 44}, STR_NB4_THEME_EDITOR_CONNECT, [] { nb4ConnectThemeEditor(); });
+  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
 }
 
 // The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
