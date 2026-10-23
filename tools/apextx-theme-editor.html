@@ -1711,6 +1711,8 @@ if ($('logo').getAttribute('src').startsWith('__')) $('logo').src = 'apextx-upda
   if (!inApp) document.querySelectorAll('.radioOnly').forEach(e => e.style.display = 'none');
   let view = 'theme';
   try { view = localStorage.getItem('apextxThemeView') || view; } catch (e) {}
+  // #theme, #screens or #radio opens that tab directly.
+  if (['#theme', '#screens', '#radio'].includes(location.hash)) view = location.hash.slice(1);
   showView(view);
   setLang(saved);
   requestAnimationFrame(loop);
