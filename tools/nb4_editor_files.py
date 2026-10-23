@@ -54,15 +54,27 @@ def parse_yaml(lines):
     return root
 
 
-def dump_yaml(node, indent=0):
+def dump_yaml(node, indent=0, step=3, open_suffix=': '):
+    """The radio's own style: three spaces per level and "key: " before a
+    nested block; index keys ("0:") carry no trailing space."""
     out = []
     for key, value in node.items():
         if isinstance(value, dict):
-            out.append(' ' * indent + f'{key}:')
-            out += dump_yaml(value, indent + 2)
+            out.append(' ' * indent + key + (':' if key.isdigit() else open_suffix))
+            out += dump_yaml(value, indent + step, step, open_suffix)
         else:
             out.append(' ' * indent + f'{key}: {value}')
     return out
+
+
+def yaml_style(lines):
+    """Indent step and block opener of an existing block, as written."""
+    step = 3
+    for line in lines[1:]:
+        if line.strip():
+            step = (len(line) - len(line.lstrip(' '))) or 3
+            break
+    return step, (': ' if lines and lines[0].endswith(': ') else ':')
 
 
 def unquote(value):
@@ -188,8 +200,9 @@ def write_model(root, file, expected_hash, screens, backup_root):
         raise EditorFileError('Open this car once on the radio before editing its screens.')
     _check_screens(screens)
     _check_scalars(screens)
-    new_block = dump_yaml({'screenData': screens})
     block = _block(lines, 'screenData')
+    step, opener = yaml_style(lines[block[0]:block[1]]) if block else (3, ': ')
+    new_block = dump_yaml({'screenData': screens}, 0, step, opener)
     if block:
         lines[block[0]:block[1]] = new_block
     else:

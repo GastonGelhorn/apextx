@@ -96,6 +96,17 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue)}
 .note{color:var(--muted2);font-size:12px;max-width:420px;text-align:center;margin:0}
 pre{background:#0f1113;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;max-height:240px;overflow:auto;color:var(--muted);white-space:pre-wrap}
 .status{font-size:13px;color:var(--good);min-height:18px;margin:10px 0 0}
+.busy{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.busy.on{display:flex}
+.busy .box{position:relative;width:min(460px,100%);border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:24px;border-radius:18px;box-shadow:0 26px 64px -20px rgba(0,0,0,.9)}
+.busy .box::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,var(--blue),var(--orange))}
+.busy b{display:block;font-size:17px;margin:0 0 4px}
+.busy progress{appearance:none;-webkit-appearance:none;width:100%;height:10px;margin:16px 0 11px;display:block;border:0;background:transparent}
+.busy progress::-webkit-progress-bar{background:#23272d;border-radius:999px}
+.busy progress::-webkit-progress-value{background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px;transition:width .3s}
+.busy p{margin:0;font-size:14px;color:var(--muted);min-height:20px}
+.busy .unplug{display:none;margin-top:14px;padding:12px 14px;border:1px solid rgba(95,211,154,.4);background:rgba(95,211,154,.08);border-radius:11px;color:var(--good);font-size:14px;font-weight:600}
+.busy .btn{margin-top:16px;display:none}
 footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:18px}
 </style>
 </head>
@@ -263,6 +274,13 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
 </div>
 </main>
 <footer data-t="footer"></footer>
+<div class="busy" id="busy"><div class="box">
+  <b id="busyTitle"></b>
+  <progress id="busyBar" max="100" value="0"></progress>
+  <p id="busyText"></p>
+  <div class="unplug" id="busyUnplug" data-t="unplugNow"></div>
+  <button class="btn primary" id="busyOk" data-t="ok"></button>
+</div></div>
 </div>
 
 <script>
@@ -290,7 +308,7 @@ const T = {
     secBg: 'Background', hintBg: 'A ready-made background in your theme colours, or your own image. Saved as background.png (320×480); the cards become translucent above it.',
     dropBg: 'Use your own image: drop it here or click', bgDim: 'Darken', cardOpacity: 'Card opacity', bgFit: 'Own image',
     secExport: 'Save theme', hintExport: 'A theme is a THEMES/<Name>/ folder with theme.yml (and background.png). Select it on the transmitter under Appearance or in the Transmitter tab.',
-    saveRadio: 'Save to transmitter', orientSaved: 'Orientation stored on the transmitter; active after unplugging the cable.', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
+    saveRadio: 'Save to transmitter', busySaving: 'Saving to the transmitter', stepImages: 'Creating images…', stepWrite: 'Writing files…', stepActivate: 'Activating the theme…', stepScreens: 'Writing screens…', stepSettings: 'Writing settings…', busyDone: 'Done.', unplugNow: 'Now unplug the USB cable: the transmitter restarts and applies the changes.', ok: 'OK', orientSaved: 'Orientation stored on the transmitter; active after unplugging the cable.', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
     secCar: 'Car', hintCar: 'Screens belong to a car. Load a car from the transmitter, change its screens and save.',
     reload: 'Load again', saveScreens: 'Save screens', demoCar: 'Example car (not on a transmitter)',
     notEditable: 'Open this car once on the transmitter (ApexTX sets up its screens), then load it again.',
@@ -336,7 +354,7 @@ const T = {
     secBg: 'Hintergrund', hintBg: 'Fertige Hintergründe in deinen Theme-Farben oder ein eigenes Bild. Wird als background.png (320×480) gespeichert; die Karten werden darüber durchscheinend.',
     dropBg: 'Eigenes Bild verwenden: hier ablegen oder klicken', bgDim: 'Abdunkeln', cardOpacity: 'Deckkraft der Karten', bgFit: 'Eigenes Bild',
     secExport: 'Theme speichern', hintExport: 'Ein Theme ist ein Ordner THEMES/<Name>/ mit theme.yml (und background.png). Auswahl an der Fernbedienung unter Erscheinungsbild oder im Reiter Fernbedienung.',
-    saveRadio: 'Auf Fernbedienung speichern', orientSaved: 'Ausrichtung auf der Fernbedienung gespeichert; aktiv nach dem Abziehen des Kabels.', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
+    saveRadio: 'Auf Fernbedienung speichern', busySaving: 'Speichern auf der Fernbedienung', stepImages: 'Bilder erzeugen …', stepWrite: 'Dateien schreiben …', stepActivate: 'Theme aktivieren …', stepScreens: 'Bildschirme schreiben …', stepSettings: 'Einstellungen schreiben …', busyDone: 'Fertig.', unplugNow: 'Jetzt das USB-Kabel abziehen: Die Fernbedienung startet neu und übernimmt die Änderungen.', ok: 'OK', orientSaved: 'Ausrichtung auf der Fernbedienung gespeichert; aktiv nach dem Abziehen des Kabels.', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
     secCar: 'Auto', hintCar: 'Bildschirme gehören zu einem Auto. Auto von der Fernbedienung laden, Bildschirme ändern, speichern.',
     reload: 'Neu laden', saveScreens: 'Bildschirme speichern', demoCar: 'Beispiel-Auto (nicht auf einer Fernbedienung)',
     notEditable: 'Dieses Auto einmal an der Fernbedienung öffnen (ApexTX richtet dabei die Bildschirme ein), dann neu laden.',
@@ -382,7 +400,7 @@ const T = {
     secBg: 'Fondo', hintBg: 'Fondos listos en los colores de tu tema o tu propia imagen. Se guarda como background.png (320×480); las tarjetas se vuelven translúcidas encima.',
     dropBg: 'Usar tu propia imagen: suéltala aquí o haz clic', bgDim: 'Oscurecer', cardOpacity: 'Opacidad de las tarjetas', bgFit: 'Imagen propia',
     secExport: 'Guardar tema', hintExport: 'Un tema es una carpeta THEMES/<Nombre>/ con theme.yml (y background.png). Selecciónalo en la emisora en Apariencia o en la pestaña Emisora.',
-    saveRadio: 'Guardar en la emisora', orientSaved: 'Orientación guardada en la emisora; activa al desconectar el cable.', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
+    saveRadio: 'Guardar en la emisora', busySaving: 'Guardando en la emisora', stepImages: 'Creando imágenes…', stepWrite: 'Escribiendo archivos…', stepActivate: 'Activando el tema…', stepScreens: 'Escribiendo pantallas…', stepSettings: 'Escribiendo ajustes…', busyDone: 'Listo.', unplugNow: 'Ahora desconecta el cable USB: la emisora se reinicia y aplica los cambios.', ok: 'OK', orientSaved: 'Orientación guardada en la emisora; activa al desconectar el cable.', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
     secCar: 'Coche', hintCar: 'Las pantallas pertenecen a un coche. Carga un coche de la emisora, cambia sus pantallas y guarda.',
     reload: 'Volver a cargar', saveScreens: 'Guardar pantallas', demoCar: 'Coche de ejemplo (no está en una emisora)',
     notEditable: 'Abre este coche una vez en la emisora (ApexTX prepara sus pantallas) y vuelve a cargarlo.',
@@ -1599,10 +1617,13 @@ $('carSelect').onchange = () => openCar($('carSelect').value).catch(e => status(
 $('carReload').onclick = () => openCar($('carSelect').value).then(() => status('carStatus', t('loaded'))).catch(e => status('carStatus', e.message, true));
 $('carSave').onclick = async () => {
   try {
+    busy();
+    busyStep(40, t('stepScreens'));
     const res = await api('/api/model', {target: radioRoot(), file: car.file, hash: car.hash, screenData: car.screenData});
     car.hash = res.hash; carDirty = false; $('carSave').classList.add('off');
     status('carStatus', t('saved') + car.name + '  ·  ' + t('backupAt') + res.backup);
-  } catch (e) { status('carStatus', e.message, true); }
+    busyDone(t('saved') + car.name);
+  } catch (e) { status('carStatus', e.message, true); busyFail(e.message); }
 };
 $('addScreen').onclick = addScreen;
 $('delScreen').onclick = removeScreen;
@@ -1657,11 +1678,38 @@ $('radioSave').onclick = async () => {
   try {
     const settings = {selectedTheme: $('rTheme').value, nb4Accent: +$('rAccent').value, nb4Orientation: +$('rOrient').value,
       nb4LedMode: +$('rLedMode').value, nb4LedColor: +$('rLedColor').value};
+    busy();
+    busyStep(40, t('stepSettings'));
     const res = await api('/api/radio', {target: radioRoot(), hash: radio.hash, settings});
     radio.hash = res.hash;
     status('radioStatus', t('saved') + t('backupAt') + res.backup);
-  } catch (e) { status('radioStatus', e.message, true); }
+    busyDone(t('busyDone'));
+  } catch (e) { status('radioStatus', e.message, true); busyFail(e.message); }
 };
+
+// Save progress, like the Flasher; ends with the unplug instruction when the
+// files went to a transmitter.
+function busy() {
+  $('busyTitle').textContent = t('busySaving');
+  $('busyBar').value = 0;
+  $('busyText').textContent = '';
+  $('busyText').style.color = '';
+  $('busyUnplug').style.display = 'none';
+  $('busyOk').style.display = 'none';
+  $('busy').classList.add('on');
+}
+function busyStep(pct, text) { $('busyBar').value = pct; $('busyText').textContent = text; }
+function busyDone(text) {
+  busyStep(100, text);
+  $('busyUnplug').style.display = radioRoot() && target() === radioRoot() ? 'block' : 'none';
+  $('busyOk').style.display = 'inline-flex';
+}
+function busyFail(text) {
+  $('busyText').textContent = text;
+  $('busyText').style.color = 'var(--bad)';
+  $('busyOk').style.display = 'inline-flex';
+}
+$('busyOk').onclick = () => $('busy').classList.remove('on');
 
 // --- Themes on the transmitter ---
 $('target').onchange = onTargetChanged;
@@ -1678,11 +1726,15 @@ $('loadRadio').onclick = async () => {
 function bytesB64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); }
 $('saveRadio').onclick = async () => {
   try {
+    busy();
+    busyStep(10, t('stepImages'));
     const files = (await themeFiles()).map(f => ({name: f.name, data: bytesB64(f.data)}));
+    busyStep(45, t('stepWrite'));
     const res = await api('/api/save', {target: target(), files});
     let msg = t('saved') + res.folder;
     // Same setting as the Transmitter tab: the radio uses the theme from its next start.
     if ($('activateTheme').checked && radioRoot()) {
+      busyStep(80, t('stepActivate'));
       const fresh = await api('/api/radio?target=' + q(radioRoot()));
       const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {selectedTheme: state.name.trim()}});
       radio = {hash: done.hash, settings: {...fresh.settings, selectedTheme: state.name.trim()}};
@@ -1690,8 +1742,9 @@ $('saveRadio').onclick = async () => {
       msg += '  ·  ' + t('activated');
     }
     status('themeStatus', msg);
+    busyDone(msg);
     loadThemeList().catch(() => {});
-  } catch (e) { status('themeStatus', e.message, true); }
+  } catch (e) { status('themeStatus', e.message, true); busyFail(e.message); }
 };
 $('dlZip').onclick = async () => {
   try {
