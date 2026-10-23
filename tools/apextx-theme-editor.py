@@ -141,7 +141,7 @@ def save_theme(target, files):
             raise ValueError('The theme is too large.')
         path = Path(target).joinpath(*PurePosixPath(name).parts)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+        radio_files.write_durable(path, data)
         written = path.parent
     return str(written)
 

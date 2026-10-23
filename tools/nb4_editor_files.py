@@ -9,6 +9,7 @@ backup on the PC and refused if the file changed since it was read.
 import binascii
 import datetime
 import hashlib
+import os
 import re
 import shutil
 from pathlib import Path
@@ -99,6 +100,15 @@ def _scalar(lines, key):
     return None
 
 
+def write_durable(path, data):
+    """Write and flush to the device before reporting success: the radio is
+    often unplugged right after saving, and buffered data would be lost."""
+    with open(path, 'wb') as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+
+
 def backup(path, backup_root):
     stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     dest = Path(backup_root) / stamp / Path(path).parent.name / Path(path).name
@@ -187,7 +197,7 @@ def write_model(root, file, expected_hash, screens, backup_root):
         at = anchor[0] if anchor else len(lines) - (1 if lines and lines[-1] == '' else 0)
         lines[at:at] = new_block
     saved = backup(path, backup_root)
-    path.write_bytes(newline.join(lines).encode('utf-8'))
+    write_durable(path, newline.join(lines).encode('utf-8'))
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}
 
 
@@ -245,5 +255,5 @@ def write_radio(root, expected_hash, settings, backup_root):
     body = newline.join(lines).encode('utf-8')
     if header:
         body = b'checksum: %d\r\n' % radio_checksum(body) + body
-    path.write_bytes(body)
+    write_durable(path, body)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}
