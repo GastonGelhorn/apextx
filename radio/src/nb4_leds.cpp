@@ -12,9 +12,13 @@
 #if defined(SIMU)
 
 extern uint8_t nb4SimuChargeSource;
-static bool isChargerActive() { return nb4SimuChargeSource != 0; }
+static bool nb4LedChargerActive() { return nb4SimuChargeSource != 0; }
+#elif defined(RADIO_NB4)
+// Match the home screen's live charger pins instead of a boot-time latch.
+static bool nb4LedChargerActive() { return nb4ChargeSource() != 0; }
 #else
 extern bool isChargerActive();
+static bool nb4LedChargerActive() { return isChargerActive(); }
 #endif
 #endif
 
@@ -93,11 +97,12 @@ void nb4LedRefresh()
 #if defined(LED_STRIP_GPIO)
 
   extern uint8_t nb4BatteryPercent(uint16_t cellMv);
-  const uint8_t percent = nb4BatteryPercent((uint16_t)(g_vbat100mV * 10));
+  // The battery curve expects mV; the measured voltage is in 100 mV units.
+  const uint8_t percent = nb4BatteryPercent((uint16_t)(g_vbat100mV * 100));
 
   const Nb4LedRgb c =
       nb4LedColorNow(g_eeGeneral.nb4LedMode, g_eeGeneral.nb4LedColor,
-                     isChargerActive(), percent, timersGetMsTick());
+                     nb4LedChargerActive(), percent, timersGetMsTick());
 
   for (uint8_t i = 0; i < LED_STRIP_LENGTH; i += 1)
     rgbSetLedColor(i, c.r, c.g, c.b);
