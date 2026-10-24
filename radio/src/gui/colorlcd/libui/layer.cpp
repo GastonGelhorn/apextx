@@ -17,6 +17,9 @@
  */
 
 #include "layer.h"
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+#include "nb4_ui_perf.h"
+#endif
 
 std::list<Layer> Layer::stack;
 
@@ -37,6 +40,9 @@ void _assign_lv_group(lv_group_t* g)
 
 void Layer::push(Window* w)
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4UiPerfViewChanged();
+#endif
   // save prev group
   auto pg = lv_group_get_default();
 
@@ -50,6 +56,9 @@ void Layer::push(Window* w)
 
 void Layer::pop(Window* w)
 {
+#if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
+  nb4UiPerfViewChanged();
+#endif
   for (auto layer = stack.begin(); layer != stack.end(); ++layer) {
     if (layer->window != w) continue;
     auto next = std::next(layer);

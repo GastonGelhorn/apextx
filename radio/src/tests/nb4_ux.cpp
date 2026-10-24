@@ -4005,6 +4005,143 @@ TEST(Nb4Performance, HomeContinuousMotionRenderCost)
   }
 }
 
+namespace {
+unsigned countLvObjects(lv_obj_t* obj)
+{
+  unsigned n = 1;
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+    n += countLvObjects(lv_obj_get_child(obj, i));
+  return n;
+}
+
+unsigned routeImageDraws;
+decltype(lv_draw_ctx_t::draw_img_decoded) routeDrawImage;
+void countRouteImage(lv_draw_ctx_t* ctx, const lv_draw_img_dsc_t* dsc,
+                     const lv_area_t* area, const uint8_t* pixels, lv_img_cf_t format)
+{
+  ++routeImageDraws;
+  routeDrawImage(ctx, dsc, area, pixels, format);
+}
+}  // namespace
+
+// Baseline for the interface speed work: what opening each view costs on the
+// host. Host times do not match the radio, so the object count, flushed
+// pixels, image draws and storage calls are the figures to compare between
+// builds. Set NB4_PERF_CSV to keep the table.
+TEST(Nb4Performance, EveryViewOpenCost)
+{
+  Scene scene;
+  const auto dir = std::filesystem::temp_directory_path() / ("nb4-perf-" + std::to_string(getpid()));
+  for (const char* folder : {"RADIO", "MODELS", "THEMES", "SCRIPTS/TOOLS", "LOGS"})
+    std::filesystem::create_directories(dir / folder);
+  struct Cleanup { std::filesystem::path path; ~Cleanup() { simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(path); } } cleanup{dir};
+  simuFatfsSetPaths(dir.c_str(), nullptr);
+  strAppend(g_eeGeneral.currModelFilename, "perf-test.yml", LEN_MODEL_FILENAME);
+  auto model = modelslist.getCurrentModel();
+  if (!model) model = modelslist.addModel("perf-test.yml", false);
+  modelslist.setCurrentModel(model);
+  nb4AcceptNewCarModel();
+  scene.applyPalette("ApexTX Dark");
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+
+  struct Row {
+    std::string view;
+    const char* orientation;
+    double openUs, firstFrameUs, closeUs;
+    unsigned objects, layers;
+    unsigned long pixels;
+    unsigned images, storage;
+  };
+  std::vector<Row> rows;
+
+  auto ctx = lv_disp_get_default()->driver->draw_ctx;
+  routeDrawImage = ctx->draw_img_decoded;
+  ctx->draw_img_decoded = countRouteImage;
+
+  auto unwind = [&] {
+    Keyboard::hide(false);
+    for (unsigned depth = 0; depth < 24 && Layer::back() != base; ++depth) {
+      auto page = Layer::back();
+      page->onCancel();
+      scene.root->run();
+      if (Layer::back() == page) break;
+    }
+  };
+  auto measure = [&](const std::string& view, const char* orientation,
+                     const std::function<void()>& open) {
+    for (unsigned f = 0; f < 2; ++f) render(scene.root);
+    const auto storageBefore = simuFatfsStatCalls();
+    const auto t0 = std::chrono::steady_clock::now();
+    open();
+    const auto t1 = std::chrono::steady_clock::now();
+    resetFlushAccounting();
+    routeImageDraws = 0;
+    renderIncremental(scene.root);
+    const auto t2 = std::chrono::steady_clock::now();
+    Row row{view, orientation,
+            std::chrono::duration<double, std::micro>(t1 - t0).count(),
+            std::chrono::duration<double, std::micro>(t2 - t1).count(), 0,
+            countLvObjects(lv_scr_act()) + countLvObjects(lv_layer_top()),
+            0, flushedPixels, routeImageDraws,
+            (unsigned)(simuFatfsStatCalls() - storageBefore)};
+    const auto t3 = std::chrono::steady_clock::now();
+    unwind();
+    renderIncremental(scene.root);
+    row.closeUs = std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - t3).count();
+    EXPECT_EQ(Layer::back(), base) << view;
+    rows.push_back(row);
+  };
+
+  unsigned count = 0, sectionCount = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  const Nb4Section2* sections = nb4Sections(&sectionCount);
+  for (bool landscape : {false, true}) {
+    const char* orientation = landscape ? "landscape" : "portrait";
+    g_eeGeneral.nb4Orientation = landscape;
+    scene.orient(landscape);
+    ViewMain::instance()->resizeToDisplay();
+    measure("grid:settings", orientation, [] { nb4OpenSettingsModal(); });
+    measure("grid:quick_access", orientation, [] { nb4OpenQuickAccessModal(); });
+    for (unsigned i = 0; i < sectionCount; ++i) {
+      const char* id = sections[i].id;
+      measure(std::string("grid:") + id, orientation,
+              [id] { nb4OpenSettingsSection(id); });
+    }
+    for (unsigned i = 0; i < count; ++i) {
+      const Nb4Route& r = routes[i];
+      if (r.state != Nb4RouteState::Available || !nb4RouteIsOpenable(r)) continue;
+      measure(r.path, orientation, [&r] { ASSERT_TRUE(nb4OpenRoute(r.path)); });
+    }
+  }
+  ctx->draw_img_decoded = routeDrawImage;
+
+  if (const char* path = getenv("NB4_PERF_CSV")) {
+    auto file = fopen(path, "w");
+    ASSERT_NE(file, nullptr);
+    fprintf(file, "view,orientation,open_us,first_frame_us,close_us,objects,pixels,images,storage_calls\n");
+    for (const auto& r : rows)
+      fprintf(file, "%s,%s,%.0f,%.0f,%.0f,%u,%lu,%u,%u\n", r.view.c_str(), r.orientation,
+              r.openUs, r.firstFrameUs, r.closeUs, r.objects, r.pixels, r.images, r.storage);
+    fclose(file);
+  }
+  auto sorted = rows;
+  std::sort(sorted.begin(), sorted.end(), [](const Row& a, const Row& b) {
+    return a.openUs + a.firstFrameUs > b.openUs + b.firstFrameUs;
+  });
+  printf("NB4 views measured: %zu\n", rows.size());
+  for (size_t i = 0; i < sorted.size() && i < 12; ++i)
+    printf("NB4 view %-42s %-9s open %6.0f us  frame %6.0f us  close %6.0f us  objects %4u  images %3u  storage %u\n",
+           sorted[i].view.c_str(), sorted[i].orientation, sorted[i].openUs, sorted[i].firstFrameUs,
+           sorted[i].closeUs, sorted[i].objects, sorted[i].images, sorted[i].storage);
+  EXPECT_GT(rows.size(), 100u);
+  nb4RacingReset();
+}
+
 TEST(Nb4Performance, HomeGuiCyclePresentsTheNewestControlPosition)
 {
   Scene scene;

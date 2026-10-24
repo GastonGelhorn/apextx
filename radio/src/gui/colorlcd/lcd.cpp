@@ -28,6 +28,7 @@
 #include "etx_lv_theme.h"
 #if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
 #include "nb4_latency.h"
+#include "nb4_ui_perf.h"
 #include <atomic>
 #include <algorithm>
 #if !defined(SIMU)
@@ -201,6 +202,7 @@ extern "C" void lcdFlushed()
 #endif
 #if defined(RADIO_NB4_FAMILY) && !defined(BOOT)
   nb4TouchLatencyPresented();
+  nb4UiPerfPresented();
 #endif
   lv_disp_flush_ready(&disp_drv);
 }
@@ -218,6 +220,7 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
     return;
   }
   const unsigned width = area->x2 - area->x1 + 1;
+  const uint32_t copyStart = nb4UiPerfNowUs();
   // The preceding flush was acknowledged at vertical blank. Its old front
   // buffer is now free; synchronise only the pixels that actually changed.
   nb4SynchroniseBackBuffer();
@@ -225,6 +228,7 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
     memcpy(nb4Back + y * LCD_PHYS_W + area->x1,
       color_p + (y - area->y1) * width, width * sizeof(pixel_t));
   nb4MarkDirty(*area);
+  nb4UiPerfCopy(nb4UiPerfNowUs() - copyStart);
   if (!lv_disp_flush_is_last(disp_drv)) {
     lv_disp_flush_ready(disp_drv);
     return;
@@ -234,6 +238,7 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
   memset(nb4Dirty->present, 0, sizeof(nb4Dirty->present));
   presentedSize.store((uint32_t(lcdWidth) << 16) | lcdHeight, std::memory_order_release);
   nb4TouchLatencyFrameQueued();
+  nb4UiPerfFrameQueued();
 #if !defined(SIMU)
   presentArmedAt = time_get_ms() | 1;  // never zero, which means "not armed"
 #endif
@@ -286,7 +291,9 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
 static void waitForPresent(lv_disp_drv_t* drv)
 {
   if (!scheduler_is_running()) return;
+  const uint32_t waitStart = nb4UiPerfNowUs();
   sleep_ms(1);
+  nb4UiPerfWait(nb4UiPerfNowUs() - waitStart);
   const uint32_t armed = presentArmedAt;
   if (armed && time_get_ms() - armed > PresentTimeoutMs) {
     presentArmedAt = 0;
