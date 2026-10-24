@@ -60,8 +60,9 @@ python3.11 tools/test-flasher-package.py
 
 The build creates the `.app`, a zip and a SHA-256 sidecar in `dist/`. It bundles
 the native Homebrew dependencies and relocates their dylib references; the
-packaged smoke test removes developer Python/DYLD variables and Homebrew from
-PATH. CI performs the same build and test separately on Apple Silicon and Intel.
+packaged smoke test extracts that zip to a fresh directory, checks its signature
+and removes developer Python/DYLD variables and Homebrew from PATH. CI performs
+the same build and test separately on Apple Silicon and Intel.
 
 Local Apple Silicon validation covers packaging, signature integrity, bundled
 USB tools and opening both UI modes in Spanish. A complete radio write through
