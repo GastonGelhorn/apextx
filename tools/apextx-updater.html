@@ -216,7 +216,7 @@ const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),perc
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
 let running=false,lang='en',mode='update',rVariant=null,snapshot=null,requesting=false,localError=null;
 const IMG=2097152;
-function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const n=(navigator.language||'en').slice(0,2);return T[n]?n:'en';}
+function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}return 'en';}
 function setMode(m){if(running)return;mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');}
 function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l;
  document.querySelectorAll('[data-k]').forEach(el=>{if(d[el.dataset.k]!=null)el.textContent=d[el.dataset.k];});

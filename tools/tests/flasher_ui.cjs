@@ -26,6 +26,9 @@ const script=html.split('<script>')[1].split('</script>')[0].replace('applyLang(
 vm.runInContext(script,context);
 const run=code=>vm.runInContext(code,context);
 const get=id=>elements.get('#'+id);
+assert.equal(document.documentElement.lang,'en','Default to English even on a Spanish system');
+assert.equal(run("localStorage.getItem=()=> 'de';pick()"),'de','Honor an explicitly chosen language');
+run("localStorage.getItem=()=>null;applyLang('es')");
 const offer={id:42,target:1,version:'0.1.0-alpha.4',prerelease:true,url:'https://github.com/',decision:'available'};
 const device={state:'ready',target:1,serial:'A',model:'NB4',version:'0.1.0-alpha.3'};
 function state(device,release=offer,extra={}) {run('snapshot='+JSON.stringify({device,release,...extra})+';running=!!snapshot.running;render();');}
