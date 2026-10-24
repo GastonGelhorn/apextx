@@ -407,6 +407,82 @@ static const uint8_t mask_nb4_steering[] __FLASH = {
 static const uint8_t mask_nb4_throttle[] __FLASH = {
 #include "mask_nb4_throttle.lbm"
 };
+// Route glyphs drawn by tools/nb4-icons.py.
+static const uint8_t mask_nb4_brightness[] __FLASH = {
+#include "mask_nb4_brightness.lbm"
+};
+static const uint8_t mask_nb4_lights[] __FLASH = {
+#include "mask_nb4_lights.lbm"
+};
+static const uint8_t mask_nb4_usb[] __FLASH = {
+#include "mask_nb4_usb.lbm"
+};
+static const uint8_t mask_nb4_keys[] __FLASH = {
+#include "mask_nb4_keys.lbm"
+};
+static const uint8_t mask_nb4_toggle[] __FLASH = {
+#include "mask_nb4_toggle.lbm"
+};
+static const uint8_t mask_nb4_filter[] __FLASH = {
+#include "mask_nb4_filter.lbm"
+};
+static const uint8_t mask_nb4_history[] __FLASH = {
+#include "mask_nb4_history.lbm"
+};
+static const uint8_t mask_nb4_power[] __FLASH = {
+#include "mask_nb4_power.lbm"
+};
+static const uint8_t mask_nb4_bell[] __FLASH = {
+#include "mask_nb4_bell.lbm"
+};
+static const uint8_t mask_nb4_voice[] __FLASH = {
+#include "mask_nb4_voice.lbm"
+};
+static const uint8_t mask_nb4_alert[] __FLASH = {
+#include "mask_nb4_alert.lbm"
+};
+static const uint8_t mask_nb4_flag[] __FLASH = {
+#include "mask_nb4_flag.lbm"
+};
+static const uint8_t mask_nb4_stopwatch[] __FLASH = {
+#include "mask_nb4_stopwatch.lbm"
+};
+static const uint8_t mask_nb4_globe[] __FLASH = {
+#include "mask_nb4_globe.lbm"
+};
+static const uint8_t mask_nb4_backup[] __FLASH = {
+#include "mask_nb4_backup.lbm"
+};
+static const uint8_t mask_nb4_template[] __FLASH = {
+#include "mask_nb4_template.lbm"
+};
+static const uint8_t mask_nb4_channels[] __FLASH = {
+#include "mask_nb4_channels.lbm"
+};
+static const uint8_t mask_nb4_button[] __FLASH = {
+#include "mask_nb4_button.lbm"
+};
+static const uint8_t mask_nb4_update[] __FLASH = {
+#include "mask_nb4_update.lbm"
+};
+static const uint8_t mask_nb4_restart[] __FLASH = {
+#include "mask_nb4_restart.lbm"
+};
+static const uint8_t mask_nb4_speaker[] __FLASH = {
+#include "mask_nb4_speaker.lbm"
+};
+static const uint8_t mask_nb4_vibrate[] __FLASH = {
+#include "mask_nb4_vibrate.lbm"
+};
+static const uint8_t mask_nb4_bluetooth[] __FLASH = {
+#include "mask_nb4_bluetooth.lbm"
+};
+static const uint8_t mask_nb4_help[] __FLASH = {
+#include "mask_nb4_help.lbm"
+};
+static const uint8_t mask_nb4_screens[] __FLASH = {
+#include "mask_nb4_screens.lbm"
+};
 #endif
 
 static const uint8_t mask_top_logo[] __FLASH = {
@@ -562,6 +638,31 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_NB4_OUTPUTS, mask_nb4_outputs),
     BI(ICON_NB4_STEERING, mask_nb4_steering),
     BI(ICON_NB4_THROTTLE, mask_nb4_throttle),
+    BI(ICON_NB4_BRIGHTNESS, mask_nb4_brightness),
+    BI(ICON_NB4_LIGHTS, mask_nb4_lights),
+    BI(ICON_NB4_USB, mask_nb4_usb),
+    BI(ICON_NB4_KEYS, mask_nb4_keys),
+    BI(ICON_NB4_TOGGLE, mask_nb4_toggle),
+    BI(ICON_NB4_FILTER, mask_nb4_filter),
+    BI(ICON_NB4_HISTORY, mask_nb4_history),
+    BI(ICON_NB4_POWER, mask_nb4_power),
+    BI(ICON_NB4_BELL, mask_nb4_bell),
+    BI(ICON_NB4_VOICE, mask_nb4_voice),
+    BI(ICON_NB4_ALERT, mask_nb4_alert),
+    BI(ICON_NB4_FLAG, mask_nb4_flag),
+    BI(ICON_NB4_STOPWATCH, mask_nb4_stopwatch),
+    BI(ICON_NB4_GLOBE, mask_nb4_globe),
+    BI(ICON_NB4_BACKUP, mask_nb4_backup),
+    BI(ICON_NB4_TEMPLATE, mask_nb4_template),
+    BI(ICON_NB4_CHANNELS, mask_nb4_channels),
+    BI(ICON_NB4_BUTTON, mask_nb4_button),
+    BI(ICON_NB4_UPDATE, mask_nb4_update),
+    BI(ICON_NB4_RESTART, mask_nb4_restart),
+    BI(ICON_NB4_SPEAKER, mask_nb4_speaker),
+    BI(ICON_NB4_VIBRATE, mask_nb4_vibrate),
+    BI(ICON_NB4_BLUETOOTH, mask_nb4_bluetooth),
+    BI(ICON_NB4_HELP, mask_nb4_help),
+    BI(ICON_NB4_SCREENS, mask_nb4_screens),
 #endif
 };
 

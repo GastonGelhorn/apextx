@@ -93,7 +93,7 @@ class ChannelValue : public Window
       formatNumberAsString(s, 16, channel + 1, LEADING0, 2, "", " ");
       strAppend(s + 3, g_model.limitData[channel].name, LEN_CHANNEL_NAME);
     } else {
-      getSourceString(s, MIXSRC_FIRST_CH + channel);
+      getSourceDisplayString(s, MIXSRC_FIRST_CH + channel);
     }
     lv_label_set_text(chanLabel, s);
   }

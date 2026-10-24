@@ -27,6 +27,9 @@
 #include "hal/audio_driver.h"
 
 #include "edgetx.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui_perf.h"
+#endif
 #include "nb4_history.h"
 
 #if defined(RADIO_NB4_FAMILY)
@@ -457,10 +460,14 @@ void guiMain(event_t evt)
 #if defined(RADIO_NB4_FAMILY)
   // A setting chosen from a boot alert opens once the main loop owns the UI.
   nb4RunDeferredRoute();
+  nb4WarmGridCache();
   // Collect the newest control positions before this frame is rendered.
   // Rendering first adds one complete UI cycle to the instrument latency.
+  const uint32_t uiStart = nb4UiPerfNowUs();
   MainWindow::instance()->run();
+  const uint32_t uiWindows = nb4UiPerfNowUs();
   LvglWrapper::instance()->run();
+  nb4UiPerfLoop(uiWindows - uiStart, nb4UiPerfNowUs() - uiWindows);
 #else
   LvglWrapper::instance()->run();
   MainWindow::instance()->run();

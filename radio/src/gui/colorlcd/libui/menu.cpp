@@ -334,6 +334,24 @@ class MenuWindowContent : public Window
 #endif
 
   void updateLines() { body->updateLines(); }
+  void setMinimumRowHeight(coord_t height)
+  {
+    auto obj = body->getLvObj();
+    const auto font = lv_obj_get_style_text_font(obj, LV_PART_ITEMS);
+    const coord_t padding = std::max<coord_t>(2 * PAD_TABLE_V, height - font->line_height);
+    lv_obj_set_style_pad_top(obj, padding / 2, LV_PART_ITEMS);
+    lv_obj_set_style_pad_bottom(obj, padding - padding / 2, LV_PART_ITEMS);
+    if (height > 0) {
+      const coord_t limit = lv_obj_get_style_max_height(obj, 0);
+      // Keep the last visible touch row whole instead of presenting a sliver.
+      lv_obj_set_style_max_height(obj, std::max<coord_t>(height, limit / height * height), 0);
+    }
+  }
+  void setTitleColors(LcdColorIndex background, LcdColorIndex foreground)
+  {
+    etx_solid_bg(header->getLvObj(), background);
+    etx_txt_color(header->getLvObj(), foreground);
+  }
   void removeLines() { body->removeLines(); }
   int count() { return body->count(); }
   int selection() { return body->selection(); }
@@ -388,6 +406,16 @@ void Menu::setTitle(std::string text)
 {
   content->setTitle(std::move(text));
   updatePosition();
+}
+
+void Menu::setMinimumRowHeight(coord_t height)
+{
+  content->setMinimumRowHeight(height);
+}
+
+void Menu::setTitleColors(LcdColorIndex background, LcdColorIndex foreground)
+{
+  content->setTitleColors(background, foreground);
 }
 
 void Menu::addLine(const MaskBitmap* icon_mask, const std::string& text,

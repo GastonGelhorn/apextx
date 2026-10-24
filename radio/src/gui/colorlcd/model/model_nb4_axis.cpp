@@ -197,8 +197,18 @@ void responseGraph(Window* form, FlexGridLayout& grid, const Nb4AxisView& view,
   auto card = new Window(row, rect_t{0, 0, width, (coord_t)(chartH + headerH + PAD_MEDIUM)});
   lv_obj_set_style_grid_cell_column_span(card->getLvObj(), 2, LV_PART_MAIN);
   lv_obj_set_style_radius(card->getLvObj(), PAD_MEDIUM, LV_PART_MAIN);
-  etx_bg_color(card->getLvObj(), COLOR_THEME_PRIMARY2_INDEX, LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(card->getLvObj(), LV_OPA_20, LV_PART_MAIN);
+  // A 20 % tint of PRIMARY2 over the page, mixed once here and drawn opaque:
+  // a translucent card this size made every scroll frame blend ~75k pixels.
+  lv_obj_t* under = form->getLvObj();
+  while (lv_obj_get_parent(under) &&
+         lv_obj_get_style_bg_opa(under, LV_PART_MAIN) < LV_OPA_COVER)
+    under = lv_obj_get_parent(under);
+  lv_obj_set_style_bg_color(
+      card->getLvObj(),
+      lv_color_mix(makeLvColor(COLOR_THEME_PRIMARY2),
+                   lv_obj_get_style_bg_color(under, LV_PART_MAIN), LV_OPA_20),
+      LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(card->getLvObj(), LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_set_style_border_width(card->getLvObj(), 1, LV_PART_MAIN);
   etx_border_color(card->getLvObj(), COLOR_THEME_PRIMARY2_INDEX, LV_PART_MAIN);
   lv_obj_set_style_border_opa(card->getLvObj(), LV_OPA_30, LV_PART_MAIN);

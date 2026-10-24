@@ -12,8 +12,10 @@
 #include "mainwindow.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "channel_bar.h"
 #include "topbar.h"
 #include "nb4_ui_languages.h"
+#include "nb4_design_checks.h"
 #include "theme_manager.h"
 #include "pagegroup.h"
 #include "radio_setup.h"
@@ -49,6 +51,7 @@
 #include "module_setup.h"
 #include "timer_setup.h"
 #include "dialog.h"
+#include "choice.h"
 #include "menu.h"
 #include "textedit.h"
 #include "keyboard_base.h"
@@ -78,6 +81,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
+#include <lvgl/src/draw/sw/lv_draw_sw.h>
 
 void guiMain(event_t event);
 
@@ -289,6 +293,8 @@ struct Scene {
 
   ~Scene()
   {
+    // Keep every test independent of the grids an earlier one left parked.
+    nb4DropGridCache();
     memcpy(g_eeGeneral.uiLanguage, originalLanguage, sizeof(originalLanguage));
     currentLangStrings = originalStrings;
     nb4RacingReset();
@@ -615,6 +621,48 @@ TEST(Nb4Ux, BuiltinIconTableIsAlignedWithItsEnum)
   EXPECT_EQ(at, -1);
 }
 
+// Every destination has a glyph of its own, and every glyph has the same
+// optical size: a line drawing that fills most of its 30 px slot, never a
+// solid square and never a small mark lost in it.
+TEST(Nb4Ux, EveryDestinationHasItsOwnGlyphOfTheSameSize)
+{
+  unsigned count = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  std::map<uint8_t, std::string> owner;
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route& r = routes[i];
+    // The tabs of one page are one destination.
+    const bool tabs = r.destination && (!strcmp(r.destination, "steering") ||
+                                        !strcmp(r.destination, "throttle_brake"));
+    const std::string key = tabs ? r.destination : r.path;
+    const uint8_t icon = nb4RouteIcon(r);
+    auto [it, fresh] = owner.emplace(icon, key);
+    EXPECT_TRUE(fresh || it->second == key)
+        << r.path << " shares its glyph with " << it->second;
+
+    const MaskBitmap* mask = getBuiltinIcon((EdgeTxIcon)icon);
+    ASSERT_NE(mask, nullptr);
+    EXPECT_EQ(mask->width, Nb4Ui::IconTile) << r.path;
+    EXPECT_EQ(mask->height, Nb4Ui::IconTile) << r.path;
+    int x0 = mask->width, y0 = mask->height, x1 = -1, y1 = -1;
+    unsigned ink = 0;
+    for (int y = 0; y < mask->height; ++y)
+      for (int x = 0; x < mask->width; ++x) {
+        const uint8_t a = mask->data[y * mask->width + x];
+        ink += a;
+        if (a < 128) continue;
+        x0 = std::min(x0, x); y0 = std::min(y0, y);
+        x1 = std::max(x1, x); y1 = std::max(y1, y);
+      }
+    const int extent = std::max(x1 - x0 + 1, y1 - y0 + 1);
+    const double cover = ink / 255.0 / (mask->width * mask->height);
+    EXPECT_GE(extent, 22) << r.path << " is drawn too small";
+    EXPECT_LE(cover, 0.55) << r.path << " is nearly a solid block";
+    EXPECT_GE(cover, 0.15) << r.path << " is too faint next to the others";
+  }
+  EXPECT_GT(owner.size(), 50u);
+}
+
 TEST(Nb4Ux, BatteryPercentFollowsTheOfficialCurveNotAStraightLine)
 {
 
@@ -712,26 +760,24 @@ TEST(Nb4Ux, PalettePolarityMatchesWhatItsNamePromises)
   EXPECT_TRUE(nb4Palette(dark).dark);
 }
 
-TEST(Nb4Ux, DarkCardsStayNeutralAndBarelyAboveBlackInTheRenderedFrame)
+// A dark card is one solid fill, the darkest neutral the panel can show:
+// no dithered pattern and no mask to redraw on every frame.
+TEST(Nb4Ux, DarkCardsAreOneSolidNeutralJustAboveBlack)
 {
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   auto card = new Window(scene.root, {20, 20, 80, 80});
   Nb4Ui::card(card->getLvObj());
   render(scene.root);
-  unsigned red = 0, green = 0, blue = 0;
-  for (unsigned y = 32; y < 64; ++y) {
-    for (unsigned x = 32; x < 64; ++x) {
-      const uint32_t pixel = lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]);
-      red += (pixel >> 16) & 255;
-      green += (pixel >> 8) & 255;
-      blue += pixel & 255;
-    }
-  }
+  const uint32_t first = lv_color_to32(frame[32 * lv_disp_get_hor_res(nullptr) + 32]) & 0xffffff;
+  for (unsigned y = 32; y < 64; ++y)
+    for (unsigned x = 32; x < 64; ++x)
+      ASSERT_EQ(lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]) & 0xffffff, first);
+  const unsigned red = (first >> 16) & 255, green = (first >> 8) & 255, blue = first & 255;
   EXPECT_EQ(red, green);
   EXPECT_EQ(red, blue);
   EXPECT_GT(red, 0u);
-  EXPECT_LE(red, 3u * 32 * 32);
+  EXPECT_LE(red, 8u);
   card->deleteLater();
   scene.root->run();
 }
@@ -3528,6 +3574,13 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   if (!model) model = modelslist.addModel("routes-test.yml", false);
   modelslist.setCurrentModel(model);
   nb4AcceptNewCarModel();
+  // Exercise populated native rows too: an empty list only checks its Add
+  // button and used to hide sub-44 px targets in logic and voice assignments.
+  g_model.logicalSw[0].func = LS_FUNC_VPOS;
+  g_model.logicalSw[0].v1 = MIXSRC_FIRST_STICK;
+  CFN_SWITCH(&g_eeGeneral.customFn[0]) = SWSRC_ON;
+  CFN_FUNC(&g_eeGeneral.customFn[0]) = FUNC_PLAY_TRACK;
+  CFN_ACTIVE(&g_eeGeneral.customFn[0]) = 1;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
   currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
@@ -3538,6 +3591,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   unsigned count = 0, opened = 0, guarded = 0;
   unsigned checkedDestination = 0, menuDestination = 0;
   const Nb4Route* routes = nb4Routes(&count);
+  std::vector<Nb4DesignViolation> design;
 
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
   const char* language = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
@@ -3545,8 +3599,28 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   g_eeGeneral.nb4Orientation = pass >= DIM(NB4_UI_LANGUAGES);
   scene.orient(pass >= DIM(NB4_UI_LANGUAGES));
   ViewMain::instance()->resizeToDisplay();
+  // As nb4ProcessOrientation does on the radio, so home is built for it.
+  LayoutFactory::loadCustomScreens();
   memcpy(g_eeGeneral.uiLanguage, language, 2);
   currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  {
+    // Home and the two navigation grids are held to the same rules.
+    const std::string where = std::string(language) + (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-");
+    for (unsigned f = 0; f < 3; ++f) render(scene.root);
+    saveFrame(("route-" + where + "home").c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      design.push_back({v.rule, "home-" + where + ": " + v.detail});
+    for (const auto open : {nb4OpenSettingsModal, nb4OpenQuickAccessModal}) {
+      open();
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      const char* name = open == nb4OpenSettingsModal ? "settings" : "quick-access";
+      for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+        design.push_back({v.rule, std::string(name) + "-" + where + ": " + v.detail});
+      Layer::back()->onCancel();
+      scene.root->run();
+    }
+    ASSERT_EQ(Layer::back(), base);
+  }
   for (unsigned i = 0; i < count; ++i) {
     const Nb4Route& r = routes[i];
     if (r.state != Nb4RouteState::Available) continue;
@@ -3581,6 +3655,8 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
     std::string capture = std::string("route-") + g_eeGeneral.uiLanguage[0] + g_eeGeneral.uiLanguage[1] +
         (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-") + (r.path + 9);
     std::replace(capture.begin(), capture.end(), '/', '-');
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      design.push_back({v.rule, capture + ": " + v.detail});
     saveFrame(capture.c_str(), pass >= DIM(NB4_UI_LANGUAGES) ? 480 : 320, pass >= DIM(NB4_UI_LANGUAGES) ? 320 : 480);
 
     const char* mustShow = nullptr;
@@ -3618,6 +3694,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   }
 
   }
+  nb4ReportDesign(design);
   EXPECT_GT(opened, 180u);
   EXPECT_LT(guarded, 32u);
   EXPECT_GT(checkedDestination, 90u);
@@ -4003,6 +4080,737 @@ TEST(Nb4Performance, HomeContinuousMotionRenderCost)
            images / 240, maxImages, pixels / 240);
     page->deleteLater(); scene.root->run();
   }
+}
+
+namespace {
+unsigned countLvObjects(lv_obj_t* obj)
+{
+  unsigned n = 1;
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+    n += countLvObjects(lv_obj_get_child(obj, i));
+  return n;
+}
+
+unsigned routeImageDraws;
+decltype(lv_draw_ctx_t::draw_img_decoded) routeDrawImage;
+void countRouteImage(lv_draw_ctx_t* ctx, const lv_draw_img_dsc_t* dsc,
+                     const lv_area_t* area, const uint8_t* pixels, lv_img_cf_t format)
+{
+  ++routeImageDraws;
+  routeDrawImage(ctx, dsc, area, pixels, format);
+}
+}  // namespace
+
+// Baseline for the interface speed work: what opening each view costs on the
+// host. Host times do not match the radio, so the object count, flushed
+// pixels, image draws and storage calls are the figures to compare between
+// builds. Set NB4_PERF_CSV to keep the table.
+TEST(Nb4Performance, ClosedGridsReopenWithoutRebuilding)
+{
+  Scene scene;
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+  auto elapsedUs = [](const std::function<void()>& run) {
+    const auto t0 = std::chrono::steady_clock::now();
+    run();
+    return std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
+  auto close = [&] { Layer::back()->onCancel(); scene.root->run(); };
+
+  const double coldUs = elapsedUs([] { nb4OpenSettingsModal(); });
+  auto settings = Layer::back();
+  ASSERT_NE(settings, base);
+  render(scene.root);
+  const auto focusable = lv_group_get_obj_count(lv_group_get_default());
+  ASSERT_GT(focusable, 0u);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+  EXPECT_FALSE(settings->isVisible());
+
+  // Reopening shows the same grid, with its tiles still in the input group.
+  const double warmUs = elapsedUs([] { nb4OpenSettingsModal(); });
+  EXPECT_EQ(Layer::back(), settings);
+  EXPECT_TRUE(settings->isVisible());
+  EXPECT_EQ(lv_group_get_obj_count(lv_group_get_default()), focusable);
+  printf("NB4 settings grid open: cold %.0f us, cached %.0f us\n", coldUs, warmUs);
+  EXPECT_LT(warmUs, coldUs);
+
+  // A section opened from it parks on top of it and comes back above it.
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  ASSERT_NE(display, settings);
+  close();
+  EXPECT_EQ(Layer::back(), settings);
+  nb4OpenSettingsSection("display");
+  EXPECT_EQ(Layer::back(), display);
+  close();
+
+  // A second copy asked for while the cached one is on screen is a plain
+  // dialog: closing it deletes it and leaves the cached one underneath.
+  nb4OpenSettingsModal();
+  auto copy = Layer::back();
+  EXPECT_NE(copy, settings);
+  close();
+  EXPECT_EQ(Layer::back(), settings);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+
+  // Anything the tiles are built from rebuilds the grid on the next open.
+  memcpy(g_eeGeneral.uiLanguage, "es", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4OpenSettingsModal();
+  EXPECT_NE(Layer::back(), settings);
+  settings = Layer::back();
+  close();
+
+  nb4OpenQuickAccessModal();
+  auto quick = Layer::back();
+  close();
+  const auto pinned = g_eeGeneral.nb4QuickAccess[0];
+  g_eeGeneral.nb4QuickAccess[0] = g_eeGeneral.nb4QuickAccess[1];
+  g_eeGeneral.nb4QuickAccess[1] = pinned;
+  nb4OpenQuickAccessModal();
+  EXPECT_NE(Layer::back(), quick);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+}
+
+TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
+{
+  Scene scene;
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+  lv_mem_monitor_t before, after;
+  lv_mem_monitor(&before);
+
+  unsigned built = 0;
+  while (nb4WarmNextGrid()) {
+    ASSERT_EQ(Layer::back(), base) << "a warmed grid stayed on screen";
+    ASSERT_LT(++built, 20u);
+  }
+  EXPECT_GE(built, 8u);
+  render(scene.root);
+  lv_mem_monitor(&after);
+  printf("NB4 grid warm-up: %u grids, %u KiB of the LVGL heap\n", built,
+         (unsigned)((before.free_size - after.free_size) / 1024));
+
+  // Every grid now opens from the cache, the first time included.
+  nb4OpenSettingsModal();
+  auto settings = Layer::back();
+  EXPECT_NE(settings, base);
+  settings->onCancel();
+  nb4OpenSettingsModal();
+  EXPECT_EQ(Layer::back(), settings);
+  Layer::back()->onCancel();
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  display->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+  EXPECT_FALSE(nb4WarmNextGrid());
+
+  // A language change makes them stale; the warm-up rebuilds them.
+  memcpy(g_eeGeneral.uiLanguage, "es", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  EXPECT_TRUE(nb4WarmNextGrid());
+  while (nb4WarmNextGrid()) {}
+  nb4OpenSettingsSection("display");
+  EXPECT_NE(Layer::back(), display);
+  Layer::back()->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+}
+
+TEST(Nb4Ux, AppearancePickersKeepTouchRowsAndApplyWithoutReopeningThePage)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      g_eeGeneral.nb4Orientation = landscape;
+      scene.orient(landscape); main->resizeToDisplay();
+      scene.applyPalette("ApexTX Dark");
+      ASSERT_TRUE(nb4OpenRoute("settings/display/appearance"));
+      auto page = Layer::back();
+      render(scene.root);
+      Choice* palette = nullptr;
+      unsigned choices = 0;
+      std::vector<lv_obj_t*> controls;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        auto choice = window ? dynamic_cast<Choice*>(window) : nullptr;
+        if (choice) {
+          ++choices;
+          if (!strcmp(choice->getTitle(), STR_NB4_PALETTE)) palette = choice;
+          // Text and the disclosure arrow share the control's vertical centre.
+          lv_area_t box; lv_obj_get_coords(obj, &box);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) {
+            lv_area_t child; lv_obj_get_coords(lv_obj_get_child(obj, i), &child);
+            EXPECT_LE(abs((child.y1 + child.y2) - (box.y1 + box.y2)), 2);
+          }
+        }
+        if (choice || (window && dynamic_cast<ButtonBase*>(window))) {
+          lv_area_t box; lv_obj_get_coords(obj, &box);
+          EXPECT_GE(lv_area_get_width(&box), Nb4Ui::Touch);
+          EXPECT_GE(lv_area_get_height(&box), Nb4Ui::Touch);
+          EXPECT_GE(box.x1, 0); EXPECT_GE(box.y1, 0);
+          EXPECT_LT(box.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(box.y2, lv_disp_get_ver_res(nullptr));
+          if (box.y1 >= Nb4Ui::HeaderH + 22) controls.push_back(obj);
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      ASSERT_EQ(choices, 2u);
+      ASSERT_NE(palette, nullptr);
+      const std::string prefix = std::string("appearance-") + language +
+          (landscape ? "-landscape" : "-portrait");
+      for (const char* name : {"ApexTX Dark", "ApexTX Light", "ApexTX Sun"}) {
+        SCOPED_TRACE(name);
+        lv_event_send(palette->getLvObj(), LV_EVENT_CLICKED, nullptr);
+        render(scene.root);
+        auto menu = dynamic_cast<Menu*>(Layer::back());
+        ASSERT_NE(menu, nullptr);
+        EXPECT_EQ(menu->count(), nb4PaletteCount());
+        TableField* table = nullptr;
+        std::function<void(lv_obj_t*)> find = [&](lv_obj_t* obj) {
+          auto w = static_cast<Window*>(lv_obj_get_user_data(obj));
+          if (w && dynamic_cast<TableField*>(w)) table = dynamic_cast<TableField*>(w);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) find(lv_obj_get_child(obj, i));
+        };
+        find(menu->getLvObj());
+        ASSERT_NE(table, nullptr);
+        auto rows = reinterpret_cast<lv_table_t*>(table->getLvObj());
+        for (unsigned i = 0; i < menu->count(); ++i)
+          EXPECT_GE(rows->row_h[i], Nb4Ui::Touch);
+        if (!strcmp(name, "ApexTX Dark"))
+          saveFrame((prefix + "-picker").c_str(), landscape ? 480 : 320, landscape ? 320 : 480);
+        const int target = nb4PaletteIndexByName(name);
+        ASSERT_GE(target, 0);
+        table->onPress(target, 0);
+        render(scene.root);
+        EXPECT_EQ(Layer::back(), page);
+        EXPECT_STREQ(g_eeGeneral.selectedTheme, name);
+        EXPECT_EQ(palette->getIntValue(), target);
+        // Both touch and key focus keep a single complete, opaque outline.
+        for (auto obj : controls) {
+          for (lv_state_t state : {lv_state_t(LV_STATE_FOCUSED),
+                                  lv_state_t(LV_STATE_PRESSED), lv_state_t(LV_STATE_FOCUS_KEY)}) {
+            lv_obj_add_state(obj, state);
+            EXPECT_EQ(lv_obj_get_style_bg_opa(obj, 0), LV_OPA_COVER);
+            EXPECT_EQ(lv_obj_get_style_border_side(obj, 0), LV_BORDER_SIDE_FULL);
+            EXPECT_EQ(lv_obj_get_style_border_width(obj, 0), 1);
+            EXPECT_EQ(lv_obj_get_style_outline_width(obj, 0), 0);
+            EXPECT_EQ(lv_obj_get_style_shadow_width(obj, 0), 0);
+            lv_obj_clear_state(obj, state);
+          }
+        }
+        saveFrame((prefix + "-" + name).c_str(), landscape ? 480 : 320, landscape ? 320 : 480);
+      }
+      // Opening the built-in picker must not silently replace an external theme.
+      strAppend(g_eeGeneral.selectedTheme, "Track Night", SELECTED_THEME_NAME_LEN);
+      render(scene.root);
+      EXPECT_EQ(palette->getIntValue(), -1);
+      std::vector<std::string> labels; collectLabels(palette->getLvObj(), labels);
+      EXPECT_NE(std::find(labels.begin(), labels.end(), "Track Night"), labels.end());
+      lv_event_send(palette->getLvObj(), LV_EVENT_CLICKED, nullptr);
+      render(scene.root); Layer::back()->onCancel(); render(scene.root);
+      EXPECT_STREQ(g_eeGeneral.selectedTheme, "Track Night");
+      EXPECT_EQ(Layer::back(), page);
+      page->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, SettingsPagesFillTheViewportAndBackRestoresTheCachedMenu)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      nb4OpenSettingsModal();
+      auto menu = Layer::back();
+      for (const char* path : {"settings/display/appearance", "settings/display/screens",
+          "settings/controls/shortcuts", "settings/controls/quick_access",
+          "settings/models/templates", "settings/advanced/variables",
+          "settings/sound_alerts/lights", "settings/race/timers",
+          "settings/controls/channels", "settings/race/setup"}) {
+        SCOPED_TRACE(std::string(language) + " " + path);
+        ASSERT_TRUE(nb4OpenRoute(path));
+        auto page = Layer::back();
+        render(scene.root);
+        EXPECT_FALSE(menu->isVisible());
+        EXPECT_EQ(lv_obj_get_style_bg_opa(page->getLvObj(), 0), LV_OPA_COVER);
+        lv_obj_t* back = nullptr;
+        lv_obj_t* help = nullptr;
+        std::function<void(lv_obj_t*)> find = [&](lv_obj_t* obj) {
+          if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+          if (lv_obj_check_type(obj, &lv_label_class) &&
+              !strcmp(lv_label_get_text(obj), STR_NB4_BACK)) back = lv_obj_get_parent(obj);
+          if (lv_obj_check_type(obj, &lv_label_class) &&
+              !strcmp(lv_label_get_text(obj), "?")) help = lv_obj_get_parent(obj);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) find(lv_obj_get_child(obj, i));
+        };
+        find(page->getLvObj());
+        ASSERT_NE(back, nullptr);
+        ASSERT_NE(help, nullptr);
+        EXPECT_EQ(lv_obj_get_width(help), Nb4Ui::Touch);
+        EXPECT_EQ(lv_obj_get_height(help), Nb4Ui::Touch);
+        for (lv_state_t state : {lv_state_t(0), lv_state_t(LV_STATE_PRESSED),
+                                lv_state_t(LV_STATE_FOCUSED)}) {
+          lv_obj_add_state(help, state);
+          EXPECT_EQ(lv_obj_get_style_bg_opa(help, 0), LV_OPA_TRANSP);
+          EXPECT_EQ(lv_obj_get_style_border_width(help, 0), 0);
+          lv_obj_clear_state(help, state);
+        }
+        EXPECT_EQ(lv_obj_get_width(back), 72);
+        EXPECT_EQ(lv_obj_get_height(back), Nb4Ui::Touch);
+        auto content = lv_obj_get_parent(back);
+        EXPECT_EQ(lv_obj_get_width(content), lv_disp_get_hor_res(nullptr));
+        EXPECT_EQ(lv_obj_get_height(content), lv_disp_get_ver_res(nullptr));
+        lv_event_send(back, LV_EVENT_CLICKED, nullptr);
+        render(scene.root);
+        EXPECT_EQ(Layer::back(), menu);
+        EXPECT_TRUE(menu->isVisible());
+      }
+      menu->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, MonitorTabsKeepFullFingerTargetsWhenSelected)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (bool landscape : {false, true}) {
+    scene.orient(landscape);
+    main->resizeToDisplay();
+    ASSERT_TRUE(nb4OpenRoute("settings/controls/monitor"));
+    auto page = dynamic_cast<PageGroupBase*>(Layer::back());
+    ASSERT_NE(page, nullptr);
+    ASSERT_GT(page->tabCount(), 1u);
+    render(scene.root);
+    std::vector<std::string> labels;
+    collectLabels(page->getLvObj(), labels);
+    EXPECT_NE(std::find(labels.begin(), labels.end(), "1-8"), labels.end());
+    for (unsigned tab = 0; tab < page->tabCount(); ++tab) {
+      page->setCurrentTab(tab);
+      render(scene.root);
+      unsigned selected = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<ButtonBase*>(window) &&
+            lv_obj_has_state(obj, LV_STATE_CHECKED)) {
+          ++selected;
+          lv_area_t box, clip;
+          lv_obj_get_coords(obj, &box);
+          lv_obj_get_coords(lv_obj_get_parent(obj), &clip);
+          EXPECT_GE(lv_area_get_width(&box), Nb4Ui::Touch);
+          EXPECT_GE(lv_area_get_height(&box), Nb4Ui::Touch);
+          EXPECT_GE(box.x1, clip.x1);
+          EXPECT_LE(box.x2, clip.x2);
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      EXPECT_EQ(selected, 1u);
+    }
+    page->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
+  }
+}
+
+TEST(Nb4Performance, FullScreenPagesHideTheGridsUnderThem)
+{
+  Scene scene;
+  ViewMain::instance();
+  auto base = Layer::back();
+  nb4OpenSettingsModal();
+  auto settings = Layer::back();
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  ASSERT_TRUE(nb4OpenRoute("settings/display/appearance"));
+  auto page = Layer::back();
+  ASSERT_NE(page, display);
+  render(scene.root);
+
+  // Nothing under the page is drawn, and its backdrop is opaque, so a redraw
+  // of the page starts at the page.
+  EXPECT_FALSE(settings->isVisible());
+  EXPECT_FALSE(display->isVisible());
+  EXPECT_EQ(lv_obj_get_style_bg_opa(page->getLvObj(), LV_PART_MAIN), LV_OPA_COVER);
+
+  // A popup over the page leaves the page drawn underneath it.
+  new MessageDialog("Test", "Message");
+  EXPECT_TRUE(page->isVisible());
+  Layer::back()->onCancel();
+  scene.root->run();
+
+  page->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), display);
+  EXPECT_TRUE(settings->isVisible());
+  EXPECT_TRUE(display->isVisible());
+  display->onCancel();
+  settings->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+}
+
+TEST(Nb4Performance, EveryViewOpenCost)
+{
+  Scene scene;
+  const auto dir = std::filesystem::temp_directory_path() / ("nb4-perf-" + std::to_string(getpid()));
+  for (const char* folder : {"RADIO", "MODELS", "THEMES", "SCRIPTS/TOOLS", "LOGS"})
+    std::filesystem::create_directories(dir / folder);
+  struct Cleanup { std::filesystem::path path; ~Cleanup() { simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(path); } } cleanup{dir};
+  simuFatfsSetPaths(dir.c_str(), nullptr);
+  strAppend(g_eeGeneral.currModelFilename, "perf-test.yml", LEN_MODEL_FILENAME);
+  auto model = modelslist.getCurrentModel();
+  if (!model) model = modelslist.addModel("perf-test.yml", false);
+  modelslist.setCurrentModel(model);
+  nb4AcceptNewCarModel();
+  scene.applyPalette("ApexTX Dark");
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+
+  struct Row {
+    std::string view;
+    const char* orientation;
+    double openUs, firstFrameUs, closeUs;
+    unsigned objects, layers;
+    unsigned long pixels;
+    unsigned images, storage;
+  };
+  std::vector<Row> rows;
+
+  auto ctx = lv_disp_get_default()->driver->draw_ctx;
+  routeDrawImage = ctx->draw_img_decoded;
+  ctx->draw_img_decoded = countRouteImage;
+
+  auto unwind = [&] {
+    Keyboard::hide(false);
+    for (unsigned depth = 0; depth < 24 && Layer::back() != base; ++depth) {
+      auto page = Layer::back();
+      page->onCancel();
+      scene.root->run();
+      if (Layer::back() == page) break;
+    }
+  };
+  auto measure = [&](const std::string& view, const char* orientation,
+                     const std::function<void()>& open) {
+    for (unsigned f = 0; f < 2; ++f) render(scene.root);
+    const auto storageBefore = simuFatfsStatCalls();
+    const auto t0 = std::chrono::steady_clock::now();
+    open();
+    const auto t1 = std::chrono::steady_clock::now();
+    resetFlushAccounting();
+    routeImageDraws = 0;
+    renderIncremental(scene.root);
+    const auto t2 = std::chrono::steady_clock::now();
+    Row row{view, orientation,
+            std::chrono::duration<double, std::micro>(t1 - t0).count(),
+            std::chrono::duration<double, std::micro>(t2 - t1).count(), 0,
+            countLvObjects(lv_scr_act()) + countLvObjects(lv_layer_top()),
+            0, flushedPixels, routeImageDraws,
+            (unsigned)(simuFatfsStatCalls() - storageBefore)};
+    const auto t3 = std::chrono::steady_clock::now();
+    unwind();
+    renderIncremental(scene.root);
+    row.closeUs = std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - t3).count();
+    EXPECT_EQ(Layer::back(), base) << view;
+    rows.push_back(row);
+  };
+
+  unsigned count = 0, sectionCount = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  const Nb4Section2* sections = nb4Sections(&sectionCount);
+  for (bool landscape : {false, true}) {
+    const char* orientation = landscape ? "landscape" : "portrait";
+    g_eeGeneral.nb4Orientation = landscape;
+    scene.orient(landscape);
+    ViewMain::instance()->resizeToDisplay();
+    measure("grid:settings", orientation, [] { nb4OpenSettingsModal(); });
+    measure("grid:quick_access", orientation, [] { nb4OpenQuickAccessModal(); });
+    for (unsigned i = 0; i < sectionCount; ++i) {
+      const char* id = sections[i].id;
+      measure(std::string("grid:") + id, orientation,
+              [id] { nb4OpenSettingsSection(id); });
+    }
+    for (unsigned i = 0; i < count; ++i) {
+      const Nb4Route& r = routes[i];
+      if (r.state != Nb4RouteState::Available || !nb4RouteIsOpenable(r)) continue;
+      measure(r.path, orientation, [&r] { ASSERT_TRUE(nb4OpenRoute(r.path)); });
+    }
+  }
+  ctx->draw_img_decoded = routeDrawImage;
+
+  if (const char* path = getenv("NB4_PERF_CSV")) {
+    auto file = fopen(path, "w");
+    ASSERT_NE(file, nullptr);
+    fprintf(file, "view,orientation,open_us,first_frame_us,close_us,objects,pixels,images,storage_calls\n");
+    for (const auto& r : rows)
+      fprintf(file, "%s,%s,%.0f,%.0f,%.0f,%u,%lu,%u,%u\n", r.view.c_str(), r.orientation,
+              r.openUs, r.firstFrameUs, r.closeUs, r.objects, r.pixels, r.images, r.storage);
+    fclose(file);
+  }
+  auto sorted = rows;
+  std::sort(sorted.begin(), sorted.end(), [](const Row& a, const Row& b) {
+    return a.openUs + a.firstFrameUs > b.openUs + b.firstFrameUs;
+  });
+  printf("NB4 views measured: %zu\n", rows.size());
+  for (size_t i = 0; i < sorted.size() && i < 12; ++i)
+    printf("NB4 view %-42s %-9s open %6.0f us  frame %6.0f us  close %6.0f us  objects %4u  images %3u  storage %u\n",
+           sorted[i].view.c_str(), sorted[i].orientation, sorted[i].openUs, sorted[i].firstFrameUs,
+           sorted[i].closeUs, sorted[i].objects, sorted[i].images, sorted[i].storage);
+  EXPECT_GT(rows.size(), 100u);
+  nb4RacingReset();
+}
+
+namespace {
+// Draw-call accounting for the scroll measurement: time and count per kind.
+struct DrawCost { double us = 0; unsigned calls = 0; };
+DrawCost scrollRects, scrollShadows, scrollImages, scrollLetters, scrollArcs, scrollLayers;
+decltype(lv_draw_ctx_t::draw_rect) scrollDrawRect;
+decltype(lv_draw_ctx_t::draw_img_decoded) scrollDrawImage;
+decltype(lv_draw_ctx_t::draw_letter) scrollDrawLetter;
+decltype(lv_draw_ctx_t::draw_arc) scrollDrawArc;
+decltype(lv_draw_ctx_t::layer_init) scrollLayerInit;
+
+// Pixels written per kind of blend. On the radio a plain fill or copy is a
+// straight write to uncached SDRAM; anything with opacity or a mask reads the
+// pixel underneath too and runs a per-pixel mix, several times slower.
+struct BlendPixels { unsigned long fill = 0, copy = 0, mixedFill = 0, mixedCopy = 0; };
+BlendPixels scrollBlend;
+void (*scrollBlendFn)(lv_draw_ctx_t*, const lv_draw_sw_blend_dsc_t*);
+void scrollBlendCount(lv_draw_ctx_t* ctx, const lv_draw_sw_blend_dsc_t* dsc)
+{
+  lv_area_t area;
+  if (_lv_area_intersect(&area, dsc->blend_area, ctx->clip_area) &&
+      dsc->mask_res != LV_DRAW_MASK_RES_TRANSP) {
+    const unsigned long px = lv_area_get_size(&area);
+    const bool mixed = dsc->opa < LV_OPA_MAX ||
+                       (dsc->mask_buf && dsc->mask_res != LV_DRAW_MASK_RES_FULL_COVER);
+    if (dsc->src_buf) (mixed ? scrollBlend.mixedCopy : scrollBlend.copy) += px;
+    else (mixed ? scrollBlend.mixedFill : scrollBlend.fill) += px;
+  }
+  scrollBlendFn(ctx, dsc);
+}
+
+template <typename F> void timed(DrawCost& cost, F&& run)
+{
+  const auto t0 = std::chrono::steady_clock::now();
+  run();
+  cost.us += std::chrono::duration<double, std::micro>(
+      std::chrono::steady_clock::now() - t0).count();
+  ++cost.calls;
+}
+
+bool scrollRectLog = false;
+void scrollRect(lv_draw_ctx_t* ctx, const lv_draw_rect_dsc_t* dsc, const lv_area_t* area)
+{
+  if (scrollRectLog)
+    printf("NB4 rect %dx%d bg_opa %u radius %d border %d/%u outline %d\n",
+           lv_area_get_width(area), lv_area_get_height(area), dsc->bg_opa, dsc->radius,
+           dsc->border_width, dsc->border_opa, dsc->outline_width);
+  timed(dsc->shadow_width && dsc->shadow_opa > LV_OPA_MIN ? scrollShadows : scrollRects,
+        [&] { scrollDrawRect(ctx, dsc, area); });
+}
+void scrollImage(lv_draw_ctx_t* ctx, const lv_draw_img_dsc_t* dsc,
+                 const lv_area_t* area, const uint8_t* pixels, lv_img_cf_t format)
+{
+  timed(scrollImages, [&] { scrollDrawImage(ctx, dsc, area, pixels, format); });
+}
+void scrollLetter(lv_draw_ctx_t* ctx, const lv_draw_label_dsc_t* dsc,
+                  const lv_point_t* pos, uint32_t letter)
+{
+  timed(scrollLetters, [&] { scrollDrawLetter(ctx, dsc, pos, letter); });
+}
+void scrollArc(lv_draw_ctx_t* ctx, const lv_draw_arc_dsc_t* dsc,
+               const lv_point_t* center, uint16_t radius, uint16_t start, uint16_t end)
+{
+  timed(scrollArcs, [&] { scrollDrawArc(ctx, dsc, center, radius, start, end); });
+}
+lv_draw_layer_ctx_t* scrollLayer(lv_draw_ctx_t* ctx, lv_draw_layer_ctx_t* layer,
+                                 lv_draw_layer_flags_t flags)
+{
+  ++scrollLayers.calls;
+  return scrollLayerInit(ctx, layer, flags);
+}
+
+lv_obj_t* largestScrollable(lv_obj_t* obj, lv_coord_t* best)
+{
+  lv_obj_t* found = nullptr;
+  if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) &&
+      lv_obj_has_flag(obj, LV_OBJ_FLAG_SCROLLABLE)) {
+    const lv_coord_t range = lv_obj_get_scroll_bottom(obj) + lv_obj_get_scroll_top(obj);
+    if (range > *best) { *best = range; found = obj; }
+  }
+  if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return nullptr;
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+    if (auto child = largestScrollable(lv_obj_get_child(obj, i), best)) found = child;
+  return found;
+}
+}  // namespace
+
+// What one frame of finger scrolling costs on every page that scrolls. A drag
+// moves the whole viewport, so each frame redraws it completely; the kinds of
+// draw calls show where that time goes.
+TEST(Nb4Performance, EveryViewScrollCost)
+{
+  Scene scene;
+  scene.applyPalette("ApexTX Dark");
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+
+  auto ctx = lv_disp_get_default()->driver->draw_ctx;
+  scrollDrawRect = ctx->draw_rect;
+  scrollDrawImage = ctx->draw_img_decoded;
+  scrollDrawLetter = ctx->draw_letter;
+  scrollDrawArc = ctx->draw_arc;
+  scrollLayerInit = ctx->layer_init;
+  ctx->draw_rect = scrollRect;
+  ctx->draw_img_decoded = scrollImage;
+  ctx->draw_letter = scrollLetter;
+  ctx->draw_arc = scrollArc;
+  ctx->layer_init = scrollLayer;
+  auto sw = (lv_draw_sw_ctx_t*)ctx;
+  scrollBlendFn = sw->blend;
+  sw->blend = scrollBlendCount;
+
+  struct Row {
+    std::string view;
+    double frameUs;
+    unsigned long pixels;
+    lv_coord_t range;
+    DrawCost rects, shadows, images, letters, arcs, layers;
+    BlendPixels blend;
+  };
+  std::vector<Row> rows;
+  constexpr unsigned STEPS = 8;
+
+  unsigned count = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route& r = routes[i];
+    if (r.state != Nb4RouteState::Available || !nb4RouteIsOpenable(r)) continue;
+    // The way a user gets there: Settings, the section grid, the page.
+    nb4OpenSettingsModal();
+    std::string section = r.section ? r.section : "";
+    if (section.empty() && !strncmp(r.path, "settings/", 9))
+      section = std::string(r.path + 9, strcspn(r.path + 9, "/"));
+    if (!section.empty() && section != "cars" && section != "steering" &&
+        section != "throttle_brake" && section != "receiver_rf" && section != "help")
+      nb4OpenSettingsSection(section.c_str());
+    ASSERT_TRUE(nb4OpenRoute(r.path));
+    for (unsigned f = 0; f < 2; ++f) render(scene.root);
+    if (const char* dump = getenv("NB4_SCROLL_DUMP"); dump && !strcmp(dump, r.path)) {
+      std::function<void(lv_obj_t*, int)> walk = [&](lv_obj_t* o, int depth) {
+        if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return;
+        const auto bgOpa = lv_obj_get_style_bg_opa(o, LV_PART_MAIN);
+        const auto opa = lv_obj_get_style_opa(o, LV_PART_MAIN);
+        const auto radius = lv_obj_get_style_radius(o, LV_PART_MAIN);
+        const auto border = lv_obj_get_style_border_width(o, LV_PART_MAIN);
+        if (bgOpa || opa < LV_OPA_COVER || border)
+          printf("NB4 dump %*s%s %dx%d bg_opa %u opa %u radius %d border %d grad %d img %d\n",
+                 depth * 2, "", o->class_p == &lv_label_class ? "label" :
+                 o->class_p == &lv_btn_class ? "btn" : o->class_p == &lv_img_class ? "img" : "obj",
+                 lv_obj_get_width(o), lv_obj_get_height(o), bgOpa, opa, radius, border,
+                 lv_obj_get_style_bg_grad_dir(o, LV_PART_MAIN) != LV_GRAD_DIR_NONE,
+                 lv_obj_get_style_bg_img_src(o, LV_PART_MAIN) != nullptr);
+        for (uint32_t c = 0; c < lv_obj_get_child_cnt(o); ++c) walk(lv_obj_get_child(o, c), depth + 1);
+      };
+      walk(Layer::back()->getLvObj(), 0);
+    }
+    lv_coord_t range = 0;
+    lv_obj_t* scroller = largestScrollable(Layer::back()->getLvObj(), &range);
+    if (scroller && range > 40) {
+      scrollRects = scrollShadows = scrollImages = scrollLetters = scrollArcs =
+          scrollLayers = DrawCost();
+      scrollBlend = BlendPixels();
+      resetFlushAccounting();
+      const auto t0 = std::chrono::steady_clock::now();
+      const char* dump = getenv("NB4_SCROLL_DUMP");
+      for (unsigned s = 0; s < STEPS; ++s) {
+        scrollRectLog = dump && !strcmp(dump, r.path) && s == 0;
+        lv_obj_scroll_by(scroller, 0, s < STEPS / 2 ? -12 : 12, LV_ANIM_OFF);
+        renderIncremental(scene.root);
+      }
+      scrollRectLog = false;
+      const double us = std::chrono::duration<double, std::micro>(
+          std::chrono::steady_clock::now() - t0).count();
+      auto per = [](DrawCost c) { c.us /= STEPS; c.calls /= STEPS; return c; };
+      BlendPixels blend = scrollBlend;
+      blend.fill /= STEPS; blend.copy /= STEPS;
+      blend.mixedFill /= STEPS; blend.mixedCopy /= STEPS;
+      rows.push_back({r.path, us / STEPS, flushedPixels / STEPS, range,
+                      per(scrollRects), per(scrollShadows), per(scrollImages),
+                      per(scrollLetters), per(scrollArcs), per(scrollLayers), blend});
+    }
+    Keyboard::hide(false);
+    for (unsigned depth = 0; depth < 24 && Layer::back() != base; ++depth) {
+      auto page = Layer::back();
+      page->onCancel();
+      scene.root->run();
+      if (Layer::back() == page) break;
+    }
+    ASSERT_EQ(Layer::back(), base) << r.path;
+  }
+  ctx->draw_rect = scrollDrawRect;
+  ctx->draw_img_decoded = scrollDrawImage;
+  ctx->draw_letter = scrollDrawLetter;
+  ctx->draw_arc = scrollDrawArc;
+  ctx->layer_init = scrollLayerInit;
+  sw->blend = scrollBlendFn;
+
+  std::sort(rows.begin(), rows.end(),
+            [](const Row& a, const Row& b) { return a.frameUs > b.frameUs; });
+  if (const char* path = getenv("NB4_SCROLL_CSV")) {
+    auto file = fopen(path, "w");
+    ASSERT_NE(file, nullptr);
+    fprintf(file, "view,frame_us,pixels,range,rect_us,rects,shadow_us,shadows,"
+                  "image_us,images,letter_us,letters,arc_us,arcs,layers,"
+                  "fill_px,copy_px,mixed_fill_px,mixed_copy_px\n");
+    for (const auto& r : rows)
+      fprintf(file, "%s,%.0f,%lu,%d,%.0f,%u,%.0f,%u,%.0f,%u,%.0f,%u,%.0f,%u,%u,%lu,%lu,%lu,%lu\n",
+              r.view.c_str(), r.frameUs, r.pixels, r.range, r.rects.us, r.rects.calls,
+              r.shadows.us, r.shadows.calls, r.images.us, r.images.calls,
+              r.letters.us, r.letters.calls, r.arcs.us, r.arcs.calls, r.layers.calls,
+              r.blend.fill, r.blend.copy, r.blend.mixedFill, r.blend.mixedCopy);
+    fclose(file);
+  }
+  printf("NB4 scrolling views: %zu\n", rows.size());
+  for (size_t i = 0; i < rows.size() && i < 15; ++i)
+    printf("NB4 scroll %-36s frame %4.0f us  px %6lu  fill %6lu copy %6lu mixfill %6lu "
+           "mixcopy %6lu  rects %3u shadows %u imgs %3u letters %4u arcs %u layers %u\n",
+           rows[i].view.c_str(), rows[i].frameUs, rows[i].pixels, rows[i].blend.fill,
+           rows[i].blend.copy, rows[i].blend.mixedFill, rows[i].blend.mixedCopy,
+           rows[i].rects.calls, rows[i].shadows.calls, rows[i].images.calls,
+           rows[i].letters.calls, rows[i].arcs.calls, rows[i].layers.calls);
+  EXPECT_GT(rows.size(), 10u);
 }
 
 TEST(Nb4Performance, HomeGuiCyclePresentsTheNewestControlPosition)
@@ -4527,7 +5335,6 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
   };
   nb4AcceptNewCarModel();
   auto main = ViewMain::instance();
-  unsigned outsideTapChecks = 0;
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
     const bool wide = pass >= DIM(NB4_UI_LANGUAGES);
     const char* lang = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
@@ -4549,19 +5356,7 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
       std::string name = prefix + (path + 9);
       std::replace(name.begin(), name.end(), '/', '-');
       saveFrame(name.c_str(), wide ? 480 : 320, wide ? 320 : 480);
-      lv_point_t homeIcon{lv_coord_t(lv_disp_get_hor_res(nullptr) - 26), 20};
-      if (auto target = lv_indev_search_obj(owner->getLvObj(), &homeIcon)) {
-        if (target == owner->getLvObj()) {
-          // Home's top-right icons can be visible behind a short dialog.
-          // Clicking that backdrop is not the dialog's explicit Back/close.
-          lv_event_send(target, LV_EVENT_CLICKED, nullptr);
-          render(scene.root);
-          ASSERT_EQ(Layer::back(), owner) << path;
-          ++outsideTapChecks;
-        }
-      }
-      if (owner->isPageGroup() || !strcmp(path, "settings/car/safety") ||
-          !strcmp(path, "settings/receiver_rf/module") || !strcmp(path, "settings/display/brightness")) {
+      {
         // Hit-test the actual decorative header area, including any invisible
         // legacy button placed over it. Only the labelled Back may navigate.
         lv_point_t point{22, 20};
@@ -4594,7 +5389,6 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
     Layer::back()->onCancel(); render(scene.root);
     EXPECT_EQ(Layer::back(), main) << "Back must not reopen the help used to navigate here";
   }
-  EXPECT_GT(outsideTapChecks, 0u);
 }
 
 TEST(Nb4Ux, SafetyLabelsFitAboveTheirDescriptionsInBothLanguagesAndOrientations)
@@ -4889,10 +5683,11 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         lv_obj_get_coords(badge, &badgeBounds);
         lv_obj_get_coords(tileLabel, &labelBounds);
         EXPECT_GE(labelBounds.y1 - badgeBounds.y2 - 1, 3);
-        EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
-                  lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
-        EXPECT_EQ(glyphColours.size(), 2u);
-        EXPECT_GE(artworkColours.size(), 2u);
+        // One flat colour and one glyph: nothing per tile that has to be
+        // blended or recoloured twice on every redraw.
+        EXPECT_EQ(lv_obj_get_style_bg_grad_dir(badge, LV_PART_MAIN), LV_GRAD_DIR_NONE);
+        EXPECT_EQ(glyphColours.size(), 1u);
+        EXPECT_GE(artworkColours.size(), 1u);
       }
       EXPECT_LE(rows.size(), 3u);
       for (const auto& row : columns) EXPECT_LE(row.second, 4u);
@@ -4903,6 +5698,191 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
       lv_obj_get_coords(tiles[0], &first); lv_obj_get_coords(tiles[1], &second);
       EXPECT_EQ(first.y1, second.y1) << "Submenus must have two usable columns";
       EXPECT_GT(second.x1, first.x2);
+      Layer::back()->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, CustomCurveEditorKeepsALegiblePreviewAndSeparatePointRows)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (bool landscape : {false, true}) {
+    scene.orient(landscape);
+    main->resizeToDisplay();
+    for (int points : {5, 17}) {
+      SCOPED_TRACE(std::string(landscape ? "landscape " : "portrait ") + std::to_string(points));
+      g_model.curves[0].type = CURVE_TYPE_CUSTOM;
+      g_model.curves[0].points = points - 5;
+      auto editor = new CurveEditWindow(0);
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      unsigned previews = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<Curve*>(window)) {
+          ++previews;
+          EXPECT_GE(lv_obj_get_width(obj), 160);
+          EXPECT_GE(lv_obj_get_height(obj), 160);
+          lv_area_t bounds;
+          lv_obj_get_coords(obj, &bounds);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_GE(bounds.y1, EdgeTxStyles::MENU_HEADER_HEIGHT);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(bounds.y2, lv_disp_get_ver_res(nullptr));
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(editor->getLvObj());
+      EXPECT_EQ(previews, 1u);
+      for (const auto& v : nb4DesignViolations(editor->getLvObj()))
+        EXPECT_NE(v.rule, "overlap") << v.detail;
+      const auto name = std::string("custom-curve-") + (landscape ? "landscape-" : "portrait-") +
+          std::to_string(points);
+      saveFrame(name.c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+      ASSERT_TRUE(clickLabel(editor->getLvObj(), STR_NB4_BACK));
+      render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, OutputEditorKeepsLiveBarsClearOfHeaderActions)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/advanced/outputs"));
+      auto list = Layer::back();
+      auto editor = new OutputEditWindow(0);
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      unsigned bars = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<ComboChannelBar*>(window)) {
+          ++bars;
+          lv_area_t bounds;
+          lv_obj_get_coords(obj, &bounds);
+          EXPECT_GE(bounds.y1, EdgeTxStyles::MENU_HEADER_HEIGHT);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(editor->getLvObj());
+      EXPECT_EQ(bars, 1u);
+      const auto name = std::string("output-editor-") + language +
+          (landscape ? "-landscape" : "-portrait");
+      saveFrame(name.c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+      ASSERT_TRUE(clickLabel(editor->getLvObj(), STR_NB4_BACK));
+      render(scene.root);
+      EXPECT_EQ(Layer::back(), list);
+      list->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, AboutKeepsTheWholeQrCodeAndVersionButtonsVisible)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/system/about"));
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      auto page = Layer::back();
+      unsigned codes = 0, buttons = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        const bool code = window && dynamic_cast<QRCode*>(window);
+        const bool button = lv_obj_check_type(obj, &lv_label_class) &&
+            (!strcmp(lv_label_get_text(obj), STR_MODULES_RX_VERSION) ||
+             !strcmp(lv_label_get_text(obj), STR_ANALOGS_BTN));
+        if (code || button) {
+          codes += code;
+          buttons += button;
+          auto target = button ? lv_obj_get_parent(obj) : obj;
+          lv_area_t bounds;
+          lv_obj_get_coords(target, &bounds);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_GE(bounds.y1, 0);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(bounds.y2, lv_disp_get_ver_res(nullptr));
+          for (auto parent = lv_obj_get_parent(target); parent;
+               parent = lv_obj_get_parent(parent)) {
+            lv_area_t clip;
+            lv_obj_get_coords(parent, &clip);
+            EXPECT_GE(bounds.x1, clip.x1);
+            EXPECT_GE(bounds.y1, clip.y1);
+            EXPECT_LE(bounds.x2, clip.x2);
+            EXPECT_LE(bounds.y2, clip.y2);
+          }
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      EXPECT_EQ(codes, 1u);
+      EXPECT_EQ(buttons, 2u);
+      page->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, PortraitChronoCaptionsFitInEveryLanguage)
+{
+  Scene scene;
+  scene.orient(false);
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (unsigned mode = 0; mode < 3; ++mode) {
+      SCOPED_TRACE(std::string(language) + " mode " + std::to_string(mode));
+      Nb4CarState state;
+      state.homeShowsRace = mode == 0;
+      state.homeTimerCountdown = mode == 1;
+      state.homeTimerVisible = true;
+      auto chrono = new Nb4Chrono(scene.root, {8, 8, 304, 72}, state, false);
+      render(scene.root);
+      for (const auto& v : nb4DesignViolations(chrono->getLvObj()))
+        EXPECT_NE(v.rule, "clip") << v.detail;
+      chrono->deleteLater(); scene.root->run();
+    }
+  }
+}
+
+TEST(Nb4Ux, PowerSettingsAppearOnceInBothOrientationsAndEveryLanguage)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/system/power"));
+      render(scene.root);
+      std::vector<std::string> labels;
+      collectLabels(Layer::back()->getLvObj(), labels);
+      for (const char* label : {STR_PWR_OFF_DELAY, STR_PWR_AUTO_OFF})
+        EXPECT_EQ(std::count(labels.begin(), labels.end(), label), 1) << label;
       Layer::back()->onCancel(); render(scene.root);
       EXPECT_EQ(Layer::back(), main);
     }
@@ -4964,9 +5944,8 @@ TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
         {"settings/car/general", ICON_NB4_MODEL_SETUP},
         {"settings/controls/quick_access", ICON_QM_FAVORITES},
         {"settings/controls/monitor", ICON_MONITOR},
-        {"settings/race/setup", ICON_MODEL_SETUP},
-        {"settings/sound_alerts/voice_assignments",
-         ICON_RADIO_GLOBAL_FUNCTIONS},
+        {"settings/race/setup", ICON_NB4_FLAG},
+        {"settings/sound_alerts/voice_assignments", ICON_NB4_VOICE},
     };
     for (const auto& item : routeHeaders) {
       SCOPED_TRACE(item.path);

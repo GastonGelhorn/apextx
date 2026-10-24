@@ -43,8 +43,8 @@ class Nb4ThrColumnWidget : public Widget
 
     const coord_t rx = colX + colW + PAD + 6;
     const coord_t rw = w - rx - PAD;
-    tiny(this, {rx, (coord_t)(top - 2), rw, 16}, "+100");
-    tiny(this, {rx, (coord_t)(bottom - 14), rw, 16}, "-100");
+    caption(this, {rx, (coord_t)(top - 2), rw, 16}, "+100");
+    caption(this, {rx, (coord_t)(bottom - 14), rw, 16}, "-100");
 
     const LcdFlags f = fontForChars(rw, 5, colH / 2 > 60 ? 60 : colH / 2);
     pct = new DynamicNumber<int16_t>(

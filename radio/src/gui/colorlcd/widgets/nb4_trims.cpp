@@ -84,9 +84,9 @@ class Nb4TrimsWidget : public Widget
     row.span = w - 4;
     row.marker = rectangle(lvobj, x + w / 2 - 2, sy - 4, 4, 18, color, 2);
 
-    tiny(this, {x, (coord_t)(sy + 14), 40, 16}, "-100");
-    tiny(this, {(coord_t)(x + w / 2 - 20), (coord_t)(sy + 14), 40, 16}, "0", CENTERED);
-    tiny(this, {(coord_t)(x + w - 40), (coord_t)(sy + 14), 40, 16}, "+100", RIGHT);
+    caption(this, {x, (coord_t)(sy + 14), 40, 16}, "-100");
+    caption(this, {(coord_t)(x + w / 2 - 20), (coord_t)(sy + 14), 40, 16}, "0", CENTERED);
+    caption(this, {(coord_t)(x + w - 40), (coord_t)(sy + 14), 40, 16}, "+100", RIGHT);
     return sy + 30;
   }
 };

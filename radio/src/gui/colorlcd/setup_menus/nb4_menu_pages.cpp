@@ -24,7 +24,7 @@ class MenuPage : public BaseDialog {
   explicit MenuPage(const char* title) :
     BaseDialog(title, true, lv_disp_get_hor_res(nullptr) - 8,
                lv_disp_get_ver_res(nullptr) - 12) {
-    useSectionHeader();
+    usePageLayout();
     setHelpHandler(nb4InheritedHelp());
     form->padAll(PAD_MEDIUM);
   }
@@ -43,7 +43,10 @@ class MenuPage : public BaseDialog {
 
 class HelpPage : public MenuPage {
  public:
-  explicit HelpPage(const char* title) : MenuPage(title) { setHelpHandler({}); }
+  explicit HelpPage(const char* title) : MenuPage(title) {
+    setRouteIcon(ICON_NB4_HELP);
+    setHelpHandler({});
+  }
   bool isHelpPage() const override { return true; }
 };
 
@@ -195,6 +198,7 @@ void nb4OpenHelp(const char* path, bool contextual) {
   if (path) {
     if (const auto route = nb4RouteByPath(path)) {
       auto page = new HelpPage(route->label());
+      page->setRouteIcon(nb4RouteIcon(*route));
       page->note(nb4RouteHelp(*route));
       if (route->reason) page->note(route->reason());
       if (!contextual && nb4RouteIsOpenable(*route) && strcmp(route->path, "settings/system/help"))

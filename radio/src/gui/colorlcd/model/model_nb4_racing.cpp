@@ -157,7 +157,7 @@ class Nb4ChannelsDialog : public BaseDialog
       BaseDialog(STR_NB4_CHANNELS, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92))
   {
-
+    usePageLayout();
     if (nb4RacingMigrate(g_model.nb4Racing)) SET_DIRTY();
 
     form->padLeft(PAD_MEDIUM);
@@ -184,7 +184,7 @@ void nb4OpenRaceSetup()
    public:
     RaceSetup() : BaseDialog(STR_NB4_UX_RACE_SETUP, true,
       lv_disp_get_hor_res(nullptr) - 8, lv_disp_get_ver_res(nullptr) - 12) {
-      useSectionHeader();
+      usePageLayout();
       setHelpHandler([] { nb4OpenHelp("settings/race/setup", true); });
       form->padAll(PAD_MEDIUM);
       auto note = new StaticText(form, {0, 0, LV_PCT(100), LV_SIZE_CONTENT},

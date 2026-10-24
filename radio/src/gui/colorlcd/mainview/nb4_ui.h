@@ -10,24 +10,64 @@
 #include "button.h"
 #include "static.h"
 
+// Design tokens. docs/nb4/DESIGN.md explains them; tests/nb4_design_checks.h
+// holds every view to them.
 namespace Nb4Ui {
-constexpr coord_t Margin = 8, Gap = 6, Touch = 44;
+// Spacing scale: every inset, gap and margin is one of these.
+constexpr coord_t SpaceXS = 4, SpaceS = 8, SpaceM = 12, SpaceL = 16;
+constexpr coord_t Margin = SpaceS, Gap = SpaceS;
+// Corner radii: one for cards, one for controls (buttons, wells, chips).
+constexpr coord_t CardRadius = 12, ControlRadius = 8;
+// Smallest touch target, in both directions.
+constexpr coord_t Touch = 44;
+constexpr coord_t HeaderH = Touch + SpaceXS;
+// Icon slots: tiles and headers, and icons inline with text.
+constexpr coord_t IconTile = 30, IconInline = 24;
+// Heights that follow the type scale.
+constexpr coord_t CaptionH = 17, ChipH = 20;
+
+// Type scale, smallest to largest. Captions use TypeCaption only.
+constexpr LcdFlags TypeCaption = FONT(XXS), TypeSmall = FONT(XS),
+                   TypeBody = FONT(STD), TypeTitle = FONT(BOLD),
+                   TypeValue = FONT(L), TypeHero = FONT(XL);
+
+// Markers the design checks read. A surface is a card, well or chip; an icon
+// slot is the plate an icon is centred on; off-grid marks the hand-placed
+// geometry of an instrument, which follows its scale rather than the grid.
+constexpr lv_obj_flag_t DesignSurface = LV_OBJ_FLAG_USER_1;
+constexpr lv_obj_flag_t IconSlot = LV_OBJ_FLAG_USER_2;
+constexpr lv_obj_flag_t IconInSlot = LV_OBJ_FLAG_USER_3;
+constexpr lv_obj_flag_t OffGrid = LV_OBJ_FLAG_USER_4;
+
 lv_color_t color(LcdColorIndex index);
 lv_color_t throttleColor();
 lv_color_t steeringColor();
 
 lv_color_t brakeColor();
 
-void panel(lv_obj_t* object);
-
+/* Raised surface for a group of related content. */
 void card(lv_obj_t* object);
+Window* card(Window* parent, rect_t rect);
 
+/* Inset surface inside a card: a scale, a track, a sub-panel. */
 void well(lv_obj_t* object);
-/* Outlined pill without a fill. */
-void chip(lv_obj_t* object);
+/* Outlined pill without a fill, for a short status or value. */
+void chip(lv_obj_t* object, LcdColorIndex outline = COLOR_THEME_SECONDARY2_INDEX);
+
+/* Small upper-case label above or beside a value. */
+StaticText* caption(Window* parent, rect_t rect, const char* text, LcdFlags align = 0,
+                    LcdColorIndex ink = COLOR_THEME_PRIMARY3_INDEX);
+/* Top-aligned wrapping text. */
+StaticText* paragraph(Window* parent, rect_t rect, const char* text,
+                      LcdFlags font = TypeBody,
+                      LcdColorIndex ink = COLOR_THEME_PRIMARY1_INDEX);
+/* Puts the icon in the middle of its slot, and marks both for the checks. */
+void centreIcon(Window* icon, lv_obj_t* slot);
 
 void passThrough(lv_obj_t* root);
 void button(lv_obj_t* object, bool primary = false);
+/* A bare help glyph retains a full finger target and pressed feedback. */
+void help(lv_obj_t* object);
 TextButton* action(Window*, rect_t, const char*, std::function<void()>, bool primary = false);
 void header(Window*, const char*, std::function<void()>);
 

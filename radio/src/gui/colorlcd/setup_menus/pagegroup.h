@@ -99,6 +99,9 @@ class PageGroupItem
 
   void setIcon(EdgeTxIcon icon) { this->icon = icon; }
   EdgeTxIcon getIcon() const { return icon; }
+#if defined(RADIO_NB4_FAMILY)
+  const std::string& getTabLabel() const { return tabLabel; }
+#endif
   PaddingSize getPadding() const { return padding; }
 
   virtual void update(uint8_t index) {}
@@ -108,6 +111,9 @@ class PageGroupItem
 
  protected:
   std::string title;
+#if defined(RADIO_NB4_FAMILY)
+  std::string tabLabel;
+#endif
   EdgeTxIcon icon;
   QMPage qmPageId = QM_NONE;
   PaddingSize padding;
@@ -146,7 +152,11 @@ class PageGroupHeaderBase : public Window
 
 #if VERSION_MAJOR == 2
   static LAYOUT_VAL_SCALED(ICON_EXTRA_H, 10)
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t MENU_HEADER_BUTTON_WIDTH = EdgeTxStyles::UI_ELEMENT_HEIGHT;
+#else
   static LAYOUT_VAL_SCALED(MENU_HEADER_BUTTON_WIDTH, 33)
+#endif
 #endif
 
  protected:

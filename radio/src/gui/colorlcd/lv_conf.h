@@ -100,14 +100,18 @@
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
 #if defined(RADIO_NB4_FAMILY)
-#define LV_DISP_DEF_REFR_PERIOD 20      /*[ms]*/
+// Shorter than the 20 ms interface loop on purpose. With equal periods a
+// timer that becomes due a millisecond after the loop reaches it waits a whole
+// loop, and a frame or a touch read slips to 40 ms. At 10 ms every loop
+// renders and reads touch once.
+#define LV_DISP_DEF_REFR_PERIOD 10      /*[ms]*/
 #else
 #define LV_DISP_DEF_REFR_PERIOD 30      /*[ms]*/
 #endif
 
 /*Input device read period in milliseconds*/
 #if defined(RADIO_NB4_FAMILY)
-#define LV_INDEV_DEF_READ_PERIOD 20     /*[ms]*/
+#define LV_INDEV_DEF_READ_PERIOD 10     /*[ms]*/
 #else
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
 #endif
@@ -155,7 +159,12 @@
     * The circumference of 1/4 circle are saved for anti-aliasing
     * radius * 4 bytes are used per circle (the most often used radiuses are saved)
     * 0: to disable caching */
+    #if defined(RADIO_NB4_FAMILY)
+    // NB4 cards, buttons, chips and wells use several corner radii.
+    #define LV_CIRCLE_CACHE_SIZE 12
+    #else
     #define LV_CIRCLE_CACHE_SIZE 4
+    #endif
 #endif /*LV_DRAW_COMPLEX*/
 
 /**
@@ -190,7 +199,13 @@
  *LV_GRAD_CACHE_DEF_SIZE sets the size of this cache in bytes.
  *If the cache is too small the map will be allocated only while it's required for the drawing.
  *0 mean no caching.*/
+#if defined(RADIO_NB4_FAMILY)
+// Tile badges and the throttle column use vertical gradients; without a cache
+// every redraw recomputes their colour maps.
+#define LV_GRAD_CACHE_DEF_SIZE (8 * 1024)
+#else
 #define LV_GRAD_CACHE_DEF_SIZE 0
+#endif
 
 /*Allow dithering the gradients (to achieve visual smooth color gradients on limited color depth display)
  *LV_DITHER_GRADIENT implies allocating one or two more lines of the object's rendering surface

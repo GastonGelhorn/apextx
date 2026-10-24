@@ -67,8 +67,16 @@ class GVarButton : public ListLineButton
   static constexpr coord_t GVAR_COLS = MAX_FLIGHT_MODES;
 #endif
   static constexpr coord_t GVAR_VAL_W = GVAR_VAL_SPACE / GVAR_COLS;
+#if defined(RADIO_NB4_FAMILY)
+  static LAYOUT_SIZE_SCALED(BTN_H, 44, 52)
+#else
   static LAYOUT_SIZE_SCALED(BTN_H, 32, 50)
+#endif
+#if defined(RADIO_NB4_FAMILY)
+  static LAYOUT_SIZE_SCALED(GVAR_NM_Y, 11, 13)
+#else
   static LAYOUT_SIZE_SCALED(GVAR_NM_Y, 3, 13)
+#endif
   static LAYOUT_SIZE_SCALED(GVAR_YO, 3, 2)
 
   static const lv_obj_class_t gv_label_class;
@@ -314,7 +322,7 @@ class GVarEditWindow : public Page
       refreshTitle = false;
       lastFlightMode = curFM;
       lastGVar = fmData->gvars[index];
-      sprintf(label, "%s=", getSourceString(index + MIXSRC_FIRST_GVAR));
+      sprintf(label, "%s=", getSourceDisplayString(index + MIXSRC_FIRST_GVAR));
       if (lastGVar > GVAR_MAX) {
         uint8_t fm = lastGVar - GVAR_MAX - 1;
         if (fm >= curFM) fm++;

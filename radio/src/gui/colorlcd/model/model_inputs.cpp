@@ -188,7 +188,12 @@ class InputGroup : public InputMixGroupBase
   {
     adjustHeight();
 
+#if defined(RADIO_NB4_FAMILY)
+    lv_obj_set_pos(label, PAD_TINY,
+                    (ListLineButton::BTN_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+#else
     lv_obj_set_pos(label, PAD_TINY, PAD_SMALL);
+#endif
 
     refresh();
   }
@@ -298,7 +303,7 @@ void ModelInputsPage::newInput()
     if (!EXPO_VALID(line) || (line->chn > chn)) {
       uint8_t chnEnd = EXPO_VALID(line) ? line->chn : chn + 1;
       for (; chn < chnEnd; chn += 1) {
-        std::string name(getSourceString(chn + 1));
+        std::string name(getSourceDisplayString(chn + 1));
         menu->addLineBuffered(name.c_str(), [=]() { insertInput(chn, index); });
       }
     }

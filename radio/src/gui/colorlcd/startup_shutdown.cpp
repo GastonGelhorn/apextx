@@ -25,6 +25,9 @@
 #include "os/sleep.h"
 #include "stamp.h"
 #include "theme_manager.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_routes.h"
+#endif
 
 extern void checkSpeakerVolume();
 
@@ -93,6 +96,53 @@ void drawSplash()
 static tmr10ms_t splashStartTime = 0;
 static bool splashRunning = false;
 
+#if defined(RADIO_NB4_FAMILY)
+static lv_obj_t* splashSpinner = nullptr;
+
+static void spinSplashSpinner(void* arc, int32_t angle)
+{
+  lv_arc_set_rotation((lv_obj_t*)arc, angle);
+}
+
+// A turning arc above the version line while the splash prepares the menus.
+static void showSplashSpinner()
+{
+  if (!splashScreen || splashSpinner) return;
+  constexpr coord_t SIZE = 32;
+  splashSpinner = lv_arc_create(splashScreen->getLvObj());
+  lv_obj_set_size(splashSpinner, SIZE, SIZE);
+  lv_obj_set_pos(splashSpinner, (lv_disp_get_hor_res(nullptr) - SIZE) / 2,
+                 lv_disp_get_ver_res(nullptr) -
+                     EdgeTxStyles::STD_FONT_HEIGHT * 4 - SIZE - PAD_LARGE);
+  lv_obj_remove_style(splashSpinner, nullptr, LV_PART_KNOB);
+  lv_obj_clear_flag(splashSpinner, LV_OBJ_FLAG_CLICKABLE);
+  lv_arc_set_bg_angles(splashSpinner, 0, 360);
+  lv_arc_set_angles(splashSpinner, 0, 75);
+  lv_obj_set_style_arc_width(splashSpinner, 3, LV_PART_MAIN);
+  lv_obj_set_style_arc_width(splashSpinner, 3, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_color(splashSpinner, makeLvColor(COLOR_GREY), LV_PART_MAIN);
+  lv_obj_set_style_arc_opa(splashSpinner, LV_OPA_30, LV_PART_MAIN);
+  lv_obj_set_style_arc_color(splashSpinner, makeLvColor(COLOR_WHITE), LV_PART_INDICATOR);
+
+  lv_anim_t anim;
+  lv_anim_init(&anim);
+  lv_anim_set_var(&anim, splashSpinner);
+  lv_anim_set_exec_cb(&anim, spinSplashSpinner);
+  lv_anim_set_values(&anim, 0, 360);
+  lv_anim_set_time(&anim, 900);
+  lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_start(&anim);
+}
+
+static void hideSplashSpinner()
+{
+  if (!splashSpinner) return;
+  lv_anim_del(splashSpinner, nullptr);
+  lv_obj_del(splashSpinner);
+  splashSpinner = nullptr;
+}
+#endif
+
 void startSplash()
 {
   if (!UNEXPECTED_SHUTDOWN()) {
@@ -104,6 +154,9 @@ void startSplash()
 
 void cancelSplash()
 {
+#if defined(RADIO_NB4_FAMILY)
+  hideSplashSpinner();
+#endif
   if (splashScreen) {
     splashScreen->deleteLater();
     splashScreen = nullptr;
@@ -135,7 +188,26 @@ void waitSplash()
     MainWindow::instance()->run();
 #endif
 
-    while (splashStartTime >= get_tmr10ms()) {
+#if defined(RADIO_NB4_FAMILY)
+    // Build the navigation grids while the splash is up, so even the first
+    // tap on each opens a ready one. The splash waits for them, but never
+    // more than WARM_LIMIT beyond its own time; anything left is finished
+    // once home is idle.
+    constexpr tmr10ms_t WARM_LIMIT = 500;
+    const tmr10ms_t warmDeadline = get_tmr10ms() + WARM_LIMIT;
+    bool warming = true;
+    showSplashSpinner();
+    LvglWrapper::instance()->run();
+#endif
+
+    while (splashStartTime >= get_tmr10ms()
+#if defined(RADIO_NB4_FAMILY)
+           || (warming && warmDeadline >= get_tmr10ms())
+#endif
+    ) {
+#if defined(RADIO_NB4_FAMILY)
+      if (warming && !(warming = nb4WarmNextGrid())) hideSplashSpinner();
+#endif
       LvglWrapper::instance()->run();
       MainWindow::instance()->run();
       WDG_RESET();

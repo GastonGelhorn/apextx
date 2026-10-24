@@ -373,32 +373,66 @@ void RadioVersionPage::build(Window* window)
   coord_t qw, qh, iw, ih, ix, iy;
 
 #if LANDSCAPE
-  qw = QR_SZ + PAD_LARGE * 2;
-  qh = window->height();
-  iw = window->width() - qw;
-  ih = qh;
-  ix = qw;
-  iy = 0;
+  const bool wide = true;
+#elif defined(LCD_DUAL_ORIENTATION)
+  // Turned at run time: the stacked layout leaves no room for the text.
+  const bool wide = lv_disp_get_hor_res(nullptr) > lv_disp_get_ver_res(nullptr);
 #else
-  qw = window->width();
-  qh = QR_SZ + EdgeTxStyles::STD_FONT_HEIGHT * 2 + PAD_LARGE + PAD_SMALL;
-  iw = qw;
-  ih = window->height() - qh;
-  ix = 0;
-  iy = qh;
+  const bool wide = false;
 #endif
+  if (wide) {
+    qw = QR_SZ + PAD_LARGE * 2;
+    qh = window->height();
+    iw = window->width() - qw;
+    ih = qh;
+    ix = qw;
+    iy = 0;
+  } else {
+    qw = window->width();
+    qh = QR_SZ + EdgeTxStyles::STD_FONT_HEIGHT * 2 + PAD_LARGE + PAD_SMALL;
+    iw = qw;
+    ih = window->height() - qh;
+    ix = 0;
+    iy = qh;
+  }
 
   auto qrBox = new Window(window, {0, 0, qw, qh});
   qrBox->padAll(PAD_ZERO);
+#if defined(RADIO_NB4_FAMILY)
+  // The route adds its scope bar after this page is built. Let flex use the
+  // remaining viewport, so that bar cannot push the QR or buttons off-screen.
+  lv_obj_set_flex_flow(window->getLvObj(), wide ? LV_FLEX_FLOW_ROW : LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(window->getLvObj(), 0, 0);
+  lv_obj_set_style_pad_column(window->getLvObj(), 0, 0);
+  lv_obj_clear_flag(window->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_clear_flag(qrBox->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+  if (wide) qrBox->setHeight(LV_PCT(100));
+#endif
 
-  new StaticText(qrBox, {0, PAD_SMALL, LV_PCT(100), 0}, copyright_str,
-                 COLOR_THEME_SECONDARY1_INDEX, CENTERED);
+  if (wide) {
+    // A narrow column: both lines wrap, so they stack in small type above
+    // the code instead of sitting on it.
+    lv_point_t size;
+    lv_txt_get_size(&size, copyright_str.c_str(), getFont(FONT(XS)), 0, 0, qw,
+                    LV_TEXT_FLAG_NONE);
+    new StaticText(qrBox, {0, PAD_SMALL, LV_PCT(100), 0}, copyright_str,
+                   COLOR_THEME_SECONDARY1_INDEX, CENTERED | FONT(XS));
+    new StaticText(qrBox, {0, (coord_t)(PAD_SMALL * 2 + size.y), LV_PCT(100), 0},
+                   firmware_url, COLOR_THEME_SECONDARY1_INDEX, CENTERED | FONT(XS));
+  } else {
+    new StaticText(qrBox, {0, PAD_SMALL, LV_PCT(100), 0}, copyright_str,
+                   COLOR_THEME_SECONDARY1_INDEX, CENTERED);
+    new StaticText(qrBox, {0, qh - QR_SZ - PAD_MEDIUM - EdgeTxStyles::STD_FONT_HEIGHT, LV_PCT(100), 0},
+                   firmware_url, COLOR_THEME_SECONDARY1_INDEX, CENTERED);
+  }
 
-  new StaticText(qrBox, {0, qh - QR_SZ - PAD_MEDIUM - EdgeTxStyles::STD_FONT_HEIGHT, LV_PCT(100), 0},
-                 firmware_url, COLOR_THEME_SECONDARY1_INDEX, CENTERED);
-
-  new QRCode(qrBox, (qw - QR_SZ) / 2, qh - QR_SZ - PAD_MEDIUM, QR_SZ,
-             firmware_url);
+  auto qr = new QRCode(qrBox, (qw - QR_SZ) / 2, qh - QR_SZ - PAD_MEDIUM, QR_SZ,
+                       firmware_url);
+#if defined(RADIO_NB4_FAMILY)
+  lv_obj_align(qr->getLvObj(), LV_ALIGN_BOTTOM_MID, 0, -PAD_MEDIUM);
+#else
+  (void)qr;
+#endif
 
   // Version text in its own scrolling area above a fixed button, so the
   // button can't cover the text when it doesn't fit (e.g. PL18 family on
@@ -410,6 +444,11 @@ void RadioVersionPage::build(Window* window)
   infoBox->padBottom(PAD_LARGE);
   infoBox->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_SMALL, iw, ih);
   lv_obj_clear_flag(infoBox->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+#if defined(RADIO_NB4_FAMILY)
+  infoBox->setPos(0, 0);
+  infoBox->setSize(wide ? 0 : LV_PCT(100), wide ? LV_PCT(100) : 0);
+  lv_obj_set_flex_grow(infoBox->getLvObj(), 1);
+#endif
 
   auto textBox = new Window(infoBox, {0, 0, LV_PCT(100), 0});
   textBox->padAll(PAD_ZERO);

@@ -54,6 +54,8 @@ struct Nb4Section2 {
 };
 
 const Nb4Route* nb4Routes(unsigned* count);
+// The glyph a route shows on its tile and in its header.
+uint8_t nb4RouteIcon(const Nb4Route& route);
 const Nb4Section2* nb4Sections(unsigned* count);
 
 void (*nb4SingleDestinationOf(const char* sectionId))();
@@ -90,6 +92,14 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count);
 
 void nb4OpenSettingsModal();
 void nb4OpenSettingsSection(const char* section);
+// Closed navigation grids are kept hidden and shown again on the next open.
+// Drops every parked one; the radio calls it before tearing down the UI.
+void nb4DropGridCache();
+// Builds missing or out-of-date grids ahead of time, one per call, while home
+// is idle, so even the first open of each is a cached one. UI loop only.
+void nb4WarmGridCache();
+// One warm-up step without the idle checks; false once every grid is current.
+bool nb4WarmNextGrid();
 void nb4OpenAppearance();
 void nb4OpenScreens();
 void nb4OpenQuickAccessSetup();

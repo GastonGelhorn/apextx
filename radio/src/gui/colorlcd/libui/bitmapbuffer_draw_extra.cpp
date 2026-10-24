@@ -134,7 +134,7 @@ void BitmapBuffer::drawSource(coord_t x, coord_t y, mixsrc_t idx,
                               LcdFlags flags)
 {
   char s[16];
-  getSourceString(s, idx);
+  getSourceDisplayString(s, idx);
   drawText(x, y, s, flags);
 }
 

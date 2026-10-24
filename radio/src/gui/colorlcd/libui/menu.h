@@ -41,6 +41,8 @@ class Menu : public ModalWindow
   void setToolbar(MenuToolbar *window);
 
   void setTitle(std::string text);
+  void setMinimumRowHeight(coord_t height);
+  void setTitleColors(LcdColorIndex background, LcdColorIndex foreground);
 
   void addLine(const MaskBitmap *icon_mask, const std::string &text,
                std::function<void()> onPress,

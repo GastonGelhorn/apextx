@@ -20,6 +20,9 @@
 
 #include "static.h"
 #include "etx_lv_theme.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -136,10 +139,20 @@ IconButton::IconButton(Window* parent, EdgeTxIcon icon, coord_t x, coord_t y,
 {
   padAll(PAD_ZERO);
   iconImage = new StaticIcon(this, 0, 0, icon, COLOR_THEME_SECONDARY1_INDEX);
+#if defined(RADIO_NB4_FAMILY)
+  Nb4Ui::centreIcon(iconImage, lvobj);
+#else
   iconImage->center(EdgeTxStyles::UI_ELEMENT_HEIGHT - 4, EdgeTxStyles::UI_ELEMENT_HEIGHT - 4);
+#endif
 }
 
-void IconButton::setIcon(EdgeTxIcon icon) { iconImage->setIcon(icon); }
+void IconButton::setIcon(EdgeTxIcon icon)
+{
+  iconImage->setIcon(icon);
+#if defined(RADIO_NB4_FAMILY)
+  Nb4Ui::centreIcon(iconImage, lvobj);
+#endif
+}
 
 //-----------------------------------------------------------------------------
 

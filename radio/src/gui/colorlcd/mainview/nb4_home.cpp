@@ -24,6 +24,7 @@
 #include "dialog.h"
 #include "keyboard_base.h"
 #include "choice.h"
+#include "menu.h"
 #include "quick_menu.h"
 #include "nb4_routes.h"
 #include "view_main.h"
@@ -90,22 +91,83 @@ TextButton* action(Window* p, rect_t r, const char* text, std::function<void()> 
   return Nb4Ui::action(p, r, text, fn);
 }
 
-void selectedAction(Window* p, rect_t r, const char* text, std::function<void()> fn,
+void appearanceControl(lv_obj_t* o)
+{
+  using namespace Nb4Ui;
+  button(o);
+  for (lv_state_t state : {lv_state_t(0), lv_state_t(LV_STATE_FOCUSED),
+      lv_state_t(LV_STATE_FOCUS_KEY), lv_state_t(LV_STATE_CHECKED),
+      lv_state_t(LV_STATE_PRESSED)}) {
+    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, state);
+    lv_obj_set_style_border_width(o, 1, state);
+    lv_obj_set_style_border_side(o, LV_BORDER_SIDE_FULL, state);
+    lv_obj_set_style_outline_width(o, 0, state);
+    lv_obj_set_style_shadow_width(o, 0, state);
+  }
+  // A solid inset control keeps the same rounded edge when focus moves.
+  // Feedback changes its border/fill, without blending over its neighbours.
+  etx_bg_color(o, COLOR_THEME_SECONDARY3_INDEX, LV_STATE_FOCUSED);
+  etx_bg_color(o, COLOR_THEME_SECONDARY2_INDEX, LV_STATE_PRESSED);
+  etx_border_color(o, COLOR_THEME_FOCUS_INDEX, LV_STATE_FOCUSED);
+  etx_txt_color(o, COLOR_THEME_PRIMARY1_INDEX);
+  lv_obj_set_style_color_filter_opa(o, LV_OPA_TRANSP, LV_STATE_PRESSED);
+}
+
+class AppearanceChoice : public Choice
+{
+ public:
+  AppearanceChoice(Window* parent, int last, std::function<int()> get,
+                   std::function<void(int)> set, const char* title) :
+      Choice(parent, {0, 0, LV_PCT(100), Nb4Ui::Touch}, 0, last,
+             std::move(get), std::move(set), title)
+  {
+    appearanceControl(lvobj);
+    setFlexLayout(LV_FLEX_FLOW_ROW, Nb4Ui::SpaceS, LV_PCT(100), Nb4Ui::Touch);
+    padLeft(PAD_LARGE);
+    padRight(PAD_LARGE);
+    padTop(PAD_ZERO);
+    padBottom(PAD_ZERO);
+    lv_obj_set_flex_align(lvobj, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_move_to_index(label, 0);
+    lv_obj_set_width(label, 0);
+    lv_obj_set_flex_grow(label, 1);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+    setPopupWidth(lv_disp_get_hor_res(nullptr) - 2 * Nb4Ui::Margin);
+    setFillMenuHandler([](Menu* menu, int, int&) {
+      menu->setMinimumRowHeight(Nb4Ui::Touch);
+      menu->setTitleColors(COLOR_THEME_HEADER_BG_INDEX, COLOR_THEME_HEADER_FG_INDEX);
+    });
+  }
+};
+
+TextButton* selectedAction(Window* p, rect_t r, const char* text, std::function<void()> fn,
                     std::function<bool()> selected)
 {
   auto b = action(p, r, text, fn);
 
   auto o = b->getLvObj();
-  lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_CHECKED);
-  etx_bg_color(o, COLOR_THEME_SECONDARY3_INDEX, LV_PART_MAIN | LV_STATE_CHECKED);
-  lv_obj_set_style_border_width(o, 3, LV_PART_MAIN | LV_STATE_CHECKED);
-  lv_obj_set_style_border_side(o, LV_BORDER_SIDE_LEFT | LV_BORDER_SIDE_BOTTOM,
-                               LV_PART_MAIN | LV_STATE_CHECKED);
-  etx_border_color(o, COLOR_THEME_FOCUS_INDEX, LV_PART_MAIN | LV_STATE_CHECKED);
-  b->setCheckHandler([b, selected] {
+  appearanceControl(o);
+  for (lv_state_t state : {lv_state_t(LV_STATE_CHECKED),
+      lv_state_t(LV_STATE_CHECKED | LV_STATE_FOCUSED),
+      lv_state_t(LV_STATE_CHECKED | LV_STATE_FOCUS_KEY),
+      lv_state_t(LV_STATE_CHECKED | LV_STATE_PRESSED)}) {
+    etx_bg_color(o, COLOR_THEME_FOCUS_INDEX, state);
+    etx_border_color(o, COLOR_THEME_FOCUS_INDEX, state);
+  }
+  // Inherit the state colour instead of keeping action()'s fixed label ink.
+  etx_remove_txt_color(lv_obj_get_child(o, 0), 0);
+  b->setCheckHandler([b, selected, lastInk = uint32_t(-1)]() mutable {
     bool active = selected();
     if (active != b->checked()) b->check(active);
+    const uint32_t ink = lv_color_brightness(Nb4Ui::color(COLOR_THEME_FOCUS_INDEX)) > 140
+        ? 0x071015 : 0xFFFFFF;
+    if (ink != lastInk) {
+      lv_obj_set_style_text_color(b->getLvObj(), lv_color_hex(ink), LV_STATE_CHECKED);
+      lastInk = ink;
+    }
   });
+  return b;
 }
 
 }  // namespace
@@ -214,32 +276,50 @@ void applyPaletteByName(const char* name)
 
 void nb4BuildAppearance(Window* parent)
 {
-  lv_obj_set_layout(parent->getLvObj(), 0);
-  parent->padAll(PAD_TINY);
-  lv_obj_update_layout(parent->getLvObj());
-  coord_t y = 0, w = lv_obj_get_content_width(parent->getLvObj());
-  label(parent, {8, y, w - 16, 28}, "ApexTX", FONT(L)); y += 36;
-  label(parent, {8, y, w - 16, 22}, STR_NB4_PALETTE, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  for (unsigned i = 0; i < nb4PaletteCount(); ++i) {
-    const auto& palette = nb4Palette(i);
-    const std::string name = palette.name;
-    selectedAction(parent, {0, y, w, 44}, palette.label(),
-      [name] { applyPaletteByName(name.c_str()); },
-      [name] { return name == g_eeGeneral.selectedTheme; });
-    y += 50;
-  }
-  label(parent, {8, y, w - 16, 22}, STR_NB4_ACCENT, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  auto choice = new Choice(parent, {0, y, w, 44}, 0, nb4AccentCount() - 1,
+  using namespace Nb4Ui;
+  parent->padAll(PAD_MEDIUM);
+  parent->setFlexLayout(LV_FLEX_FLOW_COLUMN, SpaceM, LV_PCT(100), LV_SIZE_CONTENT);
+  const bool wide = lv_disp_get_hor_res(nullptr) > lv_disp_get_ver_res(nullptr);
+  auto fields = new Window(parent, {0, 0, LV_PCT(100), LV_SIZE_CONTENT});
+  fields->setFlexLayout(wide ? LV_FLEX_FLOW_ROW : LV_FLEX_FLOW_COLUMN,
+                       SpaceM, LV_PCT(100), LV_SIZE_CONTENT);
+  auto field = [fields, wide](const char* title) {
+    auto group = new Window(fields, {0, 0, wide ? 0 : LV_PCT(100), LV_SIZE_CONTENT});
+    group->setFlexLayout(LV_FLEX_FLOW_COLUMN, SpaceXS,
+                          wide ? 0 : LV_PCT(100), LV_SIZE_CONTENT);
+    if (wide) lv_obj_set_flex_grow(group->getLvObj(), 1);
+    caption(group, {0, 0, LV_PCT(100), CaptionH}, title);
+    return group;
+  };
+  auto palettes = new AppearanceChoice(field(STR_NB4_PALETTE), nb4PaletteCount() - 1,
+    [] { return nb4PaletteIndexByName(g_eeGeneral.selectedTheme); },
+    [](int value) { applyPaletteByName(nb4Palette(value).name); }, STR_NB4_PALETTE);
+  palettes->setTextHandler([](int value) {
+    // External themes have no built-in index; show their actual saved name
+    // until the user explicitly chooses a built-in palette.
+    return value >= 0 && unsigned(value) < nb4PaletteCount()
+        ? std::string(nb4Palette(value).label()) : std::string(g_eeGeneral.selectedTheme);
+  });
+  auto choice = new AppearanceChoice(field(STR_NB4_ACCENT), nb4AccentCount() - 1,
     [] { return int(g_eeGeneral.nb4Accent); }, [](int value) {
       g_eeGeneral.nb4Accent = value; storageDirty(EE_GENERAL);
       applyPaletteByName(g_eeGeneral.selectedTheme);
-    });
+    }, STR_NB4_ACCENT);
   choice->setTextHandler([](int value) { return std::string(nb4AccentName(value)); });
-  y += 54;
-  action(parent, {0, y, w, 44}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
-  label(parent, {8, y, w - 16, 22}, STR_NB4_ORIENTATION, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
+  auto orientation = new Window(parent, {0, 0, LV_PCT(100), LV_SIZE_CONTENT});
+  orientation->setFlexLayout(LV_FLEX_FLOW_COLUMN, SpaceXS, LV_PCT(100), LV_SIZE_CONTENT);
+  caption(orientation, {0, 0, LV_PCT(100), CaptionH}, STR_NB4_ORIENTATION);
+  auto row = new Window(orientation, {0, 0, LV_PCT(100), Touch});
+  row->setFlexLayout(LV_FLEX_FLOW_ROW, Gap, LV_PCT(100), Touch);
+  auto portrait = selectedAction(row, {0, 0, 0, Touch}, STR_NB4_PORTRAIT,
+    [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; });
+  auto landscape = selectedAction(row, {0, 0, 0, Touch}, STR_NB4_LANDSCAPE,
+    [] { nb4RequestOrientation(true); }, [] { return bool(g_eeGeneral.nb4Orientation); });
+  lv_obj_set_flex_grow(portrait->getLvObj(), 1);
+  lv_obj_set_flex_grow(landscape->getLvObj(), 1);
+  auto external = Nb4Ui::action(parent, {0, 0, LV_PCT(100), Touch},
+    STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); });
+  appearanceControl(external->getLvObj());
 }
 
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
@@ -263,7 +343,9 @@ void Nb4HomeScreen::build()
   builtPanel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   const bool landscape = width() > height();
   const coord_t w = width();
-  constexpr coord_t edge = 2, gap = 2;
+  constexpr coord_t edge = Nb4Ui::SpaceXS, gap = Nb4Ui::SpaceXS;
+  // The header card holds 44 px buttons inside its one-pixel border.
+  constexpr coord_t headerH = Nb4Ui::Touch + 2;
   const coord_t fullWidth = w - 2 * edge;
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -272,29 +354,29 @@ void Nb4HomeScreen::build()
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 
   const std::string tags = modelLabels();
-  auto headerCard = card(this, {edge, edge, fullWidth, 48});
-  const coord_t nameX = 8;
+  auto headerCard = card(this, {edge, edge, fullWidth, headerH});
+  const coord_t nameX = Nb4Ui::SpaceS;
   const coord_t nameW = landscape ? 132 : fullWidth - 108;
-  name = label(headerCard, {nameX, tags.empty() ? (coord_t)14 : (coord_t)6, nameW, 20}, "", FONT(BOLD));
-  if (!tags.empty()) {
-    auto tagLabel = label(headerCard, {nameX, 27, nameW, 15}, tags.c_str(), FONT(XXS),
-                          COLOR_THEME_PRIMARY3_INDEX);
-    lv_obj_set_style_text_letter_space(tagLabel->getLvObj(), 1, LV_PART_MAIN);
-  }
+  name = label(headerCard, {nameX, tags.empty() ? (coord_t)0 : (coord_t)4, nameW,
+                            tags.empty() ? Nb4Ui::Touch : (coord_t)20}, "", FONT(BOLD));
+  if (!tags.empty())
+    Nb4Ui::caption(headerCard, {nameX, 24, nameW, Nb4Ui::CaptionH}, tags.c_str());
 
-  const coord_t gearX = (coord_t)(headerCard->width() - 48);
-  const coord_t wrenchX = (coord_t)(gearX - 44);
-  nb4Hairline(headerCard, {(coord_t)(wrenchX - 6), 10, 1, 28});
-  auto wrench = new Window(headerCard, {wrenchX, 2, 44, 44});
+  const coord_t gearX = (coord_t)(headerCard->width() - 2 - Nb4Ui::Touch);
+  const coord_t wrenchX = (coord_t)(gearX - Nb4Ui::Touch);
+  nb4Hairline(headerCard, {(coord_t)(wrenchX - Nb4Ui::SpaceXS), 8, 1, 28});
+  auto wrench = new Window(headerCard, {wrenchX, 0, Nb4Ui::Touch, Nb4Ui::Touch});
   lv_obj_set_style_bg_opa(wrench->getLvObj(), LV_OPA_TRANSP, 0);
-  new StaticIcon(wrench, 7, 7, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX);
+  Nb4Ui::centreIcon(new StaticIcon(wrench, 0, 0, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX),
+                    wrench->getLvObj());
 
   lv_obj_add_event_cb(wrench->getLvObj(), [](lv_event_t*) {
     nb4OpenQuickAccessModal();
   }, LV_EVENT_CLICKED, nullptr);
-  auto gear = new Window(headerCard, {gearX, 2, 44, 44});
+  auto gear = new Window(headerCard, {gearX, 0, Nb4Ui::Touch, Nb4Ui::Touch});
   lv_obj_set_style_bg_opa(gear->getLvObj(), LV_OPA_TRANSP, 0);
-  new StaticIcon(gear, 7, 7, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX);
+  Nb4Ui::centreIcon(new StaticIcon(gear, 0, 0, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX),
+                    gear->getLvObj());
 
   lv_obj_add_event_cb(gear->getLvObj(), [](lv_event_t*) {
     nb4OpenSettingsModal();
@@ -308,8 +390,7 @@ void Nb4HomeScreen::build()
     label(this, {4, 58, (coord_t)(w - 8), 20}, banner, FONT(XS),
           COLOR_THEME_PRIMARY3_INDEX);
     label(this, {4, 84, (coord_t)(w - 8), 32}, "ApexTX", FONT(L));
-    auto note = label(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
-    lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
+    Nb4Ui::paragraph(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
     action(this, {4, 208, (coord_t)(w - 8), 44}, STR_NB4_SYSTEM_DIAGNOSTICS, [] { ViewMain::instance()->openMenu(); });
     action(this, {4, 260, (coord_t)(w - 8), 44}, STR_NB4_CAR, [] { QuickMenu::openPage(QM_MODEL_SETUP); });
     name->setText(state.model);
@@ -318,26 +399,27 @@ void Nb4HomeScreen::build()
 
   // --- Indicators: RF, TX, and RX -------------------------------------------
   if (landscape) {
-    nb4Hairline(headerCard, {148, 8, 1, 32});
+    nb4Hairline(headerCard, {148, 6, 1, 32});
     for (unsigned i = 0; i < 3; ++i) {
-      const coord_t x = (coord_t)(154 + 74 * i);
-      if (i) nb4Hairline(headerCard, {(coord_t)(x - 6), 8, 1, 32});
-      telltales[i] = new Nb4Telltale(headerCard, {x, 0, 68, 48}, i, false);
+      const coord_t x = (coord_t)(156 + 74 * i);
+      if (i) nb4Hairline(headerCard, {(coord_t)(x - 6), 6, 1, 32});
+      telltales[i] = new Nb4Telltale(headerCard, {x, 0, 68, Nb4Ui::Touch}, i, false);
     }
   } else {
     const coord_t usable = fullWidth - 2 * gap;
     for (unsigned i = 0; i < 3; ++i) {
       const coord_t x = edge + usable * i / 3 + gap * i;
       const coord_t cellWidth = usable * (i + 1) / 3 - usable * i / 3;
-      telltales[i] = new Nb4Telltale(this, {x, 52, cellWidth, 56}, i, true);
+      telltales[i] = new Nb4Telltale(this, {x, (coord_t)(edge + headerH + gap), cellWidth, 56}, i, true);
     }
   }
 
   if (!instruments) { refresh(state); return; }
 
   // --- Instruments ----------------------------------------------------------
-  const coord_t instrumentY = landscape ? 52 : 110;
-  const coord_t footerY = height() - edge - (landscape ? 58 : 122);
+  const coord_t instrumentY = edge + headerH + gap + (landscape ? 0 : 56 + gap);
+  constexpr coord_t chronoH = 68, statsH = 48, barH = 56;
+  const coord_t footerY = height() - edge - (landscape ? barH : chronoH + gap + statsH);
   const coord_t instrumentH = footerY - gap - instrumentY;
   const coord_t dialWidth = (fullWidth - gap) * 3 / 5;
   dial = new Nb4Dial(this, {edge, instrumentY, dialWidth, instrumentH}, landscape);
@@ -346,14 +428,14 @@ void Nb4HomeScreen::build()
 
   // --- Lap timer and statistics ---------------------------------------------
   if (landscape) {
-    auto bar = card(this, {edge, footerY, fullWidth, 58});
-    chrono = new Nb4Chrono(bar, {0, 0, 202, 56}, state, true);
-    auto split = nb4Hairline(bar, {202, 10, 1, 36});
+    auto bar = card(this, {edge, footerY, fullWidth, barH});
+    chrono = new Nb4Chrono(bar, {0, 0, 202, barH - 2}, state, true);
+    auto split = nb4Hairline(bar, {202, 9, 1, 36});
     lv_obj_clear_flag(split->getLvObj(), LV_OBJ_FLAG_CLICKABLE);
-    stats = new Nb4Stats(bar, {204, 0, (coord_t)(fullWidth - 206), 56}, true);
+    stats = new Nb4Stats(bar, {204, 0, (coord_t)(fullWidth - 206), barH - 2}, true);
   } else {
-    chrono = new Nb4Chrono(this, {edge, footerY, fullWidth, 70}, state, false);
-    stats = new Nb4Stats(this, {edge, (coord_t)(footerY + 72), fullWidth, 50}, false);
+    chrono = new Nb4Chrono(this, {edge, footerY, fullWidth, chronoH}, state, false);
+    stats = new Nb4Stats(this, {edge, (coord_t)(footerY + chronoH + gap), fullWidth, statsH}, false);
   }
   Nb4Ui::passThrough(chrono->getLvObj());
   Nb4Ui::passThrough(stats->getLvObj());
@@ -380,8 +462,7 @@ void Nb4HomeScreen::build()
   if (blockedModel) {
     auto warning = card(this, {4, 108, (coord_t)(w - 8), (coord_t)(height() - 166)});
     label(warning, {12, 12, warning->width() - 24, 28}, STR_NB4_RF_DISABLED, FONT(BOLD), COLOR_THEME_WARNING_INDEX);
-    auto detail = label(warning, {12, 48, warning->width() - 24, 100}, STR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS);
-    lv_label_set_long_mode(detail->getLvObj(), LV_LABEL_LONG_WRAP);
+    Nb4Ui::paragraph(warning, {12, 48, warning->width() - 24, 100}, STR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS);
     action(warning, {12, warning->height() - 56, warning->width() - 24, 44}, STR_NB4_MODELS, [] { QuickMenu::openPage(QM_MANAGE_MODELS); });
   }
   refresh(state);
