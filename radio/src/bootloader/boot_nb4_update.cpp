@@ -26,7 +26,6 @@ static char usbInfo[126] = NB4_USB_INFO_PREFIX;
 
 extern uint32_t _reboot_cmd;
 extern "C" uint32_t _estack;
-extern "C" void Reset_Handler();
 
 // AN3156 Leave DFU loads SP and reset from the selected vector pair. The host
 // chooses this entry only after a complete image read-back. Run from flash:
@@ -35,7 +34,11 @@ extern "C" __attribute__((section(".bootstrap"), noreturn)) void nb4RomDfuStart(
 {
   __disable_irq();
   _reboot_cmd = REBOOT_CMD_RESUME;
-  Reset_Handler();
+  // A C call to Reset_Handler leaves the ROM's clock/peripheral state intact
+  // and does not set the software-reset cause. The early power hook needs that
+  // cause to latch the NB4's rails before SDRAM/application initialization.
+  // A real reset also clears pending ROM USB interrupts (ST AN3156).
+  NVIC_SystemReset();
   for (;;) {}
 }
 

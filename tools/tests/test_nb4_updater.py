@@ -590,11 +590,12 @@ void jumpTo(uint32_t){jumped=true;throw 1;}
 void setSelectedUsbMode(int mode){usbMode=mode;}
 void __enable_irq(){} void timersInit(){} void usbInit(){} void boardBLInit(){}
 void usbStop(){usb=false;}
-void NVIC_SystemReset(){assert(!usb);throw 2;}
+unsigned systemResets=0;
+void NVIC_SystemReset(){assert(!usb);++systemResets;throw 2;}
 uint32_t abnormalRebootGetCause(){return ARC_Software;}
 bool interruptsDisabled=false;
 void __disable_irq(){interruptsDisabled=true;}
-void Reset_Handler(){assert(interruptsDisabled);throw 3;}
+void Reset_Handler(){assert(false && "A C startup call does not reset ROM clocks/power");}
 '''
         scenario = r'''
 int main(){
@@ -612,7 +613,7 @@ int main(){
  // The explicit ROM-DFU return entry requests one automatic startup. Ordinary
  // cold boots above still require the application to qualify its power press.
  try{nb4RomDfuStart();}catch(int){}
- assert(interruptsDisabled&&_reboot_cmd==REBOOT_CMD_RESUME);
+ assert(interruptsDisabled&&_reboot_cmd==REBOOT_CMD_RESUME&&systemResets==2);
  jumped=false;try{bootloaderInitApp();}catch(int){}
  assert(jumped&&abnormalRebootTakeResumeRequest());
  assert(!abnormalRebootTakeResumeRequest());
