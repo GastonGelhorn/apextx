@@ -17,10 +17,18 @@ concurrency:
 
 jobs:
   validate:
-    name: Build and test ApexTX for Noble NB4
+    name: Build and test ApexTX for ${{ matrix.radio }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/edgetx/edgetx-dev:2.12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - radio: Noble NB4
+            options: -DNB4_PLUS_HW=OFF
+          - radio: Noble NB4+
+            options: -DNB4_PLUS_HW=ON
     steps:
       - name: Check out source and submodules
         uses: actions/checkout@v7
@@ -39,7 +47,7 @@ jobs:
       - name: Configure firmware and native tests
         run: |
           cmake -S . -B build/nb4-ci \
-            -DPCB=PL18 -DPCBREV=NB4 \
+            -DPCB=PL18 -DPCBREV=NB4 ${{ matrix.options }} \
             -DNB4_RF_PROFILE=RECOVERED_USART6 \
             -DAPEXTX_PUBLIC_RELEASE=OFF \
             -DTRANSLATIONS=EN \
