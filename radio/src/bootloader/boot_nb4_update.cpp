@@ -27,10 +27,7 @@ static char usbInfo[126] = NB4_USB_INFO_PREFIX;
 extern uint32_t _reboot_cmd;
 extern "C" uint32_t _estack;
 
-// AN3156 Leave DFU loads SP and reset from the selected vector pair. The host
-// chooses this entry only after a complete image read-back. Run from flash:
-// normal .text/.data and C++ initialization have not been prepared yet.
-extern "C" __attribute__((section(".bootstrap"), noreturn)) void nb4RomDfuStart()
+extern "C" __attribute__((used, section(".bootstrap"), noreturn)) void nb4RomDfuReset()
 {
   __disable_irq();
   _reboot_cmd = REBOOT_CMD_RESUME;
@@ -40,6 +37,26 @@ extern "C" __attribute__((section(".bootstrap"), noreturn)) void nb4RomDfuStart(
   // A real reset also clears pending ROM USB interrupts (ST AN3156).
   NVIC_SystemReset();
   for (;;) {}
+}
+
+// AN3156 Leave DFU loads SP and reset from the selected vector pair. The ROM
+// clears RCC_AHB1ENR, including CCMDATARAMEN, before jumping. Our stack and
+// reboot command live in CCM: even a compiler-generated push would fault before
+// reaching the reset request. Enable CCM without touching the stack first.
+// Both stages run from flash before normal RAM/C++ initialization.
+static_assert(RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR) == 0x40023830u);
+static_assert(RCC_AHB1ENR_CCMDATARAMEN == (1u << 20));
+extern "C" __attribute__((naked, section(".bootstrap"), noreturn)) void nb4RomDfuStart()
+{
+  asm volatile (
+    "cpsid i\n"
+    "ldr r0, =0x40023830\n"
+    "ldr r1, [r0]\n"
+    "orr r1, r1, #0x100000\n"
+    "str r1, [r0]\n"
+    "dsb\n"
+    "b nb4RomDfuReset\n"
+  );
 }
 
 struct RomDfuEntry {

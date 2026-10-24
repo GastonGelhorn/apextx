@@ -567,7 +567,7 @@ class FlashEngine(unittest.TestCase):
         actual = '\n'.join([function(reboot, 'void abnormalRebootRequestResume()'),
                             function(reboot, 'bool abnormalRebootTakeResumeRequest()'),
                             function(adapter, 'static void restartApplication()'),
-                            function(adapter, 'void nb4RomDfuStart()'), boot])
+                            function(adapter, 'void nb4RomDfuReset()'), boot])
         model = r'''
 #include <cassert>
 #include <cstdint>
@@ -612,7 +612,7 @@ int main(){
  assert(!jumped&&usbMode==USB_DFU_MODE&&_reboot_cmd==0);
  // The explicit ROM-DFU return entry requests one automatic startup. Ordinary
  // cold boots above still require the application to qualify its power press.
- try{nb4RomDfuStart();}catch(int){}
+ try{nb4RomDfuReset();}catch(int){}
  assert(interruptsDisabled&&_reboot_cmd==REBOOT_CMD_RESUME&&systemResets==2);
  jumped=false;try{bootloaderInitApp();}catch(int){}
  assert(jumped&&abnormalRebootTakeResumeRequest());

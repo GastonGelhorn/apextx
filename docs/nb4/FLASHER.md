@@ -199,8 +199,10 @@ Safeguards, for people who have never flashed before:
 - **Automatic startup after verification**: current images contain a dedicated
   `APXROM1` return vector in the bootloader. Only after the complete read-back
   matches does the app use ST's Leave DFU command with that vector. Its entry
-  requests one automatic start through the usual bootloader/application reset
-  path. Ordinary cold boots and shutdowns keep their power-button behavior.
+  enables CCM RAM before using the stack (the STM32 ROM disables its clock),
+  then requests a real MCU reset and one automatic start through the usual
+  bootloader/application reset path. Ordinary cold boots and shutdowns keep
+  their power-button behavior.
   Older images without the entry, or a radio that stays in ROM DFU, receive
   manual power-cycle instructions instead.
 
