@@ -479,7 +479,11 @@ class LogicalSwitchButton : public ListLineButton
     }
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  static LAYOUT_SIZE_SCALED(LS_BUTTON_H, 44, 44)
+#else
   static LAYOUT_SIZE_SCALED(LS_BUTTON_H, 32, 44)
+#endif
 
   static constexpr coord_t NM_X = PAD_TINY;
   static LAYOUT_SIZE_SCALED(NM_Y, 4, 10)

@@ -153,7 +153,11 @@ class OutputLineButton : public ListLineButton
     curve->show(output->curve);
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  static LAYOUT_SIZE_SCALED(CH_LINE_H, 44, 52)
+#else
   static LAYOUT_SIZE_SCALED(CH_LINE_H, 32, 50)
+#endif
   static LAYOUT_VAL_SCALED(CH_BAR_WIDTH, 100)
   static LAYOUT_VAL_SCALED(CH_BAR_HEIGHT, 16)
   static LAYOUT_VAL_SCALED(BAR_XO, 17)

@@ -65,8 +65,9 @@ every route. They report:
   scale, or a flex gap that is not a token.
 
 Set `NB4_DESIGN_REPORT=/path/report.tsv` to write every finding to a file.
-EdgeTX's own list editors (inputs, mixes, outputs, logic, voice assignments)
-are exempt from the touch rule until their rows are redesigned.
+Native list editors (inputs, mixes, outputs, logic, voice assignments and
+variables) use rows at least 44 px high. The route checks include populated
+logic and voice rows, without a touch-size exemption.
 
 To review every view by eye:
 

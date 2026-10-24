@@ -188,7 +188,12 @@ class InputGroup : public InputMixGroupBase
   {
     adjustHeight();
 
+#if defined(RADIO_NB4_FAMILY)
+    lv_obj_set_pos(label, PAD_TINY,
+                    (ListLineButton::BTN_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+#else
     lv_obj_set_pos(label, PAD_TINY, PAD_SMALL);
+#endif
 
     refresh();
   }

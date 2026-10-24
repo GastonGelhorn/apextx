@@ -148,7 +148,11 @@ class FunctionsPage : public PageGroupItem
 
   void build(Window* window) override;
 
+#if defined(RADIO_NB4_FAMILY)
+  static LAYOUT_SIZE_SCALED(SF_BUTTON_H, 44, 44)
+#else
   static LAYOUT_SIZE_SCALED(SF_BUTTON_H, 32, 44)
+#endif
 
  protected:
   int8_t focusIndex = -1;

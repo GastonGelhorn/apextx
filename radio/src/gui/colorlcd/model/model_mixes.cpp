@@ -176,7 +176,14 @@ class MixGroup : public InputMixGroupBase
   {
     adjustHeight();
 
+#if defined(RADIO_NB4_FAMILY)
+    const bool namedChannel = idx >= MIXSRC_FIRST_CH && idx <= MIXSRC_LAST_CH &&
+        g_model.limitData[idx - MIXSRC_FIRST_CH].name[0] != '\0';
+    lv_obj_set_pos(label, PAD_TINY, namedChannel ? 0 :
+                    (ListLineButton::BTN_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+#else
     lv_obj_set_pos(label, PAD_TINY, -1);
+#endif
 
     lv_obj_t* chText = nullptr;
     if (idx >= MIXSRC_FIRST_CH && idx <= MIXSRC_LAST_CH &&

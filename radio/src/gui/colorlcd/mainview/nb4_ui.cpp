@@ -110,7 +110,7 @@ void passThrough(lv_obj_t* root)
 
 void button(lv_obj_t* o, bool primary)
 {
-  lv_obj_set_style_radius(o, 7, 0);
+  lv_obj_set_style_radius(o, ControlRadius, 0);
   lv_obj_set_style_border_width(o, 1, 0);
   etx_border_color(o, primary ? COLOR_THEME_FOCUS_INDEX : COLOR_THEME_SECONDARY2_INDEX);
   etx_solid_bg(o, primary ? COLOR_THEME_FOCUS_INDEX : COLOR_THEME_SECONDARY3_INDEX);

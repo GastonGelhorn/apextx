@@ -3573,6 +3573,13 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   if (!model) model = modelslist.addModel("routes-test.yml", false);
   modelslist.setCurrentModel(model);
   nb4AcceptNewCarModel();
+  // Exercise populated native rows too: an empty list only checks its Add
+  // button and used to hide sub-44 px targets in logic and voice assignments.
+  g_model.logicalSw[0].func = LS_FUNC_VPOS;
+  g_model.logicalSw[0].v1 = MIXSRC_FIRST_STICK;
+  CFN_SWITCH(&g_eeGeneral.customFn[0]) = SWSRC_ON;
+  CFN_FUNC(&g_eeGeneral.customFn[0]) = FUNC_PLAY_TRACK;
+  CFN_ACTIVE(&g_eeGeneral.customFn[0]) = 1;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
   currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
@@ -3647,17 +3654,8 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
     std::string capture = std::string("route-") + g_eeGeneral.uiLanguage[0] + g_eeGeneral.uiLanguage[1] +
         (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-") + (r.path + 9);
     std::replace(capture.begin(), capture.end(), '/', '-');
-    // EdgeTX's own list editors keep their 29-32 px list rows: rows that close
-    // together cannot take a 44 px target without stealing each other's
-    // touches, so they need a native row redesign, not a design-token fix.
-    static const char* const nativeLists[] = {
-      "settings/advanced/inputs", "settings/advanced/mixes", "settings/advanced/outputs",
-      "settings/advanced/logic", "settings/sound_alerts/voice_assignments"};
-    const bool nativeList = std::any_of(std::begin(nativeLists), std::end(nativeLists),
-                                        [&](const char* p) { return !strcmp(p, r.path); });
     for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
-      if (!(nativeList && v.rule == "touch"))
-        design.push_back({v.rule, capture + ": " + v.detail});
+      design.push_back({v.rule, capture + ": " + v.detail});
     saveFrame(capture.c_str(), pass >= DIM(NB4_UI_LANGUAGES) ? 480 : 320, pass >= DIM(NB4_UI_LANGUAGES) ? 320 : 480);
 
     const char* mustShow = nullptr;
