@@ -345,7 +345,7 @@ void ModelMixesPage::newMix()
         skip_mix = (ch == 0 && is_memclear(line, sizeof(MixData)));
       }
     } else {
-      std::string ch_name(getSourceString(MIXSRC_FIRST_CH + ch));
+      std::string ch_name(getSourceDisplayString(MIXSRC_FIRST_CH + ch));
       menu->addLineBuffered(ch_name.c_str(), [=]() { insertMix(ch, index); });
     }
   }

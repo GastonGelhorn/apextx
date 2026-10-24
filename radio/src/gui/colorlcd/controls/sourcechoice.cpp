@@ -35,7 +35,13 @@ class SourceChoiceMenuToolbar : public MenuToolbar
   SourceChoiceMenuToolbar(SourceChoice* choice, Menu* menu) :
       MenuToolbar(choice, menu, FILTER_COLUMNS)
   {
-    addButton(CHAR_INPUT, MIXSRC_FIRST_INPUT, MIXSRC_LAST_INPUT, nullptr,
+    addButton(
+#if defined(RADIO_NB4_FAMILY)
+              "I",
+#else
+              CHAR_INPUT,
+#endif
+              MIXSRC_FIRST_INPUT, MIXSRC_LAST_INPUT, nullptr,
               STR_MENU_INPUTS);
 #if defined(LUA_MODEL_SCRIPTS)
     if (modelCustomScriptsEnabled())
@@ -222,7 +228,7 @@ SourceChoice::SourceChoice(Window *parent, const rect_t &rect, int16_t vmin,
     if (isValueAvailable && !isValueAvailable(value))
       return std::to_string(0);  // we will fix this later
 
-    return std::string(getSourceString(value));
+    return std::string(getSourceDisplayString(value));
   });
 
   setAvailableHandler([](int v) { return isSourceAvailable(v); });

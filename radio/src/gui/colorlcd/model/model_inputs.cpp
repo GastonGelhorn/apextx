@@ -303,7 +303,7 @@ void ModelInputsPage::newInput()
     if (!EXPO_VALID(line) || (line->chn > chn)) {
       uint8_t chnEnd = EXPO_VALID(line) ? line->chn : chn + 1;
       for (; chn < chnEnd; chn += 1) {
-        std::string name(getSourceString(chn + 1));
+        std::string name(getSourceDisplayString(chn + 1));
         menu->addLineBuffered(name.c_str(), [=]() { insertInput(chn, index); });
       }
     }

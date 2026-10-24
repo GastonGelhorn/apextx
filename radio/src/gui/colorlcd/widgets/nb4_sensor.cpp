@@ -125,7 +125,7 @@ class Nb4SensorWidget : public Widget
   {
     const mixsrc_t src = source();
     if (!configured(src)) return STR_NB4_SENSOR;
-    return getSourceString(src);
+    return getSourceDisplayString(src);
   }
 
   std::string text(int32_t v)

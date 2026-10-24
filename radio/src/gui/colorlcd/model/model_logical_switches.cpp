@@ -420,7 +420,7 @@ class LogicalSwitchButton : public ListLineButton
                                     .c_str());
         break;
       default: {
-        char* s = getSourceString(ls->v1);
+        char* s = getSourceDisplayString(ls->v1);
         if (getTextWidth(s, 0, FONT(STD)) > 88)
           lv_obj_add_state(lsV1, ETX_STATE_V1_SMALL_FONT);
         else
@@ -445,7 +445,7 @@ class LogicalSwitchButton : public ListLineButton
                                     .c_str());
         break;
       case LS_FAMILY_COMP:
-        lv_label_set_text(lsV2, getSourceString(ls->v2));
+        lv_label_set_text(lsV2, getSourceDisplayString(ls->v2));
         break;
       default:
         lv_label_set_text(

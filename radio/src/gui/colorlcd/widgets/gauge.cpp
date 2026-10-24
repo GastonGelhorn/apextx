@@ -85,7 +85,7 @@ class GaugeWidget : public Widget
     auto widgetData = getPersistentData();
 
     mixsrc_t index = widgetData->options[0].value.unsignedValue;
-    sourceText->setText(getSourceString(index));
+    sourceText->setText(getSourceDisplayString(index));
 
     if (width() < ALIGN_MAX_W)
       lv_obj_add_state(valueText->getLvObj(), LV_STATE_USER_1);

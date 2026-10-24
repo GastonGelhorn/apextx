@@ -49,7 +49,7 @@ class InputEditAdvanced : public Page
  public:
   InputEditAdvanced(InputEditWindow* parent, uint8_t input_n, uint8_t index) : Page(ICON_MODEL_INPUTS)
   {
-    std::string title2(getSourceString(MIXSRC_FIRST_INPUT + input_n));
+    std::string title2(getSourceDisplayString(MIXSRC_FIRST_INPUT + input_n));
     header->setTitle(STR_MENUINPUTS);
     header->setTitle2(title2);
 
@@ -147,7 +147,7 @@ InputEditWindow::InputEditWindow(int8_t input, uint8_t index) :
 
 void InputEditWindow::setTitle()
 {
-  headerSwitchName->setText(getSourceString(MIXSRC_FIRST_INPUT + input));
+  headerSwitchName->setText(getSourceDisplayString(MIXSRC_FIRST_INPUT + input));
 }
 
 void InputEditWindow::buildBody(Window* form)

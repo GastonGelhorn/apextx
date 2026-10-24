@@ -65,6 +65,12 @@ slot, never a solid square. Header glyphs sit in a fixed 44 x 48 px slot,
 without a decorative plate. Changing a route glyph centres it again using
 its actual dimensions. The same centring rule applies to menu tiles.
 
+Virtual input labels use readable identifiers such as `I01:ST`, `I02:TH`
+and `I03` instead of a small font pictogram. The input number remains visible
+when a custom name matches a physical control. Lists, editors, source choices
+and widgets use the same display formatter. Persisted source identifiers keep
+their original format for model and YAML compatibility.
+
 ## Checks
 
 `Nb4Ux.EveryAvailableRouteActuallyOpensSomethingAndComesBack` runs the checks on
