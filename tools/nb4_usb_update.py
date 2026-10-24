@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """ApexTX's RAM-staged NB4 updater transport. Never writes a ROM DFU device."""
+import errno
 import struct
 import sys
 import time
@@ -314,8 +315,23 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
             transport.command(b'APXSTART')
             reached[0] = 'installing'
             deadline = time.monotonic() + 180
+            read_failures, last_progress = 0, 50
             while True:
-                status = transport.read(CONTROL, 32)
+                try:
+                    status = transport.read(CONTROL, 32)
+                except OSError as error:
+                    # Internal-flash writes can briefly stall the control pipe.
+                    # Only retry status reads: never restage/restart an install
+                    # whose outcome is unknown, and never infer success from a
+                    # disconnect. A genuine removal (ENODEV) still fails at once.
+                    if (error.errno not in (errno.EIO, errno.EPIPE, errno.ETIMEDOUT)
+                            or read_failures >= 3 or time.monotonic() >= deadline):
+                        raise
+                    read_failures += 1
+                    progress('Waiting for the radio to finish writing flash...', last_progress)
+                    time.sleep(1)
+                    continue
+                read_failures = 0
                 magic, state, percent, actual_size, actual_crc, error, received = struct.unpack('<8s6I', status)
                 if (magic != b'APXSTAT1' or actual_size != size or actual_crc != crc or
                         received != len(package) or percent > 100):
@@ -333,7 +349,8 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
                     break
                 if state not in (1, 2) or time.monotonic() > deadline:
                     raise UpdateError('Installation could not be confirmed. Check the radio display and reconnect the updater.')
-                progress('Installing and verifying firmware...', 50 + percent * 47 // 100)
+                last_progress = 50 + percent * 47 // 100
+                progress('Installing and verifying firmware...', last_progress)
                 time.sleep(.5)
             if state == 3:
                 break

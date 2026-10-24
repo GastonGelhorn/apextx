@@ -115,6 +115,11 @@ Keeps the installed bootloader. This is the normal path once ApexTX is installed
    operation. Transfer read-back and the existing on-radio verification remain
    mandatory. Wait for the verified completion and restart instructions.
 
+Brief USB status stalls during internal-flash writes are retried with a bounded
+wait. Only status reads are repeated; the firmware is not resent or installed
+again. A removed device or a persistent failure leaves the outcome unconfirmed
+in the app. Keep the radio powered and check its display before restarting.
+
 An installed version equal to or newer than the offered release never triggers
 an automatic reinstall or downgrade. Development builds are identified and can
 be replaced deliberately using **Choose a local firmware image**. That option
@@ -140,6 +145,9 @@ and offers **Install…** without pretending to compare versions. A normal updat
 preserves that bootloader, so it cannot add Update-mode version reporting to an
 old bootloader. Reporting becomes available after an explicit complete install /
 recovery with a new bootloader; this is optional and is never performed silently.
+**Not available** is a version-query limitation, not an installation failure.
+Installation is verified separately against the exact application size and CRC
+reported by the bootloader before the app requests a restart.
 The new application's normal data modes can report its version, but the user
 still enters Update on the radio before writing. Older NB4+ applications used the
 NB4 product name in normal data modes; the app waits for Update to establish the
