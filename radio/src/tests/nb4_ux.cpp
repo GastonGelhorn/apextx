@@ -5511,6 +5511,50 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
   }
 }
 
+TEST(Nb4Ux, CustomCurveEditorKeepsALegiblePreviewAndSeparatePointRows)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (bool landscape : {false, true}) {
+    scene.orient(landscape);
+    main->resizeToDisplay();
+    for (int points : {5, 17}) {
+      SCOPED_TRACE(std::string(landscape ? "landscape " : "portrait ") + std::to_string(points));
+      g_model.curves[0].type = CURVE_TYPE_CUSTOM;
+      g_model.curves[0].points = points - 5;
+      auto editor = new CurveEditWindow(0);
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      unsigned previews = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<Curve*>(window)) {
+          ++previews;
+          EXPECT_GE(lv_obj_get_width(obj), 160);
+          EXPECT_GE(lv_obj_get_height(obj), 160);
+          lv_area_t bounds;
+          lv_obj_get_coords(obj, &bounds);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_GE(bounds.y1, EdgeTxStyles::MENU_HEADER_HEIGHT);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(bounds.y2, lv_disp_get_ver_res(nullptr));
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(editor->getLvObj());
+      EXPECT_EQ(previews, 1u);
+      for (const auto& v : nb4DesignViolations(editor->getLvObj()))
+        EXPECT_NE(v.rule, "overlap") << v.detail;
+      const auto name = std::string("custom-curve-") + (landscape ? "landscape-" : "portrait-") +
+          std::to_string(points);
+      saveFrame(name.c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+      ASSERT_TRUE(clickLabel(editor->getLvObj(), STR_NB4_BACK));
+      render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
 TEST(Nb4Ux, OutputEditorKeepsLiveBarsClearOfHeaderActions)
 {
   Scene scene; nb4AcceptNewCarModel();
