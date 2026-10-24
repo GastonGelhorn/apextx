@@ -78,6 +78,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
+#include <lvgl/src/draw/sw/lv_draw_sw.h>
 
 void guiMain(event_t event);
 
@@ -4153,6 +4154,43 @@ TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
   EXPECT_EQ(Layer::back(), base);
 }
 
+TEST(Nb4Performance, FullScreenPagesHideTheGridsUnderThem)
+{
+  Scene scene;
+  ViewMain::instance();
+  auto base = Layer::back();
+  nb4OpenSettingsModal();
+  auto settings = Layer::back();
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  ASSERT_TRUE(nb4OpenRoute("settings/display/appearance"));
+  auto page = Layer::back();
+  ASSERT_NE(page, display);
+  render(scene.root);
+
+  // Nothing under the page is drawn, and its backdrop is opaque, so a redraw
+  // of the page starts at the page.
+  EXPECT_FALSE(settings->isVisible());
+  EXPECT_FALSE(display->isVisible());
+  EXPECT_EQ(lv_obj_get_style_bg_opa(page->getLvObj(), LV_PART_MAIN), LV_OPA_COVER);
+
+  // A popup over the page leaves the page drawn underneath it.
+  new MessageDialog("Test", "Message");
+  EXPECT_TRUE(page->isVisible());
+  Layer::back()->onCancel();
+  scene.root->run();
+
+  page->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), display);
+  EXPECT_TRUE(settings->isVisible());
+  EXPECT_TRUE(display->isVisible());
+  display->onCancel();
+  settings->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+}
+
 TEST(Nb4Performance, EveryViewOpenCost)
 {
   Scene scene;
@@ -4265,6 +4303,232 @@ TEST(Nb4Performance, EveryViewOpenCost)
            sorted[i].closeUs, sorted[i].objects, sorted[i].images, sorted[i].storage);
   EXPECT_GT(rows.size(), 100u);
   nb4RacingReset();
+}
+
+namespace {
+// Draw-call accounting for the scroll measurement: time and count per kind.
+struct DrawCost { double us = 0; unsigned calls = 0; };
+DrawCost scrollRects, scrollShadows, scrollImages, scrollLetters, scrollArcs, scrollLayers;
+decltype(lv_draw_ctx_t::draw_rect) scrollDrawRect;
+decltype(lv_draw_ctx_t::draw_img_decoded) scrollDrawImage;
+decltype(lv_draw_ctx_t::draw_letter) scrollDrawLetter;
+decltype(lv_draw_ctx_t::draw_arc) scrollDrawArc;
+decltype(lv_draw_ctx_t::layer_init) scrollLayerInit;
+
+// Pixels written per kind of blend. On the radio a plain fill or copy is a
+// straight write to uncached SDRAM; anything with opacity or a mask reads the
+// pixel underneath too and runs a per-pixel mix, several times slower.
+struct BlendPixels { unsigned long fill = 0, copy = 0, mixedFill = 0, mixedCopy = 0; };
+BlendPixels scrollBlend;
+void (*scrollBlendFn)(lv_draw_ctx_t*, const lv_draw_sw_blend_dsc_t*);
+void scrollBlendCount(lv_draw_ctx_t* ctx, const lv_draw_sw_blend_dsc_t* dsc)
+{
+  lv_area_t area;
+  if (_lv_area_intersect(&area, dsc->blend_area, ctx->clip_area) &&
+      dsc->mask_res != LV_DRAW_MASK_RES_TRANSP) {
+    const unsigned long px = lv_area_get_size(&area);
+    const bool mixed = dsc->opa < LV_OPA_MAX ||
+                       (dsc->mask_buf && dsc->mask_res != LV_DRAW_MASK_RES_FULL_COVER);
+    if (dsc->src_buf) (mixed ? scrollBlend.mixedCopy : scrollBlend.copy) += px;
+    else (mixed ? scrollBlend.mixedFill : scrollBlend.fill) += px;
+  }
+  scrollBlendFn(ctx, dsc);
+}
+
+template <typename F> void timed(DrawCost& cost, F&& run)
+{
+  const auto t0 = std::chrono::steady_clock::now();
+  run();
+  cost.us += std::chrono::duration<double, std::micro>(
+      std::chrono::steady_clock::now() - t0).count();
+  ++cost.calls;
+}
+
+bool scrollRectLog = false;
+void scrollRect(lv_draw_ctx_t* ctx, const lv_draw_rect_dsc_t* dsc, const lv_area_t* area)
+{
+  if (scrollRectLog)
+    printf("NB4 rect %dx%d bg_opa %u radius %d border %d/%u outline %d\n",
+           lv_area_get_width(area), lv_area_get_height(area), dsc->bg_opa, dsc->radius,
+           dsc->border_width, dsc->border_opa, dsc->outline_width);
+  timed(dsc->shadow_width && dsc->shadow_opa > LV_OPA_MIN ? scrollShadows : scrollRects,
+        [&] { scrollDrawRect(ctx, dsc, area); });
+}
+void scrollImage(lv_draw_ctx_t* ctx, const lv_draw_img_dsc_t* dsc,
+                 const lv_area_t* area, const uint8_t* pixels, lv_img_cf_t format)
+{
+  timed(scrollImages, [&] { scrollDrawImage(ctx, dsc, area, pixels, format); });
+}
+void scrollLetter(lv_draw_ctx_t* ctx, const lv_draw_label_dsc_t* dsc,
+                  const lv_point_t* pos, uint32_t letter)
+{
+  timed(scrollLetters, [&] { scrollDrawLetter(ctx, dsc, pos, letter); });
+}
+void scrollArc(lv_draw_ctx_t* ctx, const lv_draw_arc_dsc_t* dsc,
+               const lv_point_t* center, uint16_t radius, uint16_t start, uint16_t end)
+{
+  timed(scrollArcs, [&] { scrollDrawArc(ctx, dsc, center, radius, start, end); });
+}
+lv_draw_layer_ctx_t* scrollLayer(lv_draw_ctx_t* ctx, lv_draw_layer_ctx_t* layer,
+                                 lv_draw_layer_flags_t flags)
+{
+  ++scrollLayers.calls;
+  return scrollLayerInit(ctx, layer, flags);
+}
+
+lv_obj_t* largestScrollable(lv_obj_t* obj, lv_coord_t* best)
+{
+  lv_obj_t* found = nullptr;
+  if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) &&
+      lv_obj_has_flag(obj, LV_OBJ_FLAG_SCROLLABLE)) {
+    const lv_coord_t range = lv_obj_get_scroll_bottom(obj) + lv_obj_get_scroll_top(obj);
+    if (range > *best) { *best = range; found = obj; }
+  }
+  if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return nullptr;
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+    if (auto child = largestScrollable(lv_obj_get_child(obj, i), best)) found = child;
+  return found;
+}
+}  // namespace
+
+// What one frame of finger scrolling costs on every page that scrolls. A drag
+// moves the whole viewport, so each frame redraws it completely; the kinds of
+// draw calls show where that time goes.
+TEST(Nb4Performance, EveryViewScrollCost)
+{
+  Scene scene;
+  scene.applyPalette("ApexTX Dark");
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+
+  auto ctx = lv_disp_get_default()->driver->draw_ctx;
+  scrollDrawRect = ctx->draw_rect;
+  scrollDrawImage = ctx->draw_img_decoded;
+  scrollDrawLetter = ctx->draw_letter;
+  scrollDrawArc = ctx->draw_arc;
+  scrollLayerInit = ctx->layer_init;
+  ctx->draw_rect = scrollRect;
+  ctx->draw_img_decoded = scrollImage;
+  ctx->draw_letter = scrollLetter;
+  ctx->draw_arc = scrollArc;
+  ctx->layer_init = scrollLayer;
+  auto sw = (lv_draw_sw_ctx_t*)ctx;
+  scrollBlendFn = sw->blend;
+  sw->blend = scrollBlendCount;
+
+  struct Row {
+    std::string view;
+    double frameUs;
+    unsigned long pixels;
+    lv_coord_t range;
+    DrawCost rects, shadows, images, letters, arcs, layers;
+    BlendPixels blend;
+  };
+  std::vector<Row> rows;
+  constexpr unsigned STEPS = 8;
+
+  unsigned count = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route& r = routes[i];
+    if (r.state != Nb4RouteState::Available || !nb4RouteIsOpenable(r)) continue;
+    // The way a user gets there: Settings, the section grid, the page.
+    nb4OpenSettingsModal();
+    std::string section = r.section ? r.section : "";
+    if (section.empty() && !strncmp(r.path, "settings/", 9))
+      section = std::string(r.path + 9, strcspn(r.path + 9, "/"));
+    if (!section.empty() && section != "cars" && section != "steering" &&
+        section != "throttle_brake" && section != "receiver_rf" && section != "help")
+      nb4OpenSettingsSection(section.c_str());
+    ASSERT_TRUE(nb4OpenRoute(r.path));
+    for (unsigned f = 0; f < 2; ++f) render(scene.root);
+    if (const char* dump = getenv("NB4_SCROLL_DUMP"); dump && !strcmp(dump, r.path)) {
+      std::function<void(lv_obj_t*, int)> walk = [&](lv_obj_t* o, int depth) {
+        if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return;
+        const auto bgOpa = lv_obj_get_style_bg_opa(o, LV_PART_MAIN);
+        const auto opa = lv_obj_get_style_opa(o, LV_PART_MAIN);
+        const auto radius = lv_obj_get_style_radius(o, LV_PART_MAIN);
+        const auto border = lv_obj_get_style_border_width(o, LV_PART_MAIN);
+        if (bgOpa || opa < LV_OPA_COVER || border)
+          printf("NB4 dump %*s%s %dx%d bg_opa %u opa %u radius %d border %d grad %d img %d\n",
+                 depth * 2, "", o->class_p == &lv_label_class ? "label" :
+                 o->class_p == &lv_btn_class ? "btn" : o->class_p == &lv_img_class ? "img" : "obj",
+                 lv_obj_get_width(o), lv_obj_get_height(o), bgOpa, opa, radius, border,
+                 lv_obj_get_style_bg_grad_dir(o, LV_PART_MAIN) != LV_GRAD_DIR_NONE,
+                 lv_obj_get_style_bg_img_src(o, LV_PART_MAIN) != nullptr);
+        for (uint32_t c = 0; c < lv_obj_get_child_cnt(o); ++c) walk(lv_obj_get_child(o, c), depth + 1);
+      };
+      walk(Layer::back()->getLvObj(), 0);
+    }
+    lv_coord_t range = 0;
+    lv_obj_t* scroller = largestScrollable(Layer::back()->getLvObj(), &range);
+    if (scroller && range > 40) {
+      scrollRects = scrollShadows = scrollImages = scrollLetters = scrollArcs =
+          scrollLayers = DrawCost();
+      scrollBlend = BlendPixels();
+      resetFlushAccounting();
+      const auto t0 = std::chrono::steady_clock::now();
+      const char* dump = getenv("NB4_SCROLL_DUMP");
+      for (unsigned s = 0; s < STEPS; ++s) {
+        scrollRectLog = dump && !strcmp(dump, r.path) && s == 0;
+        lv_obj_scroll_by(scroller, 0, s < STEPS / 2 ? -12 : 12, LV_ANIM_OFF);
+        renderIncremental(scene.root);
+      }
+      scrollRectLog = false;
+      const double us = std::chrono::duration<double, std::micro>(
+          std::chrono::steady_clock::now() - t0).count();
+      auto per = [](DrawCost c) { c.us /= STEPS; c.calls /= STEPS; return c; };
+      BlendPixels blend = scrollBlend;
+      blend.fill /= STEPS; blend.copy /= STEPS;
+      blend.mixedFill /= STEPS; blend.mixedCopy /= STEPS;
+      rows.push_back({r.path, us / STEPS, flushedPixels / STEPS, range,
+                      per(scrollRects), per(scrollShadows), per(scrollImages),
+                      per(scrollLetters), per(scrollArcs), per(scrollLayers), blend});
+    }
+    Keyboard::hide(false);
+    for (unsigned depth = 0; depth < 24 && Layer::back() != base; ++depth) {
+      auto page = Layer::back();
+      page->onCancel();
+      scene.root->run();
+      if (Layer::back() == page) break;
+    }
+    ASSERT_EQ(Layer::back(), base) << r.path;
+  }
+  ctx->draw_rect = scrollDrawRect;
+  ctx->draw_img_decoded = scrollDrawImage;
+  ctx->draw_letter = scrollDrawLetter;
+  ctx->draw_arc = scrollDrawArc;
+  ctx->layer_init = scrollLayerInit;
+  sw->blend = scrollBlendFn;
+
+  std::sort(rows.begin(), rows.end(),
+            [](const Row& a, const Row& b) { return a.frameUs > b.frameUs; });
+  if (const char* path = getenv("NB4_SCROLL_CSV")) {
+    auto file = fopen(path, "w");
+    ASSERT_NE(file, nullptr);
+    fprintf(file, "view,frame_us,pixels,range,rect_us,rects,shadow_us,shadows,"
+                  "image_us,images,letter_us,letters,arc_us,arcs,layers,"
+                  "fill_px,copy_px,mixed_fill_px,mixed_copy_px\n");
+    for (const auto& r : rows)
+      fprintf(file, "%s,%.0f,%lu,%d,%.0f,%u,%.0f,%u,%.0f,%u,%.0f,%u,%.0f,%u,%u,%lu,%lu,%lu,%lu\n",
+              r.view.c_str(), r.frameUs, r.pixels, r.range, r.rects.us, r.rects.calls,
+              r.shadows.us, r.shadows.calls, r.images.us, r.images.calls,
+              r.letters.us, r.letters.calls, r.arcs.us, r.arcs.calls, r.layers.calls,
+              r.blend.fill, r.blend.copy, r.blend.mixedFill, r.blend.mixedCopy);
+    fclose(file);
+  }
+  printf("NB4 scrolling views: %zu\n", rows.size());
+  for (size_t i = 0; i < rows.size() && i < 15; ++i)
+    printf("NB4 scroll %-36s frame %4.0f us  px %6lu  fill %6lu copy %6lu mixfill %6lu "
+           "mixcopy %6lu  rects %3u shadows %u imgs %3u letters %4u arcs %u layers %u\n",
+           rows[i].view.c_str(), rows[i].frameUs, rows[i].pixels, rows[i].blend.fill,
+           rows[i].blend.copy, rows[i].blend.mixedFill, rows[i].blend.mixedCopy,
+           rows[i].rects.calls, rows[i].shadows.calls, rows[i].images.calls,
+           rows[i].letters.calls, rows[i].arcs.calls, rows[i].layers.calls);
+  EXPECT_GT(rows.size(), 10u);
 }
 
 TEST(Nb4Performance, HomeGuiCyclePresentsTheNewestControlPosition)

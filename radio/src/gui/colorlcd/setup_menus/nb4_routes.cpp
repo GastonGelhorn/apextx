@@ -26,6 +26,7 @@
 #include "nb4_home.h"
 #include "nb4_home_templates.h"
 #include "layer.h"
+#include "mainwindow.h"
 #include "nb4_ui_perf.h"
 #include "model_nb4_axis.h"
 #include "model_nb4_racing.h"
@@ -1008,6 +1009,40 @@ bool reopenGrid(const std::string& key, uint32_t signature, bool* cacheNew)
   return false;
 }
 
+// A page that fills the screen hides the grids and home underneath it, and
+// its dimmed backdrop becomes the same colour drawn opaque. LVGL then starts
+// every redraw at the page instead of at home, which is most of the cost of a
+// scrolling frame once two grids are stacked under it.
+void coverWhenFullScreen(Window* page)
+{
+  lv_obj_t* obj = page->getLvObj();
+  if (!obj || page == ViewMain::instance()) return;
+  lv_area_t content = {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN};
+  lv_obj_update_layout(obj);
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) {
+    lv_obj_t* child = lv_obj_get_child(obj, i);
+    if (lv_obj_has_flag(child, LV_OBJ_FLAG_HIDDEN)) continue;
+    content.x1 = std::min(content.x1, child->coords.x1);
+    content.y1 = std::min(content.y1, child->coords.y1);
+    content.x2 = std::max(content.x2, child->coords.x2);
+    content.y2 = std::max(content.y2, child->coords.y2);
+  }
+  const lv_coord_t w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
+  if (content.x2 < content.x1 || lv_area_get_width(&content) < w * 9 / 10 ||
+      lv_area_get_height(&content) < h * 9 / 10)
+    return;
+  if (lv_obj_get_style_bg_opa(obj, LV_PART_MAIN) < LV_OPA_COVER) {
+    const lv_color_t under =
+        lv_obj_get_style_bg_color(MainWindow::instance()->getLvObj(), LV_PART_MAIN);
+    const lv_color_t dim = lv_obj_get_style_bg_color(obj, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(
+        obj, lv_color_mix(dim, under, lv_obj_get_style_bg_opa(obj, LV_PART_MAIN)),
+        LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
+  }
+  Layer::cover(page);
+}
+
 // Sections that open one editor directly instead of a grid of destinations.
 const char* directRouteOf(const char* sectionId)
 {
@@ -1346,6 +1381,7 @@ bool nb4OpenRoute(const char* path)
   const auto route = nb4RouteByPath(path);
   if (!route || !nb4RouteIsOpenable(*route)) return false;
   openDestination(route->open, route->tab);
+  if (auto page = Layer::back()) coverWhenFullScreen(page);
   if (auto page = Layer::back()) {
     if (!page->isHelpPage()) page->setScopeText(nb4RouteScope(*route));
     page->setRouteTitle(route->label());
