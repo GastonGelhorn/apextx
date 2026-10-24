@@ -27,6 +27,7 @@
 #include "hal.h"
 
 #include "definitions.h"
+#include "nb4_led_diagnostic.h"
 
 #include <string.h>
 
@@ -128,11 +129,9 @@ uint8_t pulse_inc = 1;
 // NB4/NB4+: the factory driver sends the frame twice by running a circular
 // DMA and stopping it in the second transfer-complete interrupt. That leaves
 // the interrupt one bit period (1.2 us) before the circular buffer starts a
-// third pass: if it runs late, the third pass emits the first bits of the
-// frame again and is cut wherever the interrupt finally stops it, so the
-// pixel being written at that moment, and every pixel after it, latches
-// garbage. A late interrupt hits the far end of the chain first, which is
-// what the NB4+ shows while the UI redraws. Both copies are therefore laid
+// third pass. A late interrupt can cut an unintended partial frame. This
+// was a timing hazard, but removing it has NOT resolved the reported NB4+
+// corruption. Both copies are therefore laid
 // out in the buffer and sent in normal mode: the stream stops by itself on
 // the final low slot and the interrupt has no deadline. The waveform on the
 // line is unchanged.
@@ -146,6 +145,24 @@ static led_timer_value_t
 
 // Number of slots in one copy of the frame, from the strip length given at init
 static uint32_t _frame_slots;
+
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+static volatile uint32_t diagSent, diagComplete, diagTE, diagDME, diagFE;
+static volatile uint32_t diagTimeouts, diagFlags, diagRemaining;
+static uint32_t diagStartedAt;
+extern uint32_t timersGetMsTick();
+
+Nb4LedDiagStats nb4LedDiagDmaStats()
+{
+  const uint32_t mask = __get_PRIMASK();
+  __disable_irq();
+  const Nb4LedDiagStats result = {diagSent, diagComplete, diagTE, diagDME,
+      diagFE, diagTimeouts, diagFlags, diagRemaining};
+  __set_PRIMASK(mask);
+  return result;
+}
+uintptr_t nb4LedDiagDmaBuffer() { return (uintptr_t)_led_dma_buffer; }
+#endif
 
 static void _fill_byte(uint8_t c, led_timer_value_t* dma_buffer)
 {
@@ -174,6 +191,11 @@ static void _end_of_frame(const stm32_pulse_timer_t* tim)
   LL_TIM_DisableDMAReq_UPDATE(tim->TIMx);
 #endif
   LL_DMA_DisableIT_TC(tim->DMAx, tim->DMA_Stream);
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  LL_DMA_DisableIT_TE(tim->DMAx, tim->DMA_Stream);
+  LL_DMA_DisableIT_DME(tim->DMAx, tim->DMA_Stream);
+  LL_DMA_DisableIT_FE(tim->DMAx, tim->DMA_Stream);
+#endif
   LL_DMA_DisableStream(tim->DMAx, tim->DMA_Stream);
 
   uint32_t timeout = 1000;
@@ -199,8 +221,29 @@ static void _end_of_frame(const stm32_pulse_timer_t* tim)
 
 void ws2812_dma_isr(const stm32_pulse_timer_t* tim)
 {
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  // NB4 has DMA1/S0. Snapshot errors before clearing any flags or re-init;
+  // a zero error count does not rule out a missed PWM update deadline.
+  static_assert(LED_STRIP_TIMER_DMA_STREAM == LL_DMA_STREAM_0,
+                "Diagnostic flag decoding is specific to NB4 DMA stream 0");
+  const uint32_t flags = tim->DMAx->LISR;
+  const uint32_t errors = flags & (DMA_LISR_TEIF0 | DMA_LISR_DMEIF0 | DMA_LISR_FEIF0);
+  if (errors) {
+    if (errors & DMA_LISR_TEIF0) ++diagTE;
+    if (errors & DMA_LISR_DMEIF0) ++diagDME;
+    if (errors & DMA_LISR_FEIF0) ++diagFE;
+    diagFlags = flags;
+    diagRemaining = LL_DMA_GetDataLength(tim->DMAx, tim->DMA_Stream);
+    _end_of_frame(tim);
+    stm32_dma_clear_flags(tim->DMAx, tim->DMA_Stream);
+    return;
+  }
+#endif
   if (LL_DMA_IsEnabledIT_TC(tim->DMAx, tim->DMA_Stream) &&
       stm32_dma_check_tc_flag(tim->DMAx, tim->DMA_Stream)) {
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+    ++diagComplete;
+#endif
     _end_of_frame(tim);
   }
 }
@@ -332,6 +375,23 @@ bool ws2812_get_state_in_buf(const uint8_t* buf, uint8_t led)
 
 bool ws2812_is_busy(const stm32_pulse_timer_t* tim)
 {
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  if (LL_DMA_IsEnabledStream(tim->DMAx, tim->DMA_Stream) &&
+      timersGetMsTick() - diagStartedAt > 20) {
+    // Normal frame is <1 ms. Recover a stalled diagnostic without blocking
+    // the LED timer task or leaving the strip input toggling indefinitely.
+    const uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    if (LL_DMA_IsEnabledStream(tim->DMAx, tim->DMA_Stream)) {
+      ++diagTimeouts;
+      diagFlags = tim->DMAx->LISR;
+      diagRemaining = LL_DMA_GetDataLength(tim->DMAx, tim->DMA_Stream);
+      _end_of_frame(tim);
+      stm32_dma_clear_flags(tim->DMAx, tim->DMA_Stream);
+    }
+    __set_PRIMASK(mask);
+  }
+#endif
   return LL_DMA_IsEnabledStream(tim->DMAx, tim->DMA_Stream);
 }
 
@@ -371,6 +431,13 @@ void ws2812_update(const stm32_pulse_timer_t* tim)
                        _frame_slots * WS2812_FRAME_REPEATS);
 
   LL_DMA_EnableIT_TC(tim->DMAx, tim->DMA_Stream);
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  LL_DMA_EnableIT_TE(tim->DMAx, tim->DMA_Stream);
+  LL_DMA_EnableIT_DME(tim->DMAx, tim->DMA_Stream);
+  LL_DMA_EnableIT_FE(tim->DMAx, tim->DMA_Stream);
+  diagStartedAt = timersGetMsTick();
+  ++diagSent;
+#endif
   LL_DMA_EnableStream(tim->DMAx, tim->DMA_Stream);
 
   LL_TIM_SetCounter(tim->TIMx, 0);

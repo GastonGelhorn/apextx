@@ -30,6 +30,7 @@
 #include "debug.h"
 #include "lcd.h"
 #include "lcd_driver.h"
+#include "nb4_led_diagnostic.h"
 
 uint8_t TouchControllerType = 0;  //0:cst340; 1 ft6236
 static volatile uint16_t lcd_phys_w = LCD_PHYS_W;
@@ -37,6 +38,29 @@ static volatile uint16_t lcd_phys_h = LCD_PHYS_H;
 
 static LTDC_HandleTypeDef hltdc;
 static void* initialFrameBuffer = nullptr;
+
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+static bool diagnosticLcdPaused = false;
+bool nb4LedDiagLcdPaused() { return diagnosticLcdPaused; }
+void nb4LedDiagPauseLcd(bool pause)
+{
+  if (pause == diagnosticLcdPaused) return;
+  diagnosticLcdPaused = pause;
+  if (pause) {
+    NVIC_DisableIRQ(LTDC_IRQn);
+    __HAL_LTDC_DISABLE_IT(&hltdc, LTDC_IT_LI);
+    __HAL_LTDC_DISABLE(&hltdc);
+    __HAL_LTDC_CLEAR_FLAG(&hltdc, LTDC_FLAG_LI);
+    NVIC_ClearPendingIRQ(LTDC_IRQn);
+    // Release any present waiting for a line interrupt that can no longer fire.
+    lcdFlushed();
+  } else {
+    LTDC->SRCR = LTDC_SRCR_IMR;
+    __HAL_LTDC_ENABLE(&hltdc);
+    NVIC_EnableIRQ(LTDC_IRQn);
+  }
+}
+#endif
 
 #define GPIO_AF_LTDC GPIO_AF14
 
@@ -47,6 +71,15 @@ static void startLcdRefresh(lv_disp_drv_t *disp_drv, uint16_t *buffer,
   (void)copy_area;
 
   LTDC_Layer1->CFBAR = (uint32_t)buffer;
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  if (diagnosticLcdPaused) {
+    // Rendering continues with the same workload in the OFF phase. Only
+    // physical scanout is stopped; LVGL must not wait for its line interrupt.
+    LTDC->SRCR = LTDC_SRCR_IMR;
+    lcdFlushed();
+    return;
+  }
+#endif
   // reload shadow registers on vertical blank
   LTDC->SRCR = LTDC_SRCR_VBR;
 

@@ -5,6 +5,7 @@
 #include "edgetx.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_leds.h"
+#include "nb4_led_diagnostic.h"
 
 #if defined(LED_STRIP_GPIO)
 #include "boards/generic_stm32/rgb_leds.h"
@@ -144,6 +145,10 @@ void rgbLedOnUpdate() { nb4LedRefresh(); }
 void nb4LedRefresh()
 {
 #if defined(LED_STRIP_GPIO)
+
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  if (nb4LedDiagWritePattern()) return;
+#endif
 
   if (_bootStage != NB4_BOOT_DONE) {
     nb4LedBootRefresh(timersGetMsTick());

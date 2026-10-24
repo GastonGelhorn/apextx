@@ -23,6 +23,7 @@
 #include "rgb_leds.h"
 #include "hal.h"
 #include "edgetx.h"
+#include "nb4_led_diagnostic.h"
 
 #if defined(LED_STRIP_GPIO)
 
@@ -97,7 +98,11 @@ static void _flush_and_update()
       _compiler_barrier();
       if (_commit_seq != seq) return;
       const bool changed =
-          !_frame_sent || memcmp(_led_colors, colors, sizeof(_led_colors)) != 0;
+          !_frame_sent || memcmp(_led_colors, colors, sizeof(_led_colors)) != 0
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+          || nb4LedDiagActive() // fixed 20 Hz stimulus in every diagnostic phase
+#endif
+          ;
       memcpy(_led_colors, colors, sizeof(_led_colors));
 #else
       memcpy(_led_colors, _back_colors, sizeof(_led_colors));

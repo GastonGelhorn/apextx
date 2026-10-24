@@ -23,6 +23,7 @@
 #include "module_setup.h"
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
+#include "nb4_led_diagnostic.h"
 #include "nb4_params.h"
 #include "nb4_home.h"
 #include "nb4_home_templates.h"
@@ -178,6 +179,88 @@ class Nb4VariablesDialog : public BaseDialog
   }
 };
 
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+class Nb4LedDiagnosticDialog : public BaseDialog
+{
+ public:
+  Nb4LedDiagnosticDialog() : BaseDialog("LED diagnostic D1", false,
+      lv_disp_get_hor_res(nullptr) - 12, lv_disp_get_ver_res(nullptr) - 12)
+  {
+    form->padAll(PAD_SMALL);
+    new StaticText(form, {0, 0, LV_PCT(100), 0},
+        "Bench test: receiver off.\nON 6s / screen OFF 6s / ON 6s.\n"
+        "Left to right: white, blue, green, red.", COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+    auto buttons = new Window(form, {0, 0, LV_PCT(100), 0});
+    buttons->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_SMALL, LV_SIZE_CONTENT);
+    new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 50%", [this] { start(128); return 0; });
+    new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 100%", [this] { start(255); return 0; });
+    status = new StaticText(form, {0, 0, LV_PCT(100), 0}, "Ready", COLOR_THEME_PRIMARY1_INDEX);
+    stimulus = new Window(form, {0, 0, LV_PCT(100), 48});
+    lv_obj_set_style_bg_opa(stimulus->getLvObj(), LV_OPA_COVER, 0);
+    report = new StaticText(form, {0, 0, LV_PCT(100), 0},
+        "Results appear here after the test.\nNo settings are saved.", COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+  }
+
+  ~Nb4LedDiagnosticDialog() override { nb4LedDiagStop(); }
+  void deleteLater(bool detach = true, bool trash = true) override
+  {
+    nb4LedDiagStop();
+    BaseDialog::deleteLater(detach, trash);
+  }
+  void checkEvents() override
+  {
+    BaseDialog::checkEvents();
+    if (deleted() || !running) return;
+    const uint32_t now = timersGetMsTick();
+    nb4LedDiagTick(now);
+    if (!nb4LedDiagActive()) {
+      running = false;
+      status->setText("Done - screen restored");
+      char text[512];
+      size_t used = 0;
+      for (unsigned p = 0; p < NB4_LED_DIAG_PHASES; ++p) {
+        const auto r = nb4LedDiagResult(p);
+        used += snprintf(text + used, sizeof(text) - used,
+            "%c %s: TX %lu / TC %lu\nTE %lu DME %lu FE %lu TO %lu\n",
+            'A' + p, p == 1 ? "OFF" : "ON", (unsigned long)r.sent,
+            (unsigned long)r.complete, (unsigned long)r.transferErrors,
+            (unsigned long)r.directErrors, (unsigned long)r.fifoErrors,
+            (unsigned long)r.timeouts);
+      }
+      const auto r = nb4LedDiagDmaStats();
+      snprintf(text + used, sizeof(text) - used,
+          "DMA buf %08lx\nLast error flags %08lx / NDTR %lu",
+          (unsigned long)nb4LedDiagDmaBuffer(), (unsigned long)r.lastFlags,
+          (unsigned long)r.lastRemaining);
+      report->setText(text);
+    } else if (now - lastDraw >= 100) {
+      lastDraw = now;
+      const unsigned p = nb4LedDiagPhase();
+      char text[40];
+      snprintf(text, sizeof(text), "Phase %c: LTDC %s", 'A' + p, p == 1 ? "OFF" : "ON");
+      status->setText(text);
+      // Identical bounded GUI redraw stimulus while physical scanout is ON/OFF.
+      lv_obj_set_style_bg_color(stimulus->getLvObj(),
+          lv_color_hex((now / 100) & 1 ? 0x245EA0 : 0xC08020), 0);
+    }
+  }
+
+ private:
+  bool running = false;
+  uint32_t lastDraw = 0;
+  StaticText* status;
+  StaticText* report;
+  Window* stimulus;
+  void start(uint8_t intensity)
+  {
+    if (running) return;
+    nb4LedDiagStart(timersGetMsTick(), intensity);
+    running = true;
+    report->setText("Running at 20 LED frames/s.\nWatch the physical strip in all three phases.");
+  }
+};
+#endif
+
 class Nb4LedsDialog : public BaseDialog
 {
  public:
@@ -266,6 +349,10 @@ class Nb4LedsDialog : public BaseDialog
         STR_NB4_WHILE_THE_RADIO_IS_CHARGING_THE,
         COLOR_THEME_PRIMARY3_INDEX);
     lv_obj_set_style_pad_top(note->getLvObj(), PAD_MEDIUM, LV_PART_MAIN);
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+    new TextButton(form, {0, 0, LV_PCT(100), 0}, "LED diagnostic D1",
+                   [] { new Nb4LedDiagnosticDialog(); return 0; });
+#endif
   }
 
  private:
