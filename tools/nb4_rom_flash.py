@@ -313,10 +313,22 @@ def _stream_dfu(args, progress, lo, hi, phase):
         if chunk in ('\r', '\n'):
             for m in re.finditer(r'(\d+)%', buf):
                 pct = int(m.group(1))
-                mapped = lo + (hi - lo) * pct // 100
-                if mapped != last:
+                if not 0 <= pct <= 100:
+                    continue
+                lower, upper, label = lo, hi, phase
+                if phase == 'Writing':
+                    # dfu-util reports two separate 0..100% sequences for a
+                    # download: erase, then write. Keep the overall bar moving
+                    # forward and show which operation is actually running.
+                    middle = lo + (hi - lo) // 2
+                    if buf.lstrip().startswith('Erase'):
+                        upper, label = middle, 'Erasing flash'
+                    else:
+                        lower = middle
+                mapped = lower + (upper - lower) * pct // 100
+                if mapped > last:
                     last = mapped
-                    progress(f'{phase} {pct}%', mapped)
+                    progress(f'{label} {pct}%', mapped)
             buf = ''
     proc.wait()
     return proc.returncode

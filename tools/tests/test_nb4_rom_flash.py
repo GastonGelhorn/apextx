@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Safety gates for the Windows full-image ROM DFU flasher."""
+import io
 import json
 import pathlib
 import struct
@@ -138,6 +139,22 @@ class Backup(unittest.TestCase):
                                       lambda _message, percent: values.append(percent))
         self.assertEqual(values, [1, 21, 22])
         self.assertNotIn(100, values)
+
+
+class Progress(unittest.TestCase):
+    def test_erase_and_write_have_separate_monotonic_progress_ranges(self):
+        output = ('Erase [ ] 0%\rErase [==] 50%\rErase [====] 100%\n'
+                  'Download [ ] 0%\rDownload [==] 50%\rDownload [====] 100%\n')
+        process = SimpleNamespace(stdout=io.StringIO(output), returncode=0, wait=lambda: None)
+        reports = []
+        with patch.object(rom_flash.subprocess, 'Popen', return_value=process):
+            result = rom_flash._stream_dfu(['dfu-util', '-D', 'image.bin'],
+                lambda message, percent: reports.append((message, percent)),
+                lo=25, hi=69, phase='Writing')
+        self.assertEqual(result, 0)
+        self.assertEqual([percent for _, percent in reports], [25, 36, 47, 58, 69])
+        self.assertEqual(reports[0][0], 'Erasing flash 0%')
+        self.assertEqual(reports[-1][0], 'Writing 100%')
 
 
 class Installation(unittest.TestCase):
