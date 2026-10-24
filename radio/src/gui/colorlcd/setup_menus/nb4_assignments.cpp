@@ -142,7 +142,8 @@ class ControlEditor : public BaseDialog
                  false, displayWidth() - 8, displayHeight() - 12), index(index),
       draft(index < NB4_CONTROL_COUNT ? nb4ControlBinding(index) : initial)
   {
-    useSectionHeader();
+    usePageLayout();
+    setRouteIcon(navigationOnly ? ICON_NB4_KEYS : ICON_NB4_BUTTON);
     setHelpHandler([navigationOnly] { nb4OpenHelp(navigationOnly ?
       "settings/controls/shortcuts" : "settings/controls/assignments", true); });
     form->padAll(PAD_MEDIUM);
@@ -266,12 +267,13 @@ class AssignmentsDialog : public BaseDialog
   explicit AssignmentsDialog(bool navigation) :
       BaseDialog(navigation ? STR_NB4_KEYS_AND_NAVIGATION : STR_NB4_ASSIGNMENTS, true, displayWidth() - 8, displayHeight() - 12)
   {
-    useSectionHeader();
+    usePageLayout();
+    setRouteIcon(navigation ? ICON_NB4_KEYS : ICON_NB4_BUTTON);
     setHelpHandler([navigation] {
       nb4OpenHelp(navigation ? "settings/controls/shortcuts" : "settings/controls/assignments", true);
     });
     form->padAll(PAD_MEDIUM);
-    lv_obj_set_style_pad_row(form->getLvObj(), 6, 0);
+    lv_obj_set_style_pad_row(form->getLvObj(), 8, 0);
     note(form, STR_NB4_PER_CAR_TAP_A_CONTROL_TO);
     if (navigation) note(form, STR_NB4_USE_WHEEL_GRIP_OR_TRIM_BUTTONS);
     sectionLabel(form, STR_NB4_BUTTONS);

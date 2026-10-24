@@ -4227,6 +4227,109 @@ TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
   EXPECT_EQ(Layer::back(), base);
 }
 
+TEST(Nb4Ux, SettingsPagesFillTheViewportAndBackRestoresTheCachedMenu)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      nb4OpenSettingsModal();
+      auto menu = Layer::back();
+      for (const char* path : {"settings/display/appearance", "settings/display/screens",
+          "settings/controls/shortcuts", "settings/controls/quick_access",
+          "settings/models/templates", "settings/advanced/variables",
+          "settings/sound_alerts/lights", "settings/race/timers",
+          "settings/controls/channels", "settings/race/setup"}) {
+        SCOPED_TRACE(std::string(language) + " " + path);
+        ASSERT_TRUE(nb4OpenRoute(path));
+        auto page = Layer::back();
+        render(scene.root);
+        EXPECT_FALSE(menu->isVisible());
+        EXPECT_EQ(lv_obj_get_style_bg_opa(page->getLvObj(), 0), LV_OPA_COVER);
+        lv_obj_t* back = nullptr;
+        lv_obj_t* help = nullptr;
+        std::function<void(lv_obj_t*)> find = [&](lv_obj_t* obj) {
+          if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+          if (lv_obj_check_type(obj, &lv_label_class) &&
+              !strcmp(lv_label_get_text(obj), STR_NB4_BACK)) back = lv_obj_get_parent(obj);
+          if (lv_obj_check_type(obj, &lv_label_class) &&
+              !strcmp(lv_label_get_text(obj), "?")) help = lv_obj_get_parent(obj);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) find(lv_obj_get_child(obj, i));
+        };
+        find(page->getLvObj());
+        ASSERT_NE(back, nullptr);
+        ASSERT_NE(help, nullptr);
+        EXPECT_EQ(lv_obj_get_width(help), Nb4Ui::Touch);
+        EXPECT_EQ(lv_obj_get_height(help), Nb4Ui::Touch);
+        for (lv_state_t state : {lv_state_t(0), lv_state_t(LV_STATE_PRESSED),
+                                lv_state_t(LV_STATE_FOCUSED)}) {
+          lv_obj_add_state(help, state);
+          EXPECT_EQ(lv_obj_get_style_bg_opa(help, 0), LV_OPA_TRANSP);
+          EXPECT_EQ(lv_obj_get_style_border_width(help, 0), 0);
+          lv_obj_clear_state(help, state);
+        }
+        EXPECT_EQ(lv_obj_get_width(back), 72);
+        EXPECT_EQ(lv_obj_get_height(back), Nb4Ui::Touch);
+        auto content = lv_obj_get_parent(back);
+        EXPECT_EQ(lv_obj_get_width(content), lv_disp_get_hor_res(nullptr));
+        EXPECT_EQ(lv_obj_get_height(content), lv_disp_get_ver_res(nullptr));
+        lv_event_send(back, LV_EVENT_CLICKED, nullptr);
+        render(scene.root);
+        EXPECT_EQ(Layer::back(), menu);
+        EXPECT_TRUE(menu->isVisible());
+      }
+      menu->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, MonitorTabsKeepFullFingerTargetsWhenSelected)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (bool landscape : {false, true}) {
+    scene.orient(landscape);
+    main->resizeToDisplay();
+    ASSERT_TRUE(nb4OpenRoute("settings/controls/monitor"));
+    auto page = dynamic_cast<PageGroupBase*>(Layer::back());
+    ASSERT_NE(page, nullptr);
+    ASSERT_GT(page->tabCount(), 1u);
+    render(scene.root);
+    std::vector<std::string> labels;
+    collectLabels(page->getLvObj(), labels);
+    EXPECT_NE(std::find(labels.begin(), labels.end(), "1-8"), labels.end());
+    for (unsigned tab = 0; tab < page->tabCount(); ++tab) {
+      page->setCurrentTab(tab);
+      render(scene.root);
+      unsigned selected = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<ButtonBase*>(window) &&
+            lv_obj_has_state(obj, LV_STATE_CHECKED)) {
+          ++selected;
+          lv_area_t box, clip;
+          lv_obj_get_coords(obj, &box);
+          lv_obj_get_coords(lv_obj_get_parent(obj), &clip);
+          EXPECT_GE(lv_area_get_width(&box), Nb4Ui::Touch);
+          EXPECT_GE(lv_area_get_height(&box), Nb4Ui::Touch);
+          EXPECT_GE(box.x1, clip.x1);
+          EXPECT_LE(box.x2, clip.x2);
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      EXPECT_EQ(selected, 1u);
+    }
+    page->onCancel(); render(scene.root);
+    EXPECT_EQ(Layer::back(), main);
+  }
+}
+
 TEST(Nb4Performance, FullScreenPagesHideTheGridsUnderThem)
 {
   Scene scene;
@@ -5126,7 +5229,6 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
   };
   nb4AcceptNewCarModel();
   auto main = ViewMain::instance();
-  unsigned outsideTapChecks = 0;
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
     const bool wide = pass >= DIM(NB4_UI_LANGUAGES);
     const char* lang = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
@@ -5148,19 +5250,7 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
       std::string name = prefix + (path + 9);
       std::replace(name.begin(), name.end(), '/', '-');
       saveFrame(name.c_str(), wide ? 480 : 320, wide ? 320 : 480);
-      lv_point_t homeIcon{lv_coord_t(lv_disp_get_hor_res(nullptr) - 26), 20};
-      if (auto target = lv_indev_search_obj(owner->getLvObj(), &homeIcon)) {
-        if (target == owner->getLvObj()) {
-          // Home's top-right icons can be visible behind a short dialog.
-          // Clicking that backdrop is not the dialog's explicit Back/close.
-          lv_event_send(target, LV_EVENT_CLICKED, nullptr);
-          render(scene.root);
-          ASSERT_EQ(Layer::back(), owner) << path;
-          ++outsideTapChecks;
-        }
-      }
-      if (owner->isPageGroup() || !strcmp(path, "settings/car/safety") ||
-          !strcmp(path, "settings/receiver_rf/module") || !strcmp(path, "settings/display/brightness")) {
+      {
         // Hit-test the actual decorative header area, including any invisible
         // legacy button placed over it. Only the labelled Back may navigate.
         lv_point_t point{22, 20};
@@ -5193,7 +5283,6 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
     Layer::back()->onCancel(); render(scene.root);
     EXPECT_EQ(Layer::back(), main) << "Back must not reopen the help used to navigate here";
   }
-  EXPECT_GT(outsideTapChecks, 0u);
 }
 
 TEST(Nb4Ux, SafetyLabelsFitAboveTheirDescriptionsInBothLanguagesAndOrientations)

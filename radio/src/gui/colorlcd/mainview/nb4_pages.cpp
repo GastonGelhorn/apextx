@@ -15,6 +15,7 @@
 #include "dialog.h"
 #include "nb4_help.h"
 #include "nb4_routes.h"
+#include "theme_manager.h"
 #include <array>
 
 namespace {
@@ -40,15 +41,17 @@ class DataPage : public NavWindow {
     pushLayer();
     etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
     Nb4Ui::header(this, title, [this] { onCancel(); });
-    helpButton = Nb4Ui::action(this, {coord_t(width() - 124), Nb4Ui::SpaceXS, Nb4Ui::Touch, Nb4Ui::Touch}, "?",
+    helpButton = Nb4Ui::action(this, {coord_t(width() - 124), (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2, Nb4Ui::Touch, Nb4Ui::Touch}, "?",
       [this] { if (helpHandler) helpHandler(); });
+    Nb4Ui::help(helpButton->getLvObj());
     using namespace Nb4Ui;
-    const coord_t top = Touch + SpaceS + SpaceXS;
+    const coord_t top = HeaderH + SpaceXS;
     body = new Window(this, {Margin, top, width() - 2 * Margin, height() - top});
     body->setFlexLayout(LV_FLEX_FLOW_COLUMN, Gap, width() - 2 * Margin, height() - top);
     body->padBottom(Margin);
     lv_obj_set_scroll_dir(body->getLvObj(), LV_DIR_VER);
     if (const auto route = nb4RouteByPath(routePath)) {
+      setRouteIcon(nb4RouteIcon(*route));
       setScopeText(nb4RouteScope(*route));
       setHelpHandler([route] { nb4OpenHelp(route->path, true); });
     }
@@ -74,10 +77,15 @@ class DataPage : public NavWindow {
     nb4ScopeBar(this, body, scopeLabel, text);
   }
   const std::string& getScopeText() const override { return scopeText; }
+  void setRouteIcon(uint8_t icon) override {
+    if (!routeIcon) routeIcon = new HeaderIcon(this, (EdgeTxIcon)icon);
+    else routeIcon->setIcon((EdgeTxIcon)icon);
+  }
  protected:
   Window* body;
   TextButton* helpButton;
   StaticText* scopeLabel = nullptr;
+  HeaderIcon* routeIcon = nullptr;
   std::string scopeText;
   std::function<void()> helpHandler;
 };

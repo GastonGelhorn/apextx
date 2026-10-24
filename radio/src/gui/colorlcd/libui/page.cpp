@@ -29,6 +29,9 @@
 #include "pagegroup.h"
 #include "nb4_routes.h"
 #include "nb4_help.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#endif
 
 PageHeader::PageHeader(Window* parent, EdgeTxIcon icon) :
     Window(parent, {0, 0, lv_disp_get_hor_res(nullptr), EdgeTxStyles::MENU_HEADER_HEIGHT})
@@ -108,8 +111,9 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
 
   header = new PageHeader(this, icon);
 #if defined(RADIO_NB4_FAMILY)
-  new TextButton(header, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 0, 72, 44},
+  auto back = new TextButton(header, {coord_t(lv_disp_get_hor_res(nullptr) - 76), (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2, 72, 44},
                  STR_NB4_BACK, [this] { onCancel(); return 0; });
+  Nb4Ui::button(back->getLvObj());
   setHelpHandler(nb4InheritedHelp());
 #endif
 
@@ -174,7 +178,11 @@ bool Page::setHelpHandler(std::function<void()> action)
     helpButton = new TextButton(header,
       {coord_t(lv_disp_get_hor_res(nullptr) - 124), 0, 44, 44}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
-  if (helpButton) helpButton->show(bool(helpHandler));
+  if (helpButton) {
+    Nb4Ui::help(helpButton->getLvObj());
+    helpButton->setTop((Nb4Ui::HeaderH - Nb4Ui::Touch) / 2);
+    helpButton->show(bool(helpHandler));
+  }
   return true;
 }
 

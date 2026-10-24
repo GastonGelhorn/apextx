@@ -6,6 +6,8 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_ui.h"
 #include "nb4_home.h"
+#include "nb4_help.h"
+#include "page.h"
 #include "nb4_racing.h"
 #include "etx_lv_theme.h"
 #include "hal/adc_driver.h"
@@ -131,6 +133,21 @@ void button(lv_obj_t* o, bool primary)
   lv_obj_set_style_outline_color(o, color(COLOR_THEME_FOCUS_INDEX), LV_STATE_FOCUS_KEY);
 }
 
+void help(lv_obj_t* o)
+{
+  for (lv_state_t state : {lv_state_t(0), lv_state_t(LV_STATE_FOCUSED),
+                          lv_state_t(LV_STATE_FOCUS_KEY), lv_state_t(LV_STATE_PRESSED)}) {
+    lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, state);
+    lv_obj_set_style_border_width(o, 0, state);
+    lv_obj_set_style_outline_width(o, 0, state);
+    lv_obj_set_style_shadow_width(o, 0, state);
+    etx_txt_color(o, (state == LV_STATE_PRESSED || state == LV_STATE_FOCUS_KEY) ? COLOR_THEME_FOCUS_INDEX :
+                  COLOR_THEME_HEADER_FG_INDEX, state);
+  }
+  if (lv_obj_get_child_cnt(o))
+    lv_obj_remove_local_style_prop(lv_obj_get_child(o, 0), LV_STYLE_TEXT_COLOR, 0);
+}
+
 TextButton* action(Window* parent, rect_t r, const char* title, std::function<void()> fn, bool primary)
 {
   r.h = max<coord_t>(Touch, r.h);
@@ -142,21 +159,15 @@ TextButton* action(Window* parent, rect_t r, const char* title, std::function<vo
 
 void header(Window* parent, const char* title, std::function<void()> back)
 {
-  auto b = action(parent, {coord_t(parent->width() - 76), 4, 72, 44}, STR_NB4_BACK, back);
-  lv_obj_set_style_border_width(b->getLvObj(), 0, 0);
-  etx_solid_bg(b->getLvObj(), COLOR_THEME_PRIMARY2_INDEX);
-  const coord_t width = parent->width() - 136;
-  auto heading = nb4Label(parent, {SpaceS, SpaceXS, width, Touch}, title, TypeTitle);
-  if (getTextWidth(title, 0, TypeTitle) > width) {
-    // A long title wraps onto two smaller lines, still centred on the bar.
-    auto o = heading->getLvObj();
-    etx_font(o, FONT_INDEX(TypeSmall));
-    lv_label_set_long_mode(o, LV_LABEL_LONG_WRAP);
-    lv_point_t size;
-    lv_txt_get_size(&size, title, getFont(TypeSmall), 0, 0, width, LV_TEXT_FLAG_NONE);
-    lv_obj_set_style_pad_top(o, max<coord_t>(0, (Touch - size.y) / 2), 0);
-  }
-  nb4Hairline(parent, {SpaceS, Touch + SpaceS, parent->width() - 2 * SpaceS, 1});
+  action(parent, {coord_t(parent->width() - 76), (HeaderH - Touch) / 2, 72, Touch}, STR_NB4_BACK, back);
+  const coord_t left = PageHeader::PAGE_TITLE_LEFT;
+  const coord_t width = parent->width() - left - 124;
+  auto heading = nb4Label(parent, {left, 0, width, HeaderH}, title, TypeTitle);
+  const coord_t height = nb4FitHeaderTitle(heading->getLvObj(), width, HeaderH);
+  lv_obj_set_style_pad_top(heading->getLvObj(), 0, LV_PART_MAIN);
+  heading->setTop((HeaderH - height) / 2);
+  heading->setHeight(height);
+  nb4Hairline(parent, {SpaceS, HeaderH, parent->width() - 2 * SpaceS, 1});
 }
 
 void inkIfChanged(StaticText* label, LcdColorIndex& last, LcdColorIndex want)

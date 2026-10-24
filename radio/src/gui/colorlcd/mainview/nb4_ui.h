@@ -20,6 +20,7 @@ constexpr coord_t Margin = SpaceS, Gap = SpaceS;
 constexpr coord_t CardRadius = 12, ControlRadius = 8;
 // Smallest touch target, in both directions.
 constexpr coord_t Touch = 44;
+constexpr coord_t HeaderH = Touch + SpaceXS;
 // Icon slots: tiles and headers, and icons inline with text.
 constexpr coord_t IconTile = 30, IconInline = 24;
 // Heights that follow the type scale.
@@ -65,6 +66,8 @@ void centreIcon(Window* icon, lv_obj_t* slot);
 
 void passThrough(lv_obj_t* root);
 void button(lv_obj_t* object, bool primary = false);
+/* A bare help glyph retains a full finger target and pressed feedback. */
+void help(lv_obj_t* object);
 TextButton* action(Window*, rect_t, const char*, std::function<void()>, bool primary = false);
 void header(Window*, const char*, std::function<void()>);
 

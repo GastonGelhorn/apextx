@@ -114,6 +114,7 @@ class Nb4VariablesDialog : public BaseDialog
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92),
                  (lv_coord_t)(lv_disp_get_ver_res(nullptr) * 0.92))
   {
+    usePageLayout();
     form->padLeft(PAD_MEDIUM);
     form->padRight(PAD_MEDIUM);
 
@@ -180,6 +181,7 @@ class Nb4LedsDialog : public BaseDialog
       BaseDialog(STR_NB4_LIGHTS, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92))
   {
+    usePageLayout();
     form->padLeft(PAD_MEDIUM);
     form->padRight(PAD_MEDIUM);
 

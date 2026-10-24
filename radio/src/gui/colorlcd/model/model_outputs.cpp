@@ -260,7 +260,7 @@ void ModelOutputsPage::build(Window* window)
   window->padAll(PAD_ZERO);
   window->padBottom(PAD_LARGE);
 
-  new TextButton(window, {ADD_TRIMS_X, ADD_TRIMS_Y, ADD_TRIMS_W, ADD_TRIMS_H}, STR_ADD_ALL_TRIMS_TO_SUBTRIMS, [=]() {
+  auto addTrims = new TextButton(window, {ADD_TRIMS_X, ADD_TRIMS_Y, ADD_TRIMS_W, ADD_TRIMS_H}, STR_ADD_ALL_TRIMS_TO_SUBTRIMS, [=]() {
     new ConfirmDialog(
         STR_TRIMS2OFFSETS, STR_ADD_ALL_TRIMS_TO_SUBTRIMS,
         [=] {
@@ -270,6 +270,11 @@ void ModelOutputsPage::build(Window* window)
         });
     return 0;
   });
+#if defined(RADIO_NB4_FAMILY)
+  addTrims->setWrap();
+#else
+  (void)addTrims;
+#endif
 
   new StaticText(window, {EXLIM_X, EXLIM_Y, EXLIM_W, EdgeTxStyles::STD_FONT_HEIGHT}, STR_ELIMITS, COLOR_THEME_PRIMARY1_INDEX, RIGHT);
   new ToggleSwitch(window, {EXLIMCB_X, EXLIMCB_Y, EXLIMCB_W, EXLIMCB_H}, GET_SET_DEFAULT(g_model.extendedLimits));

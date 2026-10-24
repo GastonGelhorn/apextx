@@ -16,6 +16,7 @@ orientations and every interface language.
 | `CardRadius` | 12 px | Cards |
 | `ControlRadius` | 8 px | Buttons, wells, chips |
 | `Touch` | 44 px | Smallest finger target, both directions |
+| `HeaderH` | 48 px | Shared page header, with 44 px actions |
 | `IconTile` | 30 px | Icons on tiles and in headers |
 | `IconInline` | 24 px | Icons next to text |
 | `CaptionH` | 17 px | Height of a caption line |
@@ -37,19 +38,32 @@ Type scale, smallest to largest: `TypeCaption` (XXS, captions only),
 - **Paragraph** (`Nb4Ui::paragraph`): top-aligned wrapping text. A one-line
   label (`nb4Label`) is always centred vertically in its box.
 - **Action** (`Nb4Ui::action`): a button at least `Touch` tall.
-- **Header** (`Nb4Ui::header`): title, help and Back on a `Touch`-tall bar; a
+- **Header** (`Nb4Ui::header`): title, help and Back on a `HeaderH`-tall bar; a
   long title takes two lines rather than losing its end.
+- **Help** (`Nb4Ui::help`): a bare question mark without a border or fill,
+  centred in a 44 x 44 px touch target.
 
 Page bodies are flex columns with `Gap` between rows; side-by-side buttons share
 a row equally. The home instruments keep their own geometry, but their cards,
 margins and gaps use the tokens.
 
+Settings, assignments, templates and contextual help use the complete viewport.
+Their header and Back action stay in place while the body scrolls vertically.
+They hide the cached navigation and Home layers below them; Back restores the
+same cached menu. Confirmations and control-learning prompts remain transient
+dialogs. Full page backgrounds are opaque.
+
+Monitor tabs have separate 44 x 44 px targets. Channel banks show their actual
+range (`1-8` on the original NB4), so identical glyphs do not hide which bank
+will open. Selecting a tab scrolls its entire target into view.
+
 ## Icons
 
 Each settings destination has its own glyph. Glyphs are 30 x 30 masks drawn at
 the same optical size: line icons whose ink fills about 22 to 30 px of the
-slot, never a solid square. An icon sits in the middle of its slot; on the
-pointed header plate that is the middle of the plate's ink, not of its box.
+slot, never a solid square. Header glyphs sit in a fixed 44 x 48 px slot,
+without a decorative plate. Changing a route glyph centres it again using
+its actual dimensions. The same centring rule applies to menu tiles.
 
 ## Checks
 
@@ -68,6 +82,10 @@ Set `NB4_DESIGN_REPORT=/path/report.tsv` to write every finding to a file.
 Native list editors (inputs, mixes, outputs, logic, voice assignments and
 variables) use rows at least 44 px high. The route checks include populated
 logic and voice rows, without a touch-size exemption.
+Touch checks also include buttons operated only by the touch screen, such as
+tab selectors and dialog header actions, even when they are outside the key
+focus group. Navigation tests verify full page coverage, Back to the cached
+menu and the visible area of every selected monitor tab.
 
 To review every view by eye:
 

@@ -48,6 +48,7 @@ class BaseDialog : public ModalWindow
   void setTitle(const char* title);
 #if defined(RADIO_NB4_FAMILY)
   void useSectionHeader();
+  void usePageLayout();
   void useBrandHeader();
   void setScopeText(const std::string& text) override;
   const std::string& getScopeText() const override { return scopeText; }
@@ -62,13 +63,14 @@ class BaseDialog : public ModalWindow
   Window* form = nullptr;
   StaticText* header = nullptr;
 #if defined(RADIO_NB4_FAMILY)
-  Window* closeButton = nullptr;
+  TextButton* closeButton = nullptr;
   TextButton* helpButton = nullptr;
   HeaderIcon* routeHeaderIcon = nullptr;
   StaticText* scopeLabel = nullptr;
   std::string scopeText;
   std::function<void()> helpHandler;
   bool sectionHeader = false;
+  bool pageLayout = false;
 
   void updateSectionTitleStyle();
 #endif

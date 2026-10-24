@@ -132,7 +132,7 @@ class TemplatesPage : public BaseDialog {
   explicit TemplatesPage(std::string folder = TEMPLATES_PATH) :
       BaseDialog(STR_NB4_TEMPLATES, true, lv_disp_get_hor_res(nullptr) - 8,
                  lv_disp_get_ver_res(nullptr) - 12), folder(std::move(folder)) {
-    useSectionHeader(); form->padAll(PAD_MEDIUM); build();
+    usePageLayout(); setRouteIcon(ICON_NB4_TEMPLATE); form->padAll(PAD_MEDIUM); build();
     setHelpHandler([] { nb4OpenHelp("settings/models/templates", true); });
   }
   void checkEvents() override {
@@ -167,7 +167,7 @@ class TemplatesPage : public BaseDialog {
     TemplateDetails(std::string path, bool personal, std::function<void()> changed) :
         BaseDialog(STR_NB4_TEMPLATES, true, lv_disp_get_hor_res(nullptr) - 8,
                    lv_disp_get_ver_res(nullptr) - 12) {
-      useSectionHeader(); form->padAll(PAD_MEDIUM);
+      usePageLayout(); setRouteIcon(ICON_NB4_TEMPLATE); form->padAll(PAD_MEDIUM);
       setHelpHandler([] { nb4OpenHelp("settings/models/templates", true); });
       const auto name = path.substr(path.find_last_of('/') + 1);
       new StaticText(form, {0,0,LV_PCT(100),0}, name.c_str(), COLOR_THEME_PRIMARY1_INDEX, FONT(BOLD));

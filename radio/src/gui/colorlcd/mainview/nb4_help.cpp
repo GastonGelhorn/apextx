@@ -43,6 +43,9 @@ std::string nb4InheritedScope()
 
 coord_t nb4FitHeaderTitle(lv_obj_t* label, coord_t width, coord_t barHeight)
 {
+  // DOT temporarily replaces the tail in LVGL's text buffer. Restore it
+  // before measuring a title again after its width or font changes.
+  lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
   const char* text = lv_label_get_text(label);
   lv_point_t size;
   for (const LcdFlags font : {FONT(BOLD), FONT(XS)}) {

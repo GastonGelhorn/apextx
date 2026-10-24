@@ -37,7 +37,9 @@ inline bool interactive(lv_obj_t* o)
 {
   if (!lv_obj_has_flag(o, LV_OBJ_FLAG_CLICKABLE)) return false;
   if (lv_obj_has_state(o, LV_STATE_DISABLED)) return false;
-  return lv_obj_get_group(o) != nullptr || lv_obj_check_type(o, &lv_btn_class);
+  auto window = static_cast<Window*>(lv_obj_get_user_data(o));
+  return lv_obj_get_group(o) != nullptr || lv_obj_has_class(o, &lv_btn_class) ||
+         (window && dynamic_cast<ButtonBase*>(window));
 }
 
 inline std::string describe(lv_obj_t* o)
@@ -243,7 +245,7 @@ class Walker
     lv_obj_t* parent = lv_obj_get_parent(o);
     // An icon on a header plate or a tile badge has to sit in its middle.
     lv_obj_t* slot = nullptr;
-    if (parent && isImage(parent)) slot = parent;
+    if (parent && (isImage(parent) || lv_obj_has_flag(parent, Nb4Ui::IconSlot))) slot = parent;
     else if (parent && lv_obj_has_flag(o, Nb4Ui::IconInSlot))
       for (uint32_t i = 0; i < lv_obj_get_child_cnt(parent) && !slot; ++i) {
         auto s = lv_obj_get_child(parent, i);
