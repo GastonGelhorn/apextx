@@ -126,6 +126,7 @@ class Session(unittest.TestCase):
 
     def test_completion_survives_detach_but_is_not_shown_for_another_radio(self):
         s = self.setup_session()
+        s.client.latest.return_value = None
         s.begin('upgrade')
         s.progress('Verified', 100)
         s.finish()
