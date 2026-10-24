@@ -20,6 +20,23 @@ committed). CI builds Windows, macOS Apple Silicon and macOS Intel packages,
 and tagged releases publish and attest them alongside the firmware packages. The same
 `apextx-updater.py` still runs from a terminal exactly as before.
 
+Every tagged release includes these direct downloads, built from that same tag:
+
+| Download | Purpose |
+| --- | --- |
+| `apextx-nb4-<version>.bin` | Complete firmware for the original NB4 |
+| `apextx-nb4plus-<version>.bin` | Complete firmware for the NB4+ |
+| `ApexTX-Flasher.exe` | Windows app |
+| `ApexTX-Flasher-macOS-arm64.zip` | Apple Silicon `.app` |
+| `ApexTX-Flasher-macOS-x86_64.zip` | Intel `.app` |
+| `SHA256SUMS` | Checksums for firmware, apps and resource archives |
+
+The existing complete firmware/resource packages and EN/ES/DE audio packs remain
+available alongside these files. Publication waits for both radio builds, all
+three app packages and the audio packs to succeed; a missing download fails
+publication. Downloaded binaries and application archives carry GitHub build
+attestations in addition to checksums.
+
 ## One application, platform-specific packages
 
 Both platforms use `tools/apextx-updater.py`, the same HTML interface and the
