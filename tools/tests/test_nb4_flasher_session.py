@@ -14,14 +14,14 @@ from tools.tests.test_nb4_updater import radio
 
 
 class Probe(unittest.TestCase):
-    def device(self, product='ApexTX NB4 Update', info='DFU Config', interface=None):
+    def device(self, product='ApexTX NB4 Update', info='DFU Config', interface=None, config_index=2):
         interface = interface or '@ApexTX NB4 Update /0xC0200000/015*128Kg'
-        d = Mock(idVendor=0x0483, idProduct=0xdf11, iProduct=1, iSerialNumber=2)
-        i = types.SimpleNamespace(bInterfaceClass=0xfe,bInterfaceSubClass=1,bInterfaceProtocol=2,iInterface=4)
-        config = Mock(iConfiguration=3)
+        d = Mock(idVendor=0x0483, idProduct=0xdf11, iProduct=2, iSerialNumber=3)
+        i = types.SimpleNamespace(bInterfaceClass=0xfe,bInterfaceSubClass=1,bInterfaceProtocol=2,iInterface=6)
+        config = Mock(iConfiguration=config_index)
         config.__iter__ = Mock(return_value=iter([i]))
         d.__iter__ = Mock(return_value=iter([config]))
-        d.strings = {1:product,2:'A',3:info,4:interface}
+        d.strings = {0:None,2:product,3:'A',4:info,6:interface}
         return d
 
     def probe(self, *devices):
@@ -47,6 +47,21 @@ class Probe(unittest.TestCase):
         normal=self.probe(self.device('ApexTX NB4 Joystick'))
         self.assertEqual(normal['state'],'normal')
         self.assertIsNone(normal['target'])
+
+    def test_info_slot_works_with_inherited_dfu_hid_and_cdc_configuration_indices(self):
+        import re
+        library = ROOT / 'radio/src/thirdparty/STM32_USB_Device_Library'
+        definition = (library / 'Core/Inc/usbd_def.h').read_text()
+        index = int(re.search(r'#define\s+USBD_IDX_CONFIG_STR\s+0x([0-9A-F]+)', definition)[1], 16)
+        self.assertEqual(usb.USB_INFO_STRING, index)
+        # Use the actual shipped class fields, including DFU's product slot
+        # and HID/CDC's absent string. None of those points to the info slot.
+        for mode, product in [('DFU','Update'),('HID','Joystick'),('CDC','Serial Port')]:
+            source = (library / f'Class/{mode}/Src/usbd_{mode.lower()}.c').read_text()
+            config_index = int(re.search(r'0x([0-9A-Fa-f]+),\s*/\* iConfiguration:', source)[1], 16)
+            info = 'APXINFO1;nb4;apextx-nb4-2.12.5-apextx-0.1.0-alpha.4 (123456789)'
+            result = self.probe(self.device(f'ApexTX NB4 {product}',info,config_index=config_index))
+            self.assertEqual(result['version'], '0.1.0-alpha.4')
 
     def test_absent_recovery_multiple_and_mismatched_identity(self):
         self.assertEqual(self.probe()['state'],'absent')

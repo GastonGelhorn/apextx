@@ -130,6 +130,10 @@ application's stamp before starting USB Update, after validating the application
 they do **not** report their own build version as the installed firmware. Product,
 serial and the exact Update interface remain authoritative for selecting a write
 target. The USB `bcdDevice` value is not an ApexTX release number.
+The query uses standard string slot 4 (`USBD_IDX_CONFIG_STR`) explicitly:
+inherited ST class descriptors can advertise configuration index 0 or 2,
+which does not point to this callback. No third-party class descriptor or
+interface/driver identity is changed to perform the query.
 
 Older bootloaders do not provide this descriptor. The UI says **Not available**
 and offers **Install…** without pretending to compare versions. A normal update

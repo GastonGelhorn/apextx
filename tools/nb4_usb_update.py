@@ -12,6 +12,10 @@ from nb4_releases import firmware_identity
 STAGE = 0xc0200000
 CONTROL = 0xc03f0000
 TRANSFER = 4096
+# USBD_IDX_CONFIG_STR in ST's standard string dispatcher. Some inherited
+# class descriptors advertise iConfiguration=0 (HID/CDC) or 2 (DFU/product),
+# so query the protocol's fixed slot rather than trusting that class field.
+USB_INFO_STRING = 4
 # The bootloader names the hardware it was built for, and so the only manifest
 # target it installs (radio/src/bootloader/nb4_update_id.h). Bootloaders from
 # before the NB4+ build option existed are all original NB4 bootloaders.
@@ -53,18 +57,17 @@ def probe():
             if not serial:
                 raise UpdateError('The radio did not provide its USB serial number.')
             ready, info = False, None
+            try:
+                value = util.get_string(device, USB_INFO_STRING) or ''
+            except Exception:
+                value = ''
+            if value.startswith('APXINFO1;'):
+                fields = value.split(';', 2)
+                expected = 'nb4' if target == 1 else 'nb4plus'
+                if len(fields) != 3 or fields[1] != expected:
+                    raise UpdateError('The USB model and firmware identity disagree. Nothing was written.')
+                info = firmware_identity(fields[2])
             for config in device:
-                # Descriptor metadata is optional on older bootloaders.
-                try:
-                    value = util.get_string(device, config.iConfiguration)
-                except Exception:
-                    value = ''
-                if value.startswith('APXINFO1;'):
-                    fields = value.split(';', 2)
-                    expected = 'nb4' if target == 1 else 'nb4plus'
-                    if len(fields) != 3 or fields[1] != expected:
-                        raise UpdateError('The USB model and firmware identity disagree. Nothing was written.')
-                    info = firmware_identity(fields[2])
                 if product in PRODUCTS:
                     ready = ready or any(
                         (i.bInterfaceClass, i.bInterfaceSubClass, i.bInterfaceProtocol) == (0xfe, 1, 2)
