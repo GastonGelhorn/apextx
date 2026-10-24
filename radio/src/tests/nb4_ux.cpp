@@ -616,6 +616,48 @@ TEST(Nb4Ux, BuiltinIconTableIsAlignedWithItsEnum)
   EXPECT_EQ(at, -1);
 }
 
+// Every destination has a glyph of its own, and every glyph has the same
+// optical size: a line drawing that fills most of its 30 px slot, never a
+// solid square and never a small mark lost in it.
+TEST(Nb4Ux, EveryDestinationHasItsOwnGlyphOfTheSameSize)
+{
+  unsigned count = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  std::map<uint8_t, std::string> owner;
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route& r = routes[i];
+    // The tabs of one page are one destination.
+    const bool tabs = r.destination && (!strcmp(r.destination, "steering") ||
+                                        !strcmp(r.destination, "throttle_brake"));
+    const std::string key = tabs ? r.destination : r.path;
+    const uint8_t icon = nb4RouteIcon(r);
+    auto [it, fresh] = owner.emplace(icon, key);
+    EXPECT_TRUE(fresh || it->second == key)
+        << r.path << " shares its glyph with " << it->second;
+
+    const MaskBitmap* mask = getBuiltinIcon((EdgeTxIcon)icon);
+    ASSERT_NE(mask, nullptr);
+    EXPECT_EQ(mask->width, Nb4Ui::IconTile) << r.path;
+    EXPECT_EQ(mask->height, Nb4Ui::IconTile) << r.path;
+    int x0 = mask->width, y0 = mask->height, x1 = -1, y1 = -1;
+    unsigned ink = 0;
+    for (int y = 0; y < mask->height; ++y)
+      for (int x = 0; x < mask->width; ++x) {
+        const uint8_t a = mask->data[y * mask->width + x];
+        ink += a;
+        if (a < 128) continue;
+        x0 = std::min(x0, x); y0 = std::min(y0, y);
+        x1 = std::max(x1, x); y1 = std::max(y1, y);
+      }
+    const int extent = std::max(x1 - x0 + 1, y1 - y0 + 1);
+    const double cover = ink / 255.0 / (mask->width * mask->height);
+    EXPECT_GE(extent, 22) << r.path << " is drawn too small";
+    EXPECT_LE(cover, 0.55) << r.path << " is nearly a solid block";
+    EXPECT_GE(cover, 0.15) << r.path << " is too faint next to the others";
+  }
+  EXPECT_GT(owner.size(), 50u);
+}
+
 TEST(Nb4Ux, BatteryPercentFollowsTheOfficialCurveNotAStraightLine)
 {
 
@@ -4997,9 +5039,8 @@ TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
         {"settings/car/general", ICON_NB4_MODEL_SETUP},
         {"settings/controls/quick_access", ICON_QM_FAVORITES},
         {"settings/controls/monitor", ICON_MONITOR},
-        {"settings/race/setup", ICON_MODEL_SETUP},
-        {"settings/sound_alerts/voice_assignments",
-         ICON_RADIO_GLOBAL_FUNCTIONS},
+        {"settings/race/setup", ICON_NB4_FLAG},
+        {"settings/sound_alerts/voice_assignments", ICON_NB4_VOICE},
     };
     for (const auto& item : routeHeaders) {
       SCOPED_TRACE(item.path);
