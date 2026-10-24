@@ -308,8 +308,7 @@ void Nb4HomeScreen::build()
     label(this, {4, 58, (coord_t)(w - 8), 20}, banner, FONT(XS),
           COLOR_THEME_PRIMARY3_INDEX);
     label(this, {4, 84, (coord_t)(w - 8), 32}, "ApexTX", FONT(L));
-    auto note = label(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
-    lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
+    Nb4Ui::paragraph(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
     action(this, {4, 208, (coord_t)(w - 8), 44}, STR_NB4_SYSTEM_DIAGNOSTICS, [] { ViewMain::instance()->openMenu(); });
     action(this, {4, 260, (coord_t)(w - 8), 44}, STR_NB4_CAR, [] { QuickMenu::openPage(QM_MODEL_SETUP); });
     name->setText(state.model);
@@ -380,8 +379,7 @@ void Nb4HomeScreen::build()
   if (blockedModel) {
     auto warning = card(this, {4, 108, (coord_t)(w - 8), (coord_t)(height() - 166)});
     label(warning, {12, 12, warning->width() - 24, 28}, STR_NB4_RF_DISABLED, FONT(BOLD), COLOR_THEME_WARNING_INDEX);
-    auto detail = label(warning, {12, 48, warning->width() - 24, 100}, STR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS);
-    lv_label_set_long_mode(detail->getLvObj(), LV_LABEL_LONG_WRAP);
+    Nb4Ui::paragraph(warning, {12, 48, warning->width() - 24, 100}, STR_NB4_UNSUPPORTED_MODEL_THE_ORIGINAL_FILE_IS);
     action(warning, {12, warning->height() - 56, warning->width() - 24, 44}, STR_NB4_MODELS, [] { QuickMenu::openPage(QM_MANAGE_MODELS); });
   }
   refresh(state);

@@ -100,8 +100,8 @@ class Nb4DialWidget : public Widget
                              [this]() { return trimText(); },
                              COLOR_THEME_PRIMARY3_INDEX, FONT(XS) | CENTERED);
 
-    tiny(this, {(coord_t)(cx - r - 2), (coord_t)(cy + 2), 44, 16}, "-100");
-    tiny(this, {(coord_t)(cx + r - 42), (coord_t)(cy + 2), 44, 16}, "+100", RIGHT);
+    caption(this, {(coord_t)(cx - r - 2), (coord_t)(cy + 2), 44, 16}, "-100");
+    caption(this, {(coord_t)(cx + r - 42), (coord_t)(cy + 2), 44, 16}, "+100", RIGHT);
 
     lastPct = INT16_MIN;
     update();

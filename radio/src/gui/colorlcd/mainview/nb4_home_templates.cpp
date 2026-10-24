@@ -201,18 +201,11 @@ StaticText* nb4Label(Window* parent, rect_t rect, const char* text,
   auto t = new StaticText(parent, rect, text, color, font);
   lv_label_set_long_mode(t->getLvObj(), LV_LABEL_LONG_DOT);
 
+  // A one-line label sits in the middle of its box, whatever the box's
+  // height. Wrapping text is Nb4Ui::paragraph, which stays at the top.
   const coord_t line = getFontHeight(font);
-  if (rect.h > line && rect.h <= 58)
+  if (rect.h > line)
     lv_obj_set_style_pad_top(t->getLvObj(), (rect.h - line) / 2, LV_PART_MAIN);
-  return t;
-}
-
-StaticText* nb4Caption(Window* parent, rect_t rect, const char* text,
-                       LcdFlags align)
-{
-  auto t = nb4Label(parent, rect, text, FONT(XS) | align,
-                    COLOR_THEME_PRIMARY3_INDEX);
-  lv_obj_set_style_text_letter_space(t->getLvObj(), 1, LV_PART_MAIN);
   return t;
 }
 
@@ -220,18 +213,6 @@ Window* nb4Hairline(Window* parent, rect_t rect)
 {
   auto w = new Window(parent, rect);
   etx_solid_bg(w->getLvObj(), COLOR_THEME_SECONDARY2_INDEX);
-  return w;
-}
-
-Window* nb4Card(Window* parent, rect_t rect)
-{
-  auto w = new Window(parent, rect);
-  auto o = w->getLvObj();
-  lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_radius(o, 9, 0);
-  lv_obj_set_style_border_width(o, 1, 0);
-  etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
-  etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
   return w;
 }
 

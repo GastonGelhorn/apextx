@@ -712,26 +712,24 @@ TEST(Nb4Ux, PalettePolarityMatchesWhatItsNamePromises)
   EXPECT_TRUE(nb4Palette(dark).dark);
 }
 
-TEST(Nb4Ux, DarkCardsStayNeutralAndBarelyAboveBlackInTheRenderedFrame)
+// A dark card is one solid fill, the darkest neutral the panel can show:
+// no dithered pattern and no mask to redraw on every frame.
+TEST(Nb4Ux, DarkCardsAreOneSolidNeutralJustAboveBlack)
 {
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   auto card = new Window(scene.root, {20, 20, 80, 80});
   Nb4Ui::card(card->getLvObj());
   render(scene.root);
-  unsigned red = 0, green = 0, blue = 0;
-  for (unsigned y = 32; y < 64; ++y) {
-    for (unsigned x = 32; x < 64; ++x) {
-      const uint32_t pixel = lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]);
-      red += (pixel >> 16) & 255;
-      green += (pixel >> 8) & 255;
-      blue += pixel & 255;
-    }
-  }
+  const uint32_t first = lv_color_to32(frame[32 * lv_disp_get_hor_res(nullptr) + 32]) & 0xffffff;
+  for (unsigned y = 32; y < 64; ++y)
+    for (unsigned x = 32; x < 64; ++x)
+      ASSERT_EQ(lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]) & 0xffffff, first);
+  const unsigned red = (first >> 16) & 255, green = (first >> 8) & 255, blue = first & 255;
   EXPECT_EQ(red, green);
   EXPECT_EQ(red, blue);
   EXPECT_GT(red, 0u);
-  EXPECT_LE(red, 3u * 32 * 32);
+  EXPECT_LE(red, 8u);
   card->deleteLater();
   scene.root->run();
 }
