@@ -165,9 +165,11 @@ void BaseDialog::updateSectionTitleStyle()
   // losing its end under the buttons.
   auto o = header->getLvObj();
   const coord_t border = lv_obj_get_style_border_width(o, LV_PART_MAIN);
-  const coord_t width = lv_obj_get_style_width(content->getLvObj(), LV_PART_MAIN) -
-                        lv_obj_get_style_pad_left(o, LV_PART_MAIN) -
-                        lv_obj_get_style_pad_right(o, LV_PART_MAIN) - 2 * border;
+  const coord_t dialogW = lv_obj_get_style_width(content->getLvObj(), LV_PART_MAIN);
+  // A dialog sized by its content has no width to fit against yet.
+  const coord_t width = LV_COORD_IS_SPEC(dialogW) ? LV_COORD_MAX
+                        : dialogW - lv_obj_get_style_pad_left(o, LV_PART_MAIN) -
+                              lv_obj_get_style_pad_right(o, LV_PART_MAIN) - 2 * border;
   const coord_t height = nb4FitHeaderTitle(o, width, 44 - 2 * border);
   lv_obj_set_style_pad_top(o, std::max<coord_t>(0, (44 - 2 * border - height) / 2),
                            LV_PART_MAIN);
