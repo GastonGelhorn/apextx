@@ -34,7 +34,7 @@
 MixEditAdvanced::MixEditAdvanced(int8_t channel, uint8_t index) :
     Page(ICON_MODEL_MIXER, PAD_MEDIUM), channel(channel), index(index)
 {
-  std::string title2(getSourceString(MIXSRC_FIRST_CH + channel));
+  std::string title2(getSourceDisplayString(MIXSRC_FIRST_CH + channel));
   header->setTitle(STR_MIXES);
   header->setTitle2(title2);
 

@@ -132,7 +132,7 @@ class LogicalSwitchDisplayFooter : public Window
                                     .c_str());
         break;
       default:
-        lv_label_set_text(lsV1, getSourceString(ls->v1));
+        lv_label_set_text(lsV1, getSourceDisplayString(ls->v1));
         break;
     }
 
@@ -152,7 +152,7 @@ class LogicalSwitchDisplayFooter : public Window
                                     .c_str());
         break;
       case LS_FAMILY_COMP:
-        lv_label_set_text(lsV2, getSourceString(ls->v2));
+        lv_label_set_text(lsV2, getSourceDisplayString(ls->v2));
         break;
       default:
         lv_label_set_text(

@@ -26,6 +26,9 @@
 #include "button.h"
 #include "static.h"
 #include "etx_lv_theme.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#endif
 #include <vector>
 
 lv_obj_t* etx_quick_button_create(lv_obj_t* parent);
@@ -118,11 +121,13 @@ class QuickMenuButton : public ButtonBase
 
   // Compact app-style tile used by the ApexTX navigation dialogs.  The
   // coloured square is the visual control; the full cell remains the touch
-  // target and carries its label below the icon.
+  // target and carries its label below the icon. The square is one flat
+  // colour and the glyph is drawn once: no gradient, no shadow copy.
   void useAppTile(coord_t size, lv_color_t accent, lv_color_t detail) {
     constexpr coord_t badgeSize = 48;
     constexpr coord_t labelGap = 3;
     constexpr coord_t labelTop = badgeSize + labelGap;
+    (void)detail;
 
     setSize(size, size);
     padAll(PAD_ZERO);
@@ -140,13 +145,8 @@ class QuickMenuButton : public ButtonBase
     lv_obj_t* badge = badgePtr->getLvObj();
     lv_obj_clear_flag(badge, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE |
                                 LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    lv_obj_set_style_radius(badge, 11, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(badge, lv_color_lighten(accent, LV_OPA_20),
-                              LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_color(badge,
-                                   lv_color_darken(detail, LV_OPA_20),
-                                   LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_dir(badge, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_radius(badge, Nb4Ui::CardRadius, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(badge, accent, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(badge, 0, LV_PART_MAIN);
     lv_obj_set_style_border_width(badge, 2,
@@ -155,17 +155,7 @@ class QuickMenuButton : public ButtonBase
                                   LV_PART_MAIN | LV_STATE_USER_1);
     lv_obj_move_to_index(badge, 0);
 
-    shadowPtr = new StaticIcon(this, 0, 0, iconId,
-                               COLOR_THEME_QM_BG_INDEX);
-    shadowPtr->center(size + 2, badgeSize + 2);
-    lv_obj_set_style_img_recolor(shadowPtr->getLvObj(), lv_color_black(),
-                                 LV_PART_MAIN);
-    lv_obj_set_style_img_recolor_opa(shadowPtr->getLvObj(), LV_OPA_COVER,
-                                     LV_PART_MAIN);
-    lv_obj_set_style_opa(shadowPtr->getLvObj(), LV_OPA_30, LV_PART_MAIN);
-    lv_obj_move_to_index(shadowPtr->getLvObj(), 1);
-
-    iconPtr->center(size, badgeSize);
+    Nb4Ui::centreIcon(iconPtr, badge);
     lv_obj_set_style_img_recolor(iconPtr->getLvObj(), lv_color_white(),
                                  LV_PART_MAIN);
     lv_obj_set_style_img_recolor_opa(iconPtr->getLvObj(), LV_OPA_COVER,
@@ -248,7 +238,6 @@ class QuickMenuButton : public ButtonBase
   StaticText* textPtr = nullptr;
 #if defined(RADIO_NB4_FAMILY)
   Window* badgePtr = nullptr;
-  StaticIcon* shadowPtr = nullptr;
 #endif
   std::function<bool(void)> visibleHandler = nullptr;
 };

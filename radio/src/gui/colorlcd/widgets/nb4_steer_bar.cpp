@@ -43,9 +43,9 @@ class Nb4SteerBarWidget : public Widget
     trimSpan = w - PAD * 2 - 6;
     trimMark = rectangle(lvobj, PAD + trimSpan / 2, by + barH + 3, 6, 6, muted(), 1);
 
-    tiny(this, {PAD, (coord_t)(by + barH + 12), 44, 16}, "-100");
-    tiny(this, {(coord_t)(w / 2 - 22), (coord_t)(by + barH + 12), 44, 16}, "0", CENTERED);
-    tiny(this, {(coord_t)(w - PAD - 44), (coord_t)(by + barH + 12), 44, 16}, "+100", RIGHT);
+    caption(this, {PAD, (coord_t)(by + barH + 12), 44, 16}, "-100");
+    caption(this, {(coord_t)(w / 2 - 22), (coord_t)(by + barH + 12), 44, 16}, "0", CENTERED);
+    caption(this, {(coord_t)(w - PAD - 44), (coord_t)(by + barH + 12), 44, 16}, "+100", RIGHT);
     update();
   }
 

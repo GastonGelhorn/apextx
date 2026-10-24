@@ -92,8 +92,8 @@ class Nb4BatteryWidget : public Widget
                     value, COLOR_THEME_PRIMARY1_INDEX, FONT(L) | RIGHT);
     const coord_t by = y + 40;
     b.bar.build(lvobj, x, by, w, 10, color);
-    b.lo = tiny(this, {x, (coord_t)(by + 14), 50, 16}, "");
-    b.hi = tiny(this, {(coord_t)(x + w - 50), (coord_t)(by + 14), 50, 16}, "", RIGHT);
+    b.lo = caption(this, {x, (coord_t)(by + 14), 50, 16}, "");
+    b.hi = caption(this, {(coord_t)(x + w - 50), (coord_t)(by + 14), 50, 16}, "", RIGHT);
     return by + 30;
   }
 };

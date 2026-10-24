@@ -59,11 +59,8 @@ std::string nb4FormatReading(const Nb4Reading& r);
 StaticText* nb4Label(Window* parent, rect_t rect, const char* text,
                      LcdFlags font = FONT(STD), LcdColorIndex color = COLOR_THEME_PRIMARY1_INDEX);
 
-StaticText* nb4Caption(Window* parent, rect_t rect, const char* text,
-                       LcdFlags align = 0);
 /* One-pixel separator between regions. */
 Window* nb4Hairline(Window* parent, rect_t rect);
-Window* nb4Card(Window* parent, rect_t rect);
 
 uint32_t nb4ThemeKey();
 

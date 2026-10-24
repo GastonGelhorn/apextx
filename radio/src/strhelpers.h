@@ -142,6 +142,11 @@ template <size_t L>
 char *getSourceString(char (&dest)[L], mixsrc_t idx, bool defaultOnly = false);
 char *getSourceString(mixsrc_t idx, bool defaultOnly = false);
 
+// UI labels may use a clearer notation than persisted source identifiers.
+template <size_t L>
+char *getSourceDisplayString(char (&dest)[L], mixsrc_t idx, bool defaultOnly = false);
+char *getSourceDisplayString(mixsrc_t idx, bool defaultOnly = false);
+
 template <size_t L>
 char *getSourceCustomValueString(char (&dest)[L], mixsrc_t source, int32_t val,
                                  LcdFlags flags);

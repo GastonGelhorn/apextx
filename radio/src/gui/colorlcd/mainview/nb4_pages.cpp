@@ -15,6 +15,7 @@
 #include "dialog.h"
 #include "nb4_help.h"
 #include "nb4_routes.h"
+#include "theme_manager.h"
 #include <array>
 
 namespace {
@@ -40,11 +41,17 @@ class DataPage : public NavWindow {
     pushLayer();
     etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
     Nb4Ui::header(this, title, [this] { onCancel(); });
-    helpButton = Nb4Ui::action(this, {coord_t(width() - 124), 4, 44, 44}, "?",
+    helpButton = Nb4Ui::action(this, {coord_t(width() - 124), (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2, Nb4Ui::Touch, Nb4Ui::Touch}, "?",
       [this] { if (helpHandler) helpHandler(); });
-    body = new Window(this, {2, 56, width() - 4, height() - 58});
+    Nb4Ui::help(helpButton->getLvObj());
+    using namespace Nb4Ui;
+    const coord_t top = HeaderH + SpaceXS;
+    body = new Window(this, {Margin, top, width() - 2 * Margin, height() - top});
+    body->setFlexLayout(LV_FLEX_FLOW_COLUMN, Gap, width() - 2 * Margin, height() - top);
+    body->padBottom(Margin);
     lv_obj_set_scroll_dir(body->getLvObj(), LV_DIR_VER);
     if (const auto route = nb4RouteByPath(routePath)) {
+      setRouteIcon(nb4RouteIcon(*route));
       setScopeText(nb4RouteScope(*route));
       setHelpHandler([route] { nb4OpenHelp(route->path, true); });
     }
@@ -70,55 +77,78 @@ class DataPage : public NavWindow {
     nb4ScopeBar(this, body, scopeLabel, text);
   }
   const std::string& getScopeText() const override { return scopeText; }
+  void setRouteIcon(uint8_t icon) override {
+    if (!routeIcon) routeIcon = new HeaderIcon(this, (EdgeTxIcon)icon);
+    else routeIcon->setIcon((EdgeTxIcon)icon);
+  }
  protected:
   Window* body;
   TextButton* helpButton;
   StaticText* scopeLabel = nullptr;
+  HeaderIcon* routeIcon = nullptr;
   std::string scopeText;
   std::function<void()> helpHandler;
 };
+// A full-width row of controls that share the width equally.
+Window* actionRow(Window* parent, coord_t height = Nb4Ui::Touch)
+{
+  auto row = new Window(parent, {0, 0, LV_PCT(100), height});
+  row->setFlexLayout(LV_FLEX_FLOW_ROW, Nb4Ui::Gap, LV_PCT(100), height);
+  return row;
+}
+
+TextButton* grow(TextButton* button)
+{
+  lv_obj_set_flex_grow(button->getLvObj(), 1);
+  return button;
+}
+
+constexpr coord_t LapRow = 32, LapPitch = LapRow + Nb4Ui::SpaceXS, LapHead = 24;
+
 void lapTable(Window* parent, const uint32_t* times, unsigned count, uint32_t best) {
   const coord_t w = parent->width();
-  nb4Label(parent, {8, 0, 48, 20}, STR_NB4_LAP, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-  nb4Label(parent, {68, 0, w / 2 - 60, 20}, STR_NB4_TIME, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-  nb4Label(parent, {w / 2 + 25, 0, w / 2 - 32, 20}, "+/-", FONT(XS) | RIGHT, COLOR_THEME_PRIMARY3_INDEX);
+  using namespace Nb4Ui;
+  const coord_t timeX = 64, deltaW = w / 2 - 2 * SpaceS;
+  caption(parent, {SpaceS, 0, 48, LapHead}, STR_NB4_LAP);
+  caption(parent, {timeX, 0, w / 2 - timeX, LapHead}, STR_NB4_TIME);
+  caption(parent, {w - SpaceS - deltaW, 0, deltaW, LapHead}, "+/-", RIGHT);
   char text[24];
   for (unsigned row = 0; row < count && row < NB4_MAX_LAPS; ++row) {
     unsigned i = count - row - 1;
-    coord_t y = 25 + row * 34;
-    if (!(row % 2)) Nb4Ui::panel((new Window(parent, {0, y, w, 32}))->getLvObj());
+    coord_t y = LapHead + row * LapPitch;
+    if (!(row % 2)) well((new Window(parent, {0, y, w, LapRow}))->getLvObj());
     snprintf(text, sizeof(text), "%02u", i + 1);
-    nb4Label(parent, {8, y + 5, 48, 22}, text);
+    nb4Label(parent, {SpaceS, y, 48, LapRow}, text);
     nb4RacingFormatTime(text, times[i]);
-    nb4Label(parent, {68, y + 5, w / 2 - 45, 22}, text, FONT(STD), times[i] == best ? COLOR_THEME_EDIT_INDEX : COLOR_THEME_PRIMARY1_INDEX);
+    nb4Label(parent, {timeX, y, w / 2 - timeX, LapRow}, text, TypeBody, times[i] == best ? COLOR_THEME_EDIT_INDEX : COLOR_THEME_PRIMARY1_INDEX);
     snprintf(text, sizeof(text), "+%lu.%02lu", (unsigned long)((times[i] - best) / 100), (unsigned long)((times[i] - best) % 100));
-    nb4Label(parent, {w / 2 + 30, y + 5, w / 2 - 38, 22}, times[i] == best ? "--" : text, FONT(STD) | RIGHT, times[i] == best ? COLOR_THEME_PRIMARY3_INDEX : COLOR_THEME_WARNING_INDEX);
+    nb4Label(parent, {w - SpaceS - deltaW, y, deltaW, LapRow}, times[i] == best ? "--" : text, TypeBody | RIGHT, times[i] == best ? COLOR_THEME_PRIMARY3_INDEX : COLOR_THEME_WARNING_INDEX);
   }
 }
+
+coord_t lapTableHeight(unsigned count) { return LapHead + count * LapPitch; }
 class RacePage : public DataPage {
  public:
   RacePage() : DataPage(STR_NB4_TIMERS_LAPS, "settings/race/timer_laps") {
     panel = new Nb4RacePanel(body, {0, 0, body->width(), 120});
-    const auto half = (body->width() - 6) / 2;
-    start = Nb4Ui::action(body, {0, 128, half, 44}, "", [this] {
+    auto first = actionRow(body);
+    start = grow(Nb4Ui::action(first, {}, "", [this] {
       if (nb4RacePhase() == Nb4RacePhase::Running) nb4RaceFinish();
       else if (!nb4RaceStart()) new MessageDialog(STR_NB4_RACE_5527, STR_NB4_SAVE_PENDING_RESULTS_THEN_RETRY);
-    }, true);
-    lap = Nb4Ui::action(body, {half + 6, 128, half, 44}, STR_NB4_MARK_LAP, [] { nb4RacingMarkLap(); });
-
-    undo = Nb4Ui::action(body, {0, 178, half, 44}, STR_NB4_UNDO_LAP,
-                         [] { nb4RacingUndoLap(); });
-    Nb4Ui::action(body, {half + 6, 178, half, 44}, STR_NB4_SETUP, [] { nb4OpenRoute("settings/race/setup"); });
-    auto retry = Nb4Ui::action(body, {0, 230, body->width(), 44}, "", [] {
+    }, true));
+    lap = grow(Nb4Ui::action(first, {}, STR_NB4_MARK_LAP, [] { nb4RacingMarkLap(); }));
+    auto second = actionRow(body);
+    undo = grow(Nb4Ui::action(second, {}, STR_NB4_UNDO_LAP, [] { nb4RacingUndoLap(); }));
+    grow(Nb4Ui::action(second, {}, STR_NB4_SETUP, [] { nb4OpenRoute("settings/race/setup"); }));
+    auto retry = Nb4Ui::action(body, {0, 0, body->width(), Nb4Ui::Touch}, "", [] {
       const auto saved = nb4HistorySavedId(nb4RaceResultToken());
       if (nb4RacePhase() == Nb4RacePhase::Finished && saved) nb4OpenRaceRecord(saved);
       else if (nb4RacePhase() != Nb4RacePhase::Finished &&
                (nb4HistoryStatus() == Nb4HistoryStatus::Idle || nb4HistoryStatus() == Nb4HistoryStatus::Saved)) nb4OpenSection(Nb4Section::History);
       else nb4HistoryRetry();
     });
-    statusLabel = nb4Label(retry, {8, 6, retry->width() - 16, 34}, "", FONT(XS));
-    lv_label_set_long_mode(statusLabel->getLvObj(), LV_LABEL_LONG_WRAP);
-    table = new Window(body, {0, 282, body->width(), 1});
+    statusLabel = Nb4Ui::paragraph(retry, {Nb4Ui::SpaceS, Nb4Ui::SpaceXS, retry->width() - 2 * Nb4Ui::SpaceS, 36}, "", FONT(XS));
+    table = new Window(body, {0, 0, body->width(), 1});
     checkEvents();
   }
   void checkEvents() override {
@@ -134,7 +164,7 @@ class RacePage : public DataPage {
         nb4HistorySavedId(nb4RaceResultToken()) ? STR_NB4_UX_SAVED_RESULT : storageText());
     if (previousCount != nb4RacingLaps()) {
       previousCount = nb4RacingLaps();
-      table->clear(); table->setHeight(25 + previousCount * 34);
+      table->clear(); table->setHeight(lapTableHeight(previousCount));
       uint32_t times[NB4_MAX_LAPS];
       for (unsigned i = 0; i < previousCount; ++i) times[i] = nb4RacingLapTime(i);
       lapTable(table, times, previousCount, nb4RacingBestLap());
@@ -150,17 +180,20 @@ class RacePage : public DataPage {
 class PitPage : public DataPage {
  public:
   PitPage() : DataPage(STR_NB4_PIT, "settings/race/pit") {
-    auto card = nb4Card(body, {0, 0, body->width(), 142});
-    nb4Label(card, {12, 8, card->width() - 24, 20}, STR_NB4_FUEL_PACK, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-    remaining = nb4Label(card, {12, 36, card->width() - 24, 58}, "--", FONT(LXL));
-    info = nb4Label(card, {12, 104, card->width() - 24, 28}, "", FONT(STD));
-    nb4Label(body, {8, 158, body->width() - 124, 42}, STR_NB4_DURATION_MIN);
-    new NumberEdit(body, {body->width() - 108, 150, 108, 44}, 0, NB4_PIT_MAX_MINUTES,
+    using namespace Nb4Ui;
+    auto card = Nb4Ui::card(body, {0, 0, body->width(), 140});
+    const coord_t inner = card->width() - 2 * SpaceM;
+    caption(card, {SpaceM, SpaceS, inner, CaptionH}, STR_NB4_FUEL_PACK);
+    remaining = nb4Label(card, {SpaceM, 32, inner, 60}, "--", FONT(LXL));
+    info = nb4Label(card, {SpaceM, 100, inner, 28}, "", TypeBody);
+    auto duration = actionRow(body);
+    auto name = nb4Label(duration, {0, 0, 0, Touch}, STR_NB4_DURATION_MIN);
+    lv_obj_set_flex_grow(name->getLvObj(), 1);
+    new NumberEdit(duration, {0, 0, 108, Touch}, 0, NB4_PIT_MAX_MINUTES,
       [] { return int(nb4PitMinutes()); }, [](int v) { nb4PitConfigure(v); });
 
-    refuel = Nb4Ui::action(body, {0, 208, body->width(), 44}, STR_NB4_REFUELLED_NEW_PACK, [] { nb4PitRefuel(); }, true);
-    auto note = nb4Label(body, {8, 264, body->width() - 16, 90}, STR_NB4_TIMER_2_COUNTDOWN_RX_SUPPLY_IS, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-    lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
+    refuel = Nb4Ui::action(body, {0, 0, body->width(), Touch}, STR_NB4_REFUELLED_NEW_PACK, [] { nb4PitRefuel(); }, true);
+    paragraph(body, {SpaceS, 0, body->width() - 2 * SpaceS, LV_SIZE_CONTENT}, STR_NB4_TIMER_2_COUNTDOWN_RX_SUPPLY_IS, TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
     checkEvents();
   }
   void checkEvents() override {
@@ -182,12 +215,13 @@ class PitPage : public DataPage {
 class HistoryPage : public DataPage {
  public:
   HistoryPage(uint32_t id = 0) : DataPage(STR_NB4_HISTORY, "settings/race/history"), detailId(id) {
-    content = new Window(body, {0, 0, body->width(), body->height()});
+    content = new Window(body, {0, 0, body->width(), LV_SIZE_CONTENT});
+    content->setFlexLayout(LV_FLEX_FLOW_COLUMN, Nb4Ui::Gap, body->width(), LV_SIZE_CONTENT);
     request();
   }
   void request() {
     content->clear();
-    nb4Label(content, {8, 10, content->width() - 16, 28}, STR_NB4_LOADING);
+    nb4Label(content, {Nb4Ui::SpaceS, 0, content->width() - 2 * Nb4Ui::SpaceS, Nb4Ui::Touch}, STR_NB4_LOADING);
     token = 0; waiting = true;
   }
   void checkEvents() override {
@@ -204,47 +238,44 @@ class HistoryPage : public DataPage {
   uint32_t token = 0, before = 0, detailId;
   bool waiting = false;
   void build() {
+    using namespace Nb4Ui;
     content->clear();
-    coord_t w = content->width(), y = 0;
+    const coord_t w = content->width(), inner = w - 2 * SpaceM;
     if (view.error) {
-      auto note = nb4Label(content, {8, 0, w - 16, 80}, STR_NB4_HISTORY_COULD_NOT_BE_READ_CHECK);
-      lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP); y = 90;
+      paragraph(content, {SpaceS, 0, w - 2 * SpaceS, LV_SIZE_CONTENT}, STR_NB4_HISTORY_COULD_NOT_BE_READ_CHECK);
     } else if (detailId && view.count) {
       const auto& r = view.records[0];
-      auto card = nb4Card(content, {0, 0, w, 152});
-      nb4Label(card, {10, 8, w - 20, 28}, r.model, FONT(L));
-      nb4Label(card, {10, 44, w - 20, 52}, Nb4Ui::timeText(r.duration).c_str(), FONT(LXL));
+      auto card = Nb4Ui::card(content, {0, 0, w, 152});
+      nb4Label(card, {SpaceM, SpaceS, inner, 32}, r.model, TypeValue);
+      nb4Label(card, {SpaceM, 44, inner, 56}, Nb4Ui::timeText(r.duration).c_str(), FONT(LXL));
       char s[64]; snprintf(s, sizeof(s), "#%lu • %u %s", (unsigned long)r.id, r.laps, STR_NB4_LAPS_8959);
-      nb4Label(card, {10, 102, w - 20, 24}, s);
+      nb4Label(card, {SpaceM, 100, inner, 24}, s);
       if (r.date) {
         struct gtm date; gtime_t timestamp = r.date; filltm(&timestamp, &date);
         snprintf(s, sizeof(s), "%04u-%02u-%02u %02u:%02u", date.tm_year + 1900, date.tm_mon + 1, date.tm_mday, date.tm_hour, date.tm_min);
       } else strAppend(s, STR_NB4_DATE_UNAVAILABLE);
-      nb4Label(card, {10, 128, w - 20, 20}, s, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-      auto rows = new Window(content, {0, 162, w, 25 + r.laps * 34});
-      lapTable(rows, r.times, r.laps, r.best); y = 195 + r.laps * 34;
+      nb4Label(card, {SpaceM, 124, inner, 20}, s, TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
+      auto rows = new Window(content, {0, 0, w, lapTableHeight(r.laps)});
+      lapTable(rows, r.times, r.laps, r.best);
     } else {
-      if (!view.count) { nb4Label(content, {8, y + 8, w - 16, 30}, STR_NB4_NO_SAVED_RUNS_YET); y += 50; }
+      if (!view.count) nb4Label(content, {SpaceS, 0, w - 2 * SpaceS, Touch}, STR_NB4_NO_SAVED_RUNS_YET);
       for (unsigned i = 0; i < view.count; ++i) {
         const auto& r = view.records[i];
         uint32_t id = r.id;
-        auto row = Nb4Ui::action(content, {0, y, w, 66}, "", [id] { nb4OpenRaceRecord(id); });
-        nb4Label(row, {10, 7, w - 44, 24}, r.model[0] ? r.model : STR_NB4_INVALID_RECORD);
+        auto row = Nb4Ui::action(content, {0, 0, w, 64}, "", [id] { nb4OpenRaceRecord(id); });
+        nb4Label(row, {SpaceS, SpaceS, w - 44, 24}, r.model[0] ? r.model : STR_NB4_INVALID_RECORD);
         char s[72]; snprintf(s, sizeof(s), "#%lu • %s • %u %s", (unsigned long)r.id, Nb4Ui::timeText(r.duration, r.model[0]).c_str(), r.laps, STR_NB4_LAPS_8959);
-        nb4Label(row, {10, 35, w - 44, 22}, s, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-        nb4Label(row, {w - 28, 22, 20, 20}, LV_SYMBOL_RIGHT); y += 72;
+        nb4Label(row, {SpaceS, 32, w - 44, 24}, s, TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
+        nb4Label(row, {w - 28, 20, 20, 24}, LV_SYMBOL_RIGHT);
       }
-      if (view.more) {
-        Nb4Ui::action(content, {0, y, w, 44}, STR_NB4_OLDER_RUNS, [this] { before = view.records[view.count - 1].id; request(); }); y += 50;
-      }
-      if (before) { Nb4Ui::action(content, {0, y, w, 44}, STR_NB4_LATEST_RUNS, [this] { before = 0; request(); }); y += 50; }
+      if (view.more)
+        Nb4Ui::action(content, {0, 0, w, Touch}, STR_NB4_OLDER_RUNS, [this] { before = view.records[view.count - 1].id; request(); });
+      if (before) Nb4Ui::action(content, {0, 0, w, Touch}, STR_NB4_LATEST_RUNS, [this] { before = 0; request(); });
     }
     if (!detailId || view.error) {
-      Nb4Ui::action(content, {0, y, w, 44}, STR_NB4_REFRESH_RETRY, [this] { nb4HistoryRetry(); request(); }); y += 52;
-      auto note = nb4Label(content, {8, y, w - 16, 44}, storageText(), FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-      lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP); y += 48;
+      Nb4Ui::action(content, {0, 0, w, Touch}, STR_NB4_REFRESH_RETRY, [this] { nb4HistoryRetry(); request(); });
+      paragraph(content, {SpaceS, 0, w - 2 * SpaceS, LV_SIZE_CONTENT}, storageText(), TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
     }
-    content->setHeight(y);
   }
 };
 
@@ -252,83 +283,53 @@ class BackupPage : public DataPage {
  public:
   BackupPage() : DataPage(STR_NB4_BACKUP_RESTORE, "settings/system/backup_restore") {
 
-    content = new Window(body, {0, 0, body->width(), body->height()});
-    const coord_t w = content->width();
-    coord_t y = 0;
-
-    const char* instructions = STR_NB4_COPY_RADIO_MODELS_SCRIPTS_THEMES_AND;
-    auto note = nb4Label(content, {8, y, w - 16, LV_SIZE_CONTENT}, instructions);
-    lv_label_set_long_mode(note->getLvObj(), LV_LABEL_LONG_WRAP);
-    lv_obj_update_layout(note->getLvObj());
-    y += lv_obj_get_height(note->getLvObj()) + 12;
-
-    Nb4Ui::action(content, {0, y, w, Nb4Ui::Touch}, STR_NB4_OPEN_FILES,
+    const coord_t w = body->width();
+    Nb4Ui::paragraph(body, {Nb4Ui::SpaceS, 0, w - 2 * Nb4Ui::SpaceS, LV_SIZE_CONTENT},
+                     STR_NB4_COPY_RADIO_MODELS_SCRIPTS_THEMES_AND);
+    Nb4Ui::action(body, {0, 0, w, Nb4Ui::Touch}, STR_NB4_OPEN_FILES,
                   [] { nb4OpenRoute("settings/system/storage"); }, true);
-    y += Nb4Ui::Touch + 24;
-    content->setHeight(y);
   }
- private:
-  Window* content = nullptr;
 };
 
 class ResetPage : public DataPage {
  public:
   ResetPage() : DataPage(STR_NB4_UX_RESET_SETTINGS, "settings/system/reset") {
-    content = new Window(body, {0, 0, body->width(), body->height()});
-    const coord_t w = content->width();
-    coord_t y = 0;
-
-    nb4Label(content, {8, y, w - 16, 24},
-             STR_NB4_FACTORY_RESET, FONT(XS),
-             COLOR_THEME_PRIMARY3_INDEX);
-    y += 28;
-
-    auto keeps = nb4Label(content, {8, y, w - 16, 62},
-                          STR_NB4_AXIS_CALIBRATION_AND_THE_INTERFACE_LANGU,
-                          FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-    lv_label_set_long_mode(keeps->getLvObj(), LV_LABEL_LONG_WRAP);
-
-    y += 70;
-
-    y = resetAction(y, w, STR_NB4_RADIO_SETTINGS,
-                    STR_NB4_RETURNS_THEME_HOME_SCREEN_SOUND_UNITS,
-                    Nb4Reset::Radio);
-
-    y = resetAction(y, w, STR_NB4_THIS_CAR,
-                    STR_NB4_RETURNS_THE_OPEN_CAR_TO_FACTORY,
-                    Nb4Reset::Model);
-
-    y = resetAction(y, w, STR_NB4_RADIO_AND_THIS_CAR,
-                    STR_NB4_BOTH_AT_ONCE_YOUR_OTHER_SAVED,
-                    Nb4Reset::Both);
-
-    content->setHeight(y);
+    using namespace Nb4Ui;
+    const coord_t w = body->width();
+    caption(body, {SpaceS, 0, w - 2 * SpaceS, CaptionH}, STR_NB4_FACTORY_RESET);
+    paragraph(body, {SpaceS, 0, w - 2 * SpaceS, LV_SIZE_CONTENT},
+              STR_NB4_AXIS_CALIBRATION_AND_THE_INTERFACE_LANGU,
+              TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
+    resetAction(w, STR_NB4_RADIO_SETTINGS,
+                STR_NB4_RETURNS_THEME_HOME_SCREEN_SOUND_UNITS, Nb4Reset::Radio);
+    resetAction(w, STR_NB4_THIS_CAR,
+                STR_NB4_RETURNS_THE_OPEN_CAR_TO_FACTORY, Nb4Reset::Model);
+    resetAction(w, STR_NB4_RADIO_AND_THIS_CAR,
+                STR_NB4_BOTH_AT_ONCE_YOUR_OTHER_SAVED, Nb4Reset::Both);
   }
 
  private:
-  Window* content = nullptr;
-
-  coord_t resetAction(coord_t y, coord_t w, const char* label, const char* ask,
-                      Nb4Reset what)
+  void resetAction(coord_t w, const char* label, const char* ask, Nb4Reset what)
   {
-    Nb4Ui::action(content, {0, y, w, Nb4Ui::Touch}, label, [label, ask, what] {
+    Nb4Ui::action(body, {0, 0, w, Nb4Ui::Touch}, label, [label, ask, what] {
       new ConfirmDialog(label, ask, [what] { nb4FactoryReset(what); });
     });
-    return y + Nb4Ui::Touch + Nb4Ui::Gap;
   }
 };
 
 class TelemetryPage : public DataPage {
  public:
   TelemetryPage() : DataPage(STR_NB4_TRACK_VIEW, "settings/telemetry/track_view") {
-    const auto w = body->width();
-    Nb4Ui::action(body, {0, 0, (w - 6) / 2, 44}, STR_NB4_SENSORS, [] { QuickMenu::openPage(QM_MODEL_TELEMETRY); });
-    Nb4Ui::action(body, {(w + 6) / 2, 0, (w - 6) / 2, 44}, STR_NB4_LOG_FILES, [] { QuickMenu::openPage(QM_TOOLS_STORAGE); });
-    graphCard = nb4Card(body, {0, 54, w, 176});
-    title = nb4Label(graphCard, {10, 6, w - 20, 22}, STR_NB4_SELECT_A_SENSOR);
-    value = nb4Label(graphCard, {10, 32, w - 20, 30}, "--", FONT(L));
+    using namespace Nb4Ui;
+    const auto w = body->width(), inner = w - 2 * SpaceM;
+    auto links = actionRow(body);
+    grow(Nb4Ui::action(links, {}, STR_NB4_SENSORS, [] { QuickMenu::openPage(QM_MODEL_TELEMETRY); }));
+    grow(Nb4Ui::action(links, {}, STR_NB4_LOG_FILES, [] { QuickMenu::openPage(QM_TOOLS_STORAGE); }));
+    graphCard = Nb4Ui::card(body, {0, 0, w, 176});
+    title = nb4Label(graphCard, {SpaceM, SpaceXS, inner, 24}, STR_NB4_SELECT_A_SENSOR);
+    value = nb4Label(graphCard, {SpaceM, 28, inner, 32}, "--", TypeValue);
     chart = lv_chart_create(graphCard->getLvObj());
-    lv_obj_set_pos(chart, 10, 68); lv_obj_set_size(chart, w - 20, 82);
+    lv_obj_set_pos(chart, SpaceM, 64); lv_obj_set_size(chart, inner, 84);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(chart, 0, 0); lv_obj_set_style_size(chart, 0, LV_PART_INDICATOR);
     lv_obj_set_style_pad_all(chart, 0, 0);
@@ -341,8 +342,9 @@ class TelemetryPage : public DataPage {
     lv_chart_set_type(chart, LV_CHART_TYPE_LINE); lv_chart_set_point_count(chart, 60);
     lv_chart_set_div_line_count(chart, 4, 7); lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 1000);
     series = lv_chart_add_series(chart, Nb4Ui::color(COLOR_THEME_FOCUS_INDEX), LV_CHART_AXIS_PRIMARY_Y);
-    range = nb4Label(graphCard, {10, 153, w - 20, 18}, "-30 s                              0 s", FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-    cards = new Window(body, {0, 240, w, 10});
+    range = nb4Label(graphCard, {SpaceM, 152, inner, 20}, "-30 s                              0 s", TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
+    cards = new Window(body, {0, 0, w, LV_SIZE_CONTENT});
+    cards->setFlexLayout(LV_FLEX_FLOW_ROW_WRAP, Gap, w, LV_SIZE_CONTENT);
     buildCards();
   }
   void checkEvents() override {
@@ -397,24 +399,21 @@ class TelemetryPage : public DataPage {
   void buildCards() {
     cards->clear(); count = 0;
     unsigned seen = 0; bool more = false;
-    auto w = (cards->width() - 6) / 2;
+    auto w = (cards->width() - Nb4Ui::Gap) / 2;
     for (unsigned index = 0; index < MAX_TELEMETRY_SENSORS; ++index) {
       if (!g_model.telemetrySensors[index].isAvailable()) continue;
       if (seen++ < offset) continue;
       if (count == 6) { more = true; break; }
-      auto card = Nb4Ui::action(cards, {coord_t((count % 2) * (w + 6)), coord_t((count / 2) * 68), w, 62}, "", [this, index] { select(index); });
+      auto card = Nb4Ui::action(cards, {0, 0, w, 64}, "", [this, index] { select(index); });
       indices[count] = index;
-      nb4Label(card, {8, 4, w - 16, 18}, nb4ReadSensor(index).name, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-      fields[count] = nb4Label(card, {8, 25, w - 16, 30}, "--", FONT(L));
+      nb4Label(card, {Nb4Ui::SpaceS, Nb4Ui::SpaceXS, w - 2 * Nb4Ui::SpaceS, 20}, nb4ReadSensor(index).name, Nb4Ui::TypeSmall, COLOR_THEME_PRIMARY3_INDEX);
+      fields[count] = nb4Label(card, {Nb4Ui::SpaceS, 24, w - 2 * Nb4Ui::SpaceS, 32}, "--", Nb4Ui::TypeValue);
       if (selected < 0) select(index);
       ++count;
     }
-    coord_t y = ((count + 1) / 2) * 68;
-    if (!count) { nb4Label(cards, {8, 4, cards->width() - 16, 30}, STR_NB4_NO_SENSORS_CONFIGURED); y = 40; }
-    if (more || offset) {
-      Nb4Ui::action(cards, {0, y, cards->width(), 44}, more ? STR_NB4_MORE_SENSORS : STR_NB4_FIRST_SENSORS, [this, more] { offset = more ? offset + 6 : 0; buildCards(); }); y += 50;
-    }
-    cards->setHeight(y);
+    if (!count) nb4Label(cards, {Nb4Ui::SpaceS, 0, cards->width() - 2 * Nb4Ui::SpaceS, Nb4Ui::Touch}, STR_NB4_NO_SENSORS_CONFIGURED);
+    if (more || offset)
+      Nb4Ui::action(cards, {0, 0, cards->width(), Nb4Ui::Touch}, more ? STR_NB4_MORE_SENSORS : STR_NB4_FIRST_SENSORS, [this, more] { offset = more ? offset + 6 : 0; buildCards(); });
   }
 };
 }

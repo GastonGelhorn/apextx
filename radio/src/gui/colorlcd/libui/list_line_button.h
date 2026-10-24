@@ -37,7 +37,11 @@ class ListLineButton : public ButtonBase
 
   virtual void refresh() = 0;
 
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t BTN_H = EdgeTxStyles::UI_ELEMENT_HEIGHT;
+#else
   static constexpr coord_t BTN_H = EdgeTxStyles::STD_FONT_HEIGHT + PAD_BORDER * 2 + PAD_TINY * 2;
+#endif
   static constexpr coord_t GRP_W = LCD_W - PAD_SMALL * 2;
 
  protected:
@@ -74,7 +78,11 @@ class InputMixButtonBase : public ListLineButton
 #endif
   static constexpr coord_t BTN_W = ListLineButton::GRP_W - LN_X - PAD_BORDER * 2 - PAD_OUTLINE;
   static constexpr coord_t WGT_X = PAD_TINY;
+#if defined(RADIO_NB4_FAMILY)
+  static constexpr coord_t WGT_Y = (ListLineButton::BTN_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2;
+#else
   static constexpr coord_t WGT_Y = PAD_TINY;
+#endif
   static LAYOUT_VAL_SCALED(WGT_W, 50)
   static LAYOUT_VAL_SCALED(WGT_H, 21)
   static constexpr coord_t SRC_X = WGT_X + WGT_W + PAD_TINY;

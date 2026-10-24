@@ -82,15 +82,11 @@ inline void ink(Window* w, lv_color_t c)
   lv_obj_set_style_text_color(w->getLvObj(), c, 0);
 }
 
+// Every caption and scale mark is the design system's one caption style.
 inline StaticText* caption(Window* p, rect_t r, const char* text,
                            LcdFlags extra = 0)
 {
-  return new StaticText(p, r, text, COLOR_THEME_PRIMARY3_INDEX, FONT(XS) | extra);
-}
-
-inline StaticText* tiny(Window* p, rect_t r, const char* text, LcdFlags extra = 0)
-{
-  return new StaticText(p, r, text, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS) | extra);
+  return Nb4Ui::caption(p, r, text, extra);
 }
 
 inline lv_obj_t* rectangle(lv_obj_t* parent, coord_t x, coord_t y, coord_t w,
@@ -134,9 +130,11 @@ inline void show(lv_obj_t* o, bool visible)
 
 inline StaticText* pill(Window* p, rect_t r, const char* text, lv_color_t color)
 {
+  r.h = max<coord_t>(r.h, Nb4Ui::ChipH);
   auto t = new StaticText(p, r, text, COLOR_THEME_PRIMARY1_INDEX,
-                          FONT(XXS) | CENTERED);
+                          Nb4Ui::TypeCaption | CENTERED);
   Nb4Ui::chip(t->getLvObj());
+  lv_obj_set_style_pad_top(t->getLvObj(), (r.h - 2 - Nb4Ui::CaptionH) / 2, 0);
   ink(t, color);
   lv_obj_set_style_border_color(t->getLvObj(), color, 0);
   return t;

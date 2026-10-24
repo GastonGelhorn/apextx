@@ -33,6 +33,9 @@
 #include "storage/sdcard_yaml.h"
 #include "lib_file.h"
 #include "pagegroup.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#endif
 
 #define SET_DIRTY() storageDirty(EE_GENERAL)
 
@@ -649,11 +652,23 @@ void HeaderDateTime::setColor(LcdFlags color)
 }
 
 HeaderIcon::HeaderIcon(Window* parent, EdgeTxIcon icon, std::function<void()> action) :
+#if defined(RADIO_NB4_FAMILY)
+  Window(parent, {0, 0, Nb4Ui::Touch, Nb4Ui::HeaderH}),
+#else
   StaticIcon(parent, 0, 0, ICON_TOPLEFT_BG, COLOR_THEME_FOCUS_INDEX),
+#endif
   action(std::move(action))
 {
+#if defined(RADIO_NB4_FAMILY)
+  setWindowFlag(NO_FOCUS);
+  lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
+  this->icon = new StaticIcon(this, 0, 0, icon, COLOR_THEME_FOCUS_INDEX);
+  Nb4Ui::centreIcon(this->icon, lvobj);
+#else
   this->icon = new StaticIcon(this, 0, 0, icon, COLOR_THEME_PRIMARY2_INDEX);
   this->icon->center(width() - PAD_SMALL, height());
+#endif
 #if defined(HARDWARE_TOUCH)
   if (this->action) {
     lv_obj_add_flag(lvobj, LV_OBJ_FLAG_CLICKABLE);
@@ -663,16 +678,40 @@ HeaderIcon::HeaderIcon(Window* parent, EdgeTxIcon icon, std::function<void()> ac
 }
 
 HeaderIcon::HeaderIcon(Window* parent, const char* iconFile, std::function<void()> action) :
+#if defined(RADIO_NB4_FAMILY)
+  Window(parent, {0, 0, Nb4Ui::Touch, Nb4Ui::HeaderH}),
+#else
   StaticIcon(parent, 0, 0, ICON_TOPLEFT_BG, COLOR_THEME_FOCUS_INDEX),
+#endif
   action(std::move(action))
 {
+#if defined(RADIO_NB4_FAMILY)
+  setWindowFlag(NO_FOCUS);
+  lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
+  this->icon = new StaticIcon(this, 0, 0, iconFile, COLOR_THEME_FOCUS_INDEX);
+  Nb4Ui::centreIcon(this->icon, lvobj);
+#else
   this->icon = new StaticIcon(this, 0, 0, iconFile, COLOR_THEME_PRIMARY2_INDEX);
-  this->icon->center(width(), height());
+  // Centred on the plate's body, not its pointed tip, as for built-in icons.
+  this->icon->center(width() - PAD_SMALL, height());
+#endif
 #if defined(HARDWARE_TOUCH)
   if (this->action) {
     lv_obj_add_flag(lvobj, LV_OBJ_FLAG_CLICKABLE);
     addCustomButton(0, 0, [=]() { this->action(); });
   }
+#endif
+}
+
+void HeaderIcon::setIcon(EdgeTxIcon newIcon)
+{
+  if (!icon) return;
+  icon->setIcon(newIcon);
+#if defined(RADIO_NB4_FAMILY)
+  Nb4Ui::centreIcon(icon, lvobj);
+#else
+  icon->center(width() - PAD_SMALL, height());
 #endif
 }
 

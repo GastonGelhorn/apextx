@@ -23,6 +23,7 @@
 
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_params.h"
+#include "nb4_ui.h"
 #endif
 
 #include "channel_bar.h"
@@ -40,14 +41,15 @@
 class OutputEditStatusBar : public Window
 {
  public:
-  OutputEditStatusBar(Window *parent, const rect_t &rect, int8_t channel) :
+  OutputEditStatusBar(Window *parent, const rect_t &rect, int8_t channel,
+                      bool inHeader = true) :
       Window(parent, rect), _channel(channel)
   {
     channelBar = new ComboChannelBar(
         this,
         {OUTPUT_EDIT_STATUS_BAR_MARGIN, 0,
          rect.w - (OUTPUT_EDIT_STATUS_BAR_MARGIN * 2), rect.h},
-        channel, true);
+        channel, inHeader);
   }
 
   static LAYOUT_SIZE_SCALED(OUTPUT_EDIT_STATUS_BAR_MARGIN, 3, 0)
@@ -60,11 +62,13 @@ class OutputEditStatusBar : public Window
 OutputEditWindow::OutputEditWindow(uint8_t channel) :
     Page(ICON_MODEL_OUTPUTS), channel(channel)
 {
-  std::string title2(getSourceString(MIXSRC_FIRST_CH + channel));
+  std::string title2(getSourceDisplayString(MIXSRC_FIRST_CH + channel));
   header->setTitle(STR_MENULIMITS);
   header->setTitle2(title2);
 
+#if !defined(RADIO_NB4_FAMILY)
   buildHeader(header);
+#endif
   buildBody(body);
 }
 
@@ -121,6 +125,13 @@ void OutputEditWindow::buildBody(Window *form)
 {
   FlexGridLayout grid(col_dsc, row_dsc, PAD_TINY);
   form->setFlexLayout();
+
+#if defined(RADIO_NB4_FAMILY)
+  // The NB4 header reserves its right edge for Help and Back. Keep the live
+  // output readout in the first body row rather than covering those actions.
+  statusBar = new OutputEditStatusBar(
+      form, {0, 0, form->width() - PAD_SMALL * 2, Nb4Ui::Touch}, channel, false);
+#endif
 
   LimitData *output = limitAddress(channel);
 

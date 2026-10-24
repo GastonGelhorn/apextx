@@ -129,7 +129,12 @@ class CurveDataEdit : public Window
     }
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  // Point index, two 44 px controls, and space before the next group.
+  static LAYOUT_VAL_SCALED(ROW_HEIGHT, 112)
+#else
   static LAYOUT_VAL_SCALED(ROW_HEIGHT, 82)
+#endif
 #if WIDE_LAYOUT
   static LAYOUT_VAL_SCALED(NUM_BTN_WIDTH, 50)
 #else
@@ -275,15 +280,18 @@ void CurveEditWindow::buildBody(Window* window)
   lv_obj_set_grid_align(line->getLvObj(), LV_GRID_ALIGN_SPACE_BETWEEN,
                         LV_GRID_ALIGN_SPACE_BETWEEN);
 
-#if PORTRAIT
-  lv_obj_set_flex_flow(line->getLvObj(), LV_FLEX_FLOW_COLUMN);
-  coord_t boxWidth = window->width();
-  coord_t boxHeight = window->height() - CurveDataEdit::CURVE_WIDTH;
+  coord_t curveWidth = CurveDataEdit::CURVE_WIDTH;
+#if defined(LCD_RUNTIME_LAYOUT)
+  const bool wide = lcdIsLandscape();
+  // LCD_W is the compiled portrait width on NB4, even after rotation.
+  if (wide)
+    curveWidth = window->width() - PAD_SMALL - CurveDataEdit::PT_EDIT_WIDTH;
 #else
-  lv_obj_set_flex_flow(line->getLvObj(), LV_FLEX_FLOW_ROW);
-  coord_t boxWidth = window->width() - CurveDataEdit::CURVE_WIDTH;
-  coord_t boxHeight = window->height();
+  const bool wide = LANDSCAPE;
 #endif
+  lv_obj_set_flex_flow(line->getLvObj(), wide ? LV_FLEX_FLOW_ROW : LV_FLEX_FLOW_COLUMN);
+  const coord_t boxWidth = wide ? window->width() - curveWidth : window->width();
+  const coord_t boxHeight = wide ? window->height() : window->height() - curveWidth;
 
   auto box = new Window(line, rect_t{});
   box->setWidth(boxWidth);
@@ -396,7 +404,7 @@ void CurveEditWindow::buildBody(Window* window)
   // Curve editor
   lv_obj_set_flex_align(line->getLvObj(), LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_SPACE_AROUND);
-  curveEdit = new CurveEdit(line, {0, 0, CurveDataEdit::CURVE_WIDTH, CurveDataEdit::CURVE_WIDTH}, index);
+  curveEdit = new CurveEdit(line, {0, 0, curveWidth, curveWidth}, index);
 
   curveDataEdit->setCurveEdit(curveEdit);
 }

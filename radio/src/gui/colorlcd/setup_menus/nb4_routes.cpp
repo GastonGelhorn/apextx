@@ -24,6 +24,10 @@
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
 #include "nb4_home.h"
+#include "nb4_home_templates.h"
+#include "layer.h"
+#include "mainwindow.h"
+#include "nb4_ui_perf.h"
 #include "model_nb4_axis.h"
 #include "model_nb4_racing.h"
 #include "model_telemetry.h"
@@ -110,6 +114,7 @@ class Nb4VariablesDialog : public BaseDialog
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92),
                  (lv_coord_t)(lv_disp_get_ver_res(nullptr) * 0.92))
   {
+    usePageLayout();
     form->padLeft(PAD_MEDIUM);
     form->padRight(PAD_MEDIUM);
 
@@ -176,6 +181,7 @@ class Nb4LedsDialog : public BaseDialog
       BaseDialog(STR_NB4_LIGHTS, true,
                  (lv_coord_t)(lv_disp_get_hor_res(nullptr) * 0.92))
   {
+    usePageLayout();
     form->padLeft(PAD_MEDIUM);
     form->padRight(PAD_MEDIUM);
 
@@ -424,8 +430,8 @@ const Nb4Section2 sections[] = {
     {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
     {"race", NB4_STR(RACE_5527), ICON_STATS_TIMERS},
     {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"display", NB4_STR(DISPLAY), ICON_THEME},
-    {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_RADIO_SETUP},
+    {"display", NB4_STR(DISPLAY), ICON_NB4_SCREENS},
+    {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_NB4_SPEAKER},
     {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
     {"help", NB4_STR(HELP), ICON_RADIO_VERSION},
     {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP, "cars"},
@@ -645,65 +651,72 @@ AppTileColors appTileColors(const char* key)
   return {lv_color_hex(0x0A84FF), lv_color_hex(0x30D158)};
 }
 
+// One glyph per destination: no two settings tiles share an icon
+// (Nb4Ux.EveryDestinationHasItsOwnGlyphOfTheSameSize holds it to that).
 uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
 {
   if (!strcmp(route.destination, "steering")) return ICON_NB4_STEERING;
   if (!strcmp(route.destination, "throttle_brake")) return ICON_NB4_THROTTLE;
-  if (!strcmp(route.path, "settings/car/general")) return ICON_NB4_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/car/safety")) return ICON_MODEL_SPECIAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/car/presets")) return ICON_MODEL_FLIGHT_MODES;
-  if (!strcmp(route.path, "settings/car/notes")) return ICON_MODEL_NOTES;
-  if (!strcmp(route.path, "settings/car/advanced")) return ICON_MODEL_MIXER;
-  if (!strcmp(route.path, "settings/controls/trims")) return ICON_NB4_OUTPUTS;
-  if (!strcmp(route.path, "settings/controls/assignments")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/controls/channels")) return ICON_MODEL_OUTPUTS;
-  if (!strcmp(route.path, "settings/controls/general")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/controls/monitor")) return ICON_MONITOR;
-  if (!strcmp(route.path, "settings/telemetry/track_view")) return ICON_MODEL_TELEMETRY;
-  if (!strcmp(route.path, "settings/telemetry/sensors")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/telemetry/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/race/history")) return ICON_STATS;
-  if (!strcmp(route.path, "settings/race/timer_laps")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/race/pit")) return ICON_RADIO_TOOLS;
-  if (!strcmp(route.path, "settings/race/statistics")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/race/setup")) return ICON_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/race/timers")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/race/resets")) return ICON_TOOLS_RESET;
-  if (!strcmp(route.path, "settings/models/management")) return ICON_MODEL_SELECT;
-  if (!strcmp(route.path, "settings/models/templates")) return ICON_TOOLS_APPS;
-  if (!strcmp(route.path, "settings/display/brightness")) return ICON_THEME_VIEW1;
-  if (!strcmp(route.path, "settings/display/appearance")) return ICON_RADIO_EDIT_THEME;
-  if (!strcmp(route.path, "settings/display/screens")) return ICON_THEME;
-  if (!strcmp(route.path, "settings/display/top_bar")) return ICON_THEME_SETUP;
-  if (!strcmp(route.path, "settings/controls/shortcuts")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/controls/quick_access")) return ICON_QM_FAVORITES;
-  if (!strcmp(route.path, "settings/sound_alerts/lights")) return ICON_THEME_VIEW2;
-  if (!strcmp(route.path, "settings/sound_alerts/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/sound_alerts/sound")) return ICON_RADIO_SETUP;
-  if (!strcmp(route.path, "settings/sound_alerts/voice_assignments")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/sound_alerts/haptic")) return ICON_RADIO_TRAINER;
-  if (!strcmp(route.path, "settings/connectivity/usb")) return ICON_MODEL_USB;
-  if (!strcmp(route.path, "settings/connectivity/bluetooth")) return ICON_RADIO_TRAINER;
-  if (!strcmp(route.path, "settings/system/backup_restore")) return ICON_MODEL_NOTES;
-  if (!strcmp(route.path, "settings/system/reset")) return ICON_TOOLS_RESET;
-  if (!strcmp(route.path, "settings/system/general")) return ICON_RADIO_SETUP;
-  if (!strcmp(route.path, "settings/system/power")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/system/hardware")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/system/calibration")) return ICON_RADIO_CALIBRATION;
-  if (!strcmp(route.path, "settings/system/storage")) return ICON_RADIO_SD_MANAGER;
-  if (!strcmp(route.path, "settings/system/update")) return ICON_RADIO_TOOLS;
-  if (!strcmp(route.path, "settings/system/date_time_location")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/system/diagnostics")) return ICON_STATS_DEBUG;
-  if (!strcmp(route.path, "settings/system/about")) return ICON_RADIO_VERSION;
-  if (!strcmp(route.path, "settings/system/help")) return ICON_RADIO_VERSION;
-  if (!strcmp(route.path, "settings/advanced/features")) return ICON_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/advanced/input_preferences")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/advanced/inputs")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/advanced/mixes")) return ICON_MODEL_MIXER;
-  if (!strcmp(route.path, "settings/advanced/outputs")) return ICON_MODEL_OUTPUTS;
-  if (!strcmp(route.path, "settings/advanced/logic")) return ICON_MODEL_LOGICAL_SWITCHES;
-  if (!strcmp(route.path, "settings/advanced/variables")) return ICON_MODEL_GVARS;
-  if (!strcmp(route.path, "settings/advanced/scripts")) return ICON_MODEL_LUA_SCRIPTS;
+  static const struct { const char* path; uint8_t icon; } icons[] = {
+    {"settings/car/general", ICON_NB4_MODEL_SETUP},
+    {"settings/car/safety", ICON_MODEL_SPECIAL_FUNCTIONS},
+    {"settings/car/presets", ICON_MODEL_FLIGHT_MODES},
+    {"settings/car/notes", ICON_MODEL_NOTES},
+    {"settings/car/advanced", ICON_TOOLS_APPS},
+    {"settings/receiver_rf/module", ICON_RADIO},
+    {"settings/controls/trims", ICON_NB4_OUTPUTS},
+    {"settings/controls/assignments", ICON_NB4_BUTTON},
+    {"settings/controls/channels", ICON_NB4_CHANNELS},
+    {"settings/controls/general", ICON_NB4_TOGGLE},
+    {"settings/controls/monitor", ICON_MONITOR},
+    {"settings/controls/shortcuts", ICON_NB4_KEYS},
+    {"settings/controls/quick_access", ICON_QM_FAVORITES},
+    {"settings/telemetry/track_view", ICON_MODEL_TELEMETRY},
+    {"settings/telemetry/sensors", ICON_STATS_ANALOGS},
+    {"settings/telemetry/alerts", ICON_NB4_ALERT},
+    {"settings/race/timer_laps", ICON_NB4_STOPWATCH},
+    {"settings/race/pit", ICON_RADIO_TOOLS},
+    {"settings/race/history", ICON_NB4_HISTORY},
+    {"settings/race/statistics", ICON_STATS},
+    {"settings/race/setup", ICON_NB4_FLAG},
+    {"settings/race/timers", ICON_STATS_TIMERS},
+    {"settings/race/resets", ICON_NB4_RESTART},
+    {"settings/models/management", ICON_MODEL_SELECT},
+    {"settings/models/templates", ICON_NB4_TEMPLATE},
+    {"settings/display/brightness", ICON_NB4_BRIGHTNESS},
+    {"settings/display/appearance", ICON_RADIO_EDIT_THEME},
+    {"settings/display/screens", ICON_NB4_SCREENS},
+    {"settings/display/top_bar", ICON_THEME_SETUP},
+    {"settings/sound_alerts/lights", ICON_NB4_LIGHTS},
+    {"settings/sound_alerts/alerts", ICON_NB4_BELL},
+    {"settings/sound_alerts/sound", ICON_NB4_SPEAKER},
+    {"settings/sound_alerts/voice_assignments", ICON_NB4_VOICE},
+    {"settings/sound_alerts/haptic", ICON_NB4_VIBRATE},
+    {"settings/connectivity/usb", ICON_NB4_USB},
+    {"settings/connectivity/bluetooth", ICON_NB4_BLUETOOTH},
+    {"settings/system/backup_restore", ICON_NB4_BACKUP},
+    {"settings/system/reset", ICON_TOOLS_RESET},
+    {"settings/system/general", ICON_RADIO_SETUP},
+    {"settings/system/power", ICON_NB4_POWER},
+    {"settings/system/hardware", ICON_RADIO_HARDWARE},
+    {"settings/system/calibration", ICON_RADIO_CALIBRATION},
+    {"settings/system/storage", ICON_RADIO_SD_MANAGER},
+    {"settings/system/update", ICON_NB4_UPDATE},
+    {"settings/system/date_time_location", ICON_NB4_GLOBE},
+    {"settings/system/diagnostics", ICON_STATS_DEBUG},
+    {"settings/system/about", ICON_RADIO_VERSION},
+    {"settings/system/help", ICON_NB4_HELP},
+    {"settings/advanced/features", ICON_RADIO_GLOBAL_FUNCTIONS},
+    {"settings/advanced/input_preferences", ICON_NB4_FILTER},
+    {"settings/advanced/inputs", ICON_MODEL_INPUTS},
+    {"settings/advanced/mixes", ICON_MODEL_MIXER},
+    {"settings/advanced/outputs", ICON_MODEL_OUTPUTS},
+    {"settings/advanced/logic", ICON_MODEL_LOGICAL_SWITCHES},
+    {"settings/advanced/variables", ICON_MODEL_GVARS},
+    {"settings/advanced/scripts", ICON_MODEL_LUA_SCRIPTS},
+  };
+  for (const auto& entry : icons)
+    if (!strcmp(route.path, entry.path)) return entry.icon;
   return fallback;
 }
 
@@ -716,6 +729,28 @@ EdgeTxIcon routeDisplayIcon(const Nb4Route& route)
       break;
     }
   return (EdgeTxIcon)routeIcon(route, fallback);
+}
+
+class Nb4GridModal;
+
+// Navigation grids are rebuilt from the same tables every time, and building
+// one (a dozen tiles, labels and icons) is most of the time a tap takes to
+// show it. A closed grid is therefore parked: hidden and off the layer stack,
+// with its tiles intact. Reopening it shows it again, unless something the
+// grid depends on changed since it was built (see gridSignature()).
+struct Nb4CachedGrid {
+  std::string key;
+  Nb4GridModal* modal;
+  uint32_t signature;
+};
+std::vector<Nb4CachedGrid> gridCache;
+
+uint32_t quickAccessSignature();
+
+void forgetGrid(Nb4GridModal* modal)
+{
+  for (auto it = gridCache.begin(); it != gridCache.end(); ++it)
+    if (it->modal == modal) { gridCache.erase(it); return; }
 }
 
 class Nb4GridModal : public BaseDialog
@@ -747,12 +782,69 @@ class Nb4GridModal : public BaseDialog
   void setRouteTitle(const char*) override {}
   void setRouteIcon(uint8_t) override {}
 
+  void cacheAs(const std::string& key, uint32_t signature)
+  {
+    cacheKey = key;
+    gridCache.push_back({key, this, signature});
+    setCloseHandler([this] { forgetGrid(this); });
+  }
+
+  void uncache()
+  {
+    cacheKey.clear();
+    setCloseHandler(nullptr);
+  }
+
+  bool parked() const { return isParked; }
+
+  void unpark()
+  {
+    isParked = false;
+    bringToTop();
+    show();
+    pushLayer();
+    // The layer push made a new input group; give it back the tiles and
+    // buttons the old one held, in the same order.
+    if (lv_group_t* group = lv_group_get_default())
+      for (auto* obj : focusables) lv_group_add_obj(group, obj);
+    focusables.clear();
+    for (auto* btn : tiles)
+      if (btn->getLvObj())
+        lv_obj_clear_state(btn->getLvObj(), LV_STATE_PRESSED | LV_STATE_FOCUSED);
+  }
+
+  void onCancel() override
+  {
+    // Only the grid on top owns the active input group it has to remember.
+    if (cacheKey.empty() || Layer::back() != this) {
+      if (!cacheKey.empty()) { forgetGrid(this); uncache(); }
+      deleteLater();
+      return;
+    }
+    focusables.clear();
+    if (lv_group_t* group = lv_group_get_default()) {
+      for (auto obj = (lv_obj_t**)_lv_ll_get_head(&group->obj_ll); obj;
+           obj = (lv_obj_t**)_lv_ll_get_next(&group->obj_ll, obj))
+        focusables.push_back(*obj);
+    }
+    hide();
+    popLayer();
+    isParked = true;
+  }
+
   void tile(uint8_t icon, const char* label, bool openable,
             std::function<void()> action, const char* reason = nullptr,
             const char* colorKey = nullptr)
   {
-    const coord_t size = tileSize();
-    const coord_t column = columnWidth();
+    // The form's width does not change while it fills, so one layout pass per
+    // grid is enough. Running it per tile re-flowed every earlier tile again,
+    // and each pass walks the whole screen tree, home included.
+    if (cachedSize < 0) {
+      cachedSize = tileSize();
+      cachedColumn = columnWidth();
+    }
+    const coord_t size = cachedSize;
+    const coord_t column = cachedColumn;
     auto slot = new Window(form, {0, 0, column, size});
     slot->padAll(PAD_ZERO);
     lv_obj_clear_flag(slot->getLvObj(),
@@ -790,12 +882,12 @@ class Nb4GridModal : public BaseDialog
   {
     BaseDialog::checkEvents();
     if (deleted()) return;
-    uint32_t current = g_eeGeneral.nb4QuickAccessVersion;
-    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
-      current = current * 31 + g_eeGeneral.nb4QuickAccess[i];
+    const uint32_t current = quickAccessSignature();
     if (watchQuickAccess && rebuild && current != quickSignature) {
       quickSignature = current;
-      tiles.clear(); form->clear(); rebuild();
+      tiles.clear(); form->clear();
+      cachedSize = cachedColumn = -1;
+      rebuild();
     }
     for (auto* btn : tiles) {
       if (!btn->getLvObj()) continue;
@@ -813,9 +905,7 @@ class Nb4GridModal : public BaseDialog
   void populate(std::function<void()> action, bool watch = false) {
     watchQuickAccess = watch;
     rebuild = std::move(action);
-    quickSignature = g_eeGeneral.nb4QuickAccessVersion;
-    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
-      quickSignature = quickSignature * 31 + g_eeGeneral.nb4QuickAccess[i];
+    quickSignature = quickAccessSignature();
     rebuild();
   }
   void configure(std::function<void()> action) {
@@ -827,6 +917,11 @@ class Nb4GridModal : public BaseDialog
   std::function<void()> rebuild;
   uint32_t quickSignature = 0;
   bool watchQuickAccess = false;
+  coord_t cachedSize = -1;
+  coord_t cachedColumn = -1;
+  std::string cacheKey;
+  bool isParked = false;
+  std::vector<lv_obj_t*> focusables;
 
   static lv_coord_t gridWidth()
   {
@@ -860,7 +955,7 @@ class Nb4GridModal : public BaseDialog
 
   coord_t columnWidth() const
   {
-    lv_obj_update_layout(form->getLvObj());
+    // Called right after tileSize(), whose layout pass is still current.
     const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
     const coord_t availableWidth = lv_obj_get_content_width(form->getLvObj());
     return (availableWidth - (GRID_COLS - 1) * gap) / GRID_COLS;
@@ -881,6 +976,91 @@ void (*singleDestinationImpl(const char* id))()
   return first ? first->open : nullptr;
 }
 
+uint32_t quickAccessSignature()
+{
+  uint32_t signature = g_eeGeneral.nb4QuickAccessVersion;
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
+    signature = signature * 31 + g_eeGeneral.nb4QuickAccess[i];
+  return signature;
+}
+
+// Everything a grid's tiles are built from: language, palette, screen size,
+// the pinned shortcuts, and which destinations can open with the current car
+// and radio (that also decides which sections are available).
+uint32_t gridSignature()
+{
+  uint32_t signature = nb4ThemeKey();
+  signature = signature * 31 + lv_disp_get_hor_res(nullptr);
+  signature = signature * 31 + lv_disp_get_ver_res(nullptr);
+  for (char c : g_eeGeneral.uiLanguage) signature = signature * 31 + (uint8_t)c;
+  signature = signature * 31 + quickAccessSignature();
+  for (const auto& route : routes)
+    signature = signature * 31 + nb4RouteIsOpenable(route);
+  return signature;
+}
+
+// Shows the parked grid stored under this key when it is still current.
+// Otherwise returns false; *cacheNew says whether the grid about to be
+// built may take the key (not while the cached one is on screen).
+bool reopenGrid(const std::string& key, uint32_t signature, bool* cacheNew)
+{
+  *cacheNew = true;
+  for (auto it = gridCache.begin(); it != gridCache.end(); ++it) {
+    if (it->key != key) continue;
+    Nb4GridModal* modal = it->modal;
+    if (!modal->parked()) { *cacheNew = false; return false; }
+    if (it->signature == signature) { modal->unpark(); return true; }
+    gridCache.erase(it);
+    modal->uncache();
+    modal->deleteLater();
+    return false;
+  }
+  return false;
+}
+
+// A page that fills the screen hides the grids and home underneath it, and
+// its dimmed backdrop becomes the same colour drawn opaque. LVGL then starts
+// every redraw at the page instead of at home, which is most of the cost of a
+// scrolling frame once two grids are stacked under it.
+void coverWhenFullScreen(Window* page)
+{
+  lv_obj_t* obj = page->getLvObj();
+  if (!obj || page == ViewMain::instance()) return;
+  lv_area_t content = {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN};
+  lv_obj_update_layout(obj);
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) {
+    lv_obj_t* child = lv_obj_get_child(obj, i);
+    if (lv_obj_has_flag(child, LV_OBJ_FLAG_HIDDEN)) continue;
+    content.x1 = std::min(content.x1, child->coords.x1);
+    content.y1 = std::min(content.y1, child->coords.y1);
+    content.x2 = std::max(content.x2, child->coords.x2);
+    content.y2 = std::max(content.y2, child->coords.y2);
+  }
+  const lv_coord_t w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
+  if (content.x2 < content.x1 || lv_area_get_width(&content) < w * 9 / 10 ||
+      lv_area_get_height(&content) < h * 9 / 10)
+    return;
+  if (lv_obj_get_style_bg_opa(obj, LV_PART_MAIN) < LV_OPA_COVER) {
+    const lv_color_t under =
+        lv_obj_get_style_bg_color(MainWindow::instance()->getLvObj(), LV_PART_MAIN);
+    const lv_color_t dim = lv_obj_get_style_bg_color(obj, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(
+        obj, lv_color_mix(dim, under, lv_obj_get_style_bg_opa(obj, LV_PART_MAIN)),
+        LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
+  }
+  Layer::cover(page);
+}
+
+// Sections that open one editor directly instead of a grid of destinations.
+const char* directRouteOf(const char* sectionId)
+{
+  return !strcmp(sectionId, "steering") ? "settings/steering/travel" :
+    !strcmp(sectionId, "throttle_brake") ? "settings/throttle_brake/travel" :
+    !strcmp(sectionId, "receiver_rf") ? "settings/receiver_rf/module" :
+    !strcmp(sectionId, "help") ? "settings/system/help" : nullptr;
+}
+
 bool sectionHasSomethingOpenable(const char* id)
 {
   const Nb4Route* views[32];
@@ -892,6 +1072,8 @@ bool sectionHasSomethingOpenable(const char* id)
 
 }  // namespace
 
+uint8_t nb4RouteIcon(const Nb4Route& route) { return routeDisplayIcon(route); }
+
 const char* nb4AppTileLabel(const char* key, const char* fallback)
 {
   return appTileLabel(key, fallback);
@@ -901,11 +1083,11 @@ static const Nb4QuickEntry quickDefaults[] = {
     {"settings/steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
     {"settings/throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
 
-    {"settings/race/history", NB4_STR(HISTORY), ICON_STATS_TIMERS},
+    {"settings/race/history", NB4_STR(HISTORY), ICON_NB4_HISTORY},
     {"settings/controls/trims", NB4_STR(TRIMS_LABEL), ICON_NB4_OUTPUTS},
-    {"settings/race/timer_laps", NB4_STR(LAPS), ICON_STATS_TIMERS},
+    {"settings/race/timer_laps", NB4_STR(LAPS), ICON_NB4_STOPWATCH},
     {"settings/telemetry/track_view", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"settings/race/pit", NB4_STR(PIT), ICON_STATS_TIMERS},
+    {"settings/race/pit", NB4_STR(PIT), ICON_RADIO_TOOLS},
     {"settings/controls/monitor", NB4_STR(MONITOR), ICON_MONITOR},
 };
 
@@ -918,8 +1100,12 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
 void nb4OpenQuickAccessModal()
 {
   nb4QuickAccessNormalize();
+  const uint32_t signature = gridSignature();
+  bool cache;
+  if (reopenGrid("quick", signature, &cache)) return;
   auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS,
                                 NB4_QUICK_ACCESS_COUNT);
+  if (cache) modal->cacheAs("quick", signature);
   modal->populate([modal] {
   for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
     const Nb4Route* route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
@@ -987,14 +1173,15 @@ void nb4OpenSettingsSection(const char* id)
         [] { nb4OpenHelp("settings/models/management", true); });
     return;
   }
-  const char* direct = !strcmp(id, "steering") ? "settings/steering/travel" :
-    !strcmp(id, "throttle_brake") ? "settings/throttle_brake/travel" :
-    !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" :
-    !strcmp(id, "help") ? "settings/system/help" : nullptr;
-  if (direct) { nb4OpenRoute(direct); return; }
+  if (const char* direct = directRouteOf(id)) { nb4OpenRoute(direct); return; }
+  const uint32_t signature = gridSignature();
+  const std::string key = std::string("section:") + section->id;
+  bool cache;
+  if (reopenGrid(key, signature, &cache)) return;
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(id, views, 32);
   auto modal = new Nb4GridModal(section->label(), n);
+  if (cache) modal->cacheAs(key, signature);
   modal->populate([modal, section] {
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(section->id, views, 32);
@@ -1012,7 +1199,11 @@ void nb4OpenSettingsSection(const char* id)
 void nb4OpenSettingsModal()
 {
   nb4QuickAccessNormalize();
+  const uint32_t signature = gridSignature();
+  bool cache;
+  if (reopenGrid("settings", signature, &cache)) return;
   auto modal = new Nb4GridModal(STR_NB4_SETTINGS, 12);
+  if (cache) modal->cacheAs("settings", signature);
   modal->populate([modal] {
   for (const auto& section : sections) {
     if (section.parent) continue;
@@ -1027,6 +1218,67 @@ void nb4OpenSettingsModal()
                 [sec] { nb4OpenSettingsSection(sec->id); }, nullptr, sec->id);
   }
   });
+}
+
+void nb4WarmGridCache()
+{
+  // Wait for home to sit idle, then build at most one grid per step so a tap
+  // never waits behind more than one.
+  static uint32_t lastStep = 0;
+  const uint32_t now = timersGetMsTick();
+  if (now - lastStep < 250) return;
+  lastStep = now;
+  if (Layer::back() != ViewMain::instance()) return;
+  if (lv_disp_get_inactive_time(nullptr) < 1500) return;
+  nb4WarmNextGrid();
+}
+
+bool nb4WarmNextGrid()
+{
+  const uint32_t signature = gridSignature();
+  auto current = [&](const std::string& key) {
+    for (const auto& entry : gridCache)
+      if (entry.key == key) return entry.signature == signature;
+    return false;
+  };
+  std::function<void()> open;
+  if (!current("settings")) open = [] { nb4OpenSettingsModal(); };
+  else if (!current("quick")) open = [] { nb4OpenQuickAccessModal(); };
+  else {
+    for (const auto& section : sections) {
+      if (!strcmp(section.id, "cars") || directRouteOf(section.id)) continue;
+      const std::string key = std::string("section:") + section.id;
+      if (current(key)) continue;
+      const Nb4Route* views[32];
+      const unsigned n = nb4RoutesOfSection(section.id, views, 32);
+      bool shown = false;
+      for (unsigned i = 0; i < n && i < 32; ++i)
+        if (nb4RouteInSettings(*views[i])) shown = true;
+      if (!shown) continue;
+      const char* id = section.id;
+      open = [id] { nb4OpenSettingsSection(id); };
+      break;
+    }
+  }
+  if (!open) return false;
+
+  // Built and parked before the next render, so it never appears.
+  nb4UiPerfQuiet(true);
+  auto home = Layer::back();
+  open();
+  if (Layer::back() != home) Layer::back()->onCancel();
+  nb4UiPerfQuiet(false);
+  return true;
+}
+
+void nb4DropGridCache()
+{
+  auto cached = std::move(gridCache);
+  gridCache.clear();
+  for (auto& entry : cached) {
+    entry.modal->uncache();
+    if (entry.modal->parked()) entry.modal->deleteLater();
+  }
 }
 
 bool nb4RouteInQuickAccess(const Nb4Route& route)
@@ -1140,6 +1392,7 @@ bool nb4OpenRoute(const char* path)
   const auto route = nb4RouteByPath(path);
   if (!route || !nb4RouteIsOpenable(*route)) return false;
   openDestination(route->open, route->tab);
+  if (auto page = Layer::back()) coverWhenFullScreen(page);
   if (auto page = Layer::back()) {
     if (!page->isHelpPage()) page->setScopeText(nb4RouteScope(*route));
     page->setRouteTitle(route->label());

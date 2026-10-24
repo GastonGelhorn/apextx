@@ -29,6 +29,7 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_health.h"
 #include "nb4_latency.h"
+#include "nb4_ui_perf.h"
 #include "nb4_i18n.h"
 #include "dialog.h"
 #endif
@@ -53,12 +54,21 @@ static const lv_coord_t dbg_3col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1),
 static const lv_coord_t row_dsc[] = {LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
 
 static LAYOUT_ORIENTATION(DBG_COL_CNT, 4, 3)
+#if defined(RADIO_NB4_FAMILY)
+// One grid column: the figures sit three or four to a row.
+static LAYOUT_ORIENTATION(DBG_B_WIDTH, (LCD_W - 20) / 4, (LCD_W - 20) / 3)
+#else
 static LAYOUT_ORIENTATION(DBG_B_WIDTH, (LCD_W - 20) / 4, (LCD_W - 20) / 2)
+#endif
 static LAYOUT_VAL_SCALED(DBG_B_HEIGHT, 20)
 static LAYOUT_ORIENTATION(CV_SCALE, 3, 4)
 #define CV_WIDTH MAXTRACE
 #define CV_HEIGHT (CV_SCALE * EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_SMALL + 1)
+#if defined(RADIO_NB4_FAMILY)
+static constexpr coord_t RST_BTN_H = 44;
+#else
 static LAYOUT_VAL_SCALED(RST_BTN_H, 24)
+#endif
 
 template <class T>
 class DebugInfoNumber : public Window
@@ -70,10 +80,19 @@ class DebugInfoNumber : public Window
       Window(parent, rect)
   {
     coord_t prefixSize = 0;
+#if defined(RADIO_NB4_FAMILY)
+    // A small caption, then a gap, then the figure: "AVERAGE 2786", not
+    // "AVERAGE2786", and three of them still fit one grid row.
+    if (prefix != nullptr) {
+      prefixSize = getTextWidth(prefix, 0, FONT(XXS)) + PAD_SMALL;
+      new StaticText(this, {0, 3, prefixSize, rect.h}, prefix, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS));
+    }
+#else
     if (prefix != nullptr) {
       prefixSize = getTextWidth(prefix, 0, FONT(XS));
       new StaticText(this, {0, 1, prefixSize, rect.h}, prefix, COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
     }
+#endif
     new DynamicNumber<uint32_t>(this,
                                 {prefixSize, 0, rect.w - prefixSize, rect.h},
                                 numberHandler);
@@ -311,6 +330,49 @@ void DebugViewPage::build(Window* window)
   new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
                                 [] { return nb4TouchLatencyRead().maxUs; },
                                 STR_NB4_MAX);
+
+  // Interface timing, last one-second window, in microseconds. The labels are
+  // diagnostic identifiers that go into a bug report as written.
+  auto uiRow = [&](const char* title, std::function<uint32_t()> a,
+                   std::function<uint32_t()> b, const char* bLabel) {
+    auto row = window->newLine(grid);
+    row->padAll(PAD_TINY);
+    new StaticText(row, rect_t{}, title);
+    row = window->newLine(grid2);
+    row->padAll(PAD_ZERO);
+    row->padLeft(PAD_LARGE);
+    new DebugInfoNumber<uint32_t>(row, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                  a, STR_NB4_AVERAGE_C834);
+    if (b)
+      new DebugInfoNumber<uint32_t>(row, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                    b, bLabel);
+  };
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, "UI fps");
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4UiPerfRead().fps; });
+  uiRow("UI loop us", [] { return nb4UiPerfRead().loopAvgUs; },
+        [] { return nb4UiPerfRead().loopMaxUs; }, STR_NB4_MAX);
+  uiRow("UI render us", [] { return nb4UiPerfRead().lvglAvgUs; },
+        [] { return nb4UiPerfRead().lvglMaxUs; }, STR_NB4_MAX);
+  uiRow("UI windows us", [] { return nb4UiPerfRead().windowAvgUs; }, nullptr,
+        nullptr);
+  uiRow("UI copy/wait us", [] { return nb4UiPerfRead().copyAvgUs; },
+        [] { return nb4UiPerfRead().waitAvgUs; }, "wait");
+  line = window->newLine(grid);
+  line->padAll(PAD_TINY);
+  new StaticText(line, rect_t{}, "View open us");
+  line = window->newLine(grid2);
+  line->padAll(PAD_ZERO);
+  line->padLeft(PAD_LARGE);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4UiPerfRead().viewLastUs; });
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4UiPerfRead().viewMaxUs; },
+                                STR_NB4_MAX);
+  new DebugInfoNumber<uint32_t>(line, rect_t{0, 0, DBG_B_WIDTH, DBG_B_HEIGHT},
+                                [] { return nb4UiPerfRead().views; }, "n");
 
   // The retained fault record, which nothing else reads. It survives a warm
   // reset, so this is what answers "why did the radio come up in recovery".
