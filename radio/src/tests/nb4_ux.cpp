@@ -51,6 +51,7 @@
 #include "module_setup.h"
 #include "timer_setup.h"
 #include "dialog.h"
+#include "choice.h"
 #include "menu.h"
 #include "textedit.h"
 #include "keyboard_base.h"
@@ -4225,6 +4226,111 @@ TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
   Layer::back()->onCancel();
   scene.root->run();
   EXPECT_EQ(Layer::back(), base);
+}
+
+TEST(Nb4Ux, AppearancePickersKeepTouchRowsAndApplyWithoutReopeningThePage)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      g_eeGeneral.nb4Orientation = landscape;
+      scene.orient(landscape); main->resizeToDisplay();
+      scene.applyPalette("ApexTX Dark");
+      ASSERT_TRUE(nb4OpenRoute("settings/display/appearance"));
+      auto page = Layer::back();
+      render(scene.root);
+      Choice* palette = nullptr;
+      unsigned choices = 0;
+      std::vector<lv_obj_t*> controls;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        auto choice = window ? dynamic_cast<Choice*>(window) : nullptr;
+        if (choice) {
+          ++choices;
+          if (!strcmp(choice->getTitle(), STR_NB4_PALETTE)) palette = choice;
+          // Text and the disclosure arrow share the control's vertical centre.
+          lv_area_t box; lv_obj_get_coords(obj, &box);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) {
+            lv_area_t child; lv_obj_get_coords(lv_obj_get_child(obj, i), &child);
+            EXPECT_LE(abs((child.y1 + child.y2) - (box.y1 + box.y2)), 2);
+          }
+        }
+        if (choice || (window && dynamic_cast<ButtonBase*>(window))) {
+          lv_area_t box; lv_obj_get_coords(obj, &box);
+          EXPECT_GE(lv_area_get_width(&box), Nb4Ui::Touch);
+          EXPECT_GE(lv_area_get_height(&box), Nb4Ui::Touch);
+          EXPECT_GE(box.x1, 0); EXPECT_GE(box.y1, 0);
+          EXPECT_LT(box.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(box.y2, lv_disp_get_ver_res(nullptr));
+          if (box.y1 >= Nb4Ui::HeaderH + 22) controls.push_back(obj);
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      ASSERT_EQ(choices, 2u);
+      ASSERT_NE(palette, nullptr);
+      const std::string prefix = std::string("appearance-") + language +
+          (landscape ? "-landscape" : "-portrait");
+      for (const char* name : {"ApexTX Dark", "ApexTX Light", "ApexTX Sun"}) {
+        SCOPED_TRACE(name);
+        lv_event_send(palette->getLvObj(), LV_EVENT_CLICKED, nullptr);
+        render(scene.root);
+        auto menu = dynamic_cast<Menu*>(Layer::back());
+        ASSERT_NE(menu, nullptr);
+        EXPECT_EQ(menu->count(), nb4PaletteCount());
+        TableField* table = nullptr;
+        std::function<void(lv_obj_t*)> find = [&](lv_obj_t* obj) {
+          auto w = static_cast<Window*>(lv_obj_get_user_data(obj));
+          if (w && dynamic_cast<TableField*>(w)) table = dynamic_cast<TableField*>(w);
+          for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i) find(lv_obj_get_child(obj, i));
+        };
+        find(menu->getLvObj());
+        ASSERT_NE(table, nullptr);
+        auto rows = reinterpret_cast<lv_table_t*>(table->getLvObj());
+        for (unsigned i = 0; i < menu->count(); ++i)
+          EXPECT_GE(rows->row_h[i], Nb4Ui::Touch);
+        if (!strcmp(name, "ApexTX Dark"))
+          saveFrame((prefix + "-picker").c_str(), landscape ? 480 : 320, landscape ? 320 : 480);
+        const int target = nb4PaletteIndexByName(name);
+        ASSERT_GE(target, 0);
+        table->onPress(target, 0);
+        render(scene.root);
+        EXPECT_EQ(Layer::back(), page);
+        EXPECT_STREQ(g_eeGeneral.selectedTheme, name);
+        EXPECT_EQ(palette->getIntValue(), target);
+        // Both touch and key focus keep a single complete, opaque outline.
+        for (auto obj : controls) {
+          for (lv_state_t state : {lv_state_t(LV_STATE_FOCUSED),
+                                  lv_state_t(LV_STATE_PRESSED), lv_state_t(LV_STATE_FOCUS_KEY)}) {
+            lv_obj_add_state(obj, state);
+            EXPECT_EQ(lv_obj_get_style_bg_opa(obj, 0), LV_OPA_COVER);
+            EXPECT_EQ(lv_obj_get_style_border_side(obj, 0), LV_BORDER_SIDE_FULL);
+            EXPECT_EQ(lv_obj_get_style_border_width(obj, 0), 1);
+            EXPECT_EQ(lv_obj_get_style_outline_width(obj, 0), 0);
+            EXPECT_EQ(lv_obj_get_style_shadow_width(obj, 0), 0);
+            lv_obj_clear_state(obj, state);
+          }
+        }
+        saveFrame((prefix + "-" + name).c_str(), landscape ? 480 : 320, landscape ? 320 : 480);
+      }
+      // Opening the built-in picker must not silently replace an external theme.
+      strAppend(g_eeGeneral.selectedTheme, "Track Night", SELECTED_THEME_NAME_LEN);
+      render(scene.root);
+      EXPECT_EQ(palette->getIntValue(), -1);
+      std::vector<std::string> labels; collectLabels(palette->getLvObj(), labels);
+      EXPECT_NE(std::find(labels.begin(), labels.end(), "Track Night"), labels.end());
+      lv_event_send(palette->getLvObj(), LV_EVENT_CLICKED, nullptr);
+      render(scene.root); Layer::back()->onCancel(); render(scene.root);
+      EXPECT_STREQ(g_eeGeneral.selectedTheme, "Track Night");
+      EXPECT_EQ(Layer::back(), page);
+      page->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
 }
 
 TEST(Nb4Ux, SettingsPagesFillTheViewportAndBackRestoresTheCachedMenu)

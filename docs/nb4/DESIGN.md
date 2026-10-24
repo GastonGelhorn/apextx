@@ -57,6 +57,13 @@ Monitor tabs have separate 44 x 44 px targets. Channel banks show their actual
 range (`1-8` on the original NB4), so identical glyphs do not hide which bank
 will open. Selecting a tab scrolls its entire target into view.
 
+Appearance uses palette and accent pickers, with 44 px menu rows and the
+current palette applied immediately. An external theme keeps its actual name
+until a built-in palette is selected. Palette and accent fields sit side by
+side in landscape; orientation uses two equal touch targets. All settings fit
+in the viewport in either orientation. Focus, press and selection retain an
+opaque fill and a single complete border, without partial outlines or shadows.
+
 ## Icons
 
 Each settings destination has its own glyph. Glyphs are 30 x 30 masks drawn at
