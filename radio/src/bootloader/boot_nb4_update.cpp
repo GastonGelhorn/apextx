@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "nb4_update.h"
 #include "boot.h"
+#include "fw_version.h"
 #include "board.h"
 #include "hal/usb_driver.h"
 #include "hal/abnormal_reboot.h"
 #include "os/time.h"
 #include "lcd.h"
 #include "stm32_hal_ll.h"
+#include <stdio.h>
+#include <string.h>
 extern "C" {
 #include "usbd_dfu.h"
 }
@@ -19,6 +22,22 @@ extern const etx_flash_driver_t stm32_flash_driver;
 alignas(4) static uint8_t staging[StageCapacity] __attribute__((section(".sdram")));
 static Updater updater(staging);
 static bool mayExit = false;
+static char usbInfo[126] = NB4_USB_INFO_PREFIX;
+
+extern "C" const char* nb4UpdateUsbInfo(void)
+{
+  return usbInfo;
+}
+
+static void cacheUsbInfo()
+{
+  // No valid application means no version, even if old text remains in flash.
+  snprintf(usbInfo, sizeof(usbInfo), NB4_USB_INFO_PREFIX);
+  const char* installed = mayExit ? getFirmwareVersion(nullptr) : nullptr;
+  if (installed && strnlen(installed, 100) < 100) {
+    snprintf(usbInfo, sizeof(usbInfo), NB4_USB_INFO_PREFIX "%s", installed);
+  }
+}
 
 static int eraseForUpdate(uint32_t address)
 {
@@ -144,6 +163,10 @@ void bootloaderNB4Update()
   // enabled it cannot be stopped, only reprogrammed.
   armUpdateWatchdog();
   mayExit = nb4BootApplicationValid();
+  // Cache before USB starts: no flash reads or CRC work in a USB interrupt.
+  // Existing application stamps are supported too. Invalid applications have
+  // no installed version. The normal update still preserves this bootloader.
+  cacheUsbInfo();
   usbRegisterDFUMedia(&media);
   usbStart(); // NB4 has no reliable VBUS pin; wait even without a cable.
   etx_flash_driver_t updateFlash = stm32_flash_driver;

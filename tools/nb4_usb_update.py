@@ -7,6 +7,7 @@ from collections import namedtuple
 from pathlib import Path
 
 from nb4_update_image import HEADER, VARIANTS, package_target, update_package
+from nb4_releases import firmware_identity
 
 STAGE = 0xc0200000
 CONTROL = 0xc03f0000
@@ -27,6 +28,73 @@ Selection = namedtuple('Selection', 'device config interface alternate serial ta
 
 class UpdateError(RuntimeError):
     pass
+
+
+def probe():
+    """Read standard USB descriptors only; never claim, configure, or reset."""
+    core, util, backend = usb_modules()
+    radios, recovery, unreadable = [], 0, 0
+    ids = {(0x0483, 0xdf11), (0x0483, 0x5720),
+           (0x0483, 0x5740), (0x1209, 0x4f54)}
+    for device in core.find(find_all=True, backend=backend,
+                            custom_match=lambda d: (d.idVendor, d.idProduct) in ids):
+        try:
+            product = util.get_string(device, device.iProduct)
+            if product == 'STM32 BOOTLOADER':
+                recovery += 1
+                continue
+            normal = {f'ApexTX {model} {mode}': target
+                      for target, model in VARIANTS.items()
+                      for mode in ('Joystick', 'Serial Port', 'Mass Storage')}
+            target = PRODUCTS.get(product, normal.get(product))
+            if target is None:
+                continue
+            serial = util.get_string(device, device.iSerialNumber)
+            if not serial:
+                raise UpdateError('The radio did not provide its USB serial number.')
+            ready, info = False, None
+            for config in device:
+                # Descriptor metadata is optional on older bootloaders.
+                try:
+                    value = util.get_string(device, config.iConfiguration)
+                except Exception:
+                    value = ''
+                if value.startswith('APXINFO1;'):
+                    fields = value.split(';', 2)
+                    expected = 'nb4' if target == 1 else 'nb4plus'
+                    if len(fields) != 3 or fields[1] != expected:
+                        raise UpdateError('The USB model and firmware identity disagree. Nothing was written.')
+                    info = firmware_identity(fields[2])
+                if product in PRODUCTS:
+                    ready = ready or any(
+                        (i.bInterfaceClass, i.bInterfaceSubClass, i.bInterfaceProtocol) == (0xfe, 1, 2)
+                        and util.get_string(device, i.iInterface) in INTERFACES[product] for i in config)
+            if product in PRODUCTS and not ready:
+                raise UpdateError('The radio has an unrecognized update interface. Nothing was written.')
+            # Older NB4+ applications used the original NB4 product name.
+            # Only Update or the new descriptor establishes that model.
+            identified = ready or info is not None or 'NB4+' in product
+            radios.append(dict(state='ready' if ready else 'normal', serial=serial,
+                               target=target if identified else None,
+                               model=VARIANTS[target] if identified else 'NB4 / NB4+',
+                               **(info or firmware_identity(''))))
+        except UpdateError:
+            raise
+        except Exception:
+            if (device.idVendor, device.idProduct) == (0x0483, 0xdf11):
+                unreadable += 1
+        finally:
+            util.dispose_resources(device)
+    if len(radios) + recovery > 1:
+        return dict(state='multiple')
+    if radios:
+        return radios[0]
+    if recovery:
+        return dict(state='recovery')
+    if unreadable:
+        raise UpdateError('A USB update device could not be read. Close other USB tools; '
+                          'on Windows, check its WinUSB driver.')
+    return dict(state='absent')
 
 
 def connection_lost(phase, cause):

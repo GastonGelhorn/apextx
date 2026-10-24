@@ -58,8 +58,8 @@ Download `ApexTX-Flasher-macOS-arm64.zip` for Apple Silicon or
 `ApexTX-Flasher-macOS-x86_64.zip` for Intel. Extract the archive, copy
 `ApexTX-Flasher.app` to Applications and open it. Both modes below are available.
 The app includes Python, libusb and dfu-util; end users need no Terminal,
-Homebrew, WinUSB or separate Python installation. The firmware image is chosen
-separately and must match the radio.
+Homebrew, WinUSB or separate Python installation. The app finds and downloads
+the compatible firmware; selecting a local image remains optional.
 
 The initial packages have an ad-hoc signature for bundle integrity, not an Apple
 Developer ID signature or notarization. macOS may block downloaded copies until
@@ -91,9 +91,65 @@ verify the release checksum/provenance; do not use copies from third parties.
 
 ## Two modes
 
-### Update (unchanged)
+### Update
 Application-only update through **Settings → System → Update** on the radio.
 Keeps the installed bootloader. This is the normal path once ApexTX is installed.
+
+1. Open the app. It immediately looks for a connected radio. Switch on the radio,
+   open **Menu → System → Update**, and connect a USB **data** cable when prompted.
+   A charging-only connection does not enumerate a USB device and cannot be detected.
+2. The app identifies the NB4 or NB4+, its USB serial and, when supported, the
+   installed **application** version. Standard USB descriptor reads do not claim
+   interfaces, send DFU commands or expose internal flash, option bytes or OTP.
+3. It checks published releases in `GastonGelhorn/apextx`, filters by hardware and
+   compares semantic versions. **Include alpha / beta releases** is visible and
+   enabled initially because ApexTX currently ships alpha releases. Disable it
+   for stable releases only; an empty stable channel is stated explicitly.
+4. Review the version and release notes, then click **Update to…**. Nothing is
+   downloaded or written merely because a radio is connected. The app downloads
+   the exact model's binary (or extracts `firmware.bin` in memory from an older
+   official ZIP), verifies `SHA256SUMS`, GitHub's asset digest when present, the
+   image's full checksum, application CRC/manifest, hardware and embedded version.
+5. The USB serial and target are checked again after downloading and before any
+   transfer. A swapped radio, ambiguous connection or invalid image stops the
+   operation. Transfer read-back and the existing on-radio verification remain
+   mandatory. Wait for the verified completion and restart instructions.
+
+An installed version equal to or newer than the offered release never triggers
+an automatic reinstall or downgrade. Development builds are identified and can
+be replaced deliberately using **Choose a local firmware image**. That option
+also works offline; release lookup failures do not disable local updates.
+Recovery remains an explicit, separate operation with local image selection,
+model confirmation and a mandatory backup.
+
+#### Version-query compatibility
+
+New firmware publishes a read-only `APXINFO1;<hardware>;<application stamp>` USB
+configuration string in its data modes. New bootloaders cache the installed
+application's stamp before starting USB Update, after validating the application;
+they do **not** report their own build version as the installed firmware. Product,
+serial and the exact Update interface remain authoritative for selecting a write
+target. The USB `bcdDevice` value is not an ApexTX release number.
+
+Older bootloaders do not provide this descriptor. The UI says **Not available**
+and offers **Install…** without pretending to compare versions. A normal update
+preserves that bootloader, so it cannot add Update-mode version reporting to an
+old bootloader. Reporting becomes available after an explicit complete install /
+recovery with a new bootloader; this is optional and is never performed silently.
+The new application's normal data modes can report its version, but the user
+still enters Update on the radio before writing. Older NB4+ applications used the
+NB4 product name in normal data modes; the app waits for Update to establish the
+model instead of guessing. On Windows, native HID/storage drivers may prevent
+libusb descriptor access in normal modes; Update with WinUSB is the supported
+cross-platform discovery/update path. Do not replace a joystick/storage driver
+just to enable discovery.
+
+The app makes unauthenticated HTTPS requests to the public GitHub release API
+and asset endpoints. It uses a bundled CA store, bounded responses/downloads,
+timeouts, a five-minute release cache and serialised USB access while writing.
+No radio contents, USB serials or firmware are uploaded. The app supports one
+connected radio per operation. ROM DFU is detected separately and cannot be used
+by the automatic Update path.
 
 ### Install / Recovery (new)
 Writes the **complete 2 MiB image** (bootloader + application) over **STM32 ROM

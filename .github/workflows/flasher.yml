@@ -34,7 +34,10 @@ jobs:
           python-version: '3.11'
 
       - name: Test the shared UI and USB core
-        run: python -m unittest tools.tests.test_nb4_flasher tools.tests.test_nb4_rom_flash tools.tests.test_nb4_updater
+        run: python -m unittest tools.tests.test_nb4_flasher tools.tests.test_nb4_rom_flash tools.tests.test_nb4_updater tools.tests.test_nb4_releases tools.tests.test_nb4_flasher_session
+
+      - name: Test the shared interface states without USB
+        run: node tools/tests/flasher_ui.cjs
 
       - name: Package Windows
         if: runner.os == 'Windows'

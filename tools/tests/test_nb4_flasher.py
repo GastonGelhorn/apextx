@@ -117,11 +117,80 @@ class SharedWindow(unittest.TestCase):
         with patch.dict(sys.modules, {'webview': webview}), \
                 patch.dict('os.environ', {'APEXTX_UPDATER_WINDOW': '1'}), \
                 patch.object(flasher, 'run_update', side_effect=transfer), \
+                patch('nb4_flasher_session.probe', return_value={'state': 'absent'}), \
                 patch.object(flasher, 'webbrowser') as browser, \
                 patch('builtins.print'):
             flasher.serve()
         self.assertEqual(errors, [])
         browser.open.assert_not_called()
+
+
+class AutomaticWindow(unittest.TestCase):
+    def test_http_auto_update_requires_the_detected_choice_and_keeps_window_open(self):
+        from nb4_flasher_session import FlasherSession
+        session = FlasherSession(client=Mock())
+        session.device = dict(state='ready', serial='A', target=1, model='NB4', version=None)
+        session.offer = dict(id=42, version='0.1.0-alpha.4', prerelease=True, target=1, url='https://github.com/')
+        session.monitor = Mock()
+        entered, finish = threading.Event(), threading.Event()
+        errors = []
+
+        class Closing:
+            def __iadd__(self, callback):
+                self.callback = callback
+                return self
+        window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+
+        def automatic(device, offer):
+            self.assertEqual((device['serial'],offer['id']),('A',42))
+            entered.set()
+            finish.wait(5)
+            session.progress('Verified',100)
+            session.finish()
+        session.automatic = automatic
+
+        def start():
+            try:
+                parsed = urllib.parse.urlparse(webview.create_window.call_args.args[1])
+                token = urllib.parse.parse_qs(parsed.query)['token'][0]
+                base = f'http://{parsed.netloc}'
+                def call(path, data=None, authorized=True):
+                    headers = {'X-ApexTX-Token':token} if authorized else {}
+                    request = urllib.request.Request(base+path,
+                        data=json.dumps(data).encode() if data is not None else None, headers=headers)
+                    return urllib.request.urlopen(request)
+                with call('/api/status') as response:
+                    self.assertEqual(json.load(response)['release']['decision'],'unknown')
+                for choice in [dict(serial='B',target=1,release_id=42),dict(serial='A',target=2,release_id=42),dict(serial='A',target=1,release_id=99)]:
+                    with self.assertRaises(urllib.error.HTTPError) as caught: call('/api/upgrade',choice)
+                    self.assertEqual(caught.exception.code,409)
+                    caught.exception.close()
+                choice=dict(serial='A',target=1,release_id=42)
+                with self.assertRaises(urllib.error.HTTPError) as caught: call('/api/upgrade',choice,False)
+                self.assertEqual(caught.exception.code,403)
+                caught.exception.close()
+                with call('/api/upgrade',choice) as response: self.assertEqual(response.status,202)
+                self.assertTrue(entered.wait(2))
+                self.assertFalse(window.events.closing.callback())
+                with self.assertRaises(urllib.error.HTTPError) as caught: call('/api/upgrade',choice)
+                self.assertEqual(caught.exception.code,409)
+                caught.exception.close()
+                with self.assertRaises(urllib.error.HTTPError) as caught: call('/api/channel',dict(preview=False))
+                caught.exception.close()
+                finish.set()
+                deadline=time.monotonic()+2
+                while session.snapshot()['running'] and time.monotonic()<deadline: time.sleep(.01)
+                self.assertTrue(window.events.closing.callback())
+                with call('/api/channel',dict(preview=False)) as response: self.assertEqual(response.status,202)
+                self.assertFalse(session.preview)
+            except Exception as error:
+                errors.append(error)
+            finally: finish.set()
+        webview=types.SimpleNamespace(create_window=Mock(return_value=window),start=start)
+        with patch.dict(sys.modules,{'webview':webview}),patch.dict('os.environ',{'APEXTX_UPDATER_WINDOW':'1'}), \
+                patch.object(flasher,'FlasherSession',return_value=session),patch('builtins.print'):
+            flasher.serve()
+        self.assertEqual(errors,[])
 
 
 if __name__ == '__main__':

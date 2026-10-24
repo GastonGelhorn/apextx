@@ -12,6 +12,7 @@ from urllib.parse import urlparse, parse_qs
 
 from nb4_update_image import FLASH_SIZE, VARIANTS, package_target, update_package
 from nb4_usb_update import run_update, discover
+from nb4_flasher_session import FlasherSession
 import nb4_rom_flash
 
 import base64
@@ -20,7 +21,7 @@ import functools
 import os
 import sys
 
-APP_VERSION = '1.0'
+APP_VERSION = '1.1'
 
 
 def package_self_test():
@@ -37,7 +38,14 @@ def package_self_test():
     if result.returncode != 0 or 'dfu-util 0.11' not in result.stdout:
         raise RuntimeError('The bundled dfu-util could not be started: ' + result.stdout)
     metadata = json.loads((folder / 'apextx-flasher-build.json').read_text(encoding='utf-8'))
-    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True)
+    import certifi
+    import ssl
+    if ssl.create_default_context(cafile=certifi.where()).cert_store_stats()['x509_ca'] == 0:
+        raise RuntimeError('The packaged release-download CA store is missing.')
+    from nb4_releases import Version
+    if not Version('0.1.0-alpha.9') < Version('0.1.0-alpha.10'):
+        raise RuntimeError('The shared release client could not be loaded.')
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True)
 
 
 def _enable_bundled_libusb():
@@ -73,16 +81,23 @@ def _logo_data_uri():
 
 def serve(port=0, open_browser=True):
     token = secrets.token_urlsafe(32)
-    lock = threading.Lock()
-    status = {'running': False, 'progress': 0, 'message': 'Ready to update', 'error': False}
+    session = FlasherSession()
+    lock, status = session.lock, session.status
+    monitor = threading.Thread(target=session.monitor, daemon=True)
+    monitor.start()
 
     def progress(message, percent):
         with lock:
             status.update(message=message, progress=percent)
 
-    def update(image):
+    def update(image, device=None):
         try:
-            run_update(image, progress)
+            with session.usb_lock:
+                if device:
+                    run_update(image, progress, serial=device['serial'], wait_seconds=0,
+                               finder=session.pinned_finder(device))
+                else:
+                    run_update(image, progress)
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
@@ -91,6 +106,10 @@ def serve(port=0, open_browser=True):
                 status['running'] = False
 
     def recover(image, radio_variant):
+        with session.usb_lock:
+            recover_locked(image, radio_variant)
+
+    def recover_locked(image, radio_variant):
         try:
             wanted = nb4_rom_flash.validate_full_image(image)
             if wanted != radio_variant:
@@ -165,9 +184,7 @@ def serve(port=0, open_browser=True):
                             .replace('__HOST_PLATFORM__', sys.platform))
                 self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/status':
-                with lock:
-                    snapshot = dict(status)
-                self.reply(200, snapshot)
+                self.reply(200, session.snapshot())
             else:
                 self.reply(404, {'error': 'Not found.'})
 
@@ -176,6 +193,30 @@ def serve(port=0, open_browser=True):
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
             request_path = urlparse(self.path).path
+            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade'):
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    if not 0 <= size <= 2048:
+                        raise ValueError('Invalid request size.')
+                    self.connection.settimeout(15)
+                    data = json.loads(self.rfile.read(size) or b'{}')
+                    if not isinstance(data, dict):
+                        raise ValueError('Invalid request.')
+                    with lock:
+                        if request_path == '/api/upgrade':
+                            device, offer = session.choice(data.get('serial'), data.get('target'), data.get('release_id'))
+                            session.begin('upgrade')
+                            threading.Thread(target=session.automatic, args=(device, offer), daemon=False).start()
+                        elif request_path == '/api/channel':
+                            if not isinstance(data.get('preview'), bool):
+                                raise ValueError('Choose a release channel.')
+                            session.refresh(data['preview'])
+                        else:
+                            session.refresh()
+                    self.reply(202, {'ok': True})
+                except (ValueError, OSError, RuntimeError) as error:
+                    self.reply(409, {'error': str(error)})
+                return
             if request_path not in ('/api/update', '/api/recover'):
                 self.reply(404, {'error': 'Not found.'})
                 return
@@ -207,11 +248,18 @@ def serve(port=0, open_browser=True):
                 if status['running']:
                     self.reply(409, {'error': 'An operation is already in progress.'})
                     return
-                status.update(running=True, error=False, progress=0,
-                              message='Backing up and installing...' if recovery else 'Waiting for the radio...')
+                device = None
+                serial = self.headers.get('X-ApexTX-Serial')
+                if not recovery and serial:
+                    current = session.device
+                    if current.get('state') != 'ready' or serial != current.get('serial'):
+                        self.reply(409, {'error': 'The radio changed. Check the detected radio and try again.'})
+                        return
+                    device = dict(current)
+                session.begin('recover' if recovery else 'manual')
             # Non-daemon: closing the UI/server must not kill an active write.
             target = recover if recovery else update
-            args = (image, radio_variant) if recovery else (image,)
+            args = (image, radio_variant) if recovery else (image, device)
             threading.Thread(target=target, args=args, daemon=False).start()
             self.reply(202, {'ok': True})
 
@@ -242,6 +290,7 @@ def serve(port=0, open_browser=True):
             except KeyboardInterrupt:
                 pass
         finally:
+            session.stop.set()
             server.shutdown()
             server.server_close()
         return
@@ -252,6 +301,7 @@ def serve(port=0, open_browser=True):
     except KeyboardInterrupt:
         pass
     finally:
+        session.stop.set()
         server.server_close()
 
 

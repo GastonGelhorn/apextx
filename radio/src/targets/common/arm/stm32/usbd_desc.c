@@ -447,6 +447,18 @@ uint8_t * USBD_FS_SerialStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
   */
 uint8_t * USBD_FS_ConfigStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
 {
+#if defined(RADIO_NB4)
+  // A standard GET_DESCRIPTOR reads this without claiming an interface,
+  // changing DFU state, exposing flash, or disturbing joystick/storage I/O.
+#if defined(BOOT)
+  const char* info = nb4UpdateUsbInfo();
+#else
+  const char* info = NB4_USB_INFO_PREFIX "apextx-nb4-" VERSION_PREFIX VERSION
+                     VERSION_SUFFIX " (" GIT_STR ")";
+#endif
+  USBD_GetString((uint8_t*)info, USBD_StrDesc, length);
+  return USBD_StrDesc;
+#endif
   switch (getSelectedUsbMode()) {
     case USB_JOYSTICK_MODE:
       USBD_GetString ((uint8_t*)USBD_HID_CONFIGURATION_FS_STRING, USBD_StrDesc, length);

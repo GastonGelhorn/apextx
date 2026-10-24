@@ -3,6 +3,7 @@
 """Package the same ApexTX UI and USB core for Windows or macOS."""
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import platform
 import subprocess
@@ -49,7 +50,8 @@ def main():
     app_icon(icon)
 
     sources = ['apextx-updater.py', 'apextx-updater.html', 'nb4_usb_update.py',
-               'nb4_update_image.py', 'nb4_rom_flash.py']
+               'nb4_update_image.py', 'nb4_rom_flash.py', 'nb4_releases.py',
+               'nb4_flasher_session.py']
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = work / 'apextx-flasher-build.json'
     metadata.write_text(json.dumps({
@@ -72,6 +74,12 @@ def main():
         '--workpath', str(work / 'pyinstaller'), '--specpath', str(work),
         '--distpath', str(ROOT / 'dist'), '--noconfirm', '--clean',
     ]
+    certifi = importlib.metadata.distribution('certifi')
+    ca_license = next((certifi.locate_file(f) for f in certifi.files
+                       if str(f).endswith('/LICENSE')), None)
+    if ca_license is None or not ca_license.is_file():
+        parser.error('The bundled certifi CA store must include its license.')
+    options += ['--add-data', str(ca_license) + ':licenses/certifi']
     if mac:
         options += ['--osx-bundle-identifier', 'org.apextx.flasher',
                     '--target-architecture', arch,

@@ -27,6 +27,9 @@ information are available from https://libusb.info/ and
 https://dfu-util.sourceforge.net/. The macOS package includes both libraries'
 COPYING files under its `licenses/` resources. These desktop packages use the
 same ApexTX source and interface on Windows and macOS.
+Release downloads use certifi's CA bundle (Mozilla Public License 2.0),
+from https://github.com/certifi/python-certifi; its license and CA data are
+included in the desktop package.
 
 The separately published English and Spanish ApexTX audio packages are derived
 from `EdgeTX/edgetx-sdcard-sounds`, licensed under GNU GPL version 2. The exact
