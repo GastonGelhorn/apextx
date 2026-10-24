@@ -1134,12 +1134,6 @@ static SetupLineDef powerPageSetupLines[] = {
 #if defined(PWR_BUTTON_PRESS)
   pwrAutoOffLineDef,
 #endif
-#if defined(PWR_BUTTON_PRESS) && !defined(PWR_BUTTON_MANAGED)
-  pwrOffDelayLineDef,
-#endif
-#if defined(PWR_BUTTON_PRESS)
-  pwrAutoOffLineDef,
-#endif
   batteryWarningLineDef,
   inactivityAlarmLineDef,
 };

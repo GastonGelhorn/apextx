@@ -5563,6 +5563,29 @@ TEST(Nb4Ux, AboutKeepsTheWholeQrCodeAndVersionButtonsVisible)
   }
 }
 
+TEST(Nb4Ux, PowerSettingsAppearOnceInBothOrientationsAndEveryLanguage)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/system/power"));
+      render(scene.root);
+      std::vector<std::string> labels;
+      collectLabels(Layer::back()->getLvObj(), labels);
+      for (const char* label : {STR_PWR_OFF_DELAY, STR_PWR_AUTO_OFF})
+        EXPECT_EQ(std::count(labels.begin(), labels.end(), label), 1) << label;
+      Layer::back()->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
 TEST(Nb4Ux, CarsIsOneMenuEntryWithCurrentCarReceiverTemplatesAndCreation)
 {
   Scene scene; nb4AcceptNewCarModel();
