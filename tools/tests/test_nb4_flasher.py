@@ -118,6 +118,7 @@ class SharedWindow(unittest.TestCase):
                 patch.dict('os.environ', {'APEXTX_UPDATER_WINDOW': '1'}), \
                 patch.object(flasher, 'run_update', side_effect=transfer), \
                 patch('nb4_flasher_session.probe', return_value={'state': 'absent'}), \
+                patch.object(usb_update, 'probe', return_value={'state': 'absent'}), \
                 patch.object(flasher, 'webbrowser') as browser, \
                 patch('builtins.print'):
             flasher.serve()
