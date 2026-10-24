@@ -1007,7 +1007,10 @@ Nb4Chrono::Nb4Chrono(Window* parent, rect_t r, const Nb4CarState& state, bool la
   Nb4Ui::centreIcon(new StaticIcon(this, 0, 0, ICON_STATS_TIMERS, COLOR_THEME_EDIT_INDEX), ring);
   const coord_t textX = Nb4Ui::SpaceS + ringD + Nb4Ui::SpaceS;
   nb4Label(this, {textX, 12, (coord_t)(142 - textX), 20}, heading, FONT(BOLD));
-  caption(this, {textX, 34, (coord_t)(142 - textX), 12}, subtitle);
+  // Translated lap captions need two lines in the narrow portrait column.
+  auto description = caption(this, {textX, 34, (coord_t)(142 - textX), 2 * Nb4Ui::CaptionH}, subtitle);
+  lv_label_set_long_mode(description->getLvObj(), LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_pad_top(description->getLvObj(), 0, LV_PART_MAIN);
   nb4Hairline(this, {146, 12, 1, 40});
   timeLabel = nb4Label(this, {152, 4, (coord_t)(width() - 160), 40}, "--", FONT(XL) | CENTERED);
 

@@ -5563,6 +5563,28 @@ TEST(Nb4Ux, AboutKeepsTheWholeQrCodeAndVersionButtonsVisible)
   }
 }
 
+TEST(Nb4Ux, PortraitChronoCaptionsFitInEveryLanguage)
+{
+  Scene scene;
+  scene.orient(false);
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (unsigned mode = 0; mode < 3; ++mode) {
+      SCOPED_TRACE(std::string(language) + " mode " + std::to_string(mode));
+      Nb4CarState state;
+      state.homeShowsRace = mode == 0;
+      state.homeTimerCountdown = mode == 1;
+      state.homeTimerVisible = true;
+      auto chrono = new Nb4Chrono(scene.root, {8, 8, 304, 72}, state, false);
+      render(scene.root);
+      for (const auto& v : nb4DesignViolations(chrono->getLvObj()))
+        EXPECT_NE(v.rule, "clip") << v.detail;
+      chrono->deleteLater(); scene.root->run();
+    }
+  }
+}
+
 TEST(Nb4Ux, PowerSettingsAppearOnceInBothOrientationsAndEveryLanguage)
 {
   Scene scene;
