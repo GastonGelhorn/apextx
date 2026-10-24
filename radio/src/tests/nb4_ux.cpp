@@ -5510,6 +5510,59 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
   }
 }
 
+TEST(Nb4Ux, AboutKeepsTheWholeQrCodeAndVersionButtonsVisible)
+{
+  Scene scene;
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/system/about"));
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      auto page = Layer::back();
+      unsigned codes = 0, buttons = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        const bool code = window && dynamic_cast<QRCode*>(window);
+        const bool button = lv_obj_check_type(obj, &lv_label_class) &&
+            (!strcmp(lv_label_get_text(obj), STR_MODULES_RX_VERSION) ||
+             !strcmp(lv_label_get_text(obj), STR_ANALOGS_BTN));
+        if (code || button) {
+          codes += code;
+          buttons += button;
+          auto target = button ? lv_obj_get_parent(obj) : obj;
+          lv_area_t bounds;
+          lv_obj_get_coords(target, &bounds);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_GE(bounds.y1, 0);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+          EXPECT_LT(bounds.y2, lv_disp_get_ver_res(nullptr));
+          for (auto parent = lv_obj_get_parent(target); parent;
+               parent = lv_obj_get_parent(parent)) {
+            lv_area_t clip;
+            lv_obj_get_coords(parent, &clip);
+            EXPECT_GE(bounds.x1, clip.x1);
+            EXPECT_GE(bounds.y1, clip.y1);
+            EXPECT_LE(bounds.x2, clip.x2);
+            EXPECT_LE(bounds.y2, clip.y2);
+          }
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(page->getLvObj());
+      EXPECT_EQ(codes, 1u);
+      EXPECT_EQ(buttons, 2u);
+      page->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
 TEST(Nb4Ux, CarsIsOneMenuEntryWithCurrentCarReceiverTemplatesAndCreation)
 {
   Scene scene; nb4AcceptNewCarModel();
