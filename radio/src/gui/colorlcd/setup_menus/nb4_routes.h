@@ -54,6 +54,8 @@ struct Nb4Section2 {
 };
 
 const Nb4Route* nb4Routes(unsigned* count);
+// The glyph a route shows on its tile and in its header.
+uint8_t nb4RouteIcon(const Nb4Route& route);
 const Nb4Section2* nb4Sections(unsigned* count);
 
 void (*nb4SingleDestinationOf(const char* sectionId))();

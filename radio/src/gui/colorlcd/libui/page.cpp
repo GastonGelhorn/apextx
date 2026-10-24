@@ -86,11 +86,12 @@ void PageHeader::setRouteTitle(const char* text)
 {
   if (title2) title2->hide();
   title->setText(text);
-  etx_font(title->getLvObj(), FONT_BOLD_INDEX);
-  title->setTop((EdgeTxStyles::MENU_HEADER_HEIGHT -
-                 getFontHeight(FONT(BOLD))) / 2);
-  title->setHeight(getFontHeight(FONT(BOLD)));
-  lv_label_set_long_mode(title->getLvObj(), LV_LABEL_LONG_CLIP);
+  // A title too long for one line takes two rather than losing its end.
+  const coord_t height = nb4FitHeaderTitle(
+      title->getLvObj(), lv_disp_get_hor_res(nullptr) - PAGE_TITLE_LEFT - 124,
+      EdgeTxStyles::MENU_HEADER_HEIGHT);
+  title->setTop((EdgeTxStyles::MENU_HEADER_HEIGHT - height) / 2);
+  title->setHeight(height);
 }
 
 void PageHeader::setRouteIcon(uint8_t icon)
@@ -107,7 +108,7 @@ Page::Page(EdgeTxIcon icon, PaddingSize padding, bool pauseRefresh) :
 
   header = new PageHeader(this, icon);
 #if defined(RADIO_NB4_FAMILY)
-  new TextButton(header, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 4, 72, 40},
+  new TextButton(header, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 0, 72, 44},
                  STR_NB4_BACK, [this] { onCancel(); return 0; });
   setHelpHandler(nb4InheritedHelp());
 #endif
@@ -171,7 +172,7 @@ bool Page::setHelpHandler(std::function<void()> action)
   helpHandler = std::move(action);
   if (!helpButton && helpHandler)
     helpButton = new TextButton(header,
-      {coord_t(lv_disp_get_hor_res(nullptr) - 120), 4, 40, 40}, "?",
+      {coord_t(lv_disp_get_hor_res(nullptr) - 124), 0, 44, 44}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
   if (helpButton) helpButton->show(bool(helpHandler));
   return true;

@@ -19,49 +19,6 @@ LV_FONT_DECLARE(lv_font_nb4_gauge_22);
 LV_FONT_DECLARE(lv_font_nb4_percent_15);
 }
 
-namespace {
-
-alignas(4) constexpr auto nearBlackPixels = [] {
-  std::array<uint16_t, 128 * 128> pixels{};
-  for (unsigned y = 0; y < 128; y += 2)
-    for (unsigned x = 0; x < 128; x += 2)
-      pixels[y * 128 + x] = RGB(8, 8, 8);
-  return pixels;
-}();
-const lv_img_dsc_t nearBlackSurface = {
-  {LV_IMG_CF_TRUE_COLOR, 0, 0, 128, 128},
-  sizeof(nearBlackPixels), reinterpret_cast<const uint8_t*>(nearBlackPixels.data())
-};
-
-void drawNearBlackCard(lv_event_t* event)
-{
-  auto object = lv_event_get_target(event);
-  auto context = lv_event_get_draw_ctx(event);
-  lv_area_t area, clip;
-  lv_obj_get_coords(object, &area);
-  if (!_lv_area_intersect(&clip, &area, context->clip_area)) return;
-
-  const auto radius = lv_obj_get_style_radius(object, LV_PART_MAIN);
-  const bool masked = !_lv_area_is_in(&clip, &area, radius);
-  lv_draw_mask_radius_param_t mask;
-  int16_t maskId = -1;
-  if (masked) {
-    lv_draw_mask_radius_init(&mask, &area, radius, false);
-    maskId = lv_draw_mask_add(&mask, nullptr);
-  }
-  lv_draw_rect_dsc_t background;
-  lv_draw_rect_dsc_init(&background);
-  background.bg_opa = LV_OPA_TRANSP;
-  background.bg_img_src = &nearBlackSurface;
-  background.bg_img_tiled = true;
-  lv_draw_rect(context, &background, &area);
-  if (masked) {
-    lv_draw_mask_remove_id(maskId);
-    lv_draw_mask_free_param(&mask);
-  }
-}
-}  // namespace
-
 namespace Nb4Ui {
 lv_color_t color(LcdColorIndex i) { return makeLvColor(COLOR(i)); }
 static bool light() { return lv_color_brightness(color(COLOR_THEME_PRIMARY2_INDEX)) > 150; }
@@ -70,50 +27,74 @@ lv_color_t throttleColor() { return lv_color_hex(light() ? 0x1B7A34 : 0x3FD956);
 lv_color_t steeringColor() { return lv_color_hex(light() ? 0x0A5FA8 : 0x35A7F0); }
 lv_color_t brakeColor()    { return lv_color_hex(light() ? 0xB02A18 : 0xFF5A3C); }
 
-void panel(lv_obj_t* o)
+static void surface(lv_obj_t* o, coord_t radius)
 {
   lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-  etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
-  lv_obj_set_style_radius(o, 9, 0);
-  lv_obj_set_style_border_width(o, 1, 0);
-  etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
-}
-
-void card(lv_obj_t* o)
-{
-  lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-  etx_solid_bg(o, COLOR_THEME_PRIMARY2_INDEX);
-  lv_obj_set_style_radius(o, 10, 0);
+  lv_obj_add_flag(o, DesignSurface);
+  lv_obj_set_style_radius(o, radius, 0);
   lv_obj_set_style_border_width(o, 1, 0);
   etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
   lv_obj_set_style_pad_all(o, 0, 0);
-  lv_obj_remove_event_cb(o, drawNearBlackCard);
-  if (lcdColorTable[COLOR_THEME_PRIMARY2_INDEX] == RGB(8, 8, 8) &&
-      lcdColorTable[COLOR_THEME_SECONDARY3_INDEX] == RGB(0, 0, 0)) {
-    etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
-    lv_obj_add_event_cb(o, drawNearBlackCard, LV_EVENT_DRAW_MAIN, nullptr);
-    lv_obj_set_style_border_post(o, true, 0);
-  }
+}
+
+// One solid fill: on the dark palettes the card colour is the darkest neutral
+// the panel can show, so no pattern or mask is needed to keep it near black.
+void card(lv_obj_t* o)
+{
+  surface(o, CardRadius);
+  etx_solid_bg(o, COLOR_THEME_PRIMARY2_INDEX);
+}
+
+Window* card(Window* parent, rect_t rect)
+{
+  auto w = new Window(parent, rect);
+  card(w->getLvObj());
+  return w;
 }
 
 void well(lv_obj_t* o)
 {
-  lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+  surface(o, ControlRadius);
   etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
-  lv_obj_set_style_radius(o, 7, 0);
-  lv_obj_set_style_border_width(o, 1, 0);
-  etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
-  lv_obj_set_style_pad_all(o, 0, 0);
 }
 
-void chip(lv_obj_t* o)
+void chip(lv_obj_t* o, LcdColorIndex outline)
 {
-  lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+  surface(o, ControlRadius);
   lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_radius(o, 11, 0);
-  lv_obj_set_style_border_width(o, 1, 0);
-  etx_border_color(o, COLOR_THEME_SECONDARY2_INDEX);
-  lv_obj_set_style_pad_all(o, 0, 0);
+  etx_border_color(o, outline);
+}
+
+StaticText* caption(Window* parent, rect_t r, const char* text, LcdFlags align,
+                    LcdColorIndex ink)
+{
+  // The box is never shorter than the caption's line, so nothing is clipped.
+  r.h = max<coord_t>(r.h, CaptionH);
+  auto t = nb4Label(parent, r, text, TypeCaption | align, ink);
+  lv_obj_set_style_text_letter_space(t->getLvObj(), 1, LV_PART_MAIN);
+  return t;
+}
+
+StaticText* paragraph(Window* parent, rect_t r, const char* text, LcdFlags font,
+                      LcdColorIndex ink)
+{
+  auto t = new StaticText(parent, r, text, ink, font);
+  lv_label_set_long_mode(t->getLvObj(), LV_LABEL_LONG_WRAP);
+  return t;
+}
+
+void centreIcon(Window* icon, lv_obj_t* slot)
+{
+  // The slot is the icon's parent or a sibling placed by hand, so its
+  // position is known without a layout pass.
+  const bool inside = lv_obj_get_parent(icon->getLvObj()) == slot;
+  const coord_t x = (inside ? 0 : lv_obj_get_style_x(slot, LV_PART_MAIN)) +
+                    (lv_obj_get_style_width(slot, LV_PART_MAIN) - icon->width()) / 2;
+  const coord_t y = (inside ? 0 : lv_obj_get_style_y(slot, LV_PART_MAIN)) +
+                    (lv_obj_get_style_height(slot, LV_PART_MAIN) - icon->height()) / 2;
+  icon->setPos(x, y);
+  lv_obj_add_flag(slot, IconSlot);
+  lv_obj_add_flag(icon->getLvObj(), IconInSlot);
 }
 
 void passThrough(lv_obj_t* root)
@@ -164,11 +145,18 @@ void header(Window* parent, const char* title, std::function<void()> back)
   auto b = action(parent, {coord_t(parent->width() - 76), 4, 72, 44}, STR_NB4_BACK, back);
   lv_obj_set_style_border_width(b->getLvObj(), 0, 0);
   etx_solid_bg(b->getLvObj(), COLOR_THEME_PRIMARY2_INDEX);
-  auto heading = nb4Label(parent, {8, 4, parent->width() - 136, 44}, title, FONT(BOLD));
-  lv_label_set_long_mode(heading->getLvObj(), LV_LABEL_LONG_WRAP);
-  if (getTextWidth(title, 0, FONT(BOLD)) > parent->width() - 136)
-    etx_font(heading->getLvObj(), FONT_XS_INDEX);
-  nb4Hairline(parent, {8, 51, parent->width() - 16, 1});
+  const coord_t width = parent->width() - 136;
+  auto heading = nb4Label(parent, {SpaceS, SpaceXS, width, Touch}, title, TypeTitle);
+  if (getTextWidth(title, 0, TypeTitle) > width) {
+    // A long title wraps onto two smaller lines, still centred on the bar.
+    auto o = heading->getLvObj();
+    etx_font(o, FONT_INDEX(TypeSmall));
+    lv_label_set_long_mode(o, LV_LABEL_LONG_WRAP);
+    lv_point_t size;
+    lv_txt_get_size(&size, title, getFont(TypeSmall), 0, 0, width, LV_TEXT_FLAG_NONE);
+    lv_obj_set_style_pad_top(o, max<coord_t>(0, (Touch - size.y) / 2), 0);
+  }
+  nb4Hairline(parent, {SpaceS, Touch + SpaceS, parent->width() - 2 * SpaceS, 1});
 }
 
 void inkIfChanged(StaticText* label, LcdColorIndex& last, LcdColorIndex want)
@@ -221,8 +209,8 @@ namespace {
 
 constexpr coord_t DIAL_BORDER = 1;
 
-// The dial's geometry, chosen by orientation. Landscape gives the card 284 by
-// 206 against portrait's 188 by 244, so the same circle left a wide band of
+// The dial's geometry, chosen by orientation. Landscape gives the card 280 by
+// 202 against portrait's 184 by 238, so the same circle left a wide band of
 // empty card below the trim rule and slack on both sides. The needle box is
 // the sweep's bounding rectangle: half a needle either side of the hub plus
 // the drop at full lock, with a couple of pixels for the rounded cap.
@@ -235,13 +223,13 @@ struct DialMetrics {
 constexpr DialMetrics DIAL_PORTRAIT = {
   70, 8, 58, 53, 49, 49, 62,
   45, 9, 43, 48, 86, 74,
-  83, 132, 188, 0,  // portrait sizes the trim rule to the card
+  83, 130, 182, 0,  // portrait sizes the trim rule to the card
 };
 
 constexpr DialMetrics DIAL_LANDSCAPE = {
   82, 9, 68, 62, 57, 57, 73,
   53, 11, 50, 56, 100, 87,
-  95, 108, 168, 200,
+  95, 104, 162, 200,
 };
 
 void polar(coord_t cx, coord_t cy, int deg, int r, lv_point_t& p)
@@ -319,12 +307,26 @@ lv_obj_t* solidRect(lv_obj_t* parent, coord_t x, coord_t y, coord_t w, coord_t h
   return o;
 }
 
-StaticText* caption(Window* parent, rect_t r, const char* text, LcdFlags align = 0,
-                    LcdColorIndex ink = COLOR_THEME_PRIMARY3_INDEX)
+using Nb4Ui::caption;
+
+// A mark on an instrument's scale: placed by the scale, not the spacing grid.
+StaticText* scaleMark(Window* parent, rect_t r, const char* text, LcdFlags align = 0)
 {
-  auto t = nb4Label(parent, r, text, FONT(XXS) | align, ink);
-  lv_obj_set_style_text_letter_space(t->getLvObj(), 1, LV_PART_MAIN);
+  auto t = caption(parent, r, text, align);
+  lv_obj_add_flag(t->getLvObj(), Nb4Ui::OffGrid);
   return t;
+}
+
+// The largest of the given fonts in which the whole text fits the width.
+void fitFont(StaticText* label, const char* text, coord_t width,
+             std::initializer_list<LcdFlags> fonts)
+{
+  LcdFlags chosen = *(fonts.end() - 1);
+  for (const auto font : fonts)
+    if (getTextWidth(text, 0, font) <= width) { chosen = font; break; }
+  etx_font(label->getLvObj(), FONT_INDEX(chosen));
+  const coord_t line = getFontHeight(chosen);
+  lv_obj_set_style_pad_top(label->getLvObj(), max<coord_t>(0, (label->height() - line) / 2), 0);
 }
 
 void fittedNumber(StaticText* label, const std::string& text, LcdFlags maximum)
@@ -351,10 +353,11 @@ void fittedNumber(StaticText* label, const std::string& text, LcdFlags maximum)
 /* Outlined "TRIM  +2" chip used by both instruments. */
 StaticText* trimChip(Window* parent, rect_t r, lv_color_t accent)
 {
+  r.h = Nb4Ui::ChipH;
   auto box = new Window(parent, r);
   Nb4Ui::chip(box->getLvObj());
-  caption(box, {6, 7, 24, 12}, STR_NB4_TRIM_CAPTION);
-  auto value = nb4Label(box, {34, 4, 28, 17}, "--", FONT(XS) | RIGHT);
+  caption(box, {Nb4Ui::SpaceS, 1, 24, Nb4Ui::CaptionH}, STR_NB4_TRIM_CAPTION);
+  auto value = nb4Label(box, {34, 0, (coord_t)(r.w - 2 - 34 - Nb4Ui::SpaceS), Nb4Ui::ChipH - 2}, "--", FONT(XS) | RIGHT);
   lv_obj_set_style_text_color(value->getLvObj(), accent, 0);
   return value;
 }
@@ -403,7 +406,7 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   const coord_t percentHeight = lv_font_nb4_percent_15.line_height;
   digitsTop = wellTop - numberHeight - 2;
 
-  auto title = nb4Label(this, landscape ? rect_t{10, 4, 100, 20} : rect_t{8, 6, 86, 20},
+  auto title = nb4Label(this, landscape ? rect_t{8, 4, 100, 20} : rect_t{8, 6, 86, 20},
                         STR_NB4_STEERING, FONT(BOLD));
   lv_obj_set_style_text_color(title->getLvObj(), accent, 0);
   if (!landscape)
@@ -476,10 +479,10 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   for (auto& mark : marks) {
     lv_point_t p;
     polar(cx, cy, mark.value * 6 / 5, m.labelR, p);
-    caption(this, {(coord_t)(p.x - mark.w / 2), (coord_t)(p.y - 6), mark.w, 12},
-            mark.text, CENTERED);
+    scaleMark(this, {(coord_t)(p.x - mark.w / 2), (coord_t)(p.y - 6), mark.w, 12},
+              mark.text, CENTERED);
   }
-  caption(this, {(coord_t)(cx - 6), (coord_t)(cy - m.r - 14), 12, 12}, "0", CENTERED);
+  scaleMark(this, {(coord_t)(cx - 6), (coord_t)(cy - m.r - 14), 12, 12}, "0", CENTERED);
 
   needle = lv_line_create(lvobj);
   lv_obj_set_pos(needle, (coord_t)(cx - m.needleOx), (coord_t)(cy - m.needleOy));
@@ -523,8 +526,8 @@ Nb4Dial::Nb4Dial(Window* parent, rect_t r, bool landscape) : Window(parent, r)
               COLOR_THEME_SECONDARY2_INDEX);
   const char* ruleText[] = {"-100", "-50", "0", "+50", "+100"};
   for (unsigned i = 0; i < 5; ++i)
-    caption(box, {(coord_t)(ruleX0 + i * ruleSpan / 4 - 13), (coord_t)(ruleY + 7), 26, 12},
-            ruleText[i], CENTERED);
+    scaleMark(box, {(coord_t)(ruleX0 + i * ruleSpan / 4 - 13), (coord_t)(ruleY + 7), 26, 12},
+              ruleText[i], CENTERED);
   wedge = maskCanvas(box->getLvObj(), wedgeDownMask, 9, 5,
                      (coord_t)(ruleX0 + 60), wedgeY, accent);
 
@@ -595,8 +598,8 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
   gasInk = Nb4Ui::throttleColor();
   brakeInk = Nb4Ui::brakeColor();
 
-  axisY = landscape ? 120 : 140;
-  semi = landscape ? 70 : 88;
+  axisY = landscape ? 116 : 136;
+  semi = landscape ? 70 : 86;
   fillX = landscape ? 53 : 50;
   fillW = landscape ? 14 : 12;
   markerX = landscape ? 49 : 47;
@@ -611,9 +614,12 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
 
   auto t1 = nb4Label(this, {8, 6, 34, 20}, STR_NB4_THR, FONT(BOLD));
   lv_obj_set_style_text_color(t1->getLvObj(), gasInk, 0);
-  nb4Label(this, {44, 6, 62, 20}, STR_NB4_BRAKE, FONT(BOLD));
-  chipVal = trimChip(this, {(coord_t)(width() - 72), landscape ? (coord_t)5 : (coord_t)28,
-                           68, 22}, gasInk);
+  // In landscape the trim chip shares the title row.
+  const coord_t brakeW = (coord_t)((landscape ? width() - 76 : width() - 8) - 44);
+  auto brakeTitle = nb4Label(this, {44, 6, brakeW, 20}, STR_NB4_BRAKE, FONT(BOLD));
+  fitFont(brakeTitle, STR_NB4_BRAKE, brakeW, {FONT(BOLD), FONT(XS), FONT(XXS)});
+  chipVal = trimChip(this, {(coord_t)(width() - 72), landscape ? (coord_t)4 : (coord_t)28,
+                           68, Nb4Ui::ChipH}, gasInk);
 
   const coord_t trimTop = axisY - semi - 24;
   auto trimWell = new Window(this, {4, trimTop, 40, (coord_t)(2 * semi + 34)});
@@ -633,7 +639,7 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
   for (unsigned i = 0; i < 5; ++i) {
     const coord_t y = scaleY[i];
     solidRect(trimWell->getLvObj(), 32, y, 5, 1, COLOR_THEME_PRIMARY3_INDEX);
-    caption(trimWell, {8, (coord_t)(y - 6), 23, 12}, scale[i], RIGHT);
+    scaleMark(trimWell, {8, (coord_t)(y - 6), 23, 12}, scale[i], RIGHT);
   }
   for (unsigned i = 0; i < 4; ++i) {
     const coord_t y = (coord_t)((scaleY[i] + scaleY[i + 1]) / 2);
@@ -659,15 +665,16 @@ Nb4Column::Nb4Column(Window* parent, rect_t r, bool landscape) : Window(parent, 
   tri = maskCanvas(trimWell->getLvObj(), wedgeRightMask, 5, 9,
                    triX, (coord_t)(trimAxisY - 4), gasInk);
 
-  auto gasLabel = nb4Label(this, {rightX, landscape ? (coord_t)38 : (coord_t)56, rightW, 20},
+  auto gasLabel = nb4Label(this, {rightX, landscape ? (coord_t)34 : (coord_t)52, rightW, 20},
                            STR_NB4_THR, FONT(BOLD) | CENTERED);
   lv_obj_set_style_text_color(gasLabel->getLvObj(), gasInk, 0);
-  auto brakeLabel = nb4Label(this, {rightX, landscape ? (coord_t)158 : (coord_t)192, rightW, 20},
+  auto brakeLabel = nb4Label(this, {rightX, landscape ? (coord_t)154 : (coord_t)188, rightW, 20},
                              STR_NB4_BRAKE_B80D, FONT(BOLD) | CENTERED);
+  fitFont(brakeLabel, STR_NB4_BRAKE_B80D, rightW, {FONT(BOLD), FONT(XS), FONT(XXS)});
   lv_obj_set_style_text_color(brakeLabel->getLvObj(), brakeInk, 0);
   if (landscape) {
-    caption(this, {rightX, 60, rightW, 12}, STR_NB4_FORWARD, CENTERED);
-    caption(this, {rightX, 180, rightW, 12}, STR_NB4_REVERSE, CENTERED);
+    caption(this, {rightX, 56, rightW, 12}, STR_NB4_FORWARD, CENTERED);
+    caption(this, {rightX, 176, rightW, 12}, STR_NB4_REVERSE, CENTERED);
   }
 
   digits = nb4Label(this, {0, digitsTop, (coord_t)(digitsCx + 20), 29}, "+0", FONT(L) | RIGHT);
@@ -775,22 +782,20 @@ Nb4Telltale::Nb4Telltale(Window* parent, rect_t r, uint8_t kind, bool boxed) :
   const char* names[] = {"RF", "TX", "RX"};
   const bool transmitter = kind == Transmitter;
   const coord_t labelX = transmitter && !boxed ? 0 : contentX;
-  label = caption(this, {labelX, 6, 20, 12},
+  label = caption(this, {labelX, 2, 20, Nb4Ui::CaptionH},
                   names[kind <= Receiver ? kind : 0]);
   if (transmitter) {
     const coord_t pillX = boxed ? (coord_t)(contentX + 15) : 14;
     const coord_t pillW = (coord_t)(width() - pillX - (boxed ? 4 : 0));
-    auto pillBox = new Window(this, {pillX, 2, pillW, 15});
-    Nb4Ui::chip(pillBox->getLvObj());
-    lv_obj_set_style_radius(pillBox->getLvObj(), 7, 0);
-    etx_border_color(pillBox->getLvObj(), COLOR_THEME_EDIT_INDEX);
-    auto charging = caption(pillBox, {2, 1, (coord_t)(pillW - 4), 12},
+    auto pillBox = new Window(this, {pillX, 0, pillW, Nb4Ui::ChipH});
+    Nb4Ui::chip(pillBox->getLvObj(), COLOR_THEME_EDIT_INDEX);
+    auto charging = caption(pillBox, {0, 0, (coord_t)(pillW - 2), Nb4Ui::CaptionH},
                             STR_NB4_CHARGING_PILL, CENTERED, COLOR_THEME_EDIT_INDEX);
     lv_obj_set_style_text_letter_space(charging->getLvObj(), 0, LV_PART_MAIN);
     chargePill = pillBox->getLvObj();
     lv_obj_add_flag(chargePill, LV_OBJ_FLAG_HIDDEN);
   }
-  value = nb4Label(this, {contentX, 15, contentW, 24}, "--", FONT(L));
+  value = nb4Label(this, {contentX, 18, contentW, 26}, "--", FONT(L));
 
   if (boxed && height() >= 56) {
     const coord_t segW = 6, segGap = 2, segY = (coord_t)(height() - 12);
@@ -992,22 +997,24 @@ Nb4Chrono::Nb4Chrono(Window* parent, rect_t r, const Nb4CarState& state, bool la
     return;
   }
   Nb4Ui::card(lvobj);
-  auto ring = solidRect(lvobj, 8, 15, 34, 34, COLOR_THEME_PRIMARY2_INDEX, 17);
+  // The icon keeps a clear gap inside its ring instead of touching it.
+  constexpr coord_t ringD = Nb4Ui::IconTile + 10;
+  auto ring = solidRect(lvobj, Nb4Ui::SpaceS, (coord_t)((height() - 2 - ringD) / 2), ringD, ringD,
+                        COLOR_THEME_PRIMARY2_INDEX, ringD / 2);
   lv_obj_set_style_bg_opa(ring, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(ring, 2, 0);
   etx_border_color(ring, COLOR_THEME_EDIT_INDEX);
-  new StaticIcon(this, 10, 17, ICON_STATS_TIMERS, COLOR_THEME_EDIT_INDEX);
-  nb4Label(this, {48, 12, 94, 20}, heading, FONT(BOLD));
-  caption(this, {48, 34, 94, 12}, subtitle);
+  Nb4Ui::centreIcon(new StaticIcon(this, 0, 0, ICON_STATS_TIMERS, COLOR_THEME_EDIT_INDEX), ring);
+  const coord_t textX = Nb4Ui::SpaceS + ringD + Nb4Ui::SpaceS;
+  nb4Label(this, {textX, 12, (coord_t)(142 - textX), 20}, heading, FONT(BOLD));
+  caption(this, {textX, 34, (coord_t)(142 - textX), 12}, subtitle);
   nb4Hairline(this, {146, 12, 1, 40});
   timeLabel = nb4Label(this, {152, 4, (coord_t)(width() - 160), 40}, "--", FONT(XL) | CENTERED);
 
-  auto pillBox = new Window(this, {(coord_t)(152 + (width() - 160 - 72) / 2), 46, 72, 18});
-  Nb4Ui::chip(pillBox->getLvObj());
-  lv_obj_set_style_radius(pillBox->getLvObj(), 8, 0);
-  etx_border_color(pillBox->getLvObj(), COLOR_THEME_EDIT_INDEX);
+  auto pillBox = new Window(this, {(coord_t)(152 + (width() - 160 - 72) / 2), 44, 72, Nb4Ui::ChipH});
+  Nb4Ui::chip(pillBox->getLvObj(), COLOR_THEME_EDIT_INDEX);
   pill = pillBox->getLvObj();
-  stateLabel = caption(pillBox, {2, 2, 66, 12}, stateName(0), CENTERED, COLOR_THEME_EDIT_INDEX);
+  stateLabel = caption(pillBox, {0, 0, 70, Nb4Ui::CaptionH}, stateName(0), CENTERED, COLOR_THEME_EDIT_INDEX);
 }
 
 void Nb4Chrono::refresh(const Nb4CarState& state)
@@ -1057,14 +1064,14 @@ Nb4Stats::Nb4Stats(Window* parent, rect_t r, bool landscape) : Window(parent, r)
   else Nb4Ui::card(lvobj);
   const coord_t inset = landscape ? 2 : 4;
   const coord_t usable = width() - 2 * inset - (landscape ? 0 : 2);
-  const coord_t labelY = landscape ? 10 : 8;
+  const coord_t labelY = landscape ? 8 : 6;
   const char* names[] = {STR_NB4_BEST_7CAE, STR_NB4_LAST,
                          STR_NB4_LAPS_7AA1, STR_NB4_SESSION};
   for (unsigned i = 0; i < 4; ++i) {
     const coord_t x = inset + usable * i / 4;
     const coord_t colW = usable * (i + 1) / 4 - usable * i / 4 - 2;
     caption(this, {x, labelY, colW, 12}, names[i], CENTERED);
-    values[i] = nb4Label(this, {x, (coord_t)(labelY + 16), colW, 20}, "--:--.--",
+    values[i] = nb4Label(this, {x, (coord_t)(labelY + 18), colW, 20}, "--:--.--",
                          FONT(BOLD) | CENTERED,
                          i == 0 ? COLOR_THEME_EDIT_INDEX : COLOR_THEME_PRIMARY1_INDEX);
     if (i) nb4Hairline(this, {(coord_t)(x - 1), labelY, 1, 28});
@@ -1107,36 +1114,36 @@ Nb4RacePanel::Nb4RacePanel(Window* parent, rect_t r, bool race) :
   Window(parent, r), raceMode(race)
 {
   setWindowFlag(OPAQUE);
-  Nb4Ui::panel(lvobj);
-  title = nb4Label(this, {10, 5, width() - 114, 17}, raceMode ?
+  Nb4Ui::card(lvobj);
+  title = nb4Label(this, {12, 4, width() - 116, 20}, raceMode ?
     (width() < 260 ? STR_NB4_RACE_9606 : STR_NB4_RACE_TIME) :
     STR_NB4_TIMER_A026, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
-  phase = nb4Label(this, {width() - 106, 5, 96, 17}, "", FONT(XS) | RIGHT, COLOR_THEME_EDIT_INDEX);
-  timer = nb4Label(this, {8, 23, raceMode ? width() - 83 : width() - 16, 52}, raceMode ? "00:00.0" : "00:00", FONT(LXL));
+  phase = nb4Label(this, {width() - 108, 4, 96, 20}, "", FONT(XS) | RIGHT, COLOR_THEME_EDIT_INDEX);
+  timer = nb4Label(this, {12, 24, raceMode ? width() - 87 : width() - 24, 52}, raceMode ? "00:00.0" : "00:00", FONT(LXL));
   if (!raceMode) {
     lv_obj_set_style_text_align(timer->getLvObj(), LV_TEXT_ALIGN_CENTER, 0);
     progress = lv_bar_create(lvobj);
-    lv_obj_set_pos(progress, 10, 82); lv_obj_set_size(progress, width() - 20, 5);
+    lv_obj_set_pos(progress, 12, 80); lv_obj_set_size(progress, width() - 24, 4);
     lv_obj_set_style_border_width(progress, 0, 0);
     etx_bg_color(progress, COLOR_THEME_SECONDARY2_INDEX);
     etx_bg_color(progress, COLOR_THEME_FOCUS_INDEX, LV_PART_INDICATOR);
     lv_obj_set_style_anim_time(progress, 0, 0);
-    timerInfo = nb4Label(this, {10, 92, width() - 20, 20}, "", FONT(XS) | CENTERED, COLOR_THEME_PRIMARY3_INDEX);
+    timerInfo = nb4Label(this, {12, 92, width() - 24, 20}, "", FONT(XS) | CENTERED, COLOR_THEME_PRIMARY3_INDEX);
     return;
   }
   nb4Label(this, {width() - 73, 25, 63, 16}, STR_NB4_LAP, FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
   laps = nb4Label(this, {width() - 73, 43, 63, 32}, "--", FONT(L));
   progress = lv_bar_create(lvobj);
-  lv_obj_set_pos(progress, 10, 74); lv_obj_set_size(progress, width() - 20, 4);
+  lv_obj_set_pos(progress, 12, 76); lv_obj_set_size(progress, width() - 24, 4);
   lv_obj_set_style_border_width(progress, 0, 0);
   etx_bg_color(progress, COLOR_THEME_SECONDARY2_INDEX);
   etx_bg_color(progress, COLOR_THEME_FOCUS_INDEX, LV_PART_INDICATOR);
   lv_obj_set_style_anim_time(progress, 0, 0);
-  const coord_t statsY = height() > 130 ? 102 : 79;
+  const coord_t statsY = height() > 130 ? 100 : 80;
   const char* names[] = {STR_NB4_LAST, STR_NB4_BEST_7CAE, "+/-"};
   StaticText** fields[] = {&last, &best, &delta};
   for (unsigned i = 0; i < 3; ++i) {
-    coord_t x = 10 + i * (width() - 20) / 3, w = (width() - 20) / 3 - 4;
+    coord_t x = 12 + i * (width() - 24) / 3, w = (width() - 24) / 3 - 4;
     nb4Label(this, {x, statsY, w, 16}, i == 2 ? STR_NB4_VS_BEST : names[i], FONT(XS), COLOR_THEME_PRIMARY3_INDEX);
     *fields[i] = nb4Label(this, {x, statsY + 16, w, 28}, "--", FONT(L), i == 1 ? COLOR_THEME_EDIT_INDEX : COLOR_THEME_PRIMARY1_INDEX);
   }

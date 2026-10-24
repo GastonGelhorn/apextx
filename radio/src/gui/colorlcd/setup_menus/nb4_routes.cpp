@@ -428,8 +428,8 @@ const Nb4Section2 sections[] = {
     {"receiver_rf", NB4_STR(RECEIVER), ICON_RADIO},
     {"race", NB4_STR(RACE_5527), ICON_STATS_TIMERS},
     {"telemetry", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"display", NB4_STR(DISPLAY), ICON_THEME},
-    {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_RADIO_SETUP},
+    {"display", NB4_STR(DISPLAY), ICON_NB4_SCREENS},
+    {"sound_alerts", NB4_STR(UX_SOUND_ALERTS), ICON_NB4_SPEAKER},
     {"system", NB4_STR(SYSTEM), ICON_RADIO_HARDWARE},
     {"help", NB4_STR(HELP), ICON_RADIO_VERSION},
     {"car", NB4_STR(CAR), ICON_NB4_MODEL_SETUP, "cars"},
@@ -649,65 +649,72 @@ AppTileColors appTileColors(const char* key)
   return {lv_color_hex(0x0A84FF), lv_color_hex(0x30D158)};
 }
 
+// One glyph per destination: no two settings tiles share an icon
+// (Nb4Ux.EveryDestinationHasItsOwnGlyphOfTheSameSize holds it to that).
 uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
 {
   if (!strcmp(route.destination, "steering")) return ICON_NB4_STEERING;
   if (!strcmp(route.destination, "throttle_brake")) return ICON_NB4_THROTTLE;
-  if (!strcmp(route.path, "settings/car/general")) return ICON_NB4_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/car/safety")) return ICON_MODEL_SPECIAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/car/presets")) return ICON_MODEL_FLIGHT_MODES;
-  if (!strcmp(route.path, "settings/car/notes")) return ICON_MODEL_NOTES;
-  if (!strcmp(route.path, "settings/car/advanced")) return ICON_MODEL_MIXER;
-  if (!strcmp(route.path, "settings/controls/trims")) return ICON_NB4_OUTPUTS;
-  if (!strcmp(route.path, "settings/controls/assignments")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/controls/channels")) return ICON_MODEL_OUTPUTS;
-  if (!strcmp(route.path, "settings/controls/general")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/controls/monitor")) return ICON_MONITOR;
-  if (!strcmp(route.path, "settings/telemetry/track_view")) return ICON_MODEL_TELEMETRY;
-  if (!strcmp(route.path, "settings/telemetry/sensors")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/telemetry/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/race/history")) return ICON_STATS;
-  if (!strcmp(route.path, "settings/race/timer_laps")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/race/pit")) return ICON_RADIO_TOOLS;
-  if (!strcmp(route.path, "settings/race/statistics")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/race/setup")) return ICON_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/race/timers")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/race/resets")) return ICON_TOOLS_RESET;
-  if (!strcmp(route.path, "settings/models/management")) return ICON_MODEL_SELECT;
-  if (!strcmp(route.path, "settings/models/templates")) return ICON_TOOLS_APPS;
-  if (!strcmp(route.path, "settings/display/brightness")) return ICON_THEME_VIEW1;
-  if (!strcmp(route.path, "settings/display/appearance")) return ICON_RADIO_EDIT_THEME;
-  if (!strcmp(route.path, "settings/display/screens")) return ICON_THEME;
-  if (!strcmp(route.path, "settings/display/top_bar")) return ICON_THEME_SETUP;
-  if (!strcmp(route.path, "settings/controls/shortcuts")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/controls/quick_access")) return ICON_QM_FAVORITES;
-  if (!strcmp(route.path, "settings/sound_alerts/lights")) return ICON_THEME_VIEW2;
-  if (!strcmp(route.path, "settings/sound_alerts/alerts")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/sound_alerts/sound")) return ICON_RADIO_SETUP;
-  if (!strcmp(route.path, "settings/sound_alerts/voice_assignments")) return ICON_RADIO_GLOBAL_FUNCTIONS;
-  if (!strcmp(route.path, "settings/sound_alerts/haptic")) return ICON_RADIO_TRAINER;
-  if (!strcmp(route.path, "settings/connectivity/usb")) return ICON_MODEL_USB;
-  if (!strcmp(route.path, "settings/connectivity/bluetooth")) return ICON_RADIO_TRAINER;
-  if (!strcmp(route.path, "settings/system/backup_restore")) return ICON_MODEL_NOTES;
-  if (!strcmp(route.path, "settings/system/reset")) return ICON_TOOLS_RESET;
-  if (!strcmp(route.path, "settings/system/general")) return ICON_RADIO_SETUP;
-  if (!strcmp(route.path, "settings/system/power")) return ICON_STATS_ANALOGS;
-  if (!strcmp(route.path, "settings/system/hardware")) return ICON_RADIO_HARDWARE;
-  if (!strcmp(route.path, "settings/system/calibration")) return ICON_RADIO_CALIBRATION;
-  if (!strcmp(route.path, "settings/system/storage")) return ICON_RADIO_SD_MANAGER;
-  if (!strcmp(route.path, "settings/system/update")) return ICON_RADIO_TOOLS;
-  if (!strcmp(route.path, "settings/system/date_time_location")) return ICON_STATS_TIMERS;
-  if (!strcmp(route.path, "settings/system/diagnostics")) return ICON_STATS_DEBUG;
-  if (!strcmp(route.path, "settings/system/about")) return ICON_RADIO_VERSION;
-  if (!strcmp(route.path, "settings/system/help")) return ICON_RADIO_VERSION;
-  if (!strcmp(route.path, "settings/advanced/features")) return ICON_MODEL_SETUP;
-  if (!strcmp(route.path, "settings/advanced/input_preferences")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/advanced/inputs")) return ICON_MODEL_INPUTS;
-  if (!strcmp(route.path, "settings/advanced/mixes")) return ICON_MODEL_MIXER;
-  if (!strcmp(route.path, "settings/advanced/outputs")) return ICON_MODEL_OUTPUTS;
-  if (!strcmp(route.path, "settings/advanced/logic")) return ICON_MODEL_LOGICAL_SWITCHES;
-  if (!strcmp(route.path, "settings/advanced/variables")) return ICON_MODEL_GVARS;
-  if (!strcmp(route.path, "settings/advanced/scripts")) return ICON_MODEL_LUA_SCRIPTS;
+  static const struct { const char* path; uint8_t icon; } icons[] = {
+    {"settings/car/general", ICON_NB4_MODEL_SETUP},
+    {"settings/car/safety", ICON_MODEL_SPECIAL_FUNCTIONS},
+    {"settings/car/presets", ICON_MODEL_FLIGHT_MODES},
+    {"settings/car/notes", ICON_MODEL_NOTES},
+    {"settings/car/advanced", ICON_TOOLS_APPS},
+    {"settings/receiver_rf/module", ICON_RADIO},
+    {"settings/controls/trims", ICON_NB4_OUTPUTS},
+    {"settings/controls/assignments", ICON_NB4_BUTTON},
+    {"settings/controls/channels", ICON_NB4_CHANNELS},
+    {"settings/controls/general", ICON_NB4_TOGGLE},
+    {"settings/controls/monitor", ICON_MONITOR},
+    {"settings/controls/shortcuts", ICON_NB4_KEYS},
+    {"settings/controls/quick_access", ICON_QM_FAVORITES},
+    {"settings/telemetry/track_view", ICON_MODEL_TELEMETRY},
+    {"settings/telemetry/sensors", ICON_STATS_ANALOGS},
+    {"settings/telemetry/alerts", ICON_NB4_ALERT},
+    {"settings/race/timer_laps", ICON_NB4_STOPWATCH},
+    {"settings/race/pit", ICON_RADIO_TOOLS},
+    {"settings/race/history", ICON_NB4_HISTORY},
+    {"settings/race/statistics", ICON_STATS},
+    {"settings/race/setup", ICON_NB4_FLAG},
+    {"settings/race/timers", ICON_STATS_TIMERS},
+    {"settings/race/resets", ICON_NB4_RESTART},
+    {"settings/models/management", ICON_MODEL_SELECT},
+    {"settings/models/templates", ICON_NB4_TEMPLATE},
+    {"settings/display/brightness", ICON_NB4_BRIGHTNESS},
+    {"settings/display/appearance", ICON_RADIO_EDIT_THEME},
+    {"settings/display/screens", ICON_NB4_SCREENS},
+    {"settings/display/top_bar", ICON_THEME_SETUP},
+    {"settings/sound_alerts/lights", ICON_NB4_LIGHTS},
+    {"settings/sound_alerts/alerts", ICON_NB4_BELL},
+    {"settings/sound_alerts/sound", ICON_NB4_SPEAKER},
+    {"settings/sound_alerts/voice_assignments", ICON_NB4_VOICE},
+    {"settings/sound_alerts/haptic", ICON_NB4_VIBRATE},
+    {"settings/connectivity/usb", ICON_NB4_USB},
+    {"settings/connectivity/bluetooth", ICON_NB4_BLUETOOTH},
+    {"settings/system/backup_restore", ICON_NB4_BACKUP},
+    {"settings/system/reset", ICON_TOOLS_RESET},
+    {"settings/system/general", ICON_RADIO_SETUP},
+    {"settings/system/power", ICON_NB4_POWER},
+    {"settings/system/hardware", ICON_RADIO_HARDWARE},
+    {"settings/system/calibration", ICON_RADIO_CALIBRATION},
+    {"settings/system/storage", ICON_RADIO_SD_MANAGER},
+    {"settings/system/update", ICON_NB4_UPDATE},
+    {"settings/system/date_time_location", ICON_NB4_GLOBE},
+    {"settings/system/diagnostics", ICON_STATS_DEBUG},
+    {"settings/system/about", ICON_RADIO_VERSION},
+    {"settings/system/help", ICON_NB4_HELP},
+    {"settings/advanced/features", ICON_RADIO_GLOBAL_FUNCTIONS},
+    {"settings/advanced/input_preferences", ICON_NB4_FILTER},
+    {"settings/advanced/inputs", ICON_MODEL_INPUTS},
+    {"settings/advanced/mixes", ICON_MODEL_MIXER},
+    {"settings/advanced/outputs", ICON_MODEL_OUTPUTS},
+    {"settings/advanced/logic", ICON_MODEL_LOGICAL_SWITCHES},
+    {"settings/advanced/variables", ICON_MODEL_GVARS},
+    {"settings/advanced/scripts", ICON_MODEL_LUA_SCRIPTS},
+  };
+  for (const auto& entry : icons)
+    if (!strcmp(route.path, entry.path)) return entry.icon;
   return fallback;
 }
 
@@ -1063,6 +1070,8 @@ bool sectionHasSomethingOpenable(const char* id)
 
 }  // namespace
 
+uint8_t nb4RouteIcon(const Nb4Route& route) { return routeDisplayIcon(route); }
+
 const char* nb4AppTileLabel(const char* key, const char* fallback)
 {
   return appTileLabel(key, fallback);
@@ -1072,11 +1081,11 @@ static const Nb4QuickEntry quickDefaults[] = {
     {"settings/steering", NB4_STR(STEERING_2090), ICON_NB4_STEERING},
     {"settings/throttle_brake", NB4_STR(THROTTLE_BRAKE), ICON_NB4_THROTTLE},
 
-    {"settings/race/history", NB4_STR(HISTORY), ICON_STATS_TIMERS},
+    {"settings/race/history", NB4_STR(HISTORY), ICON_NB4_HISTORY},
     {"settings/controls/trims", NB4_STR(TRIMS_LABEL), ICON_NB4_OUTPUTS},
-    {"settings/race/timer_laps", NB4_STR(LAPS), ICON_STATS_TIMERS},
+    {"settings/race/timer_laps", NB4_STR(LAPS), ICON_NB4_STOPWATCH},
     {"settings/telemetry/track_view", NB4_STR(TELEMETRY), ICON_MODEL_TELEMETRY},
-    {"settings/race/pit", NB4_STR(PIT), ICON_STATS_TIMERS},
+    {"settings/race/pit", NB4_STR(PIT), ICON_RADIO_TOOLS},
     {"settings/controls/monitor", NB4_STR(MONITOR), ICON_MONITOR},
 };
 

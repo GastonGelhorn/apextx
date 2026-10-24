@@ -54,12 +54,21 @@ static const lv_coord_t dbg_3col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1),
 static const lv_coord_t row_dsc[] = {LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
 
 static LAYOUT_ORIENTATION(DBG_COL_CNT, 4, 3)
+#if defined(RADIO_NB4_FAMILY)
+// One grid column: the figures sit three or four to a row.
+static LAYOUT_ORIENTATION(DBG_B_WIDTH, (LCD_W - 20) / 4, (LCD_W - 20) / 3)
+#else
 static LAYOUT_ORIENTATION(DBG_B_WIDTH, (LCD_W - 20) / 4, (LCD_W - 20) / 2)
+#endif
 static LAYOUT_VAL_SCALED(DBG_B_HEIGHT, 20)
 static LAYOUT_ORIENTATION(CV_SCALE, 3, 4)
 #define CV_WIDTH MAXTRACE
 #define CV_HEIGHT (CV_SCALE * EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_SMALL + 1)
+#if defined(RADIO_NB4_FAMILY)
+static constexpr coord_t RST_BTN_H = 44;
+#else
 static LAYOUT_VAL_SCALED(RST_BTN_H, 24)
+#endif
 
 template <class T>
 class DebugInfoNumber : public Window
@@ -71,10 +80,19 @@ class DebugInfoNumber : public Window
       Window(parent, rect)
   {
     coord_t prefixSize = 0;
+#if defined(RADIO_NB4_FAMILY)
+    // A small caption, then a gap, then the figure: "AVERAGE 2786", not
+    // "AVERAGE2786", and three of them still fit one grid row.
+    if (prefix != nullptr) {
+      prefixSize = getTextWidth(prefix, 0, FONT(XXS)) + PAD_SMALL;
+      new StaticText(this, {0, 3, prefixSize, rect.h}, prefix, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS));
+    }
+#else
     if (prefix != nullptr) {
       prefixSize = getTextWidth(prefix, 0, FONT(XS));
       new StaticText(this, {0, 1, prefixSize, rect.h}, prefix, COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
     }
+#endif
     new DynamicNumber<uint32_t>(this,
                                 {prefixSize, 0, rect.w - prefixSize, rect.h},
                                 numberHandler);

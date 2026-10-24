@@ -14,6 +14,7 @@
 #include "view_channels.h"
 #include "topbar.h"
 #include "nb4_ui_languages.h"
+#include "nb4_design_checks.h"
 #include "theme_manager.h"
 #include "pagegroup.h"
 #include "radio_setup.h"
@@ -618,6 +619,48 @@ TEST(Nb4Ux, BuiltinIconTableIsAlignedWithItsEnum)
   EXPECT_EQ(at, -1);
 }
 
+// Every destination has a glyph of its own, and every glyph has the same
+// optical size: a line drawing that fills most of its 30 px slot, never a
+// solid square and never a small mark lost in it.
+TEST(Nb4Ux, EveryDestinationHasItsOwnGlyphOfTheSameSize)
+{
+  unsigned count = 0;
+  const Nb4Route* routes = nb4Routes(&count);
+  std::map<uint8_t, std::string> owner;
+  for (unsigned i = 0; i < count; ++i) {
+    const Nb4Route& r = routes[i];
+    // The tabs of one page are one destination.
+    const bool tabs = r.destination && (!strcmp(r.destination, "steering") ||
+                                        !strcmp(r.destination, "throttle_brake"));
+    const std::string key = tabs ? r.destination : r.path;
+    const uint8_t icon = nb4RouteIcon(r);
+    auto [it, fresh] = owner.emplace(icon, key);
+    EXPECT_TRUE(fresh || it->second == key)
+        << r.path << " shares its glyph with " << it->second;
+
+    const MaskBitmap* mask = getBuiltinIcon((EdgeTxIcon)icon);
+    ASSERT_NE(mask, nullptr);
+    EXPECT_EQ(mask->width, Nb4Ui::IconTile) << r.path;
+    EXPECT_EQ(mask->height, Nb4Ui::IconTile) << r.path;
+    int x0 = mask->width, y0 = mask->height, x1 = -1, y1 = -1;
+    unsigned ink = 0;
+    for (int y = 0; y < mask->height; ++y)
+      for (int x = 0; x < mask->width; ++x) {
+        const uint8_t a = mask->data[y * mask->width + x];
+        ink += a;
+        if (a < 128) continue;
+        x0 = std::min(x0, x); y0 = std::min(y0, y);
+        x1 = std::max(x1, x); y1 = std::max(y1, y);
+      }
+    const int extent = std::max(x1 - x0 + 1, y1 - y0 + 1);
+    const double cover = ink / 255.0 / (mask->width * mask->height);
+    EXPECT_GE(extent, 22) << r.path << " is drawn too small";
+    EXPECT_LE(cover, 0.55) << r.path << " is nearly a solid block";
+    EXPECT_GE(cover, 0.15) << r.path << " is too faint next to the others";
+  }
+  EXPECT_GT(owner.size(), 50u);
+}
+
 TEST(Nb4Ux, BatteryPercentFollowsTheOfficialCurveNotAStraightLine)
 {
 
@@ -715,26 +758,24 @@ TEST(Nb4Ux, PalettePolarityMatchesWhatItsNamePromises)
   EXPECT_TRUE(nb4Palette(dark).dark);
 }
 
-TEST(Nb4Ux, DarkCardsStayNeutralAndBarelyAboveBlackInTheRenderedFrame)
+// A dark card is one solid fill, the darkest neutral the panel can show:
+// no dithered pattern and no mask to redraw on every frame.
+TEST(Nb4Ux, DarkCardsAreOneSolidNeutralJustAboveBlack)
 {
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   auto card = new Window(scene.root, {20, 20, 80, 80});
   Nb4Ui::card(card->getLvObj());
   render(scene.root);
-  unsigned red = 0, green = 0, blue = 0;
-  for (unsigned y = 32; y < 64; ++y) {
-    for (unsigned x = 32; x < 64; ++x) {
-      const uint32_t pixel = lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]);
-      red += (pixel >> 16) & 255;
-      green += (pixel >> 8) & 255;
-      blue += pixel & 255;
-    }
-  }
+  const uint32_t first = lv_color_to32(frame[32 * lv_disp_get_hor_res(nullptr) + 32]) & 0xffffff;
+  for (unsigned y = 32; y < 64; ++y)
+    for (unsigned x = 32; x < 64; ++x)
+      ASSERT_EQ(lv_color_to32(frame[y * lv_disp_get_hor_res(nullptr) + x]) & 0xffffff, first);
+  const unsigned red = (first >> 16) & 255, green = (first >> 8) & 255, blue = first & 255;
   EXPECT_EQ(red, green);
   EXPECT_EQ(red, blue);
   EXPECT_GT(red, 0u);
-  EXPECT_LE(red, 3u * 32 * 32);
+  EXPECT_LE(red, 8u);
   card->deleteLater();
   scene.root->run();
 }
@@ -3541,6 +3582,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   unsigned count = 0, opened = 0, guarded = 0;
   unsigned checkedDestination = 0, menuDestination = 0;
   const Nb4Route* routes = nb4Routes(&count);
+  std::vector<Nb4DesignViolation> design;
 
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
   const char* language = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
@@ -3548,8 +3590,28 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   g_eeGeneral.nb4Orientation = pass >= DIM(NB4_UI_LANGUAGES);
   scene.orient(pass >= DIM(NB4_UI_LANGUAGES));
   ViewMain::instance()->resizeToDisplay();
+  // As nb4ProcessOrientation does on the radio, so home is built for it.
+  LayoutFactory::loadCustomScreens();
   memcpy(g_eeGeneral.uiLanguage, language, 2);
   currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  {
+    // Home and the two navigation grids are held to the same rules.
+    const std::string where = std::string(language) + (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-");
+    for (unsigned f = 0; f < 3; ++f) render(scene.root);
+    saveFrame(("route-" + where + "home").c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      design.push_back({v.rule, "home-" + where + ": " + v.detail});
+    for (const auto open : {nb4OpenSettingsModal, nb4OpenQuickAccessModal}) {
+      open();
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      const char* name = open == nb4OpenSettingsModal ? "settings" : "quick-access";
+      for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+        design.push_back({v.rule, std::string(name) + "-" + where + ": " + v.detail});
+      Layer::back()->onCancel();
+      scene.root->run();
+    }
+    ASSERT_EQ(Layer::back(), base);
+  }
   for (unsigned i = 0; i < count; ++i) {
     const Nb4Route& r = routes[i];
     if (r.state != Nb4RouteState::Available) continue;
@@ -3584,6 +3646,17 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
     std::string capture = std::string("route-") + g_eeGeneral.uiLanguage[0] + g_eeGeneral.uiLanguage[1] +
         (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-") + (r.path + 9);
     std::replace(capture.begin(), capture.end(), '/', '-');
+    // EdgeTX's own list editors keep their 29-32 px list rows: rows that close
+    // together cannot take a 44 px target without stealing each other's
+    // touches, so they need a native row redesign, not a design-token fix.
+    static const char* const nativeLists[] = {
+      "settings/advanced/inputs", "settings/advanced/mixes", "settings/advanced/outputs",
+      "settings/advanced/logic", "settings/sound_alerts/voice_assignments"};
+    const bool nativeList = std::any_of(std::begin(nativeLists), std::end(nativeLists),
+                                        [&](const char* p) { return !strcmp(p, r.path); });
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      if (!(nativeList && v.rule == "touch"))
+        design.push_back({v.rule, capture + ": " + v.detail});
     saveFrame(capture.c_str(), pass >= DIM(NB4_UI_LANGUAGES) ? 480 : 320, pass >= DIM(NB4_UI_LANGUAGES) ? 320 : 480);
 
     const char* mustShow = nullptr;
@@ -3621,6 +3694,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   }
 
   }
+  nb4ReportDesign(design);
   EXPECT_GT(opened, 180u);
   EXPECT_LT(guarded, 32u);
   EXPECT_GT(checkedDestination, 90u);
@@ -5415,10 +5489,11 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         lv_obj_get_coords(badge, &badgeBounds);
         lv_obj_get_coords(tileLabel, &labelBounds);
         EXPECT_GE(labelBounds.y1 - badgeBounds.y2 - 1, 3);
-        EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
-                  lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
-        EXPECT_EQ(glyphColours.size(), 2u);
-        EXPECT_GE(artworkColours.size(), 2u);
+        // One flat colour and one glyph: nothing per tile that has to be
+        // blended or recoloured twice on every redraw.
+        EXPECT_EQ(lv_obj_get_style_bg_grad_dir(badge, LV_PART_MAIN), LV_GRAD_DIR_NONE);
+        EXPECT_EQ(glyphColours.size(), 1u);
+        EXPECT_GE(artworkColours.size(), 1u);
       }
       EXPECT_LE(rows.size(), 3u);
       for (const auto& row : columns) EXPECT_LE(row.second, 4u);
@@ -5490,9 +5565,8 @@ TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
         {"settings/car/general", ICON_NB4_MODEL_SETUP},
         {"settings/controls/quick_access", ICON_QM_FAVORITES},
         {"settings/controls/monitor", ICON_MONITOR},
-        {"settings/race/setup", ICON_MODEL_SETUP},
-        {"settings/sound_alerts/voice_assignments",
-         ICON_RADIO_GLOBAL_FUNCTIONS},
+        {"settings/race/setup", ICON_NB4_FLAG},
+        {"settings/sound_alerts/voice_assignments", ICON_NB4_VOICE},
     };
     for (const auto& item : routeHeaders) {
       SCOPED_TRACE(item.path);

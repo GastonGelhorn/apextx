@@ -26,6 +26,10 @@ static void choice_constructor(const lv_obj_class_t* class_p, lv_obj_t* obj)
 {
   etx_std_style(obj, LV_PART_MAIN, PAD_TINY);
   lv_obj_set_style_pad_hor(obj, PAD_MEDIUM, LV_PART_MAIN);
+#if defined(RADIO_NB4_FAMILY)
+  // A short value such as "2s" still gets a square finger target.
+  lv_obj_set_style_min_width(obj, EdgeTxStyles::UI_ELEMENT_HEIGHT, LV_PART_MAIN);
+#endif
 }
 
 static const lv_obj_class_t choice_class = {
