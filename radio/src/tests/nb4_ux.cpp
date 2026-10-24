@@ -14,6 +14,7 @@
 #include "view_channels.h"
 #include "topbar.h"
 #include "nb4_ui_languages.h"
+#include "nb4_design_checks.h"
 #include "theme_manager.h"
 #include "pagegroup.h"
 #include "radio_setup.h"
@@ -3536,6 +3537,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   unsigned count = 0, opened = 0, guarded = 0;
   unsigned checkedDestination = 0, menuDestination = 0;
   const Nb4Route* routes = nb4Routes(&count);
+  std::vector<Nb4DesignViolation> design;
 
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
   const char* language = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
@@ -3579,6 +3581,17 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
     std::string capture = std::string("route-") + g_eeGeneral.uiLanguage[0] + g_eeGeneral.uiLanguage[1] +
         (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-") + (r.path + 9);
     std::replace(capture.begin(), capture.end(), '/', '-');
+    // EdgeTX's own list editors keep their 29-32 px list rows: rows that close
+    // together cannot take a 44 px target without stealing each other's
+    // touches, so they need a native row redesign, not a design-token fix.
+    static const char* const nativeLists[] = {
+      "settings/advanced/inputs", "settings/advanced/mixes", "settings/advanced/outputs",
+      "settings/advanced/logic", "settings/sound_alerts/voice_assignments"};
+    const bool nativeList = std::any_of(std::begin(nativeLists), std::end(nativeLists),
+                                        [&](const char* p) { return !strcmp(p, r.path); });
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      if (!(nativeList && v.rule == "touch"))
+        design.push_back({v.rule, capture + ": " + v.detail});
     saveFrame(capture.c_str(), pass >= DIM(NB4_UI_LANGUAGES) ? 480 : 320, pass >= DIM(NB4_UI_LANGUAGES) ? 320 : 480);
 
     const char* mustShow = nullptr;
@@ -3616,6 +3629,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   }
 
   }
+  nb4ReportDesign(design);
   EXPECT_GT(opened, 180u);
   EXPECT_LT(guarded, 32u);
   EXPECT_GT(checkedDestination, 90u);
