@@ -214,32 +214,31 @@ void applyPaletteByName(const char* name)
 
 void nb4BuildAppearance(Window* parent)
 {
-  lv_obj_set_layout(parent->getLvObj(), 0);
+  using namespace Nb4Ui;
+  // A flex column: no hand-placed rows, and no layout pass to measure them.
   parent->padAll(PAD_TINY);
-  lv_obj_update_layout(parent->getLvObj());
-  coord_t y = 0, w = lv_obj_get_content_width(parent->getLvObj());
-  label(parent, {8, y, w - 16, 28}, "ApexTX", FONT(L)); y += 36;
-  label(parent, {8, y, w - 16, 22}, STR_NB4_PALETTE, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
+  parent->setFlexLayout(LV_FLEX_FLOW_COLUMN, SpaceS, LV_PCT(100), LV_SIZE_CONTENT);
+  const coord_t inset = SpaceS;
+  label(parent, {0, 0, LV_PCT(100), 32}, "ApexTX", TypeValue)->padLeft(inset);
+  caption(parent, {0, 0, LV_PCT(100), CaptionH}, STR_NB4_PALETTE)->padLeft(inset);
   for (unsigned i = 0; i < nb4PaletteCount(); ++i) {
     const auto& palette = nb4Palette(i);
     const std::string name = palette.name;
-    selectedAction(parent, {0, y, w, 44}, palette.label(),
+    selectedAction(parent, {0, 0, LV_PCT(100), Touch}, palette.label(),
       [name] { applyPaletteByName(name.c_str()); },
       [name] { return name == g_eeGeneral.selectedTheme; });
-    y += 50;
   }
-  label(parent, {8, y, w - 16, 22}, STR_NB4_ACCENT, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  auto choice = new Choice(parent, {0, y, w, 44}, 0, nb4AccentCount() - 1,
+  caption(parent, {0, 0, LV_PCT(100), CaptionH}, STR_NB4_ACCENT)->padLeft(inset);
+  auto choice = new Choice(parent, {0, 0, LV_PCT(100), Touch}, 0, nb4AccentCount() - 1,
     [] { return int(g_eeGeneral.nb4Accent); }, [](int value) {
       g_eeGeneral.nb4Accent = value; storageDirty(EE_GENERAL);
       applyPaletteByName(g_eeGeneral.selectedTheme);
     });
   choice->setTextHandler([](int value) { return std::string(nb4AccentName(value)); });
-  y += 54;
-  action(parent, {0, y, w, 44}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); }); y += 54;
-  label(parent, {8, y, w - 16, 22}, STR_NB4_ORIENTATION, FONT(XS), COLOR_THEME_PRIMARY3_INDEX); y += 24;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; }); y += 50;
-  selectedAction(parent, {0, y, w, 44}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
+  Nb4Ui::action(parent, {0, 0, LV_PCT(100), Touch}, STR_NB4_EXTERNAL_THEMES, [] { QuickMenu::openPage(QM_UI_THEMES); });
+  caption(parent, {0, 0, LV_PCT(100), CaptionH}, STR_NB4_ORIENTATION)->padLeft(inset);
+  selectedAction(parent, {0, 0, LV_PCT(100), Touch}, STR_NB4_PORTRAIT, [] { nb4RequestOrientation(false); }, [] { return !g_eeGeneral.nb4Orientation; });
+  selectedAction(parent, {0, 0, LV_PCT(100), Touch}, STR_NB4_LANDSCAPE, [] { nb4RequestOrientation(true); }, [] { return g_eeGeneral.nb4Orientation; });
 }
 
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
