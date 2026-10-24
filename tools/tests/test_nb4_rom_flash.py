@@ -26,9 +26,12 @@ def application(hardware=b'nb4'):
     return app
 
 
-def full_image(hardware=b'nb4'):
+def full_image(hardware=b'nb4', auto_start=False):
     bootloader = bytearray(b'\xff' * rom_flash.BOOT_SIZE)
     struct.pack_into('<II', bootloader, 0, 0x20020000, 0x08000101)
+    if auto_start:
+        bootloader[64:72] = rom_flash.ROM_START_MAGIC
+        struct.pack_into('<II', bootloader, 72, 0x20020000, 0x08000301)
     return image_format.finalize(bytes(bootloader) + application(hardware))
 
 
@@ -40,6 +43,17 @@ def listing(serial='ABC123', size='04*016Kg,01*064Kg,07*128Kg,'
 
 
 class Images(unittest.TestCase):
+    def test_optional_resume_vector_is_bounded_to_the_bootloader(self):
+        self.assertIsNone(rom_flash.automatic_start_address(full_image()))
+        self.assertEqual(rom_flash.automatic_start_address(full_image(auto_start=True)),
+                         rom_flash.BOOT_ADDRESS + 72)
+        for position, value in ((72, 0), (76, 0x08000300), (76, 0x08020101), (76, 0x08000101)):
+            with self.subTest(position=position, value=value):
+                image = bytearray(full_image(auto_start=True))
+                struct.pack_into('<I', image, position, value)
+                with self.assertRaises(rom_flash.RomFlashError):
+                    rom_flash.automatic_start_address(image)
+
     def test_only_exact_manifested_apextx_images_are_accepted(self):
         for hardware, variant in ((b'nb4', 'NB4'), (b'nb4plus', 'NB4+')):
             with self.subTest(hardware=hardware):
@@ -158,6 +172,31 @@ class Progress(unittest.TestCase):
 
 
 class Installation(unittest.TestCase):
+    def test_verified_new_image_uses_the_resume_entry_and_reports_automatic_start(self):
+        image = full_image(auto_start=True)
+        operations, reports = [], []
+        def stream(args, _progress, **_kwargs):
+            if '-D' in args:
+                self.assertEqual(pathlib.Path(args[-1]).read_bytes(), image)
+                operations.append('write')
+            else:
+                pathlib.Path(args[-1]).write_bytes(image)
+                operations.append('readback')
+            return 0
+        def leave(args, **_kwargs):
+            self.assertEqual(operations, ['write', 'readback'])
+            self.assertEqual(args[-1], '0x8000048:leave')
+            operations.append('leave')
+        with patch.object(rom_flash, 'dfu_util_path', return_value='dfu-util'), \
+                patch.object(rom_flash, 'discover_rom_dfu', side_effect=['SERIAL', 'SERIAL', None]), \
+                patch.object(rom_flash, '_stream_dfu', side_effect=stream), \
+                patch.object(rom_flash, '_run', side_effect=leave), \
+                patch.object(rom_flash.time, 'sleep', lambda _: None):
+            rom_flash.run_install(image, lambda message, percent: reports.append((message, percent)))
+        self.assertEqual(operations, ['write', 'readback', 'leave'])
+        self.assertEqual(reports[-1][1], 100)
+        self.assertIn('starting automatically', reports[-1][0])
+
     def test_readback_mismatch_never_sends_leave(self):
         calls = []
 
@@ -171,7 +210,7 @@ class Installation(unittest.TestCase):
                 patch.object(rom_flash, '_stream_dfu', side_effect=stream), \
                 patch.object(rom_flash, '_run', side_effect=lambda args, **_kw: calls.append(args)):
             with self.assertRaises(rom_flash.RomFlashError) as caught:
-                rom_flash.run_install(full_image(), lambda *_: None)
+                rom_flash.run_install(full_image(auto_start=True), lambda *_: None)
         self.assertIn('does not match', str(caught.exception))
         self.assertEqual(calls, [])
 

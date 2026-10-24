@@ -143,6 +143,7 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
   <label class="confirm" id="rconfirmWrap"><input type="checkbox" id="rconfirm"><span id="rconfirmLabel"></span></label>
   <p class="note" id="driverNote" data-k="windowsDriver" hidden></p>
   <button class="cta" id="rstart" disabled>Back up &amp; install</button>
+  <p class="note" data-k="rduration">Allow 5–10 minutes. The radio’s screen stays black during installation; follow progress here and keep USB connected.</p>
   <div id="recoverTransferSlot"></div>
 </section>
 
@@ -210,6 +211,9 @@ Object.assign(T.de,{"downloading": "Firmware wird heruntergeladen…", "download
 Object.assign(T.en,{flashBusy:"Waiting for the radio to finish writing flash…",usbLostInstalling:"USB status could not be read. Leave the radio powered: installation continues on the radio. Check its display and restart only after it reports the firmware verified.",usbLostVerified:"Firmware was written and verified. Hold the radio’s power button to restart it.",usbLostTransfer:"USB connection lost before flash memory was written. Reconnect the radio and try again."});
 Object.assign(T.es,{flashBusy:"Esperando a que la emisora termine de escribir…",usbLostInstalling:"No se pudo leer el estado por USB. Deja la emisora encendida: la instalación continúa en ella. Comprueba su pantalla y reiníciala solo cuando indique que el firmware está verificado.",usbLostVerified:"El firmware se escribió y verificó. Mantén pulsado el botón de encendido para reiniciar la emisora.",usbLostTransfer:"Se perdió el USB antes de escribir la memoria flash. Vuelve a conectar la emisora y reinténtalo."});
 Object.assign(T.de,{flashBusy:"Warte auf das Ende des Schreibvorgangs…",usbLostInstalling:"USB-Status nicht lesbar. Fernbedienung eingeschaltet lassen: Die Installation läuft dort weiter. Display prüfen und erst neu starten, wenn die Firmware als verifiziert gemeldet wird.",usbLostVerified:"Firmware wurde geschrieben und verifiziert. Zum Neustart die Einschalttaste gedrückt halten.",usbLostTransfer:"USB-Verbindung vor dem Schreiben des Flash-Speichers verloren. Fernbedienung erneut verbinden und wiederholen."});
+Object.assign(T.en,{rduration:"Allow 5–10 minutes. The radio’s screen stays black during installation; follow progress here and keep USB connected.",rautoDone:"Firmware and bootloader verified. Your radio is starting automatically. Confirm that the Home screen appears.",rbackup:"Backing up your current firmware…",rerase:"Erasing internal flash…",rwrite:"Writing firmware and bootloader…",rverify:"Verifying the complete image…",rfinish:"Image verified. Starting your radio…"});
+Object.assign(T.es,{rduration:"Puede tardar entre 5 y 10 minutos. La pantalla de la emisora permanece negra durante la instalación; sigue el progreso aquí y mantén el USB conectado.",rautoDone:"Firmware y bootloader verificados. La emisora está arrancando automáticamente. Confirma que aparece Inicio.",rbackup:"Respaldando el firmware actual…",rerase:"Borrando la memoria interna…",rwrite:"Escribiendo firmware y bootloader…",rverify:"Verificando la imagen completa…",rfinish:"Imagen verificada. Arrancando la emisora…"});
+Object.assign(T.de,{rduration:"Dies kann 5–10 Minuten dauern. Das Display bleibt während der Installation schwarz. Fortschritt hier verfolgen und USB verbunden lassen.",rautoDone:"Firmware und Bootloader verifiziert. Die Fernbedienung startet automatisch. Bitte den Startbildschirm bestätigen.",rbackup:"Aktuelle Firmware wird gesichert…",rerase:"Interner Flash wird gelöscht…",rwrite:"Firmware und Bootloader werden geschrieben…",rverify:"Vollständiges Image wird geprüft…",rfinish:"Image verifiziert. Fernbedienung startet…"});
 const $=s=>document.querySelector(s);
 const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
@@ -275,7 +279,11 @@ async function send(url,f,extra={}){if(!f||running)return;localError=null;reques
  catch(e){showError(e.message);running=false;}finally{requesting=false;render();}}
 function operationMessage(s){const d=T[lang],m=s.message||'';
  if(s.error){if(m.startsWith('The USB connection to the radio was lost.'))return m.includes('already written and verified')?d.usbLostVerified:m.includes('was writing flash memory')?d.usbLostInstalling:d.usbLostTransfer;return m;}
- if(s.progress===100)return s.operation==='recover'?d.rdone:m.includes('still in update mode')?d.restartManually:d.done;
+ if(s.progress===100)return s.operation==='recover'?(m.includes('starting automatically')?d.rautoDone:d.rdone):m.includes('still in update mode')?d.restartManually:d.done;
+ if(s.operation==='recover'){
+  const phases=[['Reading the current firmware',d.rbackup],['Backing up',d.rbackup],['Backup saved',d.rwrite],['Erasing flash',d.rerase],['Writing',d.rwrite],['Reading the image back',d.rverify],['Verifying',d.rverify],['Verified.',d.rfinish]];
+  return phases.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
+ }
  const stages=[['Downloading firmware',d.downloading],['Firmware download verified',d.downloadVerified],['Waiting for ApexTX Update',d.waiting],['Transferring firmware',d.transferring],['Verifying the transfer',d.transferCheck],['Installing and verifying firmware',d.installing],['Waiting for the radio to finish writing flash',d.flashBusy],['Firmware verified. Restarting',d.restarting]];
  return stages.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
 }

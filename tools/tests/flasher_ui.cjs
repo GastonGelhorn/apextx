@@ -71,6 +71,9 @@ for(const language of ['en','es','de']) {
  assert.equal(get('upgrade').textContent.includes('0.1.0-alpha.4'),true);
  assert.equal(translations.every(e=>e.textContent.length>0),true,'Every visible translation has text');
  assert.equal(run("operationMessage({message:'Waiting for the radio to finish writing flash...',progress:65})===T[lang].flashBusy"),true);
+ assert.equal(run("operationMessage({operation:'recover',message:'Installation complete and verified. The radio is starting automatically.',progress:100})===T[lang].rautoDone"),true);
+ assert.equal(run("operationMessage({operation:'recover',message:'Erasing flash 25%',progress:30})===T[lang].rerase"),true);
+ assert.equal(run("T[lang].rduration.includes('5') && T[lang].rduration.includes('10')"),true);
  for(const [detail,key] of [['The radio was writing flash memory.','usbLostInstalling'],['The firmware was already written and verified.','usbLostVerified'],['No flash memory had been written yet.','usbLostTransfer']]) {
   const status={error:true,message:'The USB connection to the radio was lost. '+detail+' ([Errno 5] Input/Output Error)'};
   assert.equal(run(`operationMessage(${JSON.stringify(status)})===T[lang].${key}`),true,'USB advice must be localized and specific to the installation phase');

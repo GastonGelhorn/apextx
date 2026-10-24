@@ -24,6 +24,7 @@ USB_ID = '0483:df11'
 BOOT_ADDRESS = 0x08000000
 FLASH_SIZE = 0x200000
 BOOT_SIZE = 0x20000
+ROM_START_MAGIC = b'APXROM1\x00'
 
 
 class RomFlashError(RuntimeError):
@@ -240,9 +241,32 @@ def write_backup_metadata(backup, variant, serial):
     return destination
 
 
+def automatic_start_address(image):
+    """Optional verified-image vector that requests a one-shot automatic boot.
+
+    AN3156 Leave DFU loads SP and reset from address/address+4. Older images
+    without the entry still use their normal boot vector and manual power-on.
+    """
+    boot = image[:BOOT_SIZE]
+    offset = boot.find(ROM_START_MAGIC)
+    if offset < 0:
+        return None
+    vector = offset + len(ROM_START_MAGIC)
+    if (boot.find(ROM_START_MAGIC, offset + 1) >= 0 or vector % 4 or
+            vector + 8 > len(boot)):
+        raise RomFlashError('The automatic-start vector is invalid. Nothing was written.')
+    stack, reset = struct.unpack_from('<II', boot, vector)
+    boot_stack, boot_reset = struct.unpack_from('<II', boot)
+    if (stack != boot_stack or reset == boot_reset or not reset & 1 or
+            not BOOT_ADDRESS <= reset < BOOT_ADDRESS + BOOT_SIZE):
+        raise RomFlashError('The automatic-start vector is invalid. Nothing was written.')
+    return BOOT_ADDRESS + vector
+
+
 def run_install(image, progress, serial=None):
     """Write, verify and launch a complete image. `progress(message, percent)`."""
     validate_full_image(image)
+    start_address = automatic_start_address(image)
     exe = dfu_util_path()
     serial = discover_rom_dfu(serial)
     if serial is None:
@@ -275,19 +299,17 @@ def run_install(image, progress, serial=None):
             raise RomFlashError('The read-back does not match the image. Nothing was started; '
                                 'the radio stays in DFU. Retry with a known-good image and cable.')
         progress('Verified. Finishing up...', 96)
-        # The STM32 ROM rejects a plain DFU DETACH; a DfuSe "leave" ends DFU mode
-        # without erasing or rewriting the verified flash. On the NB4 the radio
-        # usually needs a manual power cycle afterwards to boot, so we always ask
-        # for one rather than claim it restarts on its own.
+        # Use the new image's explicit resume entry only after exact read-back.
+        # A normal cold boot retains its power-button qualification. See ST
+        # AN3156, Leave DFU: https://www.st.com/resource/en/application_note/cd00264379.pdf
         try:
             _run([exe, *_device_args(serial), '-a', '0',
-                  '-s', f'{hex(BOOT_ADDRESS)}:leave'])
+                  '-s', f'{hex(start_address or BOOT_ADDRESS)}:leave'])
         except (OSError, subprocess.TimeoutExpired):
             # The image is already verified. A manual power cycle remains the
             # correct next step even when the optional leave request times out.
             pass
-        done = 'Installation complete and verified. Switch the radio OFF (hold the power ' \
-               'button until it is fully off), then switch it ON again to start it.'
+        still_connected = True
         for _ in range(8):
             time.sleep(1)
             try:
@@ -296,6 +318,12 @@ def run_install(image, progress, serial=None):
                 still_connected = True
             if not still_connected:
                 break
+        if start_address and not still_connected:
+            done = ('Installation complete and verified. The radio is starting automatically. '
+                    'Confirm that it has returned to the home screen.')
+        else:
+            done = ('Installation complete and verified. Switch the radio OFF (hold the power '
+                    'button until it is fully off), then switch it ON again to start it.')
         progress(done, 100)
 
 

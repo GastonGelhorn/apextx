@@ -196,8 +196,17 @@ Safeguards, for people who have never flashed before:
   retry with a known-good ApexTX image. The STM32 ROM bootloader normally makes
   this recovery possible even when the installed flash does not boot; this is
   not a guarantee against hardware, power or option-byte damage.
-- After a ROM DFU install the radio is switched off and on once to start it (the
-  app says so; it does not claim an automatic restart).
+- **Automatic startup after verification**: current images contain a dedicated
+  `APXROM1` return vector in the bootloader. Only after the complete read-back
+  matches does the app use ST's Leave DFU command with that vector. Its entry
+  requests one automatic start through the usual bootloader/application reset
+  path. Ordinary cold boots and shutdowns keep their power-button behavior.
+  Older images without the entry, or a radio that stays in ROM DFU, receive
+  manual power-cycle instructions instead.
+
+Allow **5–10 minutes** for a complete install. The NB4 screen stays black while
+the STM32 ROM handles USB; the app shows backup, erase, write and read-back
+verification as separate stages, then starts a compatible image automatically.
 
 ## Honest limitation
 ROM DFU only reaches the STM32 internal flash. The external **8 MiB SPI NOR**

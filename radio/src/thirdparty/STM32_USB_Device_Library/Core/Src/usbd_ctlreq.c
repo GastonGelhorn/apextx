@@ -82,7 +82,6 @@ static void USBD_GetConfig(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req);
 static void USBD_GetStatus(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req);
 static void USBD_SetFeature(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req);
 static void USBD_ClrFeature(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req);
-static uint8_t USBD_GetLen(uint8_t *buf);
 
 /**
   * @}
@@ -995,52 +994,28 @@ void USBD_CtlError(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req)
   */
 void USBD_GetString(uint8_t *desc, uint8_t *unicode, uint16_t *len)
 {
-  uint8_t idx = 0U;
-  uint8_t *pdesc;
-
   if (desc == NULL)
   {
+    *len = 0U;
     return;
   }
-
-  pdesc = desc;
-  *len = MIN(USBD_MAX_STR_DESC_SIZ, ((uint16_t)USBD_GetLen(pdesc) * 2U) + 2U);
-
-  unicode[idx] = *(uint8_t *)len;
-  idx++;
-  unicode[idx] = USB_DESC_TYPE_STRING;
-  idx++;
-
-  while (*pdesc != (uint8_t)'\0')
+  // Bound the conversion itself, not only the reported descriptor length.
+  // Long strings otherwise overwrite the buffer even when USB returns a cap.
+  const uint16_t capacity = MIN(USBD_MAX_STR_DESC_SIZ, 254U);
+  const uint16_t max_chars = (capacity - 2U) / 2U;
+  uint16_t chars = 0U;
+  while (chars < max_chars && desc[chars] != (uint8_t)'\0')
   {
-    unicode[idx] = *pdesc;
-    pdesc++;
-    idx++;
-
-    unicode[idx] = 0U;
-    idx++;
+    chars++;
   }
-}
-
-
-/**
-  * @brief  USBD_GetLen
-  *         return the string length
-   * @param  buf : pointer to the ascii string buffer
-  * @retval string length
-  */
-static uint8_t USBD_GetLen(uint8_t *buf)
-{
-  uint8_t  len = 0U;
-  uint8_t *pbuff = buf;
-
-  while (*pbuff != (uint8_t)'\0')
+  *len = 2U + chars * 2U;
+  unicode[0] = (uint8_t)*len;
+  unicode[1] = USB_DESC_TYPE_STRING;
+  for (uint16_t idx = 0U; idx < chars; idx++)
   {
-    len++;
-    pbuff++;
+    unicode[2U + idx * 2U] = desc[idx];
+    unicode[3U + idx * 2U] = 0U;
   }
-
-  return len;
 }
 /**
   * @}

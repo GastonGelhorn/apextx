@@ -24,6 +24,29 @@ static Updater updater(staging);
 static bool mayExit = false;
 static char usbInfo[126] = NB4_USB_INFO_PREFIX;
 
+extern uint32_t _reboot_cmd;
+extern "C" uint32_t _estack;
+extern "C" void Reset_Handler();
+
+// AN3156 Leave DFU loads SP and reset from the selected vector pair. The host
+// chooses this entry only after a complete image read-back. Run from flash:
+// normal .text/.data and C++ initialization have not been prepared yet.
+extern "C" __attribute__((section(".bootstrap"), noreturn)) void nb4RomDfuStart()
+{
+  __disable_irq();
+  _reboot_cmd = REBOOT_CMD_RESUME;
+  Reset_Handler();
+  for (;;) {}
+}
+
+struct RomDfuEntry {
+  char magic[8];
+  const uint32_t* stack;
+  void (*reset)();
+};
+__attribute__((used, section(".rom_dfu_entry"), aligned(4)))
+static const RomDfuEntry romDfuEntry = {"APXROM1", &_estack, nb4RomDfuStart};
+
 extern "C" const char* nb4UpdateUsbInfo(void)
 {
   return usbInfo;

@@ -78,7 +78,13 @@
 /*---------- -----------*/
 #define USBD_MAX_NUM_CONFIGURATION 1U
 /*---------- -----------*/
+#if defined(RADIO_NB4)
+// Full installed-application identity, encoded as a USB UTF-16 string.
+// bLength is one byte; 254 is the largest even descriptor length.
+#define USBD_MAX_STR_DESC_SIZ      254U
+#else
 #define USBD_MAX_STR_DESC_SIZ      98U
+#endif
 /*---------- -----------*/
 #define USBD_DEBUG_LEVEL           0U
 /*---------- -----------*/

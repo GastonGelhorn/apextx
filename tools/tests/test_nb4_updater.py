@@ -566,7 +566,8 @@ class FlashEngine(unittest.TestCase):
         reboot = (ROOT / 'radio/src/targets/common/arm/stm32/abnormal_reboot.cpp').read_text()
         actual = '\n'.join([function(reboot, 'void abnormalRebootRequestResume()'),
                             function(reboot, 'bool abnormalRebootTakeResumeRequest()'),
-                            function(adapter, 'static void restartApplication()'), boot])
+                            function(adapter, 'static void restartApplication()'),
+                            function(adapter, 'void nb4RomDfuStart()'), boot])
         model = r'''
 #include <cassert>
 #include <cstdint>
@@ -591,6 +592,9 @@ void __enable_irq(){} void timersInit(){} void usbInit(){} void boardBLInit(){}
 void usbStop(){usb=false;}
 void NVIC_SystemReset(){assert(!usb);throw 2;}
 uint32_t abnormalRebootGetCause(){return ARC_Software;}
+bool interruptsDisabled=false;
+void __disable_irq(){interruptsDisabled=true;}
+void Reset_Handler(){assert(interruptsDisabled);throw 3;}
 '''
         scenario = r'''
 int main(){
@@ -605,6 +609,13 @@ int main(){
  assert(!abnormalRebootTakeResumeRequest());
  _reboot_cmd=REBOOT_CMD_DFU;jumped=false;bootloaderInitApp();
  assert(!jumped&&usbMode==USB_DFU_MODE&&_reboot_cmd==0);
+ // The explicit ROM-DFU return entry requests one automatic startup. Ordinary
+ // cold boots above still require the application to qualify its power press.
+ try{nb4RomDfuStart();}catch(int){}
+ assert(interruptsDisabled&&_reboot_cmd==REBOOT_CMD_RESUME);
+ jumped=false;try{bootloaderInitApp();}catch(int){}
+ assert(jumped&&abnormalRebootTakeResumeRequest());
+ assert(!abnormalRebootTakeResumeRequest());
 }
 '''
         with tempfile.TemporaryDirectory() as directory:
