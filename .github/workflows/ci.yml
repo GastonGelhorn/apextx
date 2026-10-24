@@ -53,33 +53,17 @@ jobs:
           cmake --build build/nb4-ci --target arm-none-eabi-configure -j4
           cmake --build build/nb4-ci/arm-none-eabi --target firmware-size -j4
 
+      - name: Verify ROM automatic-start machine code
+        run: |
+          uv pip install --target build/rom-start-test-deps unicorn==2.1.4
+          PYTHONPATH=build/rom-start-test-deps python3 tools/nb4-verify-rom-start.py \
+            build/nb4-ci/arm-none-eabi/firmware.bin
+
       - name: Build and run native tests
         run: |
           cmake --build build/nb4-ci --target native-configure -j4
           cmake --build build/nb4-ci/native --target tests-radio -j4
 
-  windows-flasher:
-    name: Build the Windows flasher
-    runs-on: windows-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Run host-tool tests
-        run: python tools/tests/test_nb4_rom_flash.py
-
-      - name: Build the standalone flasher
-        shell: pwsh
-        run: tools/build-windows-flasher.ps1
-
-      - name: Upload the test executable
-        uses: actions/upload-artifact@v7
-        with:
-          name: apextx-windows-flasher-ci
-          path: dist/ApexTX-Flasher.exe
-          if-no-files-found: error
+  flashers:
+    name: Build the desktop flashers
+    uses: ./.github/workflows/flasher.yml

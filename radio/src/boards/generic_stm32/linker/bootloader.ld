@@ -38,5 +38,12 @@ SECTIONS
 
   _text_load = LOADADDR(.text);
 
+  /* Optional NB4 ROM-DFU return vector, in flash before RAM initialization. */
+  .rom_dfu_entry (READONLY) :
+  {
+    . = ALIGN(4);
+    KEEP(*(.rom_dfu_entry))
+  } > REGION_TEXT_STORAGE
+
   INCLUDE common_sections.ld
 }

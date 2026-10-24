@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Exercise the actual flash engine, image format and host update ordering."""
+import errno
 import pathlib
 import shutil
 import struct
@@ -418,6 +419,7 @@ class Reporting(unittest.TestCase):
         package = image_format.update_package(fixture())
         size, crc = struct.unpack_from('<II', package, 16)
         reports = []
+        commands = self.commands = []
         queue = list(states)
         class Fake:
             def __init__(self, selection): self.staging = bytearray()
@@ -430,12 +432,15 @@ class Reporting(unittest.TestCase):
             def read(self, address, length):
                 if address == usb_update.STAGE: return bytes(self.staging)
                 if fail_at == 'status': raise RuntimeError('[Errno 19] No such device')
-                state, percent = queue.pop(0)
+                status = queue.pop(0)
+                if isinstance(status, Exception): raise status
+                state, percent = status
                 values = dict(size=size, crc=crc, received=len(package))
                 if mismatch: values[mismatch] = 1
                 return struct.pack('<8s6I', b'APXSTAT1', state, percent,
                                    values['size'], values['crc'], 0, values['received'])
             def command(self, command):
+                commands.append(command)
                 if fail_at == 'restart' and command == b'APXRESET':
                     raise RuntimeError('[Errno 19] No such device')
             def close(self): pass
@@ -467,6 +472,33 @@ class Reporting(unittest.TestCase):
         with self.assertRaises(usb_update.UpdateError) as caught:
             self.drive([(1, 10)], fail_at='status')
         self.assertIn('do not switch it off', str(caught.exception))
+
+    def test_a_transient_flash_status_stall_resumes_without_restarting_the_install(self):
+        for code in (errno.EIO, errno.EPIPE, errno.ETIMEDOUT):
+            with self.subTest(code=code):
+                reports = self.drive([(2, 40), OSError(code, 'temporary USB stall'), (3, 100)])
+                self.assertEqual(self.commands, [b'APXSTART', b'APXRESET'])
+                waiting = [(p, m) for p, m in reports if m.startswith('Waiting for the radio')]
+                self.assertEqual(waiting, [(68, 'Waiting for the radio to finish writing flash...')])
+                self.assertEqual(reports[-1][0], 100)
+
+    def test_persistent_flash_status_stalls_stop_without_rewriting_or_restarting(self):
+        with self.assertRaises(usb_update.UpdateError) as caught:
+            self.drive([OSError(errno.EIO, 'USB stall')] * 4)
+        self.assertEqual(self.commands, [b'APXSTART'])
+        self.assertIn('do not switch it off', str(caught.exception))
+
+    def test_a_removed_radio_is_not_treated_as_a_temporary_flash_stall(self):
+        with self.assertRaises(usb_update.UpdateError) as caught:
+            self.drive([OSError(errno.ENODEV, 'radio removed'), (3, 100)])
+        self.assertEqual(self.commands, [b'APXSTART'])
+        self.assertIn('do not switch it off', str(caught.exception))
+
+    def test_recovered_usb_status_still_must_match_the_exact_image(self):
+        with self.assertRaises(usb_update.UpdateError) as caught:
+            self.drive([OSError(errno.EIO, 'USB stall'), (3, 100)], mismatch='crc')
+        self.assertEqual(self.commands, [b'APXSTART'])
+        self.assertIn('does not match', str(caught.exception))
 
     def test_a_lost_cable_after_verification_says_the_firmware_is_written(self):
         with self.assertRaises(usb_update.UpdateError) as caught:
@@ -534,7 +566,8 @@ class FlashEngine(unittest.TestCase):
         reboot = (ROOT / 'radio/src/targets/common/arm/stm32/abnormal_reboot.cpp').read_text()
         actual = '\n'.join([function(reboot, 'void abnormalRebootRequestResume()'),
                             function(reboot, 'bool abnormalRebootTakeResumeRequest()'),
-                            function(adapter, 'static void restartApplication()'), boot])
+                            function(adapter, 'static void restartApplication()'),
+                            function(adapter, 'void nb4RomDfuReset()'), boot])
         model = r'''
 #include <cassert>
 #include <cstdint>
@@ -557,8 +590,12 @@ void jumpTo(uint32_t){jumped=true;throw 1;}
 void setSelectedUsbMode(int mode){usbMode=mode;}
 void __enable_irq(){} void timersInit(){} void usbInit(){} void boardBLInit(){}
 void usbStop(){usb=false;}
-void NVIC_SystemReset(){assert(!usb);throw 2;}
+unsigned systemResets=0;
+void NVIC_SystemReset(){assert(!usb);++systemResets;throw 2;}
 uint32_t abnormalRebootGetCause(){return ARC_Software;}
+bool interruptsDisabled=false;
+void __disable_irq(){interruptsDisabled=true;}
+void Reset_Handler(){assert(false && "A C startup call does not reset ROM clocks/power");}
 '''
         scenario = r'''
 int main(){
@@ -573,6 +610,13 @@ int main(){
  assert(!abnormalRebootTakeResumeRequest());
  _reboot_cmd=REBOOT_CMD_DFU;jumped=false;bootloaderInitApp();
  assert(!jumped&&usbMode==USB_DFU_MODE&&_reboot_cmd==0);
+ // The explicit ROM-DFU return entry requests one automatic startup. Ordinary
+ // cold boots above still require the application to qualify its power press.
+ try{nb4RomDfuReset();}catch(int){}
+ assert(interruptsDisabled&&_reboot_cmd==REBOOT_CMD_RESUME&&systemResets==2);
+ jumped=false;try{bootloaderInitApp();}catch(int){}
+ assert(jumped&&abnormalRebootTakeResumeRequest());
+ assert(!abnormalRebootTakeResumeRequest());
 }
 '''
         with tempfile.TemporaryDirectory() as directory:

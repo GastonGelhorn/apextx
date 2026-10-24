@@ -27,3 +27,16 @@
 
 // The DfuSe memory descriptor. Staging is 15 x 128 KiB of SDRAM.
 #define NB4_UPDATE_INTERFACE "@" NB4_UPDATE_PRODUCT " /0xC0200000/015*128Kg"
+
+// Read-only USB configuration descriptor. This describes the installed
+// application, never the bootloader's own build or USB bcdDevice version.
+#define NB4_USB_INFO_PREFIX "APXINFO1;" NB4_HARDWARE_ID ";"
+#if defined(BOOT)
+#ifdef __cplusplus
+extern "C" {
+#endif
+const char* nb4UpdateUsbInfo(void);
+#ifdef __cplusplus
+}
+#endif
+#endif

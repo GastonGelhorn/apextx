@@ -73,6 +73,12 @@ jobs:
           cmake --build build/nb4-release --target arm-none-eabi-configure -j4
           cmake --build build/nb4-release/arm-none-eabi --target firmware-size -j4
 
+      - name: Verify ROM automatic-start machine code
+        run: |
+          uv pip install --target build/rom-start-test-deps unicorn==2.1.4
+          PYTHONPATH=build/rom-start-test-deps python3 tools/nb4-verify-rom-start.py \
+            build/nb4-release/arm-none-eabi/firmware.bin
+
       - name: Build and run native tests
         run: |
           cmake --build build/nb4-release --target native-configure -j4
@@ -93,6 +99,8 @@ jobs:
             --tests build/nb4-release/native/tests.xml \
             --release "$version" \
             --model ${{ matrix.model }}
+          # Expose the exact validated image as a direct download as well.
+          cp "dist/$package/firmware.bin" "dist/$package.bin"
           tar -C dist -czf "dist/$package.tar.gz" "$package"
           python3 - "$package" <<'PY'
           import shutil
@@ -106,6 +114,7 @@ jobs:
         with:
           name: apextx-firmware-${{ matrix.model }}
           path: |
+            dist/*.bin
             dist/*.tar.gz
             dist/*.zip
           if-no-files-found: error
@@ -115,44 +124,13 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
+            dist/*.bin
             dist/*.tar.gz
             dist/*.zip
 
-  windows-flasher:
-    name: Build the Windows flasher
-    runs-on: windows-latest
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Test the ROM DFU safety gates
-        run: python tools/tests/test_nb4_rom_flash.py
-
-      - name: Build the standalone flasher
-        shell: pwsh
-        run: tools/build-windows-flasher.ps1
-
-      - name: Upload the executable
-        uses: actions/upload-artifact@v7
-        with:
-          name: apextx-windows-flasher
-          path: dist/ApexTX-Flasher.exe
-          if-no-files-found: error
-
-      - name: Attest the executable
-        if: github.ref_type == 'tag'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: dist/ApexTX-Flasher.exe
+  flashers:
+    name: Build the desktop flashers
+    uses: ./.github/workflows/flasher.yml
 
   audio:
     # The voice packs install on the radio's storage and do not depend on
@@ -218,10 +196,12 @@ jobs:
   publish:
     name: Create GitHub Release
     if: github.ref_type == 'tag'
-    needs: [firmware, audio, windows-flasher]
+    needs: [firmware, audio, flashers]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download verified artifacts
         uses: actions/download-artifact@v8
@@ -230,9 +210,29 @@ jobs:
           merge-multiple: true
           path: dist
 
+      - name: Attest the desktop flashers
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.exe
+            dist/ApexTX-Flasher-macOS-*.zip
+
       - name: Record checksums
         working-directory: dist
-        run: sha256sum *.tar.gz *.zip *.exe > SHA256SUMS
+        run: sha256sum *.bin *.tar.gz *.zip *.exe > SHA256SUMS
+
+      - name: Verify all radio and desktop downloads are present
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for file in \
+            "apextx-nb4-$version.bin" \
+            "apextx-nb4plus-$version.bin" \
+            ApexTX-Flasher.exe \
+            ApexTX-Flasher-macOS-arm64.zip \
+            ApexTX-Flasher-macOS-x86_64.zip; do
+            test -s "dist/$file" || { echo "Missing release download: $file" >&2; exit 1; }
+          done
 
       - name: Publish release
         env:
@@ -248,10 +248,27 @@ jobs:
           cat > release-notes.md <<EOF
           ## Choose your radio
 
-          | Radio | Firmware package |
+          | Radio | Direct firmware binary | Full package |
+          | --- | --- | --- |
+          | Original Noble NB4 | \`apextx-nb4-$version.bin\` | \`apextx-nb4-$version.zip\` |
+          | Noble NB4+ | \`apextx-nb4plus-$version.bin\` | \`apextx-nb4plus-$version.zip\` |
+
+          Choose the binary for your radio in the flasher. Full packages also
+          include resources, licenses, and build/validation metadata.
+
+          ## Download ApexTX Flasher
+
+          | Computer | Application |
           | --- | --- |
-          | Original Noble NB4 | \`apextx-nb4-$version.zip\` |
-          | Noble NB4+ | \`apextx-nb4plus-$version.zip\` |
+          | Windows | \`ApexTX-Flasher.exe\` |
+          | Mac with Apple Silicon | \`ApexTX-Flasher-macOS-arm64.zip\` |
+          | Mac with Intel | \`ApexTX-Flasher-macOS-x86_64.zip\` |
+
+          Mac archives contain \`ApexTX-Flasher.app\`. The apps include their
+          USB tools and do not require a separate Python installation. The
+          macOS apps are not Developer ID-signed or notarized by Apple.
+          \`SHA256SUMS\` includes all firmware binaries, application downloads,
+          firmware packages and audio packs.
 
           **Never install one model's package on the other model.** The updater
           and bootloader also refuse a mismatch. NB4 Pro and NB4 Pro+ are not
