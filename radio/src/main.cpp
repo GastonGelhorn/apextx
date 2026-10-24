@@ -255,12 +255,17 @@ void handleUsbConnection()
     TRACE("reset selected USB mode");
     setSelectedUsbMode(USB_UNSELECTED_MODE);
 #if defined(RADIO_NB4)
-    // Restarting is how the NB4 recovers a usable screen after USB teardown,
-    // so it must come back up on its own rather than wait for a new press.
-    pwrOn();
-    abnormalRebootRequestResume();
-    NVIC_SystemReset();
-    return;
+    // Only a mass-storage session hands the external NOR, FatFs and the UI
+    // over to the host (edgeTxClose() above), and a fresh boot is how the NB4
+    // gets them back. Joystick and serial sessions leave the UI running, so
+    // they end without a restart. Keep the power latch asserted across the
+    // reset and come back up on its own rather than wait for a new press.
+    if (disconnectedMode == USB_MASS_STORAGE_MODE) {
+      pwrOn();
+      abnormalRebootRequestResume();
+      NVIC_SystemReset();
+      return;
+    }
 #endif
   }
 #endif  // defined(STM32) && !defined(SIMU)
