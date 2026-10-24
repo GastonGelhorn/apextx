@@ -90,6 +90,9 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count);
 
 void nb4OpenSettingsModal();
 void nb4OpenSettingsSection(const char* section);
+// Closed navigation grids are kept hidden and shown again on the next open.
+// Drops every parked one; the radio calls it before tearing down the UI.
+void nb4DropGridCache();
 void nb4OpenAppearance();
 void nb4OpenScreens();
 void nb4OpenQuickAccessSetup();

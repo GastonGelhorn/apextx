@@ -24,6 +24,8 @@
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
 #include "nb4_home.h"
+#include "nb4_home_templates.h"
+#include "layer.h"
 #include "model_nb4_axis.h"
 #include "model_nb4_racing.h"
 #include "model_telemetry.h"
@@ -718,6 +720,28 @@ EdgeTxIcon routeDisplayIcon(const Nb4Route& route)
   return (EdgeTxIcon)routeIcon(route, fallback);
 }
 
+class Nb4GridModal;
+
+// Navigation grids are rebuilt from the same tables every time, and building
+// one (a dozen tiles, labels and icons) is most of the time a tap takes to
+// show it. A closed grid is therefore parked: hidden and off the layer stack,
+// with its tiles intact. Reopening it shows it again, unless something the
+// grid depends on changed since it was built (see gridSignature()).
+struct Nb4CachedGrid {
+  std::string key;
+  Nb4GridModal* modal;
+  uint32_t signature;
+};
+std::vector<Nb4CachedGrid> gridCache;
+
+uint32_t quickAccessSignature();
+
+void forgetGrid(Nb4GridModal* modal)
+{
+  for (auto it = gridCache.begin(); it != gridCache.end(); ++it)
+    if (it->modal == modal) { gridCache.erase(it); return; }
+}
+
 class Nb4GridModal : public BaseDialog
 {
  public:
@@ -746,6 +770,56 @@ class Nb4GridModal : public BaseDialog
   bool setHelpHandler(std::function<void()>) override { return false; }
   void setRouteTitle(const char*) override {}
   void setRouteIcon(uint8_t) override {}
+
+  void cacheAs(const std::string& key, uint32_t signature)
+  {
+    cacheKey = key;
+    gridCache.push_back({key, this, signature});
+    setCloseHandler([this] { forgetGrid(this); });
+  }
+
+  void uncache()
+  {
+    cacheKey.clear();
+    setCloseHandler(nullptr);
+  }
+
+  bool parked() const { return isParked; }
+
+  void unpark()
+  {
+    isParked = false;
+    bringToTop();
+    show();
+    pushLayer();
+    // The layer push made a new input group; give it back the tiles and
+    // buttons the old one held, in the same order.
+    if (lv_group_t* group = lv_group_get_default())
+      for (auto* obj : focusables) lv_group_add_obj(group, obj);
+    focusables.clear();
+    for (auto* btn : tiles)
+      if (btn->getLvObj())
+        lv_obj_clear_state(btn->getLvObj(), LV_STATE_PRESSED | LV_STATE_FOCUSED);
+  }
+
+  void onCancel() override
+  {
+    // Only the grid on top owns the active input group it has to remember.
+    if (cacheKey.empty() || Layer::back() != this) {
+      if (!cacheKey.empty()) { forgetGrid(this); uncache(); }
+      deleteLater();
+      return;
+    }
+    focusables.clear();
+    if (lv_group_t* group = lv_group_get_default()) {
+      for (auto obj = (lv_obj_t**)_lv_ll_get_head(&group->obj_ll); obj;
+           obj = (lv_obj_t**)_lv_ll_get_next(&group->obj_ll, obj))
+        focusables.push_back(*obj);
+    }
+    hide();
+    popLayer();
+    isParked = true;
+  }
 
   void tile(uint8_t icon, const char* label, bool openable,
             std::function<void()> action, const char* reason = nullptr,
@@ -797,9 +871,7 @@ class Nb4GridModal : public BaseDialog
   {
     BaseDialog::checkEvents();
     if (deleted()) return;
-    uint32_t current = g_eeGeneral.nb4QuickAccessVersion;
-    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
-      current = current * 31 + g_eeGeneral.nb4QuickAccess[i];
+    const uint32_t current = quickAccessSignature();
     if (watchQuickAccess && rebuild && current != quickSignature) {
       quickSignature = current;
       tiles.clear(); form->clear();
@@ -822,9 +894,7 @@ class Nb4GridModal : public BaseDialog
   void populate(std::function<void()> action, bool watch = false) {
     watchQuickAccess = watch;
     rebuild = std::move(action);
-    quickSignature = g_eeGeneral.nb4QuickAccessVersion;
-    for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
-      quickSignature = quickSignature * 31 + g_eeGeneral.nb4QuickAccess[i];
+    quickSignature = quickAccessSignature();
     rebuild();
   }
   void configure(std::function<void()> action) {
@@ -838,6 +908,9 @@ class Nb4GridModal : public BaseDialog
   bool watchQuickAccess = false;
   coord_t cachedSize = -1;
   coord_t cachedColumn = -1;
+  std::string cacheKey;
+  bool isParked = false;
+  std::vector<lv_obj_t*> focusables;
 
   static lv_coord_t gridWidth()
   {
@@ -892,6 +965,48 @@ void (*singleDestinationImpl(const char* id))()
   return first ? first->open : nullptr;
 }
 
+uint32_t quickAccessSignature()
+{
+  uint32_t signature = g_eeGeneral.nb4QuickAccessVersion;
+  for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i)
+    signature = signature * 31 + g_eeGeneral.nb4QuickAccess[i];
+  return signature;
+}
+
+// Everything a grid's tiles are built from: language, palette, screen size,
+// the pinned shortcuts, and which destinations can open with the current car
+// and radio (that also decides which sections are available).
+uint32_t gridSignature()
+{
+  uint32_t signature = nb4ThemeKey();
+  signature = signature * 31 + lv_disp_get_hor_res(nullptr);
+  signature = signature * 31 + lv_disp_get_ver_res(nullptr);
+  for (char c : g_eeGeneral.uiLanguage) signature = signature * 31 + (uint8_t)c;
+  signature = signature * 31 + quickAccessSignature();
+  for (const auto& route : routes)
+    signature = signature * 31 + nb4RouteIsOpenable(route);
+  return signature;
+}
+
+// Shows the parked grid stored under this key when it is still current.
+// Otherwise returns false; *cacheNew says whether the grid about to be
+// built may take the key (not while the cached one is on screen).
+bool reopenGrid(const std::string& key, uint32_t signature, bool* cacheNew)
+{
+  *cacheNew = true;
+  for (auto it = gridCache.begin(); it != gridCache.end(); ++it) {
+    if (it->key != key) continue;
+    Nb4GridModal* modal = it->modal;
+    if (!modal->parked()) { *cacheNew = false; return false; }
+    if (it->signature == signature) { modal->unpark(); return true; }
+    gridCache.erase(it);
+    modal->uncache();
+    modal->deleteLater();
+    return false;
+  }
+  return false;
+}
+
 bool sectionHasSomethingOpenable(const char* id)
 {
   const Nb4Route* views[32];
@@ -929,8 +1044,12 @@ const Nb4QuickEntry* nb4QuickAccessDefaults(unsigned* count)
 void nb4OpenQuickAccessModal()
 {
   nb4QuickAccessNormalize();
+  const uint32_t signature = gridSignature();
+  bool cache;
+  if (reopenGrid("quick", signature, &cache)) return;
   auto modal = new Nb4GridModal(STR_NB4_QUICK_ACCESS,
                                 NB4_QUICK_ACCESS_COUNT);
+  if (cache) modal->cacheAs("quick", signature);
   modal->populate([modal] {
   for (unsigned i = 0; i < NB4_QUICK_ACCESS_COUNT; ++i) {
     const Nb4Route* route = nb4RouteById(g_eeGeneral.nb4QuickAccess[i]);
@@ -1003,9 +1122,14 @@ void nb4OpenSettingsSection(const char* id)
     !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" :
     !strcmp(id, "help") ? "settings/system/help" : nullptr;
   if (direct) { nb4OpenRoute(direct); return; }
+  const uint32_t signature = gridSignature();
+  const std::string key = std::string("section:") + section->id;
+  bool cache;
+  if (reopenGrid(key, signature, &cache)) return;
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(id, views, 32);
   auto modal = new Nb4GridModal(section->label(), n);
+  if (cache) modal->cacheAs(key, signature);
   modal->populate([modal, section] {
   const Nb4Route* views[32];
   const unsigned n = nb4RoutesOfSection(section->id, views, 32);
@@ -1023,7 +1147,11 @@ void nb4OpenSettingsSection(const char* id)
 void nb4OpenSettingsModal()
 {
   nb4QuickAccessNormalize();
+  const uint32_t signature = gridSignature();
+  bool cache;
+  if (reopenGrid("settings", signature, &cache)) return;
   auto modal = new Nb4GridModal(STR_NB4_SETTINGS, 12);
+  if (cache) modal->cacheAs("settings", signature);
   modal->populate([modal] {
   for (const auto& section : sections) {
     if (section.parent) continue;
@@ -1038,6 +1166,16 @@ void nb4OpenSettingsModal()
                 [sec] { nb4OpenSettingsSection(sec->id); }, nullptr, sec->id);
   }
   });
+}
+
+void nb4DropGridCache()
+{
+  auto cached = std::move(gridCache);
+  gridCache.clear();
+  for (auto& entry : cached) {
+    entry.modal->uncache();
+    if (entry.modal->parked()) entry.modal->deleteLater();
+  }
 }
 
 bool nb4RouteInQuickAccess(const Nb4Route& route)

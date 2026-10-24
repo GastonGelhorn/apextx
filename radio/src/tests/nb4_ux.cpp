@@ -289,6 +289,8 @@ struct Scene {
 
   ~Scene()
   {
+    // Keep every test independent of the grids an earlier one left parked.
+    nb4DropGridCache();
     memcpy(g_eeGeneral.uiLanguage, originalLanguage, sizeof(originalLanguage));
     currentLangStrings = originalStrings;
     nb4RacingReset();
@@ -4028,6 +4030,80 @@ void countRouteImage(lv_draw_ctx_t* ctx, const lv_draw_img_dsc_t* dsc,
 // host. Host times do not match the radio, so the object count, flushed
 // pixels, image draws and storage calls are the figures to compare between
 // builds. Set NB4_PERF_CSV to keep the table.
+TEST(Nb4Performance, ClosedGridsReopenWithoutRebuilding)
+{
+  Scene scene;
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+  auto elapsedUs = [](const std::function<void()>& run) {
+    const auto t0 = std::chrono::steady_clock::now();
+    run();
+    return std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
+  auto close = [&] { Layer::back()->onCancel(); scene.root->run(); };
+
+  const double coldUs = elapsedUs([] { nb4OpenSettingsModal(); });
+  auto settings = Layer::back();
+  ASSERT_NE(settings, base);
+  render(scene.root);
+  const auto focusable = lv_group_get_obj_count(lv_group_get_default());
+  ASSERT_GT(focusable, 0u);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+  EXPECT_FALSE(settings->isVisible());
+
+  // Reopening shows the same grid, with its tiles still in the input group.
+  const double warmUs = elapsedUs([] { nb4OpenSettingsModal(); });
+  EXPECT_EQ(Layer::back(), settings);
+  EXPECT_TRUE(settings->isVisible());
+  EXPECT_EQ(lv_group_get_obj_count(lv_group_get_default()), focusable);
+  printf("NB4 settings grid open: cold %.0f us, cached %.0f us\n", coldUs, warmUs);
+  EXPECT_LT(warmUs, coldUs);
+
+  // A section opened from it parks on top of it and comes back above it.
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  ASSERT_NE(display, settings);
+  close();
+  EXPECT_EQ(Layer::back(), settings);
+  nb4OpenSettingsSection("display");
+  EXPECT_EQ(Layer::back(), display);
+  close();
+
+  // A second copy asked for while the cached one is on screen is a plain
+  // dialog: closing it deletes it and leaves the cached one underneath.
+  nb4OpenSettingsModal();
+  auto copy = Layer::back();
+  EXPECT_NE(copy, settings);
+  close();
+  EXPECT_EQ(Layer::back(), settings);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+
+  // Anything the tiles are built from rebuilds the grid on the next open.
+  memcpy(g_eeGeneral.uiLanguage, "es", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4OpenSettingsModal();
+  EXPECT_NE(Layer::back(), settings);
+  settings = Layer::back();
+  close();
+
+  nb4OpenQuickAccessModal();
+  auto quick = Layer::back();
+  close();
+  const auto pinned = g_eeGeneral.nb4QuickAccess[0];
+  g_eeGeneral.nb4QuickAccess[0] = g_eeGeneral.nb4QuickAccess[1];
+  g_eeGeneral.nb4QuickAccess[1] = pinned;
+  nb4OpenQuickAccessModal();
+  EXPECT_NE(Layer::back(), quick);
+  close();
+  EXPECT_EQ(Layer::back(), base);
+}
+
 TEST(Nb4Performance, EveryViewOpenCost)
 {
   Scene scene;
