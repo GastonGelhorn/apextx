@@ -751,8 +751,15 @@ class Nb4GridModal : public BaseDialog
             std::function<void()> action, const char* reason = nullptr,
             const char* colorKey = nullptr)
   {
-    const coord_t size = tileSize();
-    const coord_t column = columnWidth();
+    // The form's width does not change while it fills, so one layout pass per
+    // grid is enough. Running it per tile re-flowed every earlier tile again,
+    // and each pass walks the whole screen tree, home included.
+    if (cachedSize < 0) {
+      cachedSize = tileSize();
+      cachedColumn = columnWidth();
+    }
+    const coord_t size = cachedSize;
+    const coord_t column = cachedColumn;
     auto slot = new Window(form, {0, 0, column, size});
     slot->padAll(PAD_ZERO);
     lv_obj_clear_flag(slot->getLvObj(),
@@ -795,7 +802,9 @@ class Nb4GridModal : public BaseDialog
       current = current * 31 + g_eeGeneral.nb4QuickAccess[i];
     if (watchQuickAccess && rebuild && current != quickSignature) {
       quickSignature = current;
-      tiles.clear(); form->clear(); rebuild();
+      tiles.clear(); form->clear();
+      cachedSize = cachedColumn = -1;
+      rebuild();
     }
     for (auto* btn : tiles) {
       if (!btn->getLvObj()) continue;
@@ -827,6 +836,8 @@ class Nb4GridModal : public BaseDialog
   std::function<void()> rebuild;
   uint32_t quickSignature = 0;
   bool watchQuickAccess = false;
+  coord_t cachedSize = -1;
+  coord_t cachedColumn = -1;
 
   static lv_coord_t gridWidth()
   {
@@ -860,7 +871,7 @@ class Nb4GridModal : public BaseDialog
 
   coord_t columnWidth() const
   {
-    lv_obj_update_layout(form->getLvObj());
+    // Called right after tileSize(), whose layout pass is still current.
     const coord_t gap = lv_obj_get_style_pad_column(form->getLvObj(), 0);
     const coord_t availableWidth = lv_obj_get_content_width(form->getLvObj());
     return (availableWidth - (GRID_COLS - 1) * gap) / GRID_COLS;
