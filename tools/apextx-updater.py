@@ -224,7 +224,8 @@ def serve(port=0, open_browser=True):
         # Show the UI in a native application window; serve in the background.
         # Fall back to the default browser where no system WebView is present,
         # so the shared UI remains available if the native renderer is absent.
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
         try:
             import webview
             window = webview.create_window('ApexTX Flasher', address,
@@ -237,7 +238,7 @@ def serve(port=0, open_browser=True):
         except Exception:
             webbrowser.open(address)
             try:
-                server.serve_forever()
+                server_thread.join()
             except KeyboardInterrupt:
                 pass
         finally:
