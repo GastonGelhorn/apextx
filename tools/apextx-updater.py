@@ -21,7 +21,7 @@ import functools
 import os
 import sys
 
-APP_VERSION = '1.1'
+APP_VERSION = '1.2'
 
 
 def package_self_test():
@@ -93,6 +93,10 @@ def serve(port=0, open_browser=True):
     def update(image, device=None):
         try:
             with session.usb_lock:
+                # Local images must obey the same bootloader requirement as
+                # release downloads; manual loading cannot silently skip it.
+                from nb4_usb_update import probe
+                session.check_bootloader(probe(), image)
                 if device:
                     run_update(image, progress, serial=device['serial'], wait_seconds=0,
                                finder=session.pinned_finder(device))
@@ -105,11 +109,11 @@ def serve(port=0, open_browser=True):
             with lock:
                 status['running'] = False
 
-    def recover(image, radio_variant):
+    def recover(image, radio_variant, expected_serial=None):
         with session.usb_lock:
-            recover_locked(image, radio_variant)
+            recover_locked(image, radio_variant, expected_serial)
 
-    def recover_locked(image, radio_variant):
+    def recover_locked(image, radio_variant, expected_serial=None):
         try:
             wanted = nb4_rom_flash.validate_full_image(image)
             if wanted != radio_variant:
@@ -121,6 +125,8 @@ def serve(port=0, open_browser=True):
                 raise nb4_rom_flash.RomFlashError(
                     'No radio in STM32 ROM DFU mode was found. Put the radio into ROM DFU '
                     '(hold the recessed grip button while switching it on) and connect USB.')
+            if expected_serial and serial != expected_serial:
+                raise nb4_rom_flash.RomFlashError('The connected DFU device changed. Reconnect the original radio. Nothing was written.')
             with lock:
                 status.update(serial=serial, target=next(
                     number for number, name in VARIANTS.items() if name == radio_variant))
@@ -144,12 +150,16 @@ def serve(port=0, open_browser=True):
                      'Installing the complete image...', 23)
             # 3) Write the full image, verify by read-back, then start the radio.
             nb4_rom_flash.run_install(image, progress, serial)
+            if expected_serial:
+                with lock:
+                    session.bootloader_install = None
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
         finally:
             with lock:
                 status['running'] = False
+            session.wake.set()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -196,7 +206,8 @@ def serve(port=0, open_browser=True):
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
             request_path = urlparse(self.path).path
-            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade'):
+            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade',
+                                '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel'):
                 try:
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 <= size <= 2048:
@@ -206,10 +217,18 @@ def serve(port=0, open_browser=True):
                     if not isinstance(data, dict):
                         raise ValueError('Invalid request.')
                     with lock:
-                        if request_path == '/api/upgrade':
-                            device, offer = session.choice(data.get('serial'), data.get('target'), data.get('release_id'))
-                            session.begin('upgrade')
-                            threading.Thread(target=session.automatic, args=(device, offer), daemon=False).start()
+                        if request_path in ('/api/upgrade', '/api/bootloader/prepare'):
+                            preparing = request_path.endswith('/prepare')
+                            device, offer = session.choice(data.get('serial'), data.get('target'), data.get('release_id'), bootloader=preparing)
+                            session.begin('prepare_bootloader' if preparing else 'upgrade')
+                            threading.Thread(target=session.prepare_bootloader if preparing else session.automatic,
+                                             args=(device, offer), daemon=False).start()
+                        elif request_path == '/api/bootloader/install':
+                            args = session.bootloader_choice(data.get('serial'), data.get('target'), data.get('release_id'))
+                            session.begin('bootloader')
+                            threading.Thread(target=recover, args=args, daemon=False).start()
+                        elif request_path == '/api/bootloader/cancel':
+                            session.cancel_bootloader()
                         elif request_path == '/api/channel':
                             if not isinstance(data.get('preview'), bool):
                                 raise ValueError('Choose a release channel.')
@@ -250,6 +269,9 @@ def serve(port=0, open_browser=True):
             with lock:
                 if status['running']:
                     self.reply(409, {'error': 'An operation is already in progress.'})
+                    return
+                if session.bootloader_install:
+                    self.reply(409, {'error': 'Finish or cancel the guided bootloader installation first.'})
                     return
                 device = None
                 serial = self.headers.get('X-ApexTX-Serial')

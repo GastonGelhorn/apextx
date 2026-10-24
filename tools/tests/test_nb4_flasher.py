@@ -193,5 +193,91 @@ class AutomaticWindow(unittest.TestCase):
         self.assertEqual(errors,[])
 
 
+class GuidedBootloaderWindow(unittest.TestCase):
+    def test_http_guidance_requires_explicit_install_and_checks_dfu_before_backup(self):
+        from nb4_flasher_session import FlasherSession
+        from tools.tests.test_nb4_releases import image
+        firmware = image(version='0.1.0-alpha.5', bootloader=1)
+        for failure in (None, 'swapped', 'backup'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                session = FlasherSession(client=Mock())
+                session.device = dict(state='ready',serial='A',target=1,model='NB4',version=None,bootloader=0)
+                session.offer = dict(id=42,version='0.1.0-alpha.5',target=1,prerelease=True,url='https://github.com/',bootloader=1)
+                session.client.download.return_value = firmware
+                session.monitor = Mock()
+                entered, finish = threading.Event(), threading.Event()
+                errors = []
+                class Closing:
+                    def __iadd__(self, callback):
+                        self.callback = callback
+                        return self
+                window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+                def install(data, progress, serial):
+                    self.assertEqual((data,serial),(firmware,'A'))
+                    entered.set()
+                    if not finish.wait(5): raise RuntimeError('Test did not finish')
+                    progress('Installation complete and verified. The radio is starting automatically.',100)
+                def backup(path, _progress, serial):
+                    self.assertEqual(serial,'A')
+                    if failure == 'backup': raise RuntimeError('Backup failed')
+                    path.write_bytes(firmware)
+                def wait_idle():
+                    deadline = time.monotonic() + 3
+                    while session.snapshot()['running'] and time.monotonic() < deadline: time.sleep(.01)
+                    self.assertFalse(session.snapshot()['running'])
+                def start():
+                    try:
+                        parsed = urllib.parse.urlparse(webview.create_window.call_args.args[1])
+                        token = urllib.parse.parse_qs(parsed.query)['token'][0]
+                        def call(path, data):
+                            req = urllib.request.Request(f'http://{parsed.netloc}'+path,
+                                data=json.dumps(data).encode(),headers={'X-ApexTX-Token':token})
+                            return urllib.request.urlopen(req,timeout=3)
+                        def rejected(path):
+                            with self.assertRaises(urllib.error.HTTPError) as caught: call(path,choice)
+                            self.assertEqual(caught.exception.code,409)
+                            caught.exception.close()
+                        choice = dict(serial='A',target=1,release_id=42)
+                        rejected('/api/upgrade')
+                        rejected('/api/bootloader/install')
+                        with call('/api/bootloader/prepare',choice) as response: self.assertEqual(response.status,202)
+                        wait_idle()
+                        self.assertIsNotNone(session.snapshot()['bootloader_install'])
+                        writer.assert_not_called()
+                        saver.assert_not_called()
+                        rejected('/api/bootloader/install')
+                        session.device = dict(state='recovery',serial='B')
+                        rejected('/api/bootloader/install')
+                        session.device = dict(state='recovery',serial='A')
+                        writer.assert_not_called()
+                        with call('/api/bootloader/install',choice) as response: self.assertEqual(response.status,202)
+                        if failure is None:
+                            self.assertTrue(entered.wait(2))
+                            self.assertFalse(window.events.closing.callback())
+                            rejected('/api/bootloader/install')
+                            finish.set()
+                        wait_idle()
+                        if failure:
+                            self.assertTrue(session.snapshot()['error'])
+                            writer.assert_not_called()
+                            self.assertIsNotNone(session.snapshot()['bootloader_install'])
+                            if failure == 'swapped': saver.assert_not_called()
+                        else:
+                            self.assertEqual(session.snapshot()['progress'],100)
+                            self.assertIsNone(session.snapshot()['bootloader_install'])
+                        self.assertTrue(window.events.closing.callback())
+                    except Exception as error:
+                        errors.append(error)
+                    finally: finish.set()
+                webview=types.SimpleNamespace(create_window=Mock(return_value=window),start=start)
+                with patch.dict(sys.modules,{'webview':webview}),patch.dict('os.environ',{'APEXTX_UPDATER_WINDOW':'1'}), \
+                        patch.object(flasher,'FlasherSession',return_value=session),patch.object(pathlib.Path,'home',return_value=pathlib.Path(folder)), \
+                        patch.object(flasher.nb4_rom_flash,'discover_rom_dfu',return_value='B' if failure=='swapped' else 'A'), \
+                        patch.object(flasher.nb4_rom_flash,'backup_internal',side_effect=backup) as saver, \
+                        patch.object(flasher.nb4_rom_flash,'run_install',side_effect=install) as writer,patch('builtins.print'):
+                    flasher.serve()
+                self.assertEqual(errors,[])
+
+
 if __name__ == '__main__':
     unittest.main()

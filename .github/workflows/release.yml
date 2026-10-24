@@ -101,6 +101,9 @@ jobs:
             --model ${{ matrix.model }}
           # Expose the exact validated image as a direct download as well.
           cp "dist/$package/firmware.bin" "dist/$package.bin"
+          python3 tools/nb4-release-metadata.py \
+            --image "dist/$package.bin" --version "$version" \
+            --model ${{ matrix.model }} --output "dist/$package.update.json"
           tar -C dist -czf "dist/$package.tar.gz" "$package"
           python3 - "$package" <<'PY'
           import shutil
@@ -115,6 +118,7 @@ jobs:
           name: apextx-firmware-${{ matrix.model }}
           path: |
             dist/*.bin
+            dist/*.update.json
             dist/*.tar.gz
             dist/*.zip
           if-no-files-found: error
@@ -125,6 +129,7 @@ jobs:
         with:
           subject-path: |
             dist/*.bin
+            dist/*.update.json
             dist/*.tar.gz
             dist/*.zip
 
@@ -219,7 +224,7 @@ jobs:
 
       - name: Record checksums
         working-directory: dist
-        run: sha256sum *.bin *.tar.gz *.zip *.exe > SHA256SUMS
+        run: sha256sum *.bin *.tar.gz *.zip *.exe *.update.json > SHA256SUMS
 
       - name: Verify all radio and desktop downloads are present
         shell: bash
@@ -228,6 +233,8 @@ jobs:
           for file in \
             "apextx-nb4-$version.bin" \
             "apextx-nb4plus-$version.bin" \
+            "apextx-nb4-$version.update.json" \
+            "apextx-nb4plus-$version.update.json" \
             ApexTX-Flasher.exe \
             ApexTX-Flasher-macOS-arm64.zip \
             ApexTX-Flasher-macOS-x86_64.zip; do
