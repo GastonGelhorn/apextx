@@ -20,6 +20,14 @@ Additional inherited libraries retain their upstream notices and licenses in
 their respective source directories. A release package includes the licenses
 needed by the NB4 firmware and storage resources.
 
+The desktop ApexTX Flasher packages Python, PyUSB, pywebview and PyInstaller's
+bootloader under their upstream terms. The platform package includes libusb
+(LGPL-2.1-or-later) and dfu-util (GPL-2.0-or-later). Their source and license
+information are available from https://libusb.info/ and
+https://dfu-util.sourceforge.net/. The macOS package includes both libraries'
+COPYING files under its `licenses/` resources. These desktop packages use the
+same ApexTX source and interface on Windows and macOS.
+
 The separately published English and Spanish ApexTX audio packages are derived
 from `EdgeTX/edgetx-sdcard-sounds`, licensed under GNU GPL version 2. The exact
 upstream URL, tag, commit, checksums, and conversion format are recorded in each

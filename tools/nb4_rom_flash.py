@@ -144,8 +144,11 @@ def discover_rom_dfu(expected_serial=None):
         raise RomFlashError(f'Could not inspect STM32 ROM DFU: {error}') from error
     listing = result.stdout
     if re.search(r'cannot open.*0483:df11', listing, re.IGNORECASE):
-        raise RomFlashError('Windows can see STM32 ROM DFU but cannot open it. Install a '
-                            'WinUSB-compatible driver for the STM32 BOOTLOADER device, then retry.')
+        if sys.platform == 'win32':
+            raise RomFlashError('Windows can see STM32 ROM DFU but cannot open it. Install a '
+                                'WinUSB-compatible driver for the STM32 BOOTLOADER device, then retry.')
+        raise RomFlashError('STM32 ROM DFU was found but could not be opened. Close other '
+                            'software using the radio, reconnect USB, and retry.')
 
     saw_stm32 = False
     serials = set()

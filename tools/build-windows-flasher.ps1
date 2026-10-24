@@ -20,8 +20,8 @@ $venv = Join-Path $work 'venv'
 if (-not (Test-Path $venv)) { python -m venv $venv }
 $py = Join-Path $venv 'Scripts/python.exe'
 & $py -m pip install --upgrade pip | Out-Null
-& $py -m pip install pyinstaller==6.11.1 pyusb==1.3.1 pywebview==6.2.1 `
-    libusb-package==1.0.26.3 pillow==11.1.0 | Out-Null
+& $py -m pip install -r tools/requirements-flasher.txt | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Failed to install flasher dependencies" }
 
 Write-Host '==> Fetch dfu-util 0.11 (GPL-2+)'
 $dfuDir = Join-Path $work 'dfu'
@@ -41,34 +41,10 @@ tar -xf $tar -C $work
 Copy-Item (Join-Path $work 'dfu-util-0.11-binaries/win64/dfu-util.exe') $dfuDir -Force
 Copy-Item (Join-Path $work 'dfu-util-0.11-binaries/win64/libusb-1.0.dll') $dfuDir -Force
 
-Write-Host '==> Generate app icon from the brand logo'
-$ico = Join-Path $work 'ApexTX.ico'
-& $py -c @"
-from PIL import Image
-src = Image.open(r'docs/branding/apextx-logo.png').convert('RGBA')
-px = src.load(); w, h = src.size
-for y in range(h):
-    for x in range(w):
-        r, g, b, a = px[x, y]; m = max(r, g, b)
-        px[x, y] = (r, g, b, 0 if m <= 26 else 255 if m >= 80 else int((m-26)/54*255))
-src = src.crop(src.getbbox()); w, h = src.size
-S = 256; c = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-sc = min((S-20)/w, (S-20)/h); rw, rh = round(w*sc), round(h*sc)
-c.paste(src.resize((rw, rh), Image.LANCZOS), ((S-rw)//2, (S-rh)//2))
-c.save(r'$ico'.replace('\\','/'), sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])
-print('icon ok')
-"@
-
-Write-Host '==> PyInstaller'
+Write-Host '==> Package the shared flasher UI and core'
 $libusb = & $py -c "import libusb_package; print(libusb_package.get_library_path())"
-& (Join-Path $venv 'Scripts/pyinstaller.exe') --onefile --windowed --name ApexTX-Flasher `
-    --icon $ico `
-    --add-data "tools/apextx-updater.html;." `
-    --add-data "tools/apextx-updater-logo.png;." `
-    --add-binary "$libusb;." `
-    --add-binary "$dfuDir/dfu-util.exe;dfu" `
-    --add-binary "$dfuDir/libusb-1.0.dll;dfu" `
-    --hidden-import usb.backend.libusb1 --collect-all webview `
-    --paths tools --noconfirm --clean (Join-Path $root 'tools/apextx-updater.py')
+if ($LASTEXITCODE -ne 0) { throw "Failed to locate libusb" }
+& $py tools/build-flasher.py --dfu-dir $dfuDir --libusb $libusb
+if ($LASTEXITCODE -ne 0) { throw "Failed to package ApexTX Flasher" }
 
 Write-Host '==> Done: dist/ApexTX-Flasher.exe'

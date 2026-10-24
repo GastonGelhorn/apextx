@@ -97,9 +97,17 @@ class Discovery(unittest.TestCase):
         self.assertIsNone(self.discover(listing('A'), expected='B'))
 
     def test_driver_failure_is_reported_before_selection(self):
-        with self.assertRaises(rom_flash.RomFlashError) as caught:
+        with patch.object(rom_flash.sys, 'platform', 'win32'), \
+                self.assertRaises(rom_flash.RomFlashError) as caught:
             self.discover('Cannot open DFU device 0483:df11')
         self.assertIn('WinUSB', str(caught.exception))
+
+    def test_macos_device_access_failure_does_not_request_a_windows_driver(self):
+        with patch.object(rom_flash.sys, 'platform', 'darwin'), \
+                self.assertRaises(rom_flash.RomFlashError) as caught:
+            self.discover('Cannot open DFU device 0483:df11')
+        self.assertIn('Close other software', str(caught.exception))
+        self.assertNotIn('WinUSB', str(caught.exception))
 
 
 class Backup(unittest.TestCase):

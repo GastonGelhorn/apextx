@@ -23,6 +23,23 @@ import sys
 APP_VERSION = '1.0'
 
 
+def package_self_test():
+    """Check the packaged dependencies without discovering or writing a radio."""
+    from nb4_usb_update import usb_modules
+    folder = Path(__file__).resolve().parent
+    page = (folder / 'apextx-updater.html').read_text(encoding='utf-8')
+    if 'id="updatePanel"' not in page or 'id="recoverPanel"' not in page or not _logo_data_uri():
+        raise RuntimeError('The shared flasher interface is incomplete.')
+    _core, _util, backend = usb_modules()
+    if backend is None:
+        raise RuntimeError('The bundled USB backend could not be loaded.')
+    result = nb4_rom_flash._run([nb4_rom_flash.dfu_util_path(), '--version'])
+    if result.returncode != 0 or 'dfu-util 0.11' not in result.stdout:
+        raise RuntimeError('The bundled dfu-util could not be started: ' + result.stdout)
+    metadata = json.loads((folder / 'apextx-flasher-build.json').read_text(encoding='utf-8'))
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True)
+
+
 def _enable_bundled_libusb():
     """Make the bundled libusb runtime loadable in a frozen Windows build.
 
@@ -139,12 +156,13 @@ def serve(port=0, open_browser=True):
 
         def do_GET(self):
             if not self.authorized():
-                self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
+                self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
             elif urlparse(self.path).path == '/':
                 page = Path(__file__).with_name('apextx-updater.html').read_text(encoding='utf-8')
                 page = (page.replace('__SESSION_TOKEN__', token)
                             .replace('__LOGO_DATA__', _logo_data_uri())
-                            .replace('__APP_VERSION__', APP_VERSION))
+                            .replace('__APP_VERSION__', APP_VERSION)
+                            .replace('__HOST_PLATFORM__', sys.platform))
                 self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/status':
                 with lock:
@@ -155,7 +173,7 @@ def serve(port=0, open_browser=True):
 
         def do_POST(self):
             if not self.authorized():
-                self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
+                self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
             request_path = urlparse(self.path).path
             if request_path not in ('/api/update', '/api/recover'):
@@ -205,12 +223,16 @@ def serve(port=0, open_browser=True):
     if os.environ.get('APEXTX_UPDATER_WINDOW') == '1':
         # Show the UI in a native application window; serve in the background.
         # Fall back to the default browser where no system WebView is present,
-        # so the app still runs on any Windows.
+        # so the shared UI remains available if the native renderer is absent.
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
             import webview
-            webview.create_window('ApexTX Flasher', address,
-                                  width=860, height=940, min_size=(560, 680))
+            window = webview.create_window('ApexTX Flasher', address,
+                                           width=860, height=940, min_size=(560, 680))
+            def can_close():
+                with lock:
+                    return not status['running']
+            window.events.closing += can_close
             webview.start()
         except Exception:
             webbrowser.open(address)
@@ -239,10 +261,14 @@ def main():
     parser.add_argument('--serial')
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--self-test', type=Path, metavar='REPORT.json',
+                        help='Check the packaged app without accessing a radio and write a report.')
     args = parser.parse_args()
     _enable_bundled_libusb()
     try:
-        if args.firmware:
+        if args.self_test:
+            args.self_test.write_text(json.dumps(package_self_test(), indent=2) + '\n', encoding='utf-8')
+        elif args.firmware:
             image = args.firmware.read_bytes()
             if args.check:
                 package = update_package(image)

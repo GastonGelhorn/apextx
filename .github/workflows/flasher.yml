@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-2.0-only
+name: Package the shared ApexTX Flasher
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+            artifact: apextx-windows-flasher
+            file: dist/ApexTX-Flasher.exe
+          - name: macOS Apple Silicon
+            runner: macos-15
+            artifact: apextx-macos-arm64-flasher
+            file: dist/ApexTX-Flasher-macOS-arm64.zip
+          - name: macOS Intel
+            runner: macos-15-intel
+            artifact: apextx-macos-x86_64-flasher
+            file: dist/ApexTX-Flasher-macOS-x86_64.zip
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Test the shared UI and USB core
+        run: python -m unittest tools.tests.test_nb4_flasher tools.tests.test_nb4_rom_flash tools.tests.test_nb4_updater
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: tools/build-windows-flasher.ps1
+
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install dfu-util libusb
+
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        env:
+          APEXTX_BUILD_PYTHON: python
+        run: bash tools/build-macos-flasher.sh
+
+      - name: Test the packaged app without a radio
+        run: python tools/test-flasher-package.py
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.file }}
+          if-no-files-found: error

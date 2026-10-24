@@ -66,8 +66,10 @@ and driver installation have not been validated in this implementation.
 | Windows | Supported by the USB libraries; this updater still needs a hardware test on Windows | Python, PyUSB, a loadable libusb 1.0 DLL matching Python's architecture, and a compatible USB driver such as WinUSB |
 | Linux | Not tested with this updater | Python, PyUSB, libusb 1.0, and permission to access the USB interface |
 
-This is currently a Python application with a local browser interface. A
-standalone Windows installer or macOS application bundle is not included.
+Standalone packages for Windows and macOS use this same updater and local
+interface. See [ApexTX Flasher](FLASHER.md) for the `.exe`, Apple Silicon and
+Intel `.app` downloads, build instructions and install/recovery mode. Running
+the Python script directly still requires the dependencies described above.
 
 On Windows, create and use the environment from PowerShell:
 

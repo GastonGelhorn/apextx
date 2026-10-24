@@ -58,28 +58,6 @@ jobs:
           cmake --build build/nb4-ci --target native-configure -j4
           cmake --build build/nb4-ci/native --target tests-radio -j4
 
-  windows-flasher:
-    name: Build the Windows flasher
-    runs-on: windows-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Run host-tool tests
-        run: python tools/tests/test_nb4_rom_flash.py
-
-      - name: Build the standalone flasher
-        shell: pwsh
-        run: tools/build-windows-flasher.ps1
-
-      - name: Upload the test executable
-        uses: actions/upload-artifact@v7
-        with:
-          name: apextx-windows-flasher-ci
-          path: dist/ApexTX-Flasher.exe
-          if-no-files-found: error
+  flashers:
+    name: Build the desktop flashers
+    uses: ./.github/workflows/flasher.yml

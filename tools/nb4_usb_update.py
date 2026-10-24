@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """ApexTX's RAM-staged NB4 updater transport. Never writes a ROM DFU device."""
 import struct
+import sys
 import time
 from collections import namedtuple
 from pathlib import Path
@@ -49,8 +50,18 @@ def usb_modules():
         import usb.backend.libusb1
     except ImportError as error:
         raise UpdateError('Install the dependencies listed in tools/requirements-updater.txt.') from error
-    backend = usb.backend.libusb1.get_backend()
-    if backend is None:
+    if getattr(sys, 'frozen', False):
+        # Finder/Explorer launches do not inherit a developer's library paths.
+        # Load our own runtime explicitly instead of a host-installed libusb.
+        folder = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+        name = 'libusb-1.0.0.dylib' if sys.platform == 'darwin' else 'libusb-1.0.dll'
+        library = folder / name
+        if not library.is_file():
+            raise UpdateError('The app is missing its bundled libusb runtime. Download a complete copy of ApexTX Flasher.')
+        backend = usb.backend.libusb1.get_backend(find_library=lambda _: str(library))
+    else:
+        backend = usb.backend.libusb1.get_backend()
+    if backend is None and not getattr(sys, 'frozen', False):
         # Homebrew libraries may not be in the GUI process's loader path.
         for location in ['/opt/homebrew/lib/libusb-1.0.dylib', '/usr/local/lib/libusb-1.0.dylib']:
             if Path(location).is_file():

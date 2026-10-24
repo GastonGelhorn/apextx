@@ -118,41 +118,9 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
 
-  windows-flasher:
-    name: Build the Windows flasher
-    runs-on: windows-latest
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Test the ROM DFU safety gates
-        run: python tools/tests/test_nb4_rom_flash.py
-
-      - name: Build the standalone flasher
-        shell: pwsh
-        run: tools/build-windows-flasher.ps1
-
-      - name: Upload the executable
-        uses: actions/upload-artifact@v7
-        with:
-          name: apextx-windows-flasher
-          path: dist/ApexTX-Flasher.exe
-          if-no-files-found: error
-
-      - name: Attest the executable
-        if: github.ref_type == 'tag'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: dist/ApexTX-Flasher.exe
+  flashers:
+    name: Build the desktop flashers
+    uses: ./.github/workflows/flasher.yml
 
   audio:
     # The voice packs install on the radio's storage and do not depend on
@@ -218,10 +186,12 @@ jobs:
   publish:
     name: Create GitHub Release
     if: github.ref_type == 'tag'
-    needs: [firmware, audio, windows-flasher]
+    needs: [firmware, audio, flashers]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download verified artifacts
         uses: actions/download-artifact@v8
@@ -229,6 +199,13 @@ jobs:
           pattern: apextx-*
           merge-multiple: true
           path: dist
+
+      - name: Attest the desktop flashers
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.exe
+            dist/ApexTX-Flasher-macOS-*.zip
 
       - name: Record checksums
         working-directory: dist

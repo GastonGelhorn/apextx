@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-platform="__HOST_PLATFORM__">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ApexTX Flasher</title>
@@ -10,6 +10,7 @@
   --blue:#20a0f0; --blue2:#54b7f6; --ink:#061320;
   --orange:#f07020; --orange2:#ffb070; --good:#5fd39a; --bad:#ff8f8f;
 }
+[hidden]{display:none!important}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:radial-gradient(1150px 540px at 82% -10%,rgba(32,160,240,.16),transparent 60%),radial-gradient(760px 420px at 4% 112%,rgba(240,112,32,.06),transparent 55%),var(--bg);color:var(--text);min-height:100vh;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:800px;margin:0 auto;padding:34px 24px 54px}
@@ -109,6 +110,7 @@ footer a:hover{text-decoration:underline}
   </div>
   <div class="model" id="rmodel"></div>
   <label class="confirm" id="rconfirmWrap"><input type="checkbox" id="rconfirm"><span id="rconfirmLabel"></span></label>
+  <p class="note" id="driverNote" data-k="windowsDriver" hidden></p>
   <button class="cta" id="rstart" disabled>Back up &amp; install</button>
 </section>
 
@@ -119,13 +121,15 @@ footer a:hover{text-decoration:underline}
 <footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
+document.getElementById("driverNote").hidden=document.documentElement.dataset.platform!=="win32";
 const T={
  en:{h1:"Update your radio",intro:"Install or update ApexTX on your FlySky Noble NB4 or NB4+. Everything runs locally and is verified on the radio.",
+  windowsDriver:"Windows requires a WinUSB-compatible driver for the connected device.",
   tabUpdate:"Update",tabRecover:"Install / Recovery",
   imglabel:"Firmware image",fileinfo:"firmware.bin · ApexTX for the Noble NB4 / NB4+",
   note:"Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.",
   footer:"ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.",
-  rwarn:"This writes the COMPLETE firmware, including the bootloader. Use it only for the first ApexTX installation or recovery; use Update for normal upgrades. The radio must be in STM32 ROM DFU mode. Its current internal firmware is backed up first. Recovery normally remains possible through the STM32 ROM bootloader, but choosing the correct model and keeping the backup are essential. Windows must have a WinUSB-compatible driver for the connected device.",
+  rwarn:"This writes the COMPLETE firmware, including the bootloader. Use it only for the first ApexTX installation or recovery; use Update for normal upgrades. The radio must be in STM32 ROM DFU mode. Its current internal firmware is backed up first. Recovery normally remains possible through the STM32 ROM bootloader, but choosing the correct model and keeping the backup are essential.",
   rdone:"Installation complete and verified. Now switch the radio OFF (hold the power button until it is fully off), then switch it ON again to start it.",
   rimglabel:"Complete firmware image",rfileinfo:"Complete firmware.bin (bootloader + application)",
   radioPrompt:"Which radio are you connecting?",rmodelFor:"This image appears to be for: ",rmodelUnknown:"The app will validate the model marker, manifest and checksum before writing.",
@@ -135,11 +139,12 @@ const T={
   validating:"Validating firmware image…",update:"Update firmware",retry:"Retry update",updating:"Updating firmware…",
   rbtn:"Back up & install",rretry:"Retry",rworking:"Backing up & installing…"},
  de:{h1:"Fernbedienung aktualisieren",intro:"ApexTX auf deiner FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Alles läuft lokal und wird auf der Fernbedienung verifiziert.",
+  windowsDriver:"Windows benötigt einen WinUSB-kompatiblen Treiber für das verbundene Gerät.",
   tabUpdate:"Update",tabRecover:"Installation / Recovery",
   imglabel:"Firmware-Image",fileinfo:"firmware.bin · ApexTX für die Noble NB4 / NB4+",
   note:"Fernbedienung während des Schreibens eingeschaltet und verbunden lassen — nicht abziehen. Bei einem Recovery-Fehler eingeschaltet lassen und im STM32-ROM-DFU erneut versuchen.",
   footer:"Der ApexTX Flasher läuft komplett auf diesem Computer. Die Firmware wird direkt per USB an die Fernbedienung gesendet und nirgends hochgeladen.",
-  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader. Nur für die Erstinstallation von ApexTX oder Recovery nutzen; für normale Updates den Update-Tab verwenden. Die Fernbedienung muss im STM32-ROM-DFU sein. Die aktuelle interne Firmware wird vorher gesichert. Recovery bleibt normalerweise über den STM32-ROM-Bootloader möglich, aber das richtige Modell und die Sicherung sind unverzichtbar. Windows benötigt einen WinUSB-kompatiblen Treiber für das verbundene Gerät.",
+  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader. Nur für die Erstinstallation von ApexTX oder Recovery nutzen; für normale Updates den Update-Tab verwenden. Die Fernbedienung muss im STM32-ROM-DFU sein. Die aktuelle interne Firmware wird vorher gesichert. Recovery bleibt normalerweise über den STM32-ROM-Bootloader möglich, aber das richtige Modell und die Sicherung sind unverzichtbar.",
   rdone:"Installation abgeschlossen und verifiziert. Jetzt die Fernbedienung AUSschalten (Power-Taste lang halten, bis sie ganz aus ist), dann wieder EINschalten, damit sie startet.",
   rimglabel:"Vollständiges Firmware-Image",rfileinfo:"Vollständige firmware.bin (Bootloader + Anwendung)",
   radioPrompt:"Welche Fernbedienung ist verbunden?",rmodelFor:"Dieses Image scheint bestimmt für: ",rmodelUnknown:"Die App prüft Modellmarkierung, Manifest und Prüfsumme vor dem Schreiben.",
@@ -149,11 +154,12 @@ const T={
   validating:"Firmware-Image wird geprüft…",update:"Firmware aktualisieren",retry:"Erneut versuchen",updating:"Firmware wird aktualisiert…",
   rbtn:"Sichern & installieren",rretry:"Erneut versuchen",rworking:"Sichern & installieren…"},
  es:{h1:"Actualiza tu emisora",intro:"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. Todo se ejecuta localmente y se verifica en la emisora.",
+  windowsDriver:"Windows necesita un controlador compatible con WinUSB para el dispositivo conectado.",
   tabUpdate:"Actualizar",tabRecover:"Instalación / Recuperación",
   imglabel:"Imagen de firmware",fileinfo:"firmware.bin · ApexTX para la Noble NB4 / NB4+",
   note:"Mantén la emisora encendida y conectada durante la escritura — no la desconectes. Si falla la recuperación, déjala encendida y reintenta en modo STM32 ROM DFU.",
   footer:"ApexTX Flasher se ejecuta por completo en este ordenador. El firmware se envía directamente a la emisora por USB y no se sube a ningún sitio.",
-  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader. Úsalo solo para la primera instalación de ApexTX o para recuperar una emisora; para una actualización normal usa Actualizar. La emisora debe estar en STM32 ROM DFU. Antes se guarda una copia del firmware interno actual. Normalmente la recuperación seguirá disponible mediante el bootloader ROM del STM32, pero es imprescindible elegir el modelo correcto y conservar la copia. Windows necesita un controlador compatible con WinUSB para el dispositivo conectado.",
+  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader. Úsalo solo para la primera instalación de ApexTX o para recuperar una emisora; para una actualización normal usa Actualizar. La emisora debe estar en STM32 ROM DFU. Antes se guarda una copia del firmware interno actual. Normalmente la recuperación seguirá disponible mediante el bootloader ROM del STM32, pero es imprescindible elegir el modelo correcto y conservar la copia.",
   rdone:"Instalación completada y verificada. Ahora APAGA la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a ENCENDERLA para arrancarla.",
   rimglabel:"Imagen de firmware completa",rfileinfo:"firmware.bin completa (bootloader + aplicación)",
   radioPrompt:"¿Qué emisora estás conectando?",rmodelFor:"Esta imagen parece ser para: ",rmodelUnknown:"La aplicación validará el marcador de modelo, el manifiesto y el checksum antes de escribir.",
