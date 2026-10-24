@@ -99,6 +99,16 @@ class Session(unittest.TestCase):
             self.assertTrue(s.snapshot()['error'])
             if swap: s.client.download.assert_not_called()
 
+    def test_development_build_can_explicitly_upgrade_to_a_newer_release(self):
+        s = self.setup_session()
+        s.device.update(version='0.1.0-alpha.4', development=True)
+        s.offer.update(version='0.1.0-alpha.5')
+        device, offer = s.choice('A', 1, 42)
+        self.assertEqual(device['version'], '0.1.0-alpha.4')
+        self.assertEqual(offer['version'], '0.1.0-alpha.5')
+        s.client.download.assert_not_called()
+        self.assertFalse(s.snapshot()['running'])
+
     def test_full_download_passes_a_serial_pinned_finder_and_maps_progress(self):
         s=self.setup_session()
         s.client.download.return_value=b'validated image'

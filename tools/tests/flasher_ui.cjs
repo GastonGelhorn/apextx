@@ -44,6 +44,9 @@ state(device);
 assert.equal(get('upgrade').disabled,false);
 assert.equal(get('upgrade').textContent,'Actualizar a 0.1.0-alpha.4');
 assert.equal(get('previewBadge').hidden,false);
+state({...device,development:true});
+assert.equal(get('installedVersion').textContent,'0.1.0-alpha.3 · dev');
+assert.equal(get('upgrade').disabled,false,'A newer release can replace an older development build on explicit request');
 for(const decision of ['current','ahead','development']) {
  state(device,{...offer,decision});
  assert.equal(get('upgrade').disabled,true,decision);

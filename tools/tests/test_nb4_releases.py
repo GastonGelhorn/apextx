@@ -52,7 +52,9 @@ class Versions(unittest.TestCase):
     def test_unknown_current_newer_and_development_are_distinct(self):
         offer = dict(version='0.1.0-alpha.4')
         for version, development, expected in [(None, False, 'unknown'), ('0.1.0-alpha.3', False, 'available'),
-            ('0.1.0-alpha.4', False, 'current'), ('0.1.0-alpha.5', False, 'ahead'), ('0.1.0-alpha.4', True, 'development')]:
+            ('0.1.0-alpha.4', False, 'current'), ('0.1.0-alpha.5', False, 'ahead'),
+            ('0.1.0-alpha.3', True, 'available'), ('0.1.0-alpha.4', True, 'development'),
+            ('0.1.0-alpha.5', True, 'development')]:
             self.assertEqual(update_decision(dict(version=version, development=development), offer), expected)
 
 

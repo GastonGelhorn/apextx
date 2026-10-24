@@ -121,9 +121,10 @@ again. A removed device or a persistent failure leaves the outcome unconfirmed
 in the app. Keep the radio powered and check its display before restarting.
 
 An installed version equal to or newer than the offered release never triggers
-an automatic reinstall or downgrade. Development builds are identified and can
-be replaced deliberately using **Choose a local firmware image**. That option
-also works offline; release lookup failures do not disable local updates.
+an automatic reinstall or downgrade. An older development build can upgrade to
+a newer release after clicking **Update to…**. Replacing a development build
+with the same or an older release requires **Choose a local firmware image**.
+That option also works offline; release lookup failures do not disable local updates.
 Recovery remains an explicit, separate operation with local image selection,
 model confirmation and a mandatory backup.
 

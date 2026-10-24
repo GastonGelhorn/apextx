@@ -69,10 +69,12 @@ def update_decision(device, release):
         return 'unavailable'
     if not device.get('version'):
         return 'unknown'
+    installed, offered = Version(device['version']), Version(release['version'])
+    if installed < offered:
+        return 'available'
     if device.get('development'):
         return 'development'
-    installed, offered = Version(device['version']), Version(release['version'])
-    return 'available' if installed < offered else 'current' if installed == offered else 'ahead'
+    return 'current' if installed == offered else 'ahead'
 
 
 def _safe_url(url):
