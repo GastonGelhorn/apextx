@@ -74,11 +74,16 @@ Nb4ResponseChart::Nb4ResponseChart(Window* parent, const rect_t& rect,
   for (int t : xTicks) {
     char text[8];
     snprintf(text, sizeof(text), "%d", t);
-    const coord_t labelX = limit<coord_t>(0, plotX(t * RESX / 100) - 18, rect.w - 36);
+    // The end marks line up with the plot's edges, so the left one clears
+    // the vertical scale's lowest mark instead of sitting on it.
+    const LcdFlags align = t == -100 ? LEFT : t == 100 ? RIGHT : CENTERED;
+    const coord_t labelX = t == -100 ? px
+                         : t == 100  ? (coord_t)(px + pw - 36)
+                                     : (coord_t)(plotX(t * RESX / 100) - 18);
     new StaticText(this,
                    rect_t{labelX,
                           (coord_t)(py + ph + 1), 36, CHART_TICKS},
-                   text, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS) | CENTERED);
+                   text, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS) | align);
   }
 
   const coord_t zoneY = py + ph + CHART_TICKS;

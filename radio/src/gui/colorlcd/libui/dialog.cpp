@@ -70,7 +70,12 @@ BaseDialog::BaseDialog(const char* title,
 
   if (title) {
 
-    const coord_t headerH = EdgeTxStyles::STD_FONT_HEIGHT + PAD_MEDIUM * 2;
+    // The close button is a full touch target, so the title bar is as tall.
+    constexpr coord_t headerH = 44;
+    header->padTop((headerH - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+    header->padBottom(headerH - EdgeTxStyles::STD_FONT_HEIGHT -
+                      (headerH - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+    header->padRight(headerH);
     auto close = new TextButton(content, {0, 0, headerH, headerH}, LV_SYMBOL_CLOSE,
                                 [this]() { onCancel(); return 0; });
     closeButton = close;
@@ -132,8 +137,9 @@ void BaseDialog::useSectionHeader()
   etx_font(header->getLvObj(), FONT_BOLD_INDEX);
   header->setHeight(44);
   header->padAll(PAD_ZERO);
+  header->padBottom(PAD_ZERO);
   header->padLeft(PageHeader::PAGE_TITLE_LEFT);
-  header->padRight(helpButton ? 84 : 40);
+  header->padRight(helpButton ? 92 : 44);
   lv_obj_set_style_pad_top(
       header->getLvObj(),
       std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
@@ -144,7 +150,7 @@ void BaseDialog::useSectionHeader()
   etx_border_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   lv_label_set_long_mode(header->getLvObj(), LV_LABEL_LONG_CLIP);
   if (closeButton) {
-    closeButton->setSize(40, 40);
+    closeButton->setSize(44, 44);
     etx_txt_color(closeButton->getLvObj(), COLOR_THEME_QM_FG_INDEX);
   }
   updateSectionTitleStyle();
@@ -155,11 +161,16 @@ void BaseDialog::updateSectionTitleStyle()
   if (!sectionHeader || !header) return;
   // Route titles must remain equally legible. Long names are clipped at the
   // trailing edge instead of shrinking every character to XS/XXS.
-  etx_font(header->getLvObj(), FONT_BOLD_INDEX);
-  lv_obj_set_style_pad_top(
-      header->getLvObj(),
-      std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
-      LV_PART_MAIN);
+  // A long route title takes two lines, smaller if it must, rather than
+  // losing its end under the buttons.
+  auto o = header->getLvObj();
+  const coord_t border = lv_obj_get_style_border_width(o, LV_PART_MAIN);
+  const coord_t width = lv_obj_get_style_width(content->getLvObj(), LV_PART_MAIN) -
+                        lv_obj_get_style_pad_left(o, LV_PART_MAIN) -
+                        lv_obj_get_style_pad_right(o, LV_PART_MAIN) - 2 * border;
+  const coord_t height = nb4FitHeaderTitle(o, width, 44 - 2 * border);
+  lv_obj_set_style_pad_top(o, std::max<coord_t>(0, (44 - 2 * border - height) / 2),
+                           LV_PART_MAIN);
 }
 
 void BaseDialog::setRouteIcon(uint8_t icon)
@@ -182,11 +193,12 @@ bool BaseDialog::setHelpHandler(std::function<void()> action)
   helpHandler = std::move(action);
   if (helpHandler) closeWhenClickOutside = false;
   if (!helpButton && helpHandler) {
-    helpButton = new TextButton(content, {0, 0, 40, 40}, "?",
+    helpButton = new TextButton(content, {0, 0, 44, 44}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
     lv_obj_add_flag(helpButton->getLvObj(), LV_OBJ_FLAG_FLOATING);
-    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -44, 0);
-    header->padRight(84);
+    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -48, 0);
+    header->padRight(92);
+    updateSectionTitleStyle();
     lv_group_remove_obj(helpButton->getLvObj());
   }
   if (helpButton) helpButton->show(bool(helpHandler));
@@ -215,12 +227,11 @@ void BaseDialog::useBrandHeader()
   const coord_t identityW = logoW + 16;
   lv_obj_update_layout(content->getLvObj());
   const coord_t brandW = lv_obj_get_width(brand->getLvObj());
-  const coord_t titleH = getFontHeight(FONT(BOLD));
+  const coord_t titleW = coord_t(std::max<int>(40, brandW - identityW - 44));
   auto title = new StaticText(
-      brand,
-      {identityW, 0,
-       coord_t(std::max<int>(40, brandW - identityW - 44)), titleH},
+      brand, {identityW, 0, titleW, getFontHeight(FONT(BOLD))},
       header->getText(), COLOR_THEME_QM_FG_INDEX, FONT(BOLD) | CENTERED);
+  title->setHeight(nb4FitHeaderTitle(title->getLvObj(), titleW, 44 - 2 * 3));
   lv_obj_align(title->getLvObj(), LV_ALIGN_LEFT_MID, identityW, 0);
 }
 #endif

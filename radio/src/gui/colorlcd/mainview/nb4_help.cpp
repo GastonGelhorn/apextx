@@ -41,6 +41,27 @@ std::string nb4InheritedScope()
   return text;
 }
 
+coord_t nb4FitHeaderTitle(lv_obj_t* label, coord_t width, coord_t barHeight)
+{
+  const char* text = lv_label_get_text(label);
+  lv_point_t size;
+  for (const LcdFlags font : {FONT(BOLD), FONT(XS)}) {
+    lv_txt_get_size(&size, text ? text : "", getFont(font), 0, 0, width,
+                    LV_TEXT_FLAG_NONE);
+    etx_font(label, FONT_INDEX(font));
+    if (size.y <= getFontHeight(font)) {
+      lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
+      return size.y;
+    }
+    if (size.y <= barHeight && size.y <= 2 * getFontHeight(font)) {
+      lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+      return size.y;
+    }
+  }
+  lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+  return std::min<coord_t>(size.y, barHeight);
+}
+
 void nb4ScopeBar(Window* owner, Window* body, StaticText*& label,
                  const std::string& text)
 {

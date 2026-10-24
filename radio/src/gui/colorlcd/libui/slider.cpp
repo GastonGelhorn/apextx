@@ -166,6 +166,10 @@ Slider::Slider(Window* parent, coord_t width, int32_t vmin, int32_t vmax,
 
   slider = (new FormField(this, rect_t{}, slider_create))->getLvObj();
   lv_obj_set_width(slider, lv_pct(100));
+#if defined(RADIO_NB4_FAMILY)
+  // The track is a thin line; the finger target is the whole row.
+  lv_obj_set_ext_click_area(slider, (EdgeTxStyles::UI_ELEMENT_HEIGHT - PAD_LARGE) / 2);
+#endif
 
   lv_obj_add_event_cb(slider, SliderBase::slider_changed_cb, LV_EVENT_VALUE_CHANGED, this);
   lv_slider_set_range(slider, vmin, vmax);

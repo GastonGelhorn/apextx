@@ -161,7 +161,7 @@ class ControlEditor : public BaseDialog
       info->setFlexLayout(LV_FLEX_FLOW_COLUMN, PAD_MEDIUM, columnWidth, LV_SIZE_CONTENT);
     }
     sectionLabel(settings, STR_NB4_FUNCTION);
-    auto group = new Choice(settings, {0, 0, LV_PCT(100), 40}, navigationOnly ? 1 : 0, navigationOnly ? 1 : 3,
+    auto group = new Choice(settings, {0, 0, LV_PCT(100), Nb4Ui::Touch}, navigationOnly ? 1 : 0, navigationOnly ? 1 : 3,
         [this]() { return groupOf(draft & ~NB4_CONTROL_LONG); },
         [this](int v) { draft = firstAction[v]; refreshChoices(); });
     group->setTextHandler([](int v) {
@@ -170,11 +170,11 @@ class ControlEditor : public BaseDialog
       return std::string(names[v]());
     });
     if (navigationOnly) group->hide();
-    action = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 1,
+    action = new Choice(settings, {0, 0, LV_PCT(100), Nb4Ui::Touch}, 0, 1,
         [this]() { return int(draft & ~NB4_CONTROL_LONG); },
         [this](int v) { draft = v | (v == NB4_CONTROL_RESET ? NB4_CONTROL_LONG : draft & NB4_CONTROL_LONG); refreshChoices(); });
     action->setTextHandler([](int v) { return std::string(actionName(v)); });
-    gesture = new Choice(settings, {0, 0, LV_PCT(100), 40}, 0, 1,
+    gesture = new Choice(settings, {0, 0, LV_PCT(100), Nb4Ui::Touch}, 0, 1,
         [this]() { return !!(draft & NB4_CONTROL_LONG); },
         [this](int v) { draft = (draft & ~NB4_CONTROL_LONG) | (v ? NB4_CONTROL_LONG : 0); if (result) result->hide(); });
     gesture->setTextHandler([](int v) { return std::string(v ? STR_NB4_HOLD_0_6_S : STR_NB4_ON_PRESS); });

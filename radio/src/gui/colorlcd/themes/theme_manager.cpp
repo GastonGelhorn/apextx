@@ -667,7 +667,8 @@ HeaderIcon::HeaderIcon(Window* parent, const char* iconFile, std::function<void(
   action(std::move(action))
 {
   this->icon = new StaticIcon(this, 0, 0, iconFile, COLOR_THEME_PRIMARY2_INDEX);
-  this->icon->center(width(), height());
+  // Centred on the plate's body, not its pointed tip, as for built-in icons.
+  this->icon->center(width() - PAD_SMALL, height());
 #if defined(HARDWARE_TOUCH)
   if (this->action) {
     lv_obj_add_flag(lvobj, LV_OBJ_FLAG_CLICKABLE);

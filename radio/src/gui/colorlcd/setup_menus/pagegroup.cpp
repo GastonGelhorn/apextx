@@ -129,7 +129,7 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
 
     hdrIcon = new HeaderIcon(this, icon);
 #if defined(RADIO_NB4_FAMILY)
-    new TextButton(this, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 4, 72, 40},
+    new TextButton(this, {coord_t(lv_disp_get_hor_res(nullptr) - 76), 0, 72, 44},
                    STR_NB4_BACK, [menu] { menu->onCancel(); return 0; });
 #endif
 
@@ -181,6 +181,9 @@ PageGroupHeaderBase::PageGroupHeaderBase(Window* parent, coord_t height, EdgeTxI
     carousel->padAll(PAD_ZERO);
 #if defined(RADIO_NB4_FAMILY)
     carousel->setWidth(lv_disp_get_hor_res(nullptr) - MENU_HEADER_BUTTONS_LEFT - 124);
+    // The scope line sits right under the bar, so the selected tab ends at
+    // the bar instead of reaching down into that text.
+    carousel->setHeight(EdgeTxStyles::MENU_HEADER_HEIGHT);
     layoutNb4Header();
 #endif
     carousel->setWindowFlag(NO_FOCUS);
@@ -200,14 +203,14 @@ void PageGroupHeaderBase::layoutNb4Header()
   const coord_t titleWidth = titleOnly
       ? available
       : std::min<coord_t>(110, std::max<coord_t>(58, available / 3));
-  const coord_t titleHeight = getFontHeight(FONT(BOLD));
+  const coord_t titleHeight = nb4FitHeaderTitle(
+      titleLabel, titleWidth, PageGroup::PAGE_GROUP_TOP_BAR_H);
   lv_obj_set_pos(titleLabel, titleLeft,
                  (PageGroup::PAGE_GROUP_TOP_BAR_H - titleHeight) / 2);
   lv_obj_set_size(titleLabel, titleWidth, titleHeight);
   carousel->setPos(titleLeft + titleWidth, 0);
   carousel->setWidth(std::max<coord_t>(0, available - titleWidth));
   carousel->show(!titleOnly);
-  etx_font(titleLabel, FONT_BOLD_INDEX);
 }
 #endif
 
@@ -281,7 +284,7 @@ void PageGroupHeaderBase::setTitle(const char* title)
     std::string s = replaceAll(title, "\n", " ");
     lv_label_set_text(titleLabel, s.c_str());
 #if defined(RADIO_NB4_FAMILY)
-    etx_font(titleLabel, FONT_BOLD_INDEX);
+    if (carousel) layoutNb4Header();
 #endif
 #else
     lv_label_set_text(titleLabel, title);
@@ -454,7 +457,7 @@ bool PageGroupBase::setHelpHandler(std::function<void()> action)
   helpHandler = std::move(action);
   if (!helpButton && helpHandler)
     helpButton = new TextButton(header,
-      {coord_t(lv_disp_get_hor_res(nullptr) - 120), 4, 40, 40}, "?",
+      {coord_t(lv_disp_get_hor_res(nullptr) - 124), 0, 44, 44}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
   if (helpButton) { helpButton->show(bool(helpHandler)); helpButton->bringToTop(); }
   return true;
