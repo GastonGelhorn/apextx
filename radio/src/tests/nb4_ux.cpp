@@ -12,6 +12,7 @@
 #include "mainwindow.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "channel_bar.h"
 #include "topbar.h"
 #include "nb4_ui_languages.h"
 #include "nb4_design_checks.h"
@@ -5505,6 +5506,49 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
       EXPECT_EQ(first.y1, second.y1) << "Submenus must have two usable columns";
       EXPECT_GT(second.x1, first.x2);
       Layer::back()->onCancel(); render(scene.root);
+      EXPECT_EQ(Layer::back(), main);
+    }
+  }
+}
+
+TEST(Nb4Ux, OutputEditorKeepsLiveBarsClearOfHeaderActions)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  auto main = ViewMain::instance();
+  for (const char* language : NB4_UI_LANGUAGES) {
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    currentLangStrings = langStrings[getLanguageId(language)];
+    for (bool landscape : {false, true}) {
+      SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+      scene.orient(landscape);
+      main->resizeToDisplay();
+      ASSERT_TRUE(nb4OpenRoute("settings/advanced/outputs"));
+      auto list = Layer::back();
+      auto editor = new OutputEditWindow(0);
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      unsigned bars = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        auto window = static_cast<Window*>(lv_obj_get_user_data(obj));
+        if (window && dynamic_cast<ComboChannelBar*>(window)) {
+          ++bars;
+          lv_area_t bounds;
+          lv_obj_get_coords(obj, &bounds);
+          EXPECT_GE(bounds.y1, EdgeTxStyles::MENU_HEADER_HEIGHT);
+          EXPECT_GE(bounds.x1, 0);
+          EXPECT_LT(bounds.x2, lv_disp_get_hor_res(nullptr));
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); ++i)
+          inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(editor->getLvObj());
+      EXPECT_EQ(bars, 1u);
+      const auto name = std::string("output-editor-") + language +
+          (landscape ? "-landscape" : "-portrait");
+      saveFrame(name.c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+      ASSERT_TRUE(clickLabel(editor->getLvObj(), STR_NB4_BACK));
+      render(scene.root);
+      EXPECT_EQ(Layer::back(), list);
+      list->onCancel(); render(scene.root);
       EXPECT_EQ(Layer::back(), main);
     }
   }
