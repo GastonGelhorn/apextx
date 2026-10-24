@@ -37,6 +37,7 @@ volatile uint32_t viewStartedAt = 0;
 volatile uint32_t viewLastUs = 0;
 volatile uint32_t viewMaxUs = 0;
 volatile uint32_t views = 0;
+bool quietViews = false;
 
 void publishIfDue(uint32_t now)
 {
@@ -110,11 +111,13 @@ void nb4UiPerfViewChanged()
 {
   // A tap can push several layers (a page and its first dialog); time the
   // whole change from the first one.
-  if (viewPending) return;
+  if (viewPending || quietViews) return;
   viewStartedAt = nb4UiPerfNowUs();
   viewFrameQueued = false;
   viewPending = true;
 }
+
+void nb4UiPerfQuiet(bool quiet) { quietViews = quiet; }
 
 Nb4UiPerf nb4UiPerfRead()
 {

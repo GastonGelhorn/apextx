@@ -36,6 +36,8 @@ void nb4UiPerfWait(uint32_t us);
 void nb4UiPerfFrameQueued();
 void nb4UiPerfPresented();
 void nb4UiPerfViewChanged();
+// Layer changes while quiet are not views the user opened (cache warm-up).
+void nb4UiPerfQuiet(bool quiet);
 
 Nb4UiPerf nb4UiPerfRead();
 void nb4UiPerfReset();

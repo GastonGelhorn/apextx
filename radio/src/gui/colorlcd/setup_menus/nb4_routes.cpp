@@ -26,6 +26,7 @@
 #include "nb4_home.h"
 #include "nb4_home_templates.h"
 #include "layer.h"
+#include "nb4_ui_perf.h"
 #include "model_nb4_axis.h"
 #include "model_nb4_racing.h"
 #include "model_telemetry.h"
@@ -1007,6 +1008,15 @@ bool reopenGrid(const std::string& key, uint32_t signature, bool* cacheNew)
   return false;
 }
 
+// Sections that open one editor directly instead of a grid of destinations.
+const char* directRouteOf(const char* sectionId)
+{
+  return !strcmp(sectionId, "steering") ? "settings/steering/travel" :
+    !strcmp(sectionId, "throttle_brake") ? "settings/throttle_brake/travel" :
+    !strcmp(sectionId, "receiver_rf") ? "settings/receiver_rf/module" :
+    !strcmp(sectionId, "help") ? "settings/system/help" : nullptr;
+}
+
 bool sectionHasSomethingOpenable(const char* id)
 {
   const Nb4Route* views[32];
@@ -1117,11 +1127,7 @@ void nb4OpenSettingsSection(const char* id)
         [] { nb4OpenHelp("settings/models/management", true); });
     return;
   }
-  const char* direct = !strcmp(id, "steering") ? "settings/steering/travel" :
-    !strcmp(id, "throttle_brake") ? "settings/throttle_brake/travel" :
-    !strcmp(id, "receiver_rf") ? "settings/receiver_rf/module" :
-    !strcmp(id, "help") ? "settings/system/help" : nullptr;
-  if (direct) { nb4OpenRoute(direct); return; }
+  if (const char* direct = directRouteOf(id)) { nb4OpenRoute(direct); return; }
   const uint32_t signature = gridSignature();
   const std::string key = std::string("section:") + section->id;
   bool cache;
@@ -1166,6 +1172,57 @@ void nb4OpenSettingsModal()
                 [sec] { nb4OpenSettingsSection(sec->id); }, nullptr, sec->id);
   }
   });
+}
+
+void nb4WarmGridCache()
+{
+  // Wait for home to sit idle, then build at most one grid per step so a tap
+  // never waits behind more than one.
+  static uint32_t lastStep = 0;
+  const uint32_t now = timersGetMsTick();
+  if (now - lastStep < 250) return;
+  lastStep = now;
+  if (Layer::back() != ViewMain::instance()) return;
+  if (lv_disp_get_inactive_time(nullptr) < 1500) return;
+  nb4WarmNextGrid();
+}
+
+bool nb4WarmNextGrid()
+{
+  const uint32_t signature = gridSignature();
+  auto current = [&](const std::string& key) {
+    for (const auto& entry : gridCache)
+      if (entry.key == key) return entry.signature == signature;
+    return false;
+  };
+  std::function<void()> open;
+  if (!current("settings")) open = [] { nb4OpenSettingsModal(); };
+  else if (!current("quick")) open = [] { nb4OpenQuickAccessModal(); };
+  else {
+    for (const auto& section : sections) {
+      if (!strcmp(section.id, "cars") || directRouteOf(section.id)) continue;
+      const std::string key = std::string("section:") + section.id;
+      if (current(key)) continue;
+      const Nb4Route* views[32];
+      const unsigned n = nb4RoutesOfSection(section.id, views, 32);
+      bool shown = false;
+      for (unsigned i = 0; i < n && i < 32; ++i)
+        if (nb4RouteInSettings(*views[i])) shown = true;
+      if (!shown) continue;
+      const char* id = section.id;
+      open = [id] { nb4OpenSettingsSection(id); };
+      break;
+    }
+  }
+  if (!open) return false;
+
+  // Built and parked before the next render, so it never appears.
+  nb4UiPerfQuiet(true);
+  auto home = Layer::back();
+  open();
+  if (Layer::back() != home) Layer::back()->onCancel();
+  nb4UiPerfQuiet(false);
+  return true;
 }
 
 void nb4DropGridCache()

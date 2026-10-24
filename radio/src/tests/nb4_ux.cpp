@@ -4104,6 +4104,55 @@ TEST(Nb4Performance, ClosedGridsReopenWithoutRebuilding)
   EXPECT_EQ(Layer::back(), base);
 }
 
+TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
+{
+  Scene scene;
+  memcpy(g_eeGeneral.uiLanguage, "en", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  ViewMain::instance();
+  auto base = Layer::back();
+  ASSERT_NE(base, nullptr);
+  lv_mem_monitor_t before, after;
+  lv_mem_monitor(&before);
+
+  unsigned built = 0;
+  while (nb4WarmNextGrid()) {
+    ASSERT_EQ(Layer::back(), base) << "a warmed grid stayed on screen";
+    ASSERT_LT(++built, 20u);
+  }
+  EXPECT_GE(built, 8u);
+  render(scene.root);
+  lv_mem_monitor(&after);
+  printf("NB4 grid warm-up: %u grids, %u KiB of the LVGL heap\n", built,
+         (unsigned)((before.free_size - after.free_size) / 1024));
+
+  // Every grid now opens from the cache, the first time included.
+  nb4OpenSettingsModal();
+  auto settings = Layer::back();
+  EXPECT_NE(settings, base);
+  settings->onCancel();
+  nb4OpenSettingsModal();
+  EXPECT_EQ(Layer::back(), settings);
+  Layer::back()->onCancel();
+  nb4OpenSettingsSection("display");
+  auto display = Layer::back();
+  display->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+  EXPECT_FALSE(nb4WarmNextGrid());
+
+  // A language change makes them stale; the warm-up rebuilds them.
+  memcpy(g_eeGeneral.uiLanguage, "es", 2);
+  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  EXPECT_TRUE(nb4WarmNextGrid());
+  while (nb4WarmNextGrid()) {}
+  nb4OpenSettingsSection("display");
+  EXPECT_NE(Layer::back(), display);
+  Layer::back()->onCancel();
+  scene.root->run();
+  EXPECT_EQ(Layer::back(), base);
+}
+
 TEST(Nb4Performance, EveryViewOpenCost)
 {
   Scene scene;

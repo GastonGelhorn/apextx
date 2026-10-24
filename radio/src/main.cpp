@@ -460,6 +460,7 @@ void guiMain(event_t evt)
 #if defined(RADIO_NB4_FAMILY)
   // A setting chosen from a boot alert opens once the main loop owns the UI.
   nb4RunDeferredRoute();
+  nb4WarmGridCache();
   // Collect the newest control positions before this frame is rendered.
   // Rendering first adds one complete UI cycle to the instrument latency.
   const uint32_t uiStart = nb4UiPerfNowUs();
