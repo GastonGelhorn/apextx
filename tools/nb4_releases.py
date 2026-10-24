@@ -102,6 +102,9 @@ class ReleaseClient:
                 context = ssl.create_default_context(cafile=certifi.where())
             except ImportError:
                 context = ssl.create_default_context()
+            # A supplied SSL context bypasses urllib's default ALPN setup.
+            # Advertise the HTTP version this client actually implements.
+            context.set_alpn_protocols(['http/1.1'])
             opener = urllib.request.build_opener(_Redirects(), urllib.request.HTTPSHandler(context=context))
         self.opener = opener
 
