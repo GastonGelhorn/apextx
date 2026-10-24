@@ -44,6 +44,13 @@ void publishIfDue(uint32_t now)
   if (elapsed < kWindowUs) return;
   const uint32_t frames = presented;
   presented = 0;
+  // An idle second (nothing redrawn) would overwrite the figures with zeros
+  // before anyone can read them; keep the last second that drew something.
+  if (frames == 0) {
+    current = Window();
+    current.startedAt = now;
+    return;
+  }
   Nb4UiPerf next = published;
   next.fps = elapsed ? (uint32_t)((uint64_t)frames * 1000000u / elapsed) : 0;
   if (current.loops) {

@@ -9,7 +9,8 @@
 
 // Interface timing on the radio, shown on the diagnostics page so a slow view
 // can be measured instead of described. Every figure is in microseconds and
-// covers the last complete one-second window, except the view figures, which
+// covers the last one-second window in which at least one frame was drawn
+// (an idle second leaves them unchanged), except the view figures, which
 // keep the last and the slowest view change of the session.
 //
 // "View open" runs from the moment a view is pushed or popped (inside the tap
