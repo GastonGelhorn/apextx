@@ -37,7 +37,7 @@
 #include "os/time.h"
 #endif
 #endif
-#if !LV_USE_GPU_STM32_DMA2D && !defined(SIMU)
+#if (!LV_USE_GPU_STM32_DMA2D && !defined(SIMU)) || defined(RADIO_NB4_FAMILY)
 #include "dma2d.h"
 #endif
 
@@ -99,24 +99,46 @@ static void nb4MarkDirty(const lv_area_t& area)
   }
 }
 
+// Outside the rows changed by the last frame the two scanout buffers are
+// identical, so a run of changed rows can be copied as its bounding rectangle:
+// the extra pixels are already equal. One DMA2D transfer per run replaces a
+// CPU memcpy per row; the F429 has no data cache, and DMA2D moves SDRAM to
+// SDRAM in bursts several times faster than the core.
+static void nb4CopyRect(pixel_t* dest, const pixel_t* src, unsigned x,
+                        unsigned y, unsigned w, unsigned h, unsigned srcStride,
+                        unsigned srcX, unsigned srcY)
+{
+  DMACopyBitmap((uint16_t*)dest, LCD_PHYS_W, LCD_PHYS_H, x, y,
+                (const uint16_t*)src, srcStride, 0, srcX, srcY, w, h);
+}
+
 static void nb4SynchroniseBackBuffer()
 {
-  for (unsigned slot = 0; slot < DIM(nb4Sync->present); ++slot) {
-    uint32_t pending = nb4Sync->present[slot];
-    while (pending) {
-      const unsigned bit = __builtin_ctz(pending);
-      const unsigned y = slot * 32 + bit;
-      if (y < LCD_PHYS_H) {
-        const unsigned left = nb4Sync->left[y];
-        const unsigned count = nb4Sync->right[y] - left + 1;
-        memcpy(nb4Back + y * LCD_PHYS_W + left,
-               nb4Front + y * LCD_PHYS_W + left,
-               count * sizeof(pixel_t));
-      }
-      pending &= pending - 1;
+  int runStart = -1;
+  unsigned runLeft = 0, runRight = 0;
+  auto flush = [&](int endRow) {
+    if (runStart < 0) return;
+    nb4CopyRect(nb4Back, nb4Front, runLeft, runStart, runRight - runLeft + 1,
+                endRow - runStart, LCD_PHYS_W, runLeft, runStart);
+    runStart = -1;
+  };
+  for (unsigned y = 0; y < LCD_PHYS_H; ++y) {
+    const uint32_t bit = uint32_t(1) << (y % 32);
+    if (!(nb4Sync->present[y / 32] & bit)) {
+      flush(y);
+      continue;
     }
-    nb4Sync->present[slot] = 0;
+    const unsigned left = nb4Sync->left[y], right = nb4Sync->right[y];
+    if (runStart < 0) {
+      runStart = y; runLeft = left; runRight = right;
+    } else {
+      runLeft = std::min(runLeft, left);
+      runRight = std::max(runRight, right);
+    }
   }
+  flush(LCD_PHYS_H);
+  memset(nb4Sync->present, 0, sizeof(nb4Sync->present));
+  DMAWait();
 }
 
 #if !defined(SIMU)
@@ -224,10 +246,12 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
   // The preceding flush was acknowledged at vertical blank. Its old front
   // buffer is now free; synchronise only the pixels that actually changed.
   nb4SynchroniseBackBuffer();
-  for (int y = area->y1; y <= area->y2; ++y)
-    memcpy(nb4Back + y * LCD_PHYS_W + area->x1,
-      color_p + (y - area->y1) * width, width * sizeof(pixel_t));
+  const unsigned height = area->y2 - area->y1 + 1;
+  nb4CopyRect(nb4Back, (const pixel_t*)color_p, area->x1, area->y1, width,
+              height, width, 0, 0);
   nb4MarkDirty(*area);
+  // LVGL may draw into color_p again as soon as this returns.
+  DMAWait();
   nb4UiPerfCopy(nb4UiPerfNowUs() - copyStart);
   if (!lv_disp_flush_is_last(disp_drv)) {
     lv_disp_flush_ready(disp_drv);
