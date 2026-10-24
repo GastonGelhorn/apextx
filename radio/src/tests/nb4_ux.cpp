@@ -4921,10 +4921,11 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
         lv_obj_get_coords(badge, &badgeBounds);
         lv_obj_get_coords(tileLabel, &labelBounds);
         EXPECT_GE(labelBounds.y1 - badgeBounds.y2 - 1, 3);
-        EXPECT_NE(lv_color_to32(lv_obj_get_style_bg_color(badge, LV_PART_MAIN)),
-                  lv_color_to32(lv_obj_get_style_bg_grad_color(badge, LV_PART_MAIN)));
-        EXPECT_EQ(glyphColours.size(), 2u);
-        EXPECT_GE(artworkColours.size(), 2u);
+        // One flat colour and one glyph: nothing per tile that has to be
+        // blended or recoloured twice on every redraw.
+        EXPECT_EQ(lv_obj_get_style_bg_grad_dir(badge, LV_PART_MAIN), LV_GRAD_DIR_NONE);
+        EXPECT_EQ(glyphColours.size(), 1u);
+        EXPECT_GE(artworkColours.size(), 1u);
       }
       EXPECT_LE(rows.size(), 3u);
       for (const auto& row : columns) EXPECT_LE(row.second, 4u);
