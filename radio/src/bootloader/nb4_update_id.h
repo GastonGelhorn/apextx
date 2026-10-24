@@ -30,6 +30,10 @@
 
 // Read-only USB configuration descriptor. This describes the installed
 // application, never the bootloader's own build or USB bcdDevice version.
+// APXINFO's numeric generation is the bootloader compatibility level. Bump it
+// when a release requires a new bootloader; retain the three-field layout.
+// Release metadata extracts it from the built bootloader, and only an Update
+// mode descriptor proves which generation is installed (not data-mode USB).
 #define NB4_USB_INFO_PREFIX "APXINFO1;" NB4_HARDWARE_ID ";"
 #if defined(BOOT)
 #ifdef __cplusplus

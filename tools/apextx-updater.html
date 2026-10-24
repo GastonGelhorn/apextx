@@ -70,6 +70,13 @@ footer a:hover{text-decoration:underline}
 .device-dot.connected{background:var(--good);box-shadow:0 0 0 5px rgba(62,205,143,.09)}
 .device-head strong{font-size:18px;flex:1}.quiet{background:transparent;color:var(--blue2);border:0;font:600 13px system-ui;cursor:pointer;min-height:44px;padding:8px}
 .quiet:disabled{color:var(--muted2);cursor:default}
+.bootloader-notice{margin:18px 0 0;display:block}.bootloader-notice strong{display:block;margin-bottom:4px;color:var(--text)}
+.bootloader-guide{margin-top:22px;border-top:1px solid var(--line2);padding-top:20px;scroll-margin-top:20px}
+.bootloader-guide h2{font-size:21px;line-height:1.3;margin:0 0 8px;letter-spacing:-.3px}
+.bootloader-guide .selected-release{margin:0 0 18px;color:var(--blue2);font-weight:600;font-size:14px}
+.dfu-steps{padding-left:23px;margin:16px 0;font-size:14px}.dfu-steps li{padding-left:5px;margin-bottom:12px}
+.dfu-state{border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:14px;margin:18px 0 0;background:rgba(32,160,240,.05)}
+.guide-actions{display:flex;flex-direction:column;align-items:center;gap:7px}.guide-actions .cta{margin-top:14px}
 .device-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .device-meta span{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}.device-meta strong{font-size:17px;overflow-wrap:anywhere}
 .device-help,.release-help{font-size:13px;line-height:1.55;color:var(--muted);margin:15px 0 0;overflow-wrap:anywhere}
@@ -111,9 +118,25 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
   <label class="channel"><input id="preview" type="checkbox" checked><span data-k="includePreview">Include alpha / beta releases</span></label>
   <p class="release-help" id="releaseHelp" aria-live="polite"></p>
   <a class="release-link" id="releaseLink" target="_blank" rel="noreferrer noopener" data-k="releaseNotes" hidden>Release notes ↗</a>
+  <div class="warn bootloader-notice" id="bootloaderNotice" hidden><strong data-k="bootloaderTitle"></strong><span data-k="bootloaderHelp"></span></div>
   <button class="cta" id="upgrade" disabled></button>
+  <section class="bootloader-guide" id="bootloaderGuide" aria-labelledby="bootloaderGuideTitle" hidden>
+    <h2 id="bootloaderGuideTitle" data-k="dfuTitle" tabindex="-1"></h2>
+    <p class="selected-release" id="bootloaderSelection"></p>
+    <p class="device-help" data-k="dfuDownloaded"></p>
+    <ol class="dfu-steps">
+      <li data-k="dfuStep1"></li>
+      <li data-k="dfuStep2"></li>
+      <li data-k="dfuStep3"></li>
+    </ol>
+    <p class="device-help" data-k="dfuBackup"></p>
+    <p class="device-help" data-k="rduration"></p>
+    <p class="device-help" id="bootloaderDriver" data-k="windowsDriver" hidden></p>
+    <p class="dfu-state" id="bootloaderConnection" role="status"></p>
+    <div class="guide-actions"><button class="cta" id="bootloaderInstall" disabled></button><button class="quiet" id="bootloaderCancel" data-k="dfuCancel"></button></div>
+  </section>
   <div id="updateTransferSlot"></div>
-  <details class="manual"><summary data-k="manual">Choose a local firmware image</summary>
+  <details class="manual" id="manualSection"><summary data-k="manual">Choose a local firmware image</summary>
   <label class="file">
     <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span data-k="imglabel">Firmware image</span></strong>
     <span id="fileinfo"></span>
@@ -154,7 +177,7 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
 <footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
-document.getElementById("driverNote").hidden=document.documentElement.dataset.platform!=="win32";
+document.getElementById("driverNote").hidden=document.getElementById("bootloaderDriver").hidden=document.documentElement.dataset.platform!=="win32";
 const T={
  en:{h1:"Update your radio",intro:"Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right firmware and verifies it before updating your radio.",
   windowsDriver:"Windows requires a WinUSB-compatible driver for the connected device.",
@@ -215,6 +238,57 @@ Object.assign(T.en,{rduration:"Allow 5–10 minutes. The radio’s screen stays 
 Object.assign(T.es,{rduration:"Puede tardar entre 5 y 10 minutos. La pantalla de la emisora permanece negra durante la instalación; sigue el progreso aquí y mantén el USB conectado.",rautoDone:"Firmware y bootloader verificados. La emisora está arrancando automáticamente. Confirma que aparece Inicio.",rbackup:"Respaldando el firmware actual…",rerase:"Borrando la memoria interna…",rwrite:"Escribiendo firmware y bootloader…",rverify:"Verificando la imagen completa…",rfinish:"Imagen verificada. Arrancando la emisora…"});
 Object.assign(T.de,{rduration:"Dies kann 5–10 Minuten dauern. Das Display bleibt während der Installation schwarz. Fortschritt hier verfolgen und USB verbunden lassen.",rautoDone:"Firmware und Bootloader verifiziert. Die Fernbedienung startet automatisch. Bitte den Startbildschirm bestätigen.",rbackup:"Aktuelle Firmware wird gesichert…",rerase:"Interner Flash wird gelöscht…",rwrite:"Firmware und Bootloader werden geschrieben…",rverify:"Vollständiges Image wird geprüft…",rfinish:"Image verifiziert. Fernbedienung startet…"});
 const $=s=>document.querySelector(s);
+Object.assign(T.en,{
+ bootloaderTitle:"Bootloader update required",
+ bootloaderHelp:"This release needs a newer bootloader. A normal Update keeps the old one. The flasher will download the full image and guide you into STM32 ROM DFU to install both firmware and bootloader.",
+ bootloaderUpdate:"Prepare full installation · {version}",
+ dfuTitle:"Connect your radio in DFU mode",
+ dfuDownloaded:"The firmware has been downloaded and verified. Nothing has been written yet.",
+ dfuStep1:"Disconnect USB and switch the radio off completely.",
+ dfuStep2:"Hold the recessed button in the left grip while switching the radio on and connecting the USB data cable. This is different from Menu → System → Update.",
+ dfuStep3:"Release the grip button once DFU is detected below. Then choose Back up & install.",
+ dfuBackup:"The app backs up your current internal firmware, installs the complete image and verifies every byte before starting the radio automatically.",
+ dfuWait:"Waiting for your radio in STM32 ROM DFU…",
+ dfuWrongRadio:"A different radio is connected. Reconnect the original radio in STM32 ROM DFU.",
+ dfuDetected:"Your radio is connected in DFU. Ready for the complete installation.",
+ dfuInstall:"Back up & install on Noble {model}",
+ dfuCancel:"Cancel installation",
+ dfuPreparing:"Downloading and verifying the complete firmware…"
+});
+Object.assign(T.es,{
+ bootloaderTitle:"Es necesario actualizar el bootloader",
+ bootloaderHelp:"Esta versión necesita un bootloader nuevo. Una actualización normal conserva el anterior. El flasher descargará la imagen completa y te guiará para entrar en STM32 ROM DFU e instalar el firmware y el bootloader.",
+ bootloaderUpdate:"Preparar instalación completa · {version}",
+ dfuTitle:"Conecta tu emisora en modo DFU",
+ dfuDownloaded:"El firmware está descargado y verificado. Todavía no se ha escrito nada.",
+ dfuStep1:"Desconecta el USB y apaga completamente la emisora.",
+ dfuStep2:"Mantén pulsado el botón hundido del grip izquierdo mientras enciendes la emisora y conectas el cable USB de datos. Este modo es diferente de Menú → Sistema → Update.",
+ dfuStep3:"Suelta el botón del grip cuando se detecte DFU aquí abajo. Después pulsa Respaldar e instalar.",
+ dfuBackup:"La app respalda el firmware interno actual, instala la imagen completa y verifica cada byte antes de arrancar la emisora automáticamente.",
+ dfuWait:"Esperando tu emisora en STM32 ROM DFU…",
+ dfuWrongRadio:"Hay otra emisora conectada. Vuelve a conectar la emisora original en STM32 ROM DFU.",
+ dfuDetected:"Tu emisora está conectada en DFU. Lista para la instalación completa.",
+ dfuInstall:"Respaldar e instalar en Noble {model}",
+ dfuCancel:"Cancelar instalación",
+ dfuPreparing:"Descargando y verificando el firmware completo…"
+});
+Object.assign(T.de,{
+ bootloaderTitle:"Bootloader-Update erforderlich",
+ bootloaderHelp:"Diese Version benötigt einen neueren Bootloader. Ein normales Update behält den bisherigen bei. Der Flasher lädt das vollständige Image herunter und führt durch den STM32-ROM-DFU-Modus, um Firmware und Bootloader zu installieren.",
+ bootloaderUpdate:"Vollständige Installation vorbereiten · {version}",
+ dfuTitle:"Fernbedienung im DFU-Modus verbinden",
+ dfuDownloaded:"Die Firmware wurde heruntergeladen und geprüft. Es wurde noch nichts geschrieben.",
+ dfuStep1:"USB trennen und die Fernbedienung vollständig ausschalten.",
+ dfuStep2:"Die versenkte Taste am linken Griff beim Einschalten und Anschließen des USB-Datenkabels gedrückt halten. Dieser Modus unterscheidet sich von Menü → System → Update.",
+ dfuStep3:"Die Grifftaste loslassen, sobald DFU unten erkannt wird. Anschließend Sichern & installieren wählen.",
+ dfuBackup:"Die App sichert die aktuelle interne Firmware, installiert das vollständige Image und prüft jedes Byte, bevor die Fernbedienung automatisch startet.",
+ dfuWait:"Warte auf deine Fernbedienung im STM32-ROM-DFU-Modus…",
+ dfuWrongRadio:"Eine andere Fernbedienung ist verbunden. Die ursprüngliche Fernbedienung im STM32-ROM-DFU-Modus erneut verbinden.",
+ dfuDetected:"Deine Fernbedienung ist im DFU-Modus verbunden. Bereit zur vollständigen Installation.",
+ dfuInstall:"Sichern & auf Noble {model} installieren",
+ dfuCancel:"Installation abbrechen",
+ dfuPreparing:"Vollständige Firmware wird heruntergeladen und geprüft…"
+});
 const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
@@ -233,29 +307,40 @@ function refreshModel(){const d=T[lang];if(!rfile.files[0]){rmodel.style.display
  const radio=selectedRadio();rconfirmLabel.textContent=rVariant&&radio?d.rconfirm.replace('{radio}','Noble '+radio).replace('{image}','Noble '+rVariant):d.rconfirmGeneric;
 }
 function selectedRadio(){const picked=document.querySelector('input[name="radioVariant"]:checked');return picked?picked.value:null;}
-function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'searching'},offer=s.release,state=device.state;
+function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'searching'},offer=s.release,state=device.state,plan=s.bootloader_install;
  if(!s.operation&&!localError&&!requesting)$('#transfer').hidden=true;
  $('#deviceTitle').textContent=(d[state==='ready'?'connected':state==='error'?'usbError':state]||d.searching).replace('{model}',device.model||'');
  $('#deviceDot').classList.toggle('connected',state==='ready'||state==='normal');
  $('#installedVersion').textContent=device.version?(device.version+(device.development?' · dev':'')):state==='ready'||state==='normal'?d.unknown:'—';
  $('#installedVersion').title=device.revision||'';
  $('#latestVersion').textContent=offer?offer.version:s.checking?'…':'—';$('#previewBadge').hidden=!offer||!offer.prerelease;
- $('#deviceHelp').textContent=state==='ready'?d.readyHelp:state==='normal'?d.normalHelp:state==='recovery'?d.recoveryHelp:state==='multiple'?d.multipleHelp:state==='error'?device.message:d.connectHelp;
+ $('#deviceHelp').textContent=plan?'':state==='ready'?d.readyHelp:state==='normal'?d.normalHelp:state==='recovery'?d.recoveryHelp:state==='multiple'?d.multipleHelp:state==='error'?device.message:d.connectHelp;
  const slot=$('#'+(s.operation==='recover'?'recover':s.operation==='manual'?'manual':'update')+'TransferSlot');if($('#transfer').parentElement!==slot)slot.appendChild($('#transfer'));
  const decision=offer?.decision;
- $('#releaseHelp').textContent=s.checking?d.checking:s.release_error?d.offline:offer?(decision==='unknown'?'':d[decision+'Help']||'')+(offer.prerelease?' '+d.previewHelp:''):device.target?d.noRelease:'';
+ $('#releaseHelp').textContent=plan?'':s.checking?d.checking:s.release_error?d.offline:offer?(decision==='unknown'||decision==='bootloader'?'':d[decision+'Help']||'')+(offer.prerelease?' '+d.previewHelp:''):device.target?d.noRelease:'';
  $('#releaseHelp').title=s.release_error||'';
  $('#releaseLink').hidden=!offer;if(offer)$('#releaseLink').href=offer.url;
- if(!requesting)$('#preview').checked=s.preview!==false;$('#preview').disabled=running||requesting;
- const canUpgrade=state==='ready'&&offer&&['available','unknown'].includes(decision)&&!s.checking;
+ if(!requesting)$('#preview').checked=s.preview!==false;$('#preview').disabled=running||requesting||!!plan;
+ $('#bootloaderNotice').hidden=decision!=='bootloader'||!!plan;
+ $('#bootloaderGuide').hidden=!plan;
+ $('#manualSection').hidden=!!plan;
+ $('#bootloaderSelection').textContent=plan?`Noble ${plan.model} · ${offer.version}`:'';
+ $('#bootloaderConnection').textContent=plan?(plan.ready?d.dfuDetected:state==='multiple'?d.multipleHelp:state==='error'?device.message:device.serial&&device.serial!==plan.serial?d.dfuWrongRadio:d.dfuWait):'';
+ $('#bootloaderConnection').classList.toggle('good',!!plan?.ready);
+ $('#bootloaderInstall').disabled=running||requesting||!plan?.ready;
+ $('#bootloaderInstall').textContent=running&&s.operation==='bootloader'?d.rworking:d.dfuInstall.replace('{model}',plan?.model||'');
+ $('#bootloaderCancel').disabled=running||requesting;
+ if(plan&&!running&&!s.error&&s.operation==='prepare_bootloader')$('#transfer').hidden=true;
+ const canUpgrade=!plan&&state==='ready'&&offer&&['available','unknown','bootloader'].includes(decision)&&!s.checking;
  const upgrade=$('#upgrade');upgrade.disabled=running||requesting||!canUpgrade;
- upgrade.textContent=running?d.working:canUpgrade?d[decision==='unknown'?'installLatest':'downloadUpdate'].replace('{version}',offer.version):decision==='current'?d.upToDate:s.checking?d.checking:decision==='ahead'?d.newerInstalled:decision==='development'?d.dev:state==='ready'?d.noUpdate:state==='normal'?d.normal:d.waitRadio;
+ upgrade.hidden=!!plan;
+ upgrade.textContent=running?(s.operation==='prepare_bootloader'?d.dfuPreparing:d.working):canUpgrade?d[decision==='bootloader'?'bootloaderUpdate':decision==='unknown'?'installLatest':'downloadUpdate'].replace('{version}',offer.version):decision==='current'?d.upToDate:s.checking?d.checking:decision==='ahead'?d.newerInstalled:decision==='development'?d.dev:state==='ready'?d.noUpdate:state==='normal'?d.normal:d.waitRadio;
  $('#refresh').disabled=running||requesting||s.checking;
- file.disabled=rfile.disabled=running;start.disabled=running||requesting||state!=='ready'||!file.files[0]||file.files[0].size!==IMG;
+ file.disabled=rfile.disabled=running||!!plan;start.disabled=running||requesting||!!plan||state!=='ready'||!file.files[0]||file.files[0].size!==IMG;
  start.textContent=running&&s.operation==='manual'?d.updating:d.update;
  rstart.textContent=running&&s.operation==='recover'?d.rworking:d.rbtn;
- rstart.disabled=running||requesting||!rfile.files[0]||rfile.files[0].size!==IMG||!selectedRadio()||!rconfirm.checked;
- document.querySelectorAll('#tabs button,input[name="radioVariant"],#rconfirm').forEach(el=>el.disabled=running);
+ rstart.disabled=running||requesting||!!plan||!rfile.files[0]||rfile.files[0].size!==IMG||!selectedRadio()||!rconfirm.checked;
+ document.querySelectorAll('#tabs button,input[name="radioVariant"],#rconfirm').forEach(el=>el.disabled=running||!!plan);
 }
 document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>applyLang(b.dataset.lang));
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
@@ -273,25 +358,29 @@ function showError(text){localError=text;message.textContent=text;message.classN
 async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
 $('#refresh').onclick=()=>request('/api/refresh');
 $('#preview').onchange=()=>{const preview=$('#preview').checked;if(snapshot)snapshot.preview=preview;return request('/api/channel',{preview});};
-$('#upgrade').onclick=async()=>{if(running||!snapshot?.release)return;const s=snapshot;running=true;render();if(!await request('/api/upgrade',{serial:s.device.serial,target:s.device.target,release_id:s.release.id})){running=false;render();}};
+$('#upgrade').onclick=async()=>{if(running||requesting||!snapshot?.release||$('#upgrade').disabled)return;const s=snapshot;running=true;render();if(!await request(s.release.decision==='bootloader'?'/api/bootloader/prepare':'/api/upgrade',{serial:s.device.serial,target:s.device.target,release_id:s.release.id})){running=false;render();}};
+$('#bootloaderInstall').onclick=async()=>{if(running||requesting||!snapshot?.bootloader_install?.ready)return;const s=snapshot,p=s.bootloader_install;running=true;render();if(!await request('/api/bootloader/install',{serial:p.serial,target:p.target,release_id:s.release.id})){running=false;render();}};
+$('#bootloaderCancel').onclick=()=>request('/api/bootloader/cancel');
 async function send(url,f,extra={}){if(!f||running)return;localError=null;requesting=true;running=true;render();message.className='';message.textContent=T[lang].validating;$('#transfer').hidden=false;
  try{const r=await fetch(url,{method:'POST',headers:{'X-ApexTX-Token':token,...extra},body:f});const j=await r.json();if(!r.ok)throw Error(j.error);}
  catch(e){showError(e.message);running=false;}finally{requesting=false;render();}}
 function operationMessage(s){const d=T[lang],m=s.message||'';
  if(s.error){if(m.startsWith('The USB connection to the radio was lost.'))return m.includes('already written and verified')?d.usbLostVerified:m.includes('was writing flash memory')?d.usbLostInstalling:d.usbLostTransfer;return m;}
- if(s.progress===100)return s.operation==='recover'?(m.includes('starting automatically')?d.rautoDone:d.rdone):m.includes('still in update mode')?d.restartManually:d.done;
- if(s.operation==='recover'){
+ if(s.progress===100)return ['recover','bootloader'].includes(s.operation)?(m.includes('starting automatically')?d.rautoDone:d.rdone):m.includes('still in update mode')?d.restartManually:d.done;
+ if(s.operation==='prepare_bootloader')return d.dfuPreparing;
+ if(['recover','bootloader'].includes(s.operation)){
   const phases=[['Reading the current firmware',d.rbackup],['Backing up',d.rbackup],['Backup saved',d.rwrite],['Erasing flash',d.rerase],['Writing',d.rwrite],['Reading the image back',d.rverify],['Verifying',d.rverify],['Verified.',d.rfinish]];
   return phases.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
  }
  const stages=[['Downloading firmware',d.downloading],['Firmware download verified',d.downloadVerified],['Waiting for ApexTX Update',d.waiting],['Transferring firmware',d.transferring],['Verifying the transfer',d.transferCheck],['Installing and verifying firmware',d.installing],['Waiting for the radio to finish writing flash',d.flashBusy],['Firmware verified. Restarting',d.restarting]];
  return stages.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
 }
-async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error();snapshot=await r.json();
+async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error();const hadGuide=!!snapshot?.bootloader_install;snapshot=await r.json();
  running=snapshot.running||requesting;
  if(snapshot.operation&&!localError&&!requesting){$('#transfer').hidden=false;message.textContent=operationMessage(snapshot);message.className=snapshot.error?'error':snapshot.progress===100?'good':'';bar.value=snapshot.progress;percent.textContent=`${snapshot.progress}%`;}
  render();
- }catch(e){showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=true;}
+ if(snapshot.bootloader_install&&!hadGuide){$('#bootloaderGuideTitle').focus({preventScroll:true});$('#bootloaderGuide').scrollIntoView({block:'start',behavior:'smooth'});}
+ }catch(e){showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
  setTimeout(poll,800);
 }
 applyLang(pick());poll();

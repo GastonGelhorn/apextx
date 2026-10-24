@@ -4,7 +4,7 @@ import copy
 import threading
 import time
 
-from nb4_releases import ReleaseClient, update_decision
+from nb4_releases import ReleaseClient, bootloader_required, image_bootloader_generation, update_decision
 from nb4_usb_update import UpdateError, discover, probe, release, run_update
 
 
@@ -17,6 +17,7 @@ class FlasherSession:
         self.wake = threading.Event()
         self.device = dict(state='searching')
         self.offer = None
+        self.bootloader_install = None
         self.preview = True  # ApexTX is currently an alpha; clearly labelled in the UI.
         self.release_error = None
         self.checking = False
@@ -28,16 +29,27 @@ class FlasherSession:
     def snapshot(self):
         with self.lock:
             offer = None
-            if self.offer:
-                offer = {k: self.offer[k] for k in ('id', 'version', 'prerelease', 'url', 'target')}
-                offer['decision'] = update_decision(self.device, self.offer)
+            selected = self.bootloader_install['offer'] if self.bootloader_install else self.offer
+            if selected:
+                offer = {k: selected[k] for k in ('id', 'version', 'prerelease', 'url', 'target')}
+                offer['bootloader'] = selected.get('bootloader', 0)
+                offer['decision'] = update_decision(self.device, selected)
+            plan = None
+            if self.bootloader_install:
+                original = self.bootloader_install['device']
+                plan = {k: original.get(k) for k in ('serial', 'target', 'model', 'version')}
+                plan['ready'] = (self.device.get('state') == 'recovery' and
+                                 self.device.get('serial') == original['serial'])
             return copy.deepcopy(dict(self.status, device=self.device, release=offer,
+                bootloader_install=plan,
                 preview=self.preview, checking=self.checking, release_error=self.release_error))
 
     def refresh(self, preview=None):
         with self.lock:
             if self.status['running']:
                 raise UpdateError('An operation is already in progress.')
+            if preview is not None and self.bootloader_install:
+                raise UpdateError('Finish or cancel the bootloader installation before changing release channels.')
             if preview is not None:
                 self.preview = preview
                 self.offer = None
@@ -58,12 +70,18 @@ class FlasherSession:
             with self.lock:
                 # A completed operation belongs to its radio. Keep its restart
                 # instruction across a detach, but never show it for another.
-                if (device.get('serial') and self.status['serial'] and
+                if (not self.bootloader_install and device.get('serial') and self.status['serial'] and
                         (device['serial'] != self.status['serial'] or
                          device.get('target') not in (None, self.status['target']))):
                     self.status.update(operation=None, progress=0, message='',
                                        error=False, serial=None, target=None)
                 self.device = device
+                if self.bootloader_install:
+                    # Keep the verified image and original serial across the
+                    # deliberate disconnect/reconnect into ROM DFU. Never write
+                    # merely because a DFU device has appeared.
+                    self.checking = False
+                    return
                 key = (device.get('target'), self.preview)
                 if device.get('state') not in ('ready', 'normal') or not device.get('target'):
                     self.offer = None
@@ -118,16 +136,61 @@ class FlasherSession:
             self.status['running'] = False
         self.wake.set()
 
-    def choice(self, serial, target, release_id):
+    def choice(self, serial, target, release_id, bootloader=False):
         with self.lock:
             device = self.device
+            if self.bootloader_install:
+                raise UpdateError('Finish or cancel the pending bootloader installation first.')
             if (device.get('state') != 'ready' or not serial or
                     (serial, target) != (device.get('serial'), device.get('target')) or
                     not self.offer or release_id != self.offer['id'] or target != self.offer['target']):
                 raise UpdateError('The radio or release changed. Check the detected radio and try again.')
-            if update_decision(device, self.offer) in ('current', 'ahead', 'development'):
+            decision = update_decision(device, self.offer)
+            if bootloader:
+                if decision != 'bootloader':
+                    raise UpdateError('This radio does not need a bootloader update. Check again.')
+            elif decision == 'bootloader':
+                raise UpdateError('This release needs a bootloader update. Follow the STM32 ROM DFU installation guide in the flasher.')
+            elif decision in ('current', 'ahead', 'development'):
                 raise UpdateError('No automatic upgrade is available. Use a local image for a deliberate reinstall or development build replacement.')
             return copy.deepcopy(device), copy.deepcopy(self.offer)
+
+    def prepare_bootloader(self, device, offer):
+        try:
+            image = self.client.download(offer, self.progress)
+            from nb4_rom_flash import validate_full_image
+            if validate_full_image(image) != device['model']:
+                raise UpdateError('The complete image is for another radio. Nothing was written.')
+            with self.lock:
+                self.bootloader_install = dict(device=device, offer=offer, image=image)
+                self.status.update(progress=0, message='Firmware downloaded and verified. Enter STM32 ROM DFU to continue.')
+        except Exception as error:
+            self.finish(error)
+        else:
+            self.finish()
+
+    def cancel_bootloader(self):
+        with self.lock:
+            if self.status['running']:
+                raise UpdateError('An operation is already in progress.')
+            self.bootloader_install = None
+            self.status.update(operation=None, progress=0, message='', error=False, serial=None, target=None)
+            self.next_check = 0
+            self.wake.set()
+
+    def bootloader_choice(self, serial, target, release_id):
+        with self.lock:
+            plan = self.bootloader_install
+            if (not plan or (serial, target, release_id) !=
+                    (plan['device']['serial'], plan['device']['target'], plan['offer']['id']) or
+                    self.device.get('state') != 'recovery' or self.device.get('serial') != serial):
+                raise UpdateError('Reconnect the original radio in STM32 ROM DFU mode before installing.')
+            return plan['image'], plan['device']['model'], serial
+
+    @staticmethod
+    def check_bootloader(device, image):
+        if bootloader_required(device, image_bootloader_generation(image)):
+            raise UpdateError('This firmware needs a new bootloader. Use the guided STM32 ROM DFU installation or Install / Recovery; a normal Update preserves the old bootloader.')
 
     @staticmethod
     def pinned_finder(device):
@@ -150,6 +213,14 @@ class FlasherSession:
                     raise UpdateError('The radio was disconnected. Reconnect it in ApexTX Update mode.')
                 release(selection)
                 image = self.client.download(offer, self.progress)
+                self.check_bootloader(device, image)
+                if offer.get('bootloader'):
+                    # Re-read only standard descriptors before opening a write
+                    # transaction; discovery alone does not prove compatibility.
+                    current = probe()
+                    if (current.get('state'), current.get('serial'), current.get('target')) != ('ready', device['serial'], device['target']):
+                        raise UpdateError('The connected radio changed. Nothing was written.')
+                    self.check_bootloader(current, image)
                 run_update(image, lambda message, percent: self.progress(message, 8 + percent * 92 // 100),
                            serial=device['serial'], wait_seconds=0, finder=finder)
         except Exception as error:

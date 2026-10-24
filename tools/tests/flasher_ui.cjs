@@ -69,6 +69,25 @@ assert.equal(get('rstart').disabled,true);
 assert.equal(modes.every(m=>m.disabled),true);
 assert.equal(run("operationMessage({message:'Firmware verified. Confirm that the radio has returned to the home screen.',progress:100})"),'Firmware verificado. Confirma que tu emisora ha vuelto a Inicio.');
 state(device);
+const bootOffer={...offer,decision:'bootloader',bootloader:1};
+const plan={serial:'A',target:1,model:'NB4',version:'0.1.0-alpha.3',ready:false};
+state(device,bootOffer);
+assert.equal(get('bootloaderNotice').hidden,false);
+assert.equal(get('upgrade').disabled,false);
+assert.equal(get('upgrade').textContent,'Preparar instalación completa · 0.1.0-alpha.4');
+for(const status of ['absent','recovery','multiple']) {
+ state({state:status,serial:status==='recovery'?'B':undefined},bootOffer,{bootloader_install:plan,operation:'prepare_bootloader'});
+ assert.equal(get('bootloaderGuide').hidden,false,'Guide survives the deliberate disconnect');
+ assert.equal(get('bootloaderInstall').disabled,true,'Wait for the pinned radio in DFU');
+ assert.equal(get('upgrade').hidden,true);
+ assert.equal(get('preview').disabled,true);
+ assert.equal(get('transfer').hidden,true,'A prepared download is not a completed installation');
+}
+state({state:'recovery',serial:'A'},bootOffer,{bootloader_install:{...plan,ready:true}});
+assert.equal(get('bootloaderInstall').disabled,false);
+assert.equal(get('bootloaderInstall').textContent,'Respaldar e instalar en Noble NB4');
+assert.equal(calls.length,0,'Detecting DFU must never initiate an installation');
+state(device);
 for(const language of ['en','es','de']) {
  run(`applyLang('${language}')`);
  assert.equal(get('upgrade').textContent.includes('0.1.0-alpha.4'),true);
@@ -77,6 +96,8 @@ for(const language of ['en','es','de']) {
  assert.equal(run("operationMessage({operation:'recover',message:'Installation complete and verified. The radio is starting automatically.',progress:100})===T[lang].rautoDone"),true);
  assert.equal(run("operationMessage({operation:'recover',message:'Erasing flash 25%',progress:30})===T[lang].rerase"),true);
  assert.equal(run("T[lang].rduration.includes('5') && T[lang].rduration.includes('10')"),true);
+ assert.equal(run("T[lang].dfuStep2.includes('USB') && T[lang].dfuStep2.includes('Update')"),true);
+ assert.equal(run("operationMessage({operation:'bootloader',message:'Installation complete and verified. The radio is starting automatically.',progress:100})===T[lang].rautoDone"),true);
  for(const [detail,key] of [['The radio was writing flash memory.','usbLostInstalling'],['The firmware was already written and verified.','usbLostVerified'],['No flash memory had been written yet.','usbLostTransfer']]) {
   const status={error:true,message:'The USB connection to the radio was lost. '+detail+' ([Errno 5] Input/Output Error)'};
   assert.equal(run(`operationMessage(${JSON.stringify(status)})===T[lang].${key}`),true,'USB advice must be localized and specific to the installation phase');
@@ -92,5 +113,20 @@ for(const language of ['en','es','de']) {
  assert.equal(calls[0].url,'/api/upgrade');
  assert.deepEqual(JSON.parse(calls[0].options.body),{serial:'A',target:1,release_id:42});
  assert.equal(get('upgrade').disabled,true);
+ calls=[];
+ state(device,bootOffer);
+ await get('upgrade').onclick();
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,'/api/bootloader/prepare','A bootloader update first downloads and prepares; it must not use normal Update');
+ calls=[];
+ state({state:'recovery',serial:'A'},bootOffer,{bootloader_install:{...plan,ready:true}});
+ await get('bootloaderInstall').onclick();
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,'/api/bootloader/install');
+ assert.deepEqual(JSON.parse(calls[0].options.body),{serial:'A',target:1,release_id:42});
+ calls=[];
+ state({state:'absent'},bootOffer,{bootloader_install:plan});
+ await get('bootloaderCancel').onclick();
+ assert.equal(calls[0].url,'/api/bootloader/cancel');
  console.log('Shared flasher UI: connection states, all languages, offline/manual, version policy, busy guards, and explicit upgrade request passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

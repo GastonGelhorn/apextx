@@ -67,6 +67,10 @@ def firmware_identity(value):
 def update_decision(device, release):
     if not release:
         return 'unavailable'
+    if device.get('version') and Version(device['version']) > Version(release['version']):
+        return 'development' if device.get('development') else 'ahead'
+    if device.get('state', 'ready') == 'ready' and bootloader_required(device, release.get('bootloader', 0)):
+        return 'bootloader'
     if not device.get('version'):
         return 'unknown'
     installed, offered = Version(device['version']), Version(release['version'])
@@ -75,6 +79,19 @@ def update_decision(device, release):
     if device.get('development'):
         return 'development'
     return 'current' if installed == offered else 'ahead'
+
+
+def bootloader_required(device, generation):
+    # Only the descriptor served by the bootloader in Update mode establishes
+    # its generation. An application's version or data-mode descriptor cannot.
+    return generation > (device.get('bootloader') or 0)
+
+
+def image_bootloader_generation(image):
+    generations = set(re.findall(rb'APXINFO([1-9][0-9]{0,3});', image[:BOOT_SIZE]))
+    if len(generations) > 1:
+        raise ReleaseError('The image has conflicting bootloader identities. Nothing was written.')
+    return int(next(iter(generations))) if generations else 0
 
 
 def _safe_url(url):
@@ -112,7 +129,7 @@ class ReleaseClient:
         if not _safe_url(url):
             raise ReleaseError('Invalid GitHub release URL.')
         request = urllib.request.Request(url, headers={
-            'User-Agent': 'ApexTX-Flasher/1.1', 'Accept': 'application/vnd.github+json'
+            'User-Agent': 'ApexTX-Flasher/1.2', 'Accept': 'application/vnd.github+json'
             if url.startswith(API) else 'application/octet-stream',
             'X-GitHub-Api-Version': '2022-11-28'})
         try:
@@ -173,7 +190,8 @@ class ReleaseClient:
                     sums = by_name.get('SHA256SUMS')
                     if not asset or not sums:
                         continue
-                    for item in (asset, sums):
+                    metadata = by_name.get(f'apextx-{hardware}-{version.text}.update.json')
+                    for item in (asset, sums, *([metadata] if metadata else [])):
                         expected = ('https://github.com/' + REPOSITORY + '/releases/download/' +
                                     urllib.parse.quote(tag, safe='') + '/' + urllib.parse.quote(item['name'], safe=''))
                         if item.get('browser_download_url') != expected:
@@ -184,6 +202,7 @@ class ReleaseClient:
                         continue
                     candidates.append((version, dict(id=row['id'], version=version.text,
                         prerelease=prerelease, target=target, asset=asset, checksums=sums,
+                        metadata=metadata,
                         url=f'https://github.com/{REPOSITORY}/releases/tag/{urllib.parse.quote(tag, safe="")}')))
                 if len(rows) < 100:
                     break
@@ -191,7 +210,31 @@ class ReleaseClient:
                 raise ReleaseError('GitHub returned invalid release metadata.') from error
         else:
             raise ReleaseError('The release list is too long to check safely. Choose a local image.')
-        return max(candidates, key=lambda item: item[0])[1] if candidates else None
+        if not candidates:
+            return None
+        offer = max(candidates, key=lambda item: item[0])[1]
+        metadata = offer.pop('metadata')
+        if metadata:
+            raw = self.fetch(metadata['browser_download_url'], 16384)
+            self._digest(raw, metadata.get('digest'))
+            try:
+                policy = json.loads(raw)
+                generation = policy['bootloader']
+                if (policy['schema'] != 1 or policy['version'] != offer['version'] or
+                        policy['target'] != target or policy['firmware'] != offer['asset']['name'] or
+                        type(generation) is not int or not 1 <= generation <= 9999 or
+                        not re.fullmatch(r'[0-9a-f]{64}', policy['sha256'])):
+                    raise ValueError()
+                offer.update(bootloader=generation, image_sha256=policy['sha256'])
+            except (ValueError, KeyError, TypeError) as error:
+                raise ReleaseError('The release has invalid bootloader requirements. Nothing was written.') from error
+        elif Version(offer['version']) <= Version('0.1.0-alpha.5'):
+            # Published before compatibility assets existed. Only alpha.5 added
+            # APXINFO1 to its bootloader. Never infer a future requirement.
+            offer['bootloader'] = 1 if offer['version'] == '0.1.0-alpha.5' else 0
+        else:
+            raise ReleaseError('The release is missing bootloader requirements. Choose a local image or try again later.')
+        return offer
 
     def download(self, release, progress):
         asset = release['asset']
@@ -210,6 +253,9 @@ class ReleaseClient:
         self._digest(data, asset.get('digest'))
         image = self._unpack(data, asset['name'], release) if asset['name'].endswith('.zip') else data
         validate_full_image_auth(image)
+        if (image_bootloader_generation(image) != release.get('bootloader', 0) or
+                (release.get('image_sha256') and hashlib.sha256(image).hexdigest() != release['image_sha256'])):
+            raise ReleaseError('The firmware does not match the release bootloader requirements. Nothing was written.')
         if package_target(update_package(image)) != release['target']:
             raise ReleaseError('The downloaded firmware is for another radio. Nothing was written.')
         # Read only the linker-kept application stamp, not a string elsewhere

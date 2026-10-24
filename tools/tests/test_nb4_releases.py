@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import pathlib
+import struct
 import sys
 import unittest
 import zipfile
@@ -17,11 +18,16 @@ from nb4_update_image import finalize
 from tools.tests.test_nb4_updater import application
 
 
-def image(target=1, version='0.1.0-alpha.4'):
+def image(target=1, version='0.1.0-alpha.4', bootloader=0):
     app = application(b'nb4' if target == 1 else b'nb4plus')
     stamp = f'apextx-nb4-2.12.5-apextx-{version} (123456789)\0'.encode()
     app[128:128 + len(stamp)] = stamp
-    return finalize(b'\x00' * 0x20000 + app)
+    boot = bytearray(b'\x00' * 0x20000)
+    struct.pack_into('<II', boot, 0, 0x20020000, 0x08000101)
+    if bootloader:
+        prefix = f'APXINFO{bootloader};'.encode()
+        boot[256:256+len(prefix)] = prefix
+    return finalize(boot + app)
 
 
 def asset(name, version='0.1.0-alpha.4', size=2097152):
@@ -30,9 +36,12 @@ def asset(name, version='0.1.0-alpha.4', size=2097152):
 
 
 def row(version='0.1.0-alpha.4', target='nb4', direct=True):
-    return dict(id=42, tag_name='v' + version, draft=False, prerelease='-' in version,
+    value = dict(id=42, tag_name='v' + version, draft=False, prerelease='-' in version,
         assets=[asset(f'apextx-{target}-{version}.bin' if direct else f'apextx-{target}-{version}.zip', version),
                 asset('SHA256SUMS', version, 100)])
+    if Version(version) > Version('0.1.0-alpha.5'):
+        value['assets'].append(asset(f'apextx-{target}-{version}.update.json', version, 300))
+    return value
 
 
 class Versions(unittest.TestCase):
@@ -57,12 +66,84 @@ class Versions(unittest.TestCase):
             ('0.1.0-alpha.5', True, 'development')]:
             self.assertEqual(update_decision(dict(version=version, development=development), offer), expected)
 
+    def test_bootloader_generation_is_independent_of_the_application_version(self):
+        offer = dict(version='0.1.0-alpha.5', bootloader=1)
+        for version in (None, '0.1.0-alpha.4', '0.1.0-alpha.5'):
+            self.assertEqual(update_decision(dict(version=version, bootloader=0), offer), 'bootloader')
+        self.assertEqual(update_decision(dict(version='0.1.0-alpha.4', bootloader=1), offer), 'available')
+        self.assertEqual(update_decision(dict(version='0.1.0-alpha.5', bootloader=1), offer), 'current')
+        self.assertEqual(update_decision(dict(version='0.2.0', bootloader=0), offer), 'ahead')
+
 
 class Releases(unittest.TestCase):
     def client(self, rows):
         client = ReleaseClient(opener=Mock())
-        client.fetch = Mock(return_value=json.dumps(rows).encode())
+        def fetch(url, *_args):
+            if '.update.json' in url:
+                from runpy import run_path
+                make_metadata = run_path(str(ROOT/'tools/nb4-release-metadata.py'))['metadata']
+                for value in rows:
+                    if any(a['browser_download_url'] == url for a in value['assets']):
+                        target = 2 if 'nb4plus' in url else 1
+                        version = value['tag_name'][1:]
+                        return json.dumps(make_metadata(image(target, version, 1), version, 'nb4plus' if target == 2 else 'nb4')).encode()
+                raise AssertionError(url)
+            return json.dumps(rows).encode()
+        client.fetch = Mock(side_effect=fetch)
         return client
+
+    def test_legacy_alpha5_requires_the_new_bootloader_and_future_metadata_is_mandatory(self):
+        self.assertEqual(self.client([row('0.1.0-alpha.5')]).latest(1)['bootloader'], 1)
+        future = row('0.1.0-alpha.6')
+        future['assets'].pop()
+        with self.assertRaisesRegex(ReleaseError, 'missing bootloader requirements'):
+            self.client([future]).latest(1)
+
+    def test_release_requirements_are_validated_before_offering_a_download(self):
+        release = row('0.1.0-alpha.6')
+        base = dict(schema=1,version='0.1.0-alpha.6',target=1,bootloader=2,
+                    firmware='apextx-nb4-0.1.0-alpha.6.bin',sha256='a'*64)
+        for changes in (dict(bootloader=True),dict(bootloader=0),dict(target=2),dict(version='0.1.0-alpha.5'),dict(sha256='bad')):
+            client = self.client([release])
+            client.fetch.side_effect = [json.dumps([release]).encode(), json.dumps(dict(base,**changes)).encode()]
+            with self.assertRaisesRegex(ReleaseError, 'invalid bootloader requirements'):
+                client.latest(1)
+
+    def test_download_refuses_bootloader_metadata_that_disagrees_with_the_image(self):
+        client, release = self.setup_download()
+        release['bootloader'] = 2
+        with self.assertRaisesRegex(ReleaseError, 'bootloader requirements'):
+            client.download(release, Mock())
+
+    def test_metadata_is_derived_from_each_actual_image_not_the_release_name(self):
+        from runpy import run_path
+        make_metadata = run_path(str(ROOT/'tools/nb4-release-metadata.py'))['metadata']
+        for target, model in ((1,'nb4'),(2,'nb4plus')):
+            data = image(target, '0.1.0-alpha.6', 2)
+            policy = make_metadata(data, '0.1.0-alpha.6', model)
+            self.assertEqual((policy['target'],policy['bootloader']), (target,2))
+            self.assertEqual(policy['sha256'], hashlib.sha256(data).hexdigest())
+            with self.assertRaises(ValueError): make_metadata(data, '0.1.0-alpha.5', model)
+            with self.assertRaises(ValueError): make_metadata(data, '0.1.0-alpha.6', 'nb4plus' if target == 1 else 'nb4')
+
+    def test_future_bootloader_release_metadata_and_download_agree_for_both_radios(self):
+        from runpy import run_path
+        make_metadata = run_path(str(ROOT/'tools/nb4-release-metadata.py'))['metadata']
+        for target, model in ((1,'nb4'),(2,'nb4plus')):
+            data = image(target, '0.1.0-alpha.6', 2)
+            policy = json.dumps(make_metadata(data, '0.1.0-alpha.6', model)).encode()
+            release_row = row('0.1.0-alpha.6',model)
+            release_row['assets'][-1]['digest']='sha256:'+hashlib.sha256(policy).hexdigest()
+            client = self.client([release_row])
+            client.fetch.side_effect=[json.dumps([release_row]).encode(),policy]
+            release = client.latest(target)
+            self.assertEqual(release['bootloader'],2)
+            sums=(hashlib.sha256(data).hexdigest()+'  '+release['asset']['name']+'\n').encode()
+            client.fetch.side_effect=[sums,data]
+            self.assertEqual(client.download(release,Mock()),data)
+            client.fetch.side_effect=[sums,data]
+            release['image_sha256']='0'*64
+            with self.assertRaisesRegex(ReleaseError,'bootloader requirements'): client.download(release,Mock())
 
     def test_latest_is_semantic_compatible_and_honors_channel(self):
         rows = [row('0.1.0-alpha.9'), row('0.1.0-alpha.10'), row('0.1.0'), row('1.0.0', 'nb4plus')]

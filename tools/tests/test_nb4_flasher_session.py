@@ -48,6 +48,18 @@ class Probe(unittest.TestCase):
         self.assertEqual(normal['state'],'normal')
         self.assertIsNone(normal['target'])
 
+    def test_only_update_mode_reports_the_installed_bootloader_generation(self):
+        stamp = 'apextx-nb4-2.12.5-apextx-0.1.0-alpha.5 (123456789)'
+        for generation in (1, 2):
+            info = f'APXINFO{generation};nb4;{stamp}'
+            self.assertEqual(self.probe(self.device(info=info))['bootloader'], generation)
+            normal = self.probe(self.device('ApexTX NB4 Joystick', info=info))
+            self.assertIsNone(normal['bootloader'])
+        self.assertEqual(self.probe(self.device())['bootloader'], 0)
+        for prefix in ('APXINFO0', 'APXINFO01', 'APXINFO-1', 'APXINFO10000'):
+            with self.assertRaises(usb.UpdateError): self.probe(self.device(info=f'{prefix};nb4;{stamp}'))
+        self.assertEqual(self.probe(self.device('STM32 BOOTLOADER'))['serial'], 'A')
+
     def test_info_slot_works_with_inherited_dfu_hid_and_cdc_configuration_indices(self):
         import re
         library = ROOT / 'radio/src/thirdparty/STM32_USB_Device_Library'
@@ -163,6 +175,74 @@ class Session(unittest.TestCase):
             s.scan()
         self.assertIsNone(s.snapshot()['operation'])
         self.assertEqual(s.snapshot()['progress'], 0)
+
+    def prepare(self, target=1):
+        from tools.tests.test_nb4_releases import image
+        s = self.setup_session()
+        s.device.update(target=target, model='NB4+' if target == 2 else 'NB4', bootloader=0)
+        s.offer.update(target=target, version='0.1.0-alpha.5', bootloader=1)
+        s.client.download.return_value = image(target, '0.1.0-alpha.5', 1)
+        device, offer = s.choice('A', target, 42, bootloader=True)
+        s.begin('prepare_bootloader')
+        s.prepare_bootloader(device, offer)
+        self.assertFalse(s.snapshot()['error'])
+        return s
+
+    def test_old_bootloader_cannot_use_the_normal_automatic_or_manual_transport(self):
+        from tools.tests.test_nb4_releases import image
+        s = self.setup_session()
+        s.offer.update(bootloader=1)
+        with self.assertRaisesRegex(usb.UpdateError, 'bootloader update'): s.choice('A',1,42)
+        with self.assertRaisesRegex(usb.UpdateError, 'new bootloader'): s.check_bootloader(s.device, image(bootloader=1))
+        s.device.update(bootloader=1)
+        s.check_bootloader(s.device, image(bootloader=1))
+        with self.assertRaises(usb.UpdateError): s.choice('A',1,42,bootloader=True)
+
+    def test_prepared_image_survives_dfu_reconnection_without_starting_a_write(self):
+        for target in (1,2):
+            s = self.prepare(target)
+            for device in (dict(state='absent'),dict(state='recovery',serial='B'),dict(state='multiple')):
+                with patch.object(sessions,'probe',return_value=device): s.scan()
+                self.assertFalse(s.snapshot()['bootloader_install']['ready'])
+                with self.assertRaises(usb.UpdateError): s.bootloader_choice('A',target,42)
+            with patch.object(sessions,'probe',return_value=dict(state='recovery',serial='A')): s.scan()
+            self.assertTrue(s.snapshot()['bootloader_install']['ready'])
+            data, model, serial = s.bootloader_choice('A',target,42)
+            self.assertEqual((model,serial),('NB4+' if target == 2 else 'NB4','A'))
+            self.assertEqual(data,s.client.download.return_value)
+            self.assertFalse(s.snapshot()['running'])
+            self.assertLess(s.snapshot()['progress'],100)
+            for serial,target_id,release_id in [('B',target,42),('A',3-target,42),('A',target,43)]:
+                with self.assertRaises(usb.UpdateError): s.bootloader_choice(serial,target_id,release_id)
+
+    def test_cancellation_and_failure_release_the_prepared_image(self):
+        s = self.prepare()
+        with self.assertRaises(usb.UpdateError): s.refresh(False)
+        s.begin('bootloader')
+        with self.assertRaises(usb.UpdateError): s.cancel_bootloader()
+        s.finish()
+        s.cancel_bootloader()
+        self.assertIsNone(s.snapshot()['bootloader_install'])
+        self.assertIsNone(s.snapshot()['operation'])
+        s.client.download.side_effect=RuntimeError('Download failed')
+        s.begin('prepare_bootloader')
+        s.prepare_bootloader(s.device,s.offer)
+        self.assertIsNone(s.snapshot()['bootloader_install'])
+        self.assertTrue(s.snapshot()['error'])
+
+    def test_fresh_bootloader_check_prevents_a_stale_compatible_choice_from_writing(self):
+        from tools.tests.test_nb4_releases import image
+        s = self.setup_session()
+        s.device.update(bootloader=1)
+        s.offer.update(bootloader=1)
+        s.client.download.return_value=image(bootloader=1)
+        s.begin('upgrade')
+        with patch.object(sessions,'discover',return_value=radio()),patch.object(sessions,'release'), \
+                patch.object(sessions,'probe',return_value=dict(s.device,bootloader=0)), \
+                patch.object(sessions,'run_update') as write:
+            s.automatic(s.device,s.offer)
+        write.assert_not_called()
+        self.assertTrue(s.snapshot()['error'])
 
 
 class BootUsbIdentity(unittest.TestCase):

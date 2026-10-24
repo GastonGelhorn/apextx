@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """ApexTX's RAM-staged NB4 updater transport. Never writes a ROM DFU device."""
 import errno
+import re
 import struct
 import sys
 import time
@@ -38,7 +39,7 @@ class UpdateError(RuntimeError):
 def probe():
     """Read standard USB descriptors only; never claim, configure, or reset."""
     core, util, backend = usb_modules()
-    radios, recovery, unreadable = [], 0, 0
+    radios, recovery, unreadable = [], [], 0
     ids = {(0x0483, 0xdf11), (0x0483, 0x5720),
            (0x0483, 0x5740), (0x1209, 0x4f54)}
     for device in core.find(find_all=True, backend=backend,
@@ -46,7 +47,10 @@ def probe():
         try:
             product = util.get_string(device, device.iProduct)
             if product == 'STM32 BOOTLOADER':
-                recovery += 1
+                serial = util.get_string(device, device.iSerialNumber)
+                if not serial:
+                    raise UpdateError('The DFU device did not provide its USB serial number.')
+                recovery.append(dict(state='recovery', serial=serial))
                 continue
             normal = {f'ApexTX {model} {mode}': target
                       for target, model in VARIANTS.items()
@@ -62,12 +66,15 @@ def probe():
                 value = util.get_string(device, USB_INFO_STRING) or ''
             except Exception:
                 value = ''
-            if value.startswith('APXINFO1;'):
+            generation = 0
+            if value.startswith('APXINFO'):
                 fields = value.split(';', 2)
                 expected = 'nb4' if target == 1 else 'nb4plus'
-                if len(fields) != 3 or fields[1] != expected:
+                identity = re.fullmatch(r'APXINFO([1-9][0-9]{0,3})', fields[0])
+                if len(fields) != 3 or fields[1] != expected or not identity:
                     raise UpdateError('The USB model and firmware identity disagree. Nothing was written.')
                 info = firmware_identity(fields[2])
+                generation = int(identity[1])
             for config in device:
                 if product in PRODUCTS:
                     ready = ready or any(
@@ -81,6 +88,7 @@ def probe():
             radios.append(dict(state='ready' if ready else 'normal', serial=serial,
                                target=target if identified else None,
                                model=VARIANTS[target] if identified else 'NB4 / NB4+',
+                               bootloader=generation if ready else None,
                                **(info or firmware_identity(''))))
         except UpdateError:
             raise
@@ -89,12 +97,12 @@ def probe():
                 unreadable += 1
         finally:
             util.dispose_resources(device)
-    if len(radios) + recovery > 1:
+    if len(radios) + len(recovery) > 1:
         return dict(state='multiple')
     if radios:
         return radios[0]
     if recovery:
-        return dict(state='recovery')
+        return recovery[0]
     if unreadable:
         raise UpdateError('A USB update device could not be read. Close other USB tools; '
                           'on Windows, check its WinUSB driver.')

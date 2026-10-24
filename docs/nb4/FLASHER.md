@@ -125,8 +125,48 @@ an automatic reinstall or downgrade. An older development build can upgrade to
 a newer release after clicking **Update to…**. Replacing a development build
 with the same or an older release requires **Choose a local firmware image**.
 That option also works offline; release lookup failures do not disable local updates.
-Recovery remains an explicit, separate operation with local image selection,
-model confirmation and a mandatory backup.
+Complete installation remains explicit and always backs up the current firmware.
+Local image selection and model confirmation remain available in Install / Recovery.
+
+#### Releases requiring a new bootloader
+
+When a release needs a bootloader newer than the one actually detected in Update
+mode, the app replaces the normal Update action with **Prepare full installation**.
+It downloads and validates the matching complete image first, then shows a guide:
+
+1. Disconnect USB and switch the radio off completely.
+2. Hold the recessed left grip button while switching on and connecting USB.
+3. Release the grip button once **STM32 ROM DFU** is detected in the app.
+4. Click **Back up & install on Noble NB4 / NB4+** to start the full installation.
+
+The selected image and radio identity survive the mode change. DFU detection
+alone never starts a write. Both the UI and server require the original radio's
+USB serial; discovery checks it again before backup. A different device, multiple
+devices, failed backup or failed verification stops the operation. Allow
+**5–10 minutes** with a black radio screen; progress is shown in the app. The
+radio starts automatically only after the complete image passes read-back.
+Cancel discards the prepared image without writing. Windows and macOS use this
+same flow. No separate firmware download or manual file selection is necessary.
+
+Normal Update and local application-only updates cannot bypass a bootloader
+requirement. Once the required bootloader is installed, later compatible
+releases use normal Update again.
+
+Release builds publish an `apextx-<model>-<version>.update.json` compatibility
+asset for each radio, alongside the firmware, checksums and provenance. Schema 1
+records the release version, numeric target, complete binary name/SHA-256 and
+required `bootloader` generation. `tools/nb4-release-metadata.py` extracts that
+generation from the **built bootloader**, rather than the application version.
+The downloader checks the metadata against the verified firmware image. Invalid
+or missing metadata on releases newer than alpha.5 blocks automatic updates.
+Earlier releases have explicit compatibility defaults: alpha.5 requires generation
+1; older releases require generation 0.
+
+When a bootloader change must be installed by users, bump the numeric generation
+in `NB4_USB_INFO_PREFIX` (`radio/src/bootloader/nb4_update_id.h`), retaining the
+three-field descriptor layout. Future release builds then publish the matching
+requirement automatically for both models. Do not use the application's release
+version or USB `bcdDevice` to decide whether a bootloader is installed.
 
 #### Version-query compatibility
 
@@ -136,16 +176,19 @@ application's stamp before starting USB Update, after validating the application
 they do **not** report their own build version as the installed firmware. Product,
 serial and the exact Update interface remain authoritative for selecting a write
 target. The USB `bcdDevice` value is not an ApexTX release number.
-The query uses standard string slot 4 (`USBD_IDX_CONFIG_STR`) explicitly:
+The numeric APXINFO generation identifies the bootloader compatibility level
+**only when read in Update mode**. A normal data-mode descriptor describes the
+application and cannot prove which bootloader is installed. The query uses
+standard string slot 4 (`USBD_IDX_CONFIG_STR`) explicitly:
 inherited ST class descriptors can advertise configuration index 0 or 2,
 which does not point to this callback. No third-party class descriptor or
 interface/driver identity is changed to perform the query.
 
 Older bootloaders do not provide this descriptor. The UI says **Not available**
-and offers **Install…** without pretending to compare versions. A normal update
-preserves that bootloader, so it cannot add Update-mode version reporting to an
-old bootloader. Reporting becomes available after an explicit complete install /
-recovery with a new bootloader; this is optional and is never performed silently.
+for their application version and treats their bootloader as generation 0.
+If the release requires a newer generation, it offers the guided full install
+above. A normal update preserves the bootloader and cannot add its missing
+Update-mode version reporting. A complete installation requires an explicit click.
 **Not available** is a version-query limitation, not an installation failure.
 Installation is verified separately against the exact application size and CRC
 reported by the bootloader before the app requests a restart.
