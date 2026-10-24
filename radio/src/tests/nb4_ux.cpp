@@ -3545,8 +3545,28 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   g_eeGeneral.nb4Orientation = pass >= DIM(NB4_UI_LANGUAGES);
   scene.orient(pass >= DIM(NB4_UI_LANGUAGES));
   ViewMain::instance()->resizeToDisplay();
+  // As nb4ProcessOrientation does on the radio, so home is built for it.
+  LayoutFactory::loadCustomScreens();
   memcpy(g_eeGeneral.uiLanguage, language, 2);
   currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  {
+    // Home and the two navigation grids are held to the same rules.
+    const std::string where = std::string(language) + (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-");
+    for (unsigned f = 0; f < 3; ++f) render(scene.root);
+    saveFrame(("route-" + where + "home").c_str(), lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+    for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+      design.push_back({v.rule, "home-" + where + ": " + v.detail});
+    for (const auto open : {nb4OpenSettingsModal, nb4OpenQuickAccessModal}) {
+      open();
+      for (unsigned f = 0; f < 3; ++f) render(scene.root);
+      const char* name = open == nb4OpenSettingsModal ? "settings" : "quick-access";
+      for (const auto& v : nb4DesignViolations(Layer::back()->getLvObj()))
+        design.push_back({v.rule, std::string(name) + "-" + where + ": " + v.detail});
+      Layer::back()->onCancel();
+      scene.root->run();
+    }
+    ASSERT_EQ(Layer::back(), base);
+  }
   for (unsigned i = 0; i < count; ++i) {
     const Nb4Route& r = routes[i];
     if (r.state != Nb4RouteState::Available) continue;

@@ -263,7 +263,9 @@ void Nb4HomeScreen::build()
   builtPanel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   const bool landscape = width() > height();
   const coord_t w = width();
-  constexpr coord_t edge = 2, gap = 2;
+  constexpr coord_t edge = Nb4Ui::SpaceXS, gap = Nb4Ui::SpaceXS;
+  // The header card holds 44 px buttons inside its one-pixel border.
+  constexpr coord_t headerH = Nb4Ui::Touch + 2;
   const coord_t fullWidth = w - 2 * edge;
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -272,29 +274,29 @@ void Nb4HomeScreen::build()
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 
   const std::string tags = modelLabels();
-  auto headerCard = card(this, {edge, edge, fullWidth, 48});
-  const coord_t nameX = 8;
+  auto headerCard = card(this, {edge, edge, fullWidth, headerH});
+  const coord_t nameX = Nb4Ui::SpaceS;
   const coord_t nameW = landscape ? 132 : fullWidth - 108;
-  name = label(headerCard, {nameX, tags.empty() ? (coord_t)14 : (coord_t)6, nameW, 20}, "", FONT(BOLD));
-  if (!tags.empty()) {
-    auto tagLabel = label(headerCard, {nameX, 27, nameW, 15}, tags.c_str(), FONT(XXS),
-                          COLOR_THEME_PRIMARY3_INDEX);
-    lv_obj_set_style_text_letter_space(tagLabel->getLvObj(), 1, LV_PART_MAIN);
-  }
+  name = label(headerCard, {nameX, tags.empty() ? (coord_t)0 : (coord_t)4, nameW,
+                            tags.empty() ? Nb4Ui::Touch : (coord_t)20}, "", FONT(BOLD));
+  if (!tags.empty())
+    Nb4Ui::caption(headerCard, {nameX, 24, nameW, Nb4Ui::CaptionH}, tags.c_str());
 
-  const coord_t gearX = (coord_t)(headerCard->width() - 48);
-  const coord_t wrenchX = (coord_t)(gearX - 44);
-  nb4Hairline(headerCard, {(coord_t)(wrenchX - 6), 10, 1, 28});
-  auto wrench = new Window(headerCard, {wrenchX, 2, 44, 44});
+  const coord_t gearX = (coord_t)(headerCard->width() - 2 - Nb4Ui::Touch);
+  const coord_t wrenchX = (coord_t)(gearX - Nb4Ui::Touch);
+  nb4Hairline(headerCard, {(coord_t)(wrenchX - Nb4Ui::SpaceXS), 8, 1, 28});
+  auto wrench = new Window(headerCard, {wrenchX, 0, Nb4Ui::Touch, Nb4Ui::Touch});
   lv_obj_set_style_bg_opa(wrench->getLvObj(), LV_OPA_TRANSP, 0);
-  new StaticIcon(wrench, 7, 7, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX);
+  Nb4Ui::centreIcon(new StaticIcon(wrench, 0, 0, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX),
+                    wrench->getLvObj());
 
   lv_obj_add_event_cb(wrench->getLvObj(), [](lv_event_t*) {
     nb4OpenQuickAccessModal();
   }, LV_EVENT_CLICKED, nullptr);
-  auto gear = new Window(headerCard, {gearX, 2, 44, 44});
+  auto gear = new Window(headerCard, {gearX, 0, Nb4Ui::Touch, Nb4Ui::Touch});
   lv_obj_set_style_bg_opa(gear->getLvObj(), LV_OPA_TRANSP, 0);
-  new StaticIcon(gear, 7, 7, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX);
+  Nb4Ui::centreIcon(new StaticIcon(gear, 0, 0, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX),
+                    gear->getLvObj());
 
   lv_obj_add_event_cb(gear->getLvObj(), [](lv_event_t*) {
     nb4OpenSettingsModal();
@@ -317,26 +319,27 @@ void Nb4HomeScreen::build()
 
   // --- Indicators: RF, TX, and RX -------------------------------------------
   if (landscape) {
-    nb4Hairline(headerCard, {148, 8, 1, 32});
+    nb4Hairline(headerCard, {148, 6, 1, 32});
     for (unsigned i = 0; i < 3; ++i) {
-      const coord_t x = (coord_t)(154 + 74 * i);
-      if (i) nb4Hairline(headerCard, {(coord_t)(x - 6), 8, 1, 32});
-      telltales[i] = new Nb4Telltale(headerCard, {x, 0, 68, 48}, i, false);
+      const coord_t x = (coord_t)(156 + 74 * i);
+      if (i) nb4Hairline(headerCard, {(coord_t)(x - 6), 6, 1, 32});
+      telltales[i] = new Nb4Telltale(headerCard, {x, 0, 68, Nb4Ui::Touch}, i, false);
     }
   } else {
     const coord_t usable = fullWidth - 2 * gap;
     for (unsigned i = 0; i < 3; ++i) {
       const coord_t x = edge + usable * i / 3 + gap * i;
       const coord_t cellWidth = usable * (i + 1) / 3 - usable * i / 3;
-      telltales[i] = new Nb4Telltale(this, {x, 52, cellWidth, 56}, i, true);
+      telltales[i] = new Nb4Telltale(this, {x, (coord_t)(edge + headerH + gap), cellWidth, 56}, i, true);
     }
   }
 
   if (!instruments) { refresh(state); return; }
 
   // --- Instruments ----------------------------------------------------------
-  const coord_t instrumentY = landscape ? 52 : 110;
-  const coord_t footerY = height() - edge - (landscape ? 58 : 122);
+  const coord_t instrumentY = edge + headerH + gap + (landscape ? 0 : 56 + gap);
+  constexpr coord_t chronoH = 68, statsH = 48, barH = 56;
+  const coord_t footerY = height() - edge - (landscape ? barH : chronoH + gap + statsH);
   const coord_t instrumentH = footerY - gap - instrumentY;
   const coord_t dialWidth = (fullWidth - gap) * 3 / 5;
   dial = new Nb4Dial(this, {edge, instrumentY, dialWidth, instrumentH}, landscape);
@@ -345,14 +348,14 @@ void Nb4HomeScreen::build()
 
   // --- Lap timer and statistics ---------------------------------------------
   if (landscape) {
-    auto bar = card(this, {edge, footerY, fullWidth, 58});
-    chrono = new Nb4Chrono(bar, {0, 0, 202, 56}, state, true);
-    auto split = nb4Hairline(bar, {202, 10, 1, 36});
+    auto bar = card(this, {edge, footerY, fullWidth, barH});
+    chrono = new Nb4Chrono(bar, {0, 0, 202, barH - 2}, state, true);
+    auto split = nb4Hairline(bar, {202, 9, 1, 36});
     lv_obj_clear_flag(split->getLvObj(), LV_OBJ_FLAG_CLICKABLE);
-    stats = new Nb4Stats(bar, {204, 0, (coord_t)(fullWidth - 206), 56}, true);
+    stats = new Nb4Stats(bar, {204, 0, (coord_t)(fullWidth - 206), barH - 2}, true);
   } else {
-    chrono = new Nb4Chrono(this, {edge, footerY, fullWidth, 70}, state, false);
-    stats = new Nb4Stats(this, {edge, (coord_t)(footerY + 72), fullWidth, 50}, false);
+    chrono = new Nb4Chrono(this, {edge, footerY, fullWidth, chronoH}, state, false);
+    stats = new Nb4Stats(this, {edge, (coord_t)(footerY + chronoH + gap), fullWidth, statsH}, false);
   }
   Nb4Ui::passThrough(chrono->getLvObj());
   Nb4Ui::passThrough(stats->getLvObj());

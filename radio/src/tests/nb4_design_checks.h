@@ -300,6 +300,11 @@ class Walker
       lv_obj_t* c = lv_obj_get_child(o, i);
       if (hidden(c) || !(isLabel(c) || interactive(c))) continue;
       if (lv_obj_has_flag(c, Nb4Ui::OffGrid)) continue;
+      // Centred and right-aligned text floats; only left-aligned text and
+      // controls line up with the card's edge.
+      if (isLabel(c) && lv_obj_calculate_style_text_align(c, LV_PART_MAIN, lv_label_get_text(c)) !=
+                            LV_TEXT_ALIGN_LEFT)
+        continue;
       lv_area_t b = isLabel(c) ? inkBox(c) : lv_area_t{};
       if (!isLabel(c)) lv_obj_get_coords(c, &b);
       // Only what lines up with an edge; centred and value text float.
