@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '../apextx-updater.html'), 'utf8');
 const elements = new Map();
-function element() {return {dataset:{},style:{},files:[],classList:{toggle(){}},textContent:'',hidden:false,disabled:false,checked:false};}
+function element() {return {dataset:{},style:{},files:[],classList:{toggle(){}},appendChild(child){child.parentElement=this;},textContent:'',hidden:false,disabled:false,checked:false};}
 for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set('#'+match[1],element());
 const translations = [...html.matchAll(/data-k="([^"]+)"/g)].map(m=>Object.assign(element(),{dataset:{k:m[1]}}));
 const langs = ['en','es','de'].map(lang=>Object.assign(element(),{dataset:{lang}}));
@@ -47,6 +47,7 @@ for(const decision of ['current','ahead','development']) {
 state({...device,version:null},{...offer,decision:'unknown'});
 assert.equal(get('installedVersion').textContent,'No disponible');
 assert.equal(get('upgrade').textContent,'Instalar 0.1.0-alpha.4');
+assert.equal(get('releaseHelp').textContent.includes('Este bootloader'),false,'Do not repeat the unknown-version explanation');
 state(device,null,{release_error:'offline'});
 get('file').files=[{name:'firmware.bin',size:2097152}];
 run('render()');
@@ -57,6 +58,7 @@ assert.equal(get('start').disabled,true);
 assert.equal(get('preview').disabled,true);
 assert.equal(get('rstart').disabled,true);
 assert.equal(modes.every(m=>m.disabled),true);
+assert.equal(run("operationMessage({message:'Firmware verified. Confirm that the radio has returned to the home screen.',progress:100})"),'Firmware verificado. Confirma que tu emisora ha vuelto a Inicio.');
 state(device);
 for(const language of ['en','es','de']) {
  run(`applyLang('${language}')`);
@@ -64,6 +66,9 @@ for(const language of ['en','es','de']) {
  assert.equal(translations.every(e=>e.textContent.length>0),true,'Every visible translation has text');
 }
 (async()=>{
+ get('preview').checked=false;
+ await get('preview').onchange();
+ assert.equal(get('preview').checked,false,'Channel choice must not flash back during its request');
  calls=[];
  await get('upgrade').onclick();
  assert.equal(calls.length,1);

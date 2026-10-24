@@ -121,6 +121,9 @@ def serve(port=0, open_browser=True):
                 raise nb4_rom_flash.RomFlashError(
                     'No radio in STM32 ROM DFU mode was found. Put the radio into ROM DFU '
                     '(hold the recessed grip button while switching it on) and connect USB.')
+            with lock:
+                status.update(serial=serial, target=next(
+                    number for number, name in VARIANTS.items() if name == radio_variant))
             # 1) Mandatory backup of the radio's current firmware.
             folder = Path.home() / 'ApexTX-Backups'
             folder.mkdir(parents=True, exist_ok=True)

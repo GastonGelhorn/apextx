@@ -22,7 +22,8 @@ class FlasherSession:
         self.checking = False
         self.next_check = 0
         self.cache_key = None
-        self.status = dict(running=False, progress=0, message='', error=False, operation=None)
+        self.status = dict(running=False, progress=0, message='', error=False,
+                           operation=None, serial=None, target=None)
 
     def snapshot(self):
         with self.lock:
@@ -55,6 +56,13 @@ class FlasherSession:
             except Exception as error:
                 device = dict(state='error', message=str(error))
             with self.lock:
+                # A completed operation belongs to its radio. Keep its restart
+                # instruction across a detach, but never show it for another.
+                if (device.get('serial') and self.status['serial'] and
+                        (device['serial'] != self.status['serial'] or
+                         device.get('target') not in (None, self.status['target']))):
+                    self.status.update(operation=None, progress=0, message='',
+                                       error=False, serial=None, target=None)
                 self.device = device
                 key = (device.get('target'), self.preview)
                 if device.get('state') not in ('ready', 'normal') or not device.get('target'):
@@ -99,7 +107,9 @@ class FlasherSession:
         with self.lock:
             if self.status['running']:
                 raise UpdateError('An operation is already in progress.')
-            self.status.update(running=True, error=False, progress=0, message='', operation=operation)
+            self.status.update(running=True, error=False, progress=0, message='',
+                               operation=operation, serial=self.device.get('serial'),
+                               target=self.device.get('target'))
 
     def finish(self, error=None):
         with self.lock:

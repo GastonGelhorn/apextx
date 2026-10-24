@@ -98,6 +98,19 @@ class Session(unittest.TestCase):
         self.assertEqual(s.snapshot()['progress'],100)
         self.assertFalse(s.snapshot()['error'])
 
+    def test_radio_replaced_after_download_is_rejected_before_transport_opens(self):
+        from tools.tests.test_nb4_releases import image
+        s = self.setup_session()
+        s.client.download.return_value = image()
+        s.begin('upgrade')
+        with patch.object(sessions, 'discover', side_effect=[radio(), radio(serial='B')]), \
+                patch.object(sessions, 'release'), \
+                patch.object(usb, 'usb_modules', side_effect=AssertionError('Transport must not open')):
+            s.automatic(s.device, s.offer)
+        s.client.download.assert_called_once()
+        self.assertTrue(s.snapshot()['error'])
+        self.assertIn('radio changed', s.snapshot()['message'])
+
     def test_probe_pauses_while_busy_and_network_check_is_cached(self):
         s=self.setup_session()
         with patch.object(sessions,'probe',return_value=s.device) as probe:
@@ -110,6 +123,20 @@ class Session(unittest.TestCase):
             s.client.latest.assert_called_once_with(1,True)
             s.refresh(False); s.scan()
             self.assertEqual(s.client.latest.call_args.args,(1,False))
+
+    def test_completion_survives_detach_but_is_not_shown_for_another_radio(self):
+        s = self.setup_session()
+        s.begin('upgrade')
+        s.progress('Verified', 100)
+        s.finish()
+        with patch.object(sessions, 'probe', return_value={'state': 'absent'}):
+            s.scan()
+        self.assertEqual(s.snapshot()['progress'], 100)
+        other = dict(state='ready', serial='B', target=2, model='NB4+', version=None)
+        with patch.object(sessions, 'probe', return_value=other):
+            s.scan()
+        self.assertIsNone(s.snapshot()['operation'])
+        self.assertEqual(s.snapshot()['progress'], 0)
 
 
 class BootUsbIdentity(unittest.TestCase):
