@@ -52,6 +52,7 @@ for(const decision of ['current','ahead','development']) {
 state({...device,version:null},{...offer,decision:'unknown'});
 assert.equal(get('installedVersion').textContent,'No disponible');
 assert.equal(get('upgrade').textContent,'Instalar 0.1.0-alpha.4');
+assert.equal(get('deviceHelp').textContent,'ApexTX Update está listo. Mantén la emisora encendida y conectada.','Do not show legacy-bootloader compatibility prose in the normal update UI');
 assert.equal(get('releaseHelp').textContent.includes('Este bootloader'),false,'Do not repeat the unknown-version explanation');
 state(device,null,{release_error:'offline'});
 get('file').files=[{name:'firmware.bin',size:2097152}];
