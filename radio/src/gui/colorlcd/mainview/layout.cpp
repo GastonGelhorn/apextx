@@ -430,7 +430,16 @@ rect_t Layout::getMainZone() const
     zone.w -= 2 * PAD_LARGE;
     zone.h -= 2 * PAD_LARGE;
   }
+#if defined(RADIO_NB4_FAMILY)
+  zone = ViewMain::instance()->getMainZone(zone, hasTopbar());
+  if (hasScreenHeader()) {
+    zone.y += NB4_SCREEN_HEADER_H;
+    zone.h -= NB4_SCREEN_HEADER_H;
+  }
+  return zone;
+#else
   return ViewMain::instance()->getMainZone(zone, hasTopbar());
+#endif
 }
 
 rect_t Layout::getZone(unsigned int index) const
@@ -455,6 +464,9 @@ void Layout::checkEvents()
   rect_t z = getMainZone();
   if (z.x != lastMainZone.x || z.y != lastMainZone.y || z.w != lastMainZone.w || z.h != lastMainZone.h) {
     lastMainZone = z;
+#if defined(RADIO_NB4_FAMILY)
+    placeScreenHeader();
+#endif
     for (int i = 0; i < zoneCount; i++)
       if (widgets[i] && widgets[i]->isFullscreen())
         return;
@@ -491,8 +503,28 @@ Widget* Layout::createWidget(unsigned int index,
   return widget;
 }
 
+#if defined(RADIO_NB4_FAMILY)
+// The header sits directly above the zones, below the top bar when shown.
+void Layout::placeScreenHeader()
+{
+  if (!hasScreenHeader()) return;
+  const rect_t zone = getMainZone();
+  const rect_t r = {2, (coord_t)(zone.y - NB4_SCREEN_HEADER_H + 2),
+                    (coord_t)(width() - 4), (coord_t)(NB4_SCREEN_HEADER_H - 4)};
+  if (!headerName) {
+    headerName = nb4ScreenHeader(this, r);
+    return;
+  }
+  auto header = headerName->getParent();
+  header->setRect(r);
+}
+#endif
+
 void Layout::load()
 {
+#if defined(RADIO_NB4_FAMILY)
+  placeScreenHeader();
+#endif
   unsigned int count = getZonesCount();
   for (unsigned int i = 0; i < count; i++) {
     // remove old widget
