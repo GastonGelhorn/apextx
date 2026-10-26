@@ -101,6 +101,8 @@ void nb4WarmGridCache();
 // One warm-up step without the idle checks; false once every grid is current.
 bool nb4WarmNextGrid();
 void nb4OpenAppearance();
+// Opens the current or next USB connection as mass storage.
+void nb4UsbSelectMassStorage();
 void nb4OpenScreens();
 void nb4OpenQuickAccessSetup();
 void nb4OpenTimers();

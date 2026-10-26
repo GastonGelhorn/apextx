@@ -29,6 +29,7 @@
 #include "nb4_routes.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "hal/usb_driver.h"
 
 namespace {
 int pendingOrientation = -1;
@@ -172,6 +173,38 @@ TextButton* selectedAction(Window* p, rect_t r, const char* text, std::function<
 
 }  // namespace
 
+// The home screen's header for every other screen of the car: its name and
+// the two buttons into the menus, so no screen layout can lock them away.
+StaticText* nb4ScreenHeader(Window* parent, rect_t rect)
+{
+  auto header = card(parent, rect);
+  const std::string tags = modelLabels();
+  const coord_t nameW = rect.w - 108;
+  auto name = label(header, {8, tags.empty() ? (coord_t)14 : (coord_t)6, nameW, 20},
+                    nb4ReadCarState().model, FONT(BOLD));
+  if (!tags.empty()) {
+    auto tagLabel = label(header, {8, 27, nameW, 15}, tags.c_str(), FONT(XXS),
+                          COLOR_THEME_PRIMARY3_INDEX);
+    lv_obj_set_style_text_letter_space(tagLabel->getLvObj(), 1, LV_PART_MAIN);
+  }
+  const coord_t gearX = rect.w - 48;
+  const coord_t wrenchX = gearX - 44;
+  nb4Hairline(header, {(coord_t)(wrenchX - 6), 10, 1, 28});
+  auto wrench = new Window(header, {wrenchX, 2, 44, 44});
+  lv_obj_set_style_bg_opa(wrench->getLvObj(), LV_OPA_TRANSP, 0);
+  new StaticIcon(wrench, 7, 7, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX);
+  lv_obj_add_event_cb(wrench->getLvObj(), [](lv_event_t*) {
+    nb4OpenQuickAccessModal();
+  }, LV_EVENT_CLICKED, nullptr);
+  auto gear = new Window(header, {gearX, 2, 44, 44});
+  lv_obj_set_style_bg_opa(gear->getLvObj(), LV_OPA_TRANSP, 0);
+  new StaticIcon(gear, 7, 7, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX);
+  lv_obj_add_event_cb(gear->getLvObj(), [](lv_event_t*) {
+    nb4OpenSettingsModal();
+  }, LV_EVENT_CLICKED, nullptr);
+  return name;
+}
+
 void nb4Navigate(Nb4Section section)
 {
   auto main = ViewMain::instance();
@@ -253,6 +286,7 @@ void nb4ProcessOrientation()
   pendingOrientation = -1;
   orientationAttempts = 0;
   main->resizeToDisplay();
+  nb4ReloadThemeBackground();
   LayoutFactory::loadCustomScreens();
   if (reopenAfterOrientation) nb4OpenSection(Nb4Section::Appearance);
 }
@@ -322,6 +356,25 @@ void nb4BuildAppearance(Window* parent)
   appearanceControl(external->getLvObj());
 }
 
+// The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
+// Only this connection (or the next one) opens as storage; the USB mode in
+// System > USB stays as it is, and the radio restarts after the session.
+void nb4ConnectThemeEditor()
+{
+#if !defined(SIMU)
+  if (usbStarted() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+    new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_CONNECTED,
+                      nullptr, LEFT);
+    return;
+  }
+  nb4UsbSelectMassStorage();
+  // With the cable in, the main loop switches to storage right away.
+  if (usbPlugged()) return;
+#endif
+  new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
+                    nullptr, LEFT);
+}
+
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
 
 Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect, bool instruments) :
@@ -350,6 +403,8 @@ void Nb4HomeScreen::build()
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
   etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
+  // Let the theme's background image show around the cards.
+  if (Nb4Ui::backgroundShown()) lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, 0);
   telltales[0] = telltales[1] = telltales[2] = nullptr;
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 

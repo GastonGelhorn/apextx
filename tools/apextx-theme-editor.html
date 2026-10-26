@@ -1,0 +1,1955 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ApexTX Theme Editor</title>
+<style>
+:root{
+  --bg:#0c0d0f; --panel:#141619; --panel2:#181b1f;
+  --line:#23262b; --line2:#333840; --text:#f0f0f0; --muted:#9aa3ad; --muted2:#6b7480;
+  --blue:#20a0f0; --blue2:#54b7f6; --ink:#061320;
+  --orange:#f07020; --orange2:#ffb070; --good:#5fd39a; --bad:#ff8f8f;
+}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:radial-gradient(1150px 540px at 82% -10%,rgba(32,160,240,.16),transparent 60%),radial-gradient(760px 420px at 4% 112%,rgba(240,112,32,.06),transparent 55%),var(--bg);color:var(--text);min-height:100vh;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:1280px;margin:0 auto;padding:34px 24px 54px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}
+.brand img{height:96px;width:auto;display:block;filter:drop-shadow(0 6px 22px rgba(32,160,240,.22))}
+.hgroup{display:flex;align-items:center;gap:12px}
+.tag{font-size:11px;font-weight:700;letter-spacing:.09em;background:rgba(32,160,240,.12);border:1px solid rgba(32,160,240,.34);border-radius:999px;padding:7px 12px;color:var(--blue2);white-space:nowrap}
+.lang{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:5px 10px;border-radius:999px;line-height:1}
+.lang button.on{background:var(--blue);color:#05121d}
+h1{font-size:36px;letter-spacing:-1.2px;line-height:1.08;margin:0 0 12px;font-weight:800}
+.intro{color:var(--muted);max-width:660px;margin:0 0 20px;font-size:16px}
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin:0 0 20px;max-width:560px}
+.tabs button{all:unset;flex:1;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);padding:10px;border-radius:9px}
+.tabs button.on{background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink)}
+.conn{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px;padding:12px 15px;border:1px solid var(--line2);border-radius:12px;background:rgba(32,160,240,.05);font-size:14px}
+.conn b{color:var(--blue2)}
+.conn .dot{width:9px;height:9px;border-radius:50%;background:var(--muted2);flex:none}
+.conn .dot.on{background:var(--good);box-shadow:0 0 10px var(--good)}
+main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:start}
+@media(max-width:1000px){main{grid-template-columns:1fr}.stage{position:static!important}}
+@media(max-width:640px){.page{padding:24px 16px 42px}h1{font-size:28px}.brand img{height:64px}.panel{padding:18px}header{flex-wrap:wrap;margin-bottom:22px}}
+.panel{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:22px 24px;border-radius:18px;margin:0 0 16px;box-shadow:0 26px 64px -34px rgba(0,0,0,.85)}
+.panel::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,var(--blue),var(--orange))}
+.panel h2{font-size:15px;margin:0 0 4px;letter-spacing:.02em}
+.panel p.hint{color:var(--muted);font-size:13px;margin:0 0 12px}
+.panel h3{font-size:11px;letter-spacing:.1em;color:var(--muted2);margin:14px 0 7px;font-weight:700}
+.view{display:none}.view.on{display:block}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;border-radius:999px;padding:3px 8px;margin-left:8px;vertical-align:2px}
+.badge.base{background:rgba(95,211,154,.12);border:1px solid rgba(95,211,154,.4);color:var(--good)}
+.badge.ext{background:rgba(240,112,32,.1);border:1px solid rgba(240,112,32,.4);color:var(--orange2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px 14px}
+.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
+input[type=text],input[type=number],select{background:#0f1113;border:1px solid var(--line2);border-radius:9px;color:var(--text);font:inherit;padding:8px 10px}
+.color{display:flex;align-items:center;gap:9px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.015)}
+.color input[type=color]{width:34px;height:28px;border:0;padding:0;background:none;cursor:pointer;flex:none}
+.color div{display:flex;flex-direction:column;min-width:0}
+.color b{font-size:12.5px;font-weight:600}
+.color span{font-size:11.5px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.color code{font-size:11px;color:var(--muted);margin-left:auto}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.presets button,.btn{all:unset;cursor:pointer;font-weight:700;font-size:13px;padding:9px 13px;border-radius:10px;border:1px solid var(--line2);background:#1b1e23;color:var(--text);display:inline-flex;align-items:center;gap:8px}
+.presets button i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.presets button i+i{margin-left:-6px}
+.btn.primary{background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink);border-color:transparent;box-shadow:0 12px 28px -12px rgba(32,160,240,.7)}
+.btn:hover,.presets button:hover{border-color:var(--blue)}
+.btn:disabled,.btn.off{opacity:.45;pointer-events:none}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input[type=range]{width:100%;accent-color:var(--blue)}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue)}
+.seg{display:flex;gap:4px;background:#0f1113;border:1px solid var(--line2);border-radius:10px;padding:3px;flex-wrap:wrap}
+.seg button{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:7px 11px;border-radius:8px}
+.seg button.on{background:var(--blue);color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.tiles button{all:unset;cursor:pointer;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#0f1113;display:flex;flex-direction:column}
+.tiles button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(32,160,240,.35)}
+.tiles canvas{width:100%;height:auto;aspect-ratio:2/3;display:block}
+.tiles span{font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 7px;text-align:center}
+.tiles button.on span{color:var(--blue2)}
+.drop{display:block;border:1.5px dashed var(--line2);border-radius:12px;padding:12px;cursor:pointer;color:var(--muted);font-size:13px;text-align:center;margin-top:10px}
+.drop:hover{border-color:var(--blue)}
+.warn{background:rgba(240,112,32,.09);border:1px solid rgba(240,112,32,.34);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--orange2);margin-top:10px;display:none}
+.screens{display:flex;flex-wrap:wrap;gap:6px}
+.screens button{all:unset;cursor:pointer;border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;color:var(--muted);background:#0f1113}
+.screens button.on{border-color:var(--blue);color:var(--blue2);box-shadow:0 0 0 2px rgba(32,160,240,.3)}
+.layouts{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
+.layouts button{all:unset;cursor:pointer;border:1px solid var(--line2);border-radius:10px;background:#0f1113;padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.layouts button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(32,160,240,.35)}
+.layouts canvas{width:48px;height:72px}
+.layouts span{font-size:11px;font-weight:700;color:var(--muted)}
+.zone{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px;background:rgba(255,255,255,.012)}
+.zone.on{border-color:var(--blue);background:rgba(32,160,240,.06)}
+.zone .head{display:flex;gap:10px;align-items:center}
+.zone .head b{font-size:12px;color:var(--muted2);min-width:58px}
+.zone select{flex:1}
+.zone .opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px;margin-top:8px}
+.zone .note{font-size:12px;color:var(--muted2);margin-top:6px}
+.checks{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.checks label{display:flex;gap:7px;align-items:center;cursor:pointer}
+.stage{position:sticky;top:12px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.radio{padding:16px;border-radius:30px;background:linear-gradient(160deg,#2a2d33,#121316);box-shadow:0 30px 70px -30px #000,inset 0 1px 0 rgba(255,255,255,.08)}
+#screen{display:block;border-radius:6px;background:#000;cursor:pointer}
+.note{color:var(--muted2);font-size:12px;max-width:420px;text-align:center;margin:0}
+pre{background:#0f1113;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;max-height:240px;overflow:auto;color:var(--muted);white-space:pre-wrap}
+.status{font-size:13px;color:var(--good);min-height:18px;margin:10px 0 0}
+.busy{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.busy.on{display:flex}
+.busy .box{position:relative;width:min(460px,100%);border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:24px;border-radius:18px;box-shadow:0 26px 64px -20px rgba(0,0,0,.9)}
+.busy .box::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,var(--blue),var(--orange))}
+.busy b{display:block;font-size:17px;margin:0 0 4px}
+.busy progress{appearance:none;-webkit-appearance:none;width:100%;height:10px;margin:16px 0 11px;display:block;border:0;background:transparent}
+.busy progress::-webkit-progress-bar{background:#23272d;border-radius:999px}
+.busy progress::-webkit-progress-value{background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px;transition:width .3s}
+.busy p{margin:0;font-size:14px;color:var(--muted);min-height:20px}
+.busy .unplug{display:none;margin-top:14px;padding:12px 14px;border:1px solid rgba(95,211,154,.4);background:rgba(95,211,154,.08);border-radius:11px;color:var(--good);font-size:14px;font-weight:600}
+.busy .btn{margin-top:16px;display:none}
+footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <div class="brand"><img id="logo" src="__LOGO_DATA__" alt="ApexTX"></div>
+  <div class="hgroup">
+    <div class="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button></div>
+    <div class="tag">NOBLE&nbsp;NB4 / NB4+</div>
+  </div>
+</header>
+
+<h1 data-t="h1"></h1>
+<p class="intro" data-t="subtitle"></p>
+
+<div class="conn" id="conn">
+  <span class="dot" id="connDot"></span>
+  <span id="connText"></span>
+  <select id="target" style="display:none;min-width:200px"></select>
+  <button class="btn" id="refresh" data-t="refresh"></button>
+</div>
+
+<div class="tabs" id="tabs">
+  <button data-view="theme" class="on" data-t="tabTheme"></button>
+  <button data-view="screens" data-t="tabScreens"></button>
+  <button data-view="radio" data-t="tabRadio"></button>
+</div>
+<div class="warn" id="unsavedWarn" style="margin:-8px 0 18px"></div>
+
+<main>
+<div>
+  <!-- ====================================================== THEME -->
+  <div class="view on" id="view-theme">
+    <section class="panel">
+      <h2 data-t="secTheme"></h2>
+      <p class="hint" data-t="hintTheme"></p>
+      <div class="grid">
+        <label class="f"><span data-t="name"></span><input type="text" id="tName" maxlength="26"></label>
+        <label class="f"><span data-t="author"></span><input type="text" id="tAuthor" maxlength="32"></label>
+        <label class="f" style="grid-column:span 2"><span data-t="info"></span><input type="text" id="tInfo" maxlength="64"></label>
+      </div>
+      <div class="warn" id="reservedWarn"></div>
+      <div id="presets"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span data-t="secPalette"></span><span class="badge base" data-t="badgeBase"></span></h2>
+      <p class="hint" data-t="hintPalette"></p>
+      <div class="grid" id="palette"></div>
+      <div class="warn" id="contrastWarn"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span data-t="secInstr"></span><span class="badge ext" data-t="badgeExt"></span></h2>
+      <p class="hint" data-t="hintInstr"></p>
+      <div class="grid" id="instrColors"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span data-t="secBg"></span><span class="badge ext" data-t="badgeExt"></span></h2>
+      <p class="hint" data-t="hintBg"></p>
+      <div id="bgTiles"></div>
+      <label class="drop" id="drop"><span data-t="dropBg"></span><input type="file" id="bgFile" accept="image/*" hidden></label>
+      <div class="grid" style="margin-top:12px">
+        <label class="f"><span><span data-t="bgDim"></span> <b id="vDim"></b></span><input type="range" id="bgDim" min="0" max="90"></label>
+        <label class="f"><span><span data-t="cardOpacity"></span> <b id="vOpa"></b></span><input type="range" id="cardOpa" min="30" max="100"></label>
+        <div class="f"><span data-t="bgFit"></span><div class="seg" id="segFit"></div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 data-t="secExport"></h2>
+      <p class="hint" data-t="hintExport"></p>
+      <div class="row radioOnly" style="margin-bottom:10px">
+        <select id="radioThemes" style="flex:1;min-width:200px"></select>
+        <button class="btn" id="loadRadio" data-t="loadRadio"></button>
+        <button class="btn primary" id="saveRadio" data-t="saveRadio"></button>
+        <label class="checks" style="flex-basis:100%"><label><input type="checkbox" id="activateTheme" checked><span data-t="activateTheme"></span></label></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="dlZip" data-t="dlZip"></button>
+        <button class="btn" id="loadTheme" data-t="loadTheme"></button>
+        <input type="file" id="ymlFile" accept=".yml,.yaml" hidden>
+      </div>
+      <p class="status" id="themeStatus"></p>
+      <pre id="yml"></pre>
+    </section>
+  </div>
+
+  <!-- ==================================================== SCREENS -->
+  <div class="view" id="view-screens">
+    <section class="panel">
+      <h2 data-t="secCar"></h2>
+      <p class="hint" data-t="hintCar"></p>
+      <div class="row">
+        <select id="carSelect" style="flex:1;min-width:220px"></select>
+        <button class="btn" id="carReload" data-t="reload"></button>
+        <button class="btn primary" id="carSave" data-t="saveScreens"></button>
+      </div>
+      <div class="warn" id="carWarn"></div>
+      <p class="status" id="carStatus"></p>
+    </section>
+
+    <section class="panel">
+      <h2 data-t="secScreens"></h2>
+      <p class="hint" data-t="hintScreens"></p>
+      <div class="screens" id="screenList"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="addScreen" data-t="addScreen"></button>
+        <button class="btn" id="delScreen" data-t="delScreen"></button>
+        <button class="btn" id="restoreHome" data-t="restoreHome"></button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 data-t="secLayout"></h2>
+      <p class="hint" data-t="hintLayout"></p>
+      <div class="layouts" id="layoutList"></div>
+      <h3 data-t="layoutOptions"></h3>
+      <div class="checks" id="layoutOpts"></div>
+    </section>
+
+    <section class="panel">
+      <h2 data-t="secZones"></h2>
+      <p class="hint" data-t="hintZones"></p>
+      <div id="zoneList"></div>
+    </section>
+  </div>
+
+  <!-- ====================================================== RADIO -->
+  <div class="view" id="view-radio">
+    <section class="panel">
+      <h2 data-t="secAppearance"></h2>
+      <p class="hint" data-t="hintAppearance"></p>
+      <div class="grid">
+        <label class="f"><span data-t="selTheme"></span><select id="rTheme"></select></label>
+        <label class="f"><span data-t="accent"></span><select id="rAccent"></select></label>
+        <label class="f"><span data-t="orientation"></span><select id="rOrient"></select></label>
+      </div>
+    </section>
+    <section class="panel">
+      <h2 data-t="secLights"></h2>
+      <p class="hint" data-t="hintLights"></p>
+      <div class="grid">
+        <label class="f"><span data-t="ledMode"></span><select id="rLedMode"></select></label>
+        <label class="f"><span data-t="ledColor"></span><select id="rLedColor"></select></label>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="row">
+        <button class="btn" id="radioReload" data-t="reload"></button>
+        <button class="btn primary" id="radioSave" data-t="saveSettings"></button>
+      </div>
+      <p class="status" id="radioStatus"></p>
+    </section>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="seg" id="segOrient"></div>
+  <div class="radio"><canvas id="screen"></canvas></div>
+  <div class="seg" id="segSim"></div>
+  <p class="note" id="fwBadge" style="margin:0;text-align:center;max-width:420px"></p>
+  <p class="status" id="previewStatus" style="margin:0;text-align:center;max-width:420px"></p>
+  <p class="note" data-t="previewNote"></p>
+</div>
+</main>
+<footer data-t="footer"></footer>
+<div class="busy" id="busy"><div class="box">
+  <b id="busyTitle"></b>
+  <progress id="busyBar" max="100" value="0"></progress>
+  <p id="busyText"></p>
+  <div class="unplug" id="busyUnplug" data-t="unplugNow"></div>
+  <button class="btn primary" id="busyOk" data-t="ok"></button>
+</div></div>
+</div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Texts
+// ---------------------------------------------------------------------------
+const T = {
+  en: {
+    h1: 'Design your transmitter',
+    subtitle: 'Themes, screens and widgets for your FlySky Noble NB4 or NB4+, exactly as on the transmitter, just easier. With a live preview.',
+    footer: 'ApexTX Theme Editor · runs entirely locally, no data is sent anywhere. Before every change on the transmitter a backup is stored in ApexTX-Backups.',
+    tabTheme: 'Theme', tabScreens: 'Screens', tabRadio: 'Transmitter',
+    fwLive: 'Drawn by the ApexTX firmware itself: exactly what the transmitter shows.', fwStarting: 'Starting the firmware…', fwFailed: 'Firmware preview unavailable, showing an approximation. ',
+    connNone: 'No transmitter found. On the transmitter: Display & interface > Appearance > Connect to Theme Editor, then plug in the USB cable.',
+    connOk: 'Transmitter connected:', connLocal: 'Without transmitter: themes are saved to', refresh: 'Search again',
+    secTheme: 'Theme', hintTheme: 'Name, author and description appear in the theme selector of the transmitter.',
+    name: 'Name', author: 'Author', info: 'Description',
+    grpOriginal: 'APEXTX ORIGINALS (EDITABLE COPY)', grpDrift: 'DRIFT', grpRace: 'RACING', grpCrawler: 'CRAWLER', grpDetail: 'DETAILED',
+    reserved: 'Built-in names are reserved by ApexTX. Your changed version needs its own name, for example: ',
+    secPalette: 'Palette', badgeBase: 'WORKS WITH EVERY APEXTX VERSION',
+    hintPalette: 'The 13 colours of theme.yml, exactly as in the built-in ApexTX themes.',
+    secInstr: 'Instrument colours', badgeExt: 'EXTENSION',
+    hintInstr: 'Steering, throttle, brake and channel 3/4 in every steering and throttle widget. Firmware without the extension uses its own colours.',
+    secBg: 'Background', hintBg: 'A ready-made background in your theme colours, or your own image. Saved as background.png (320×480); the cards become translucent above it.',
+    dropBg: 'Use your own image: drop it here or click', bgDim: 'Darken', cardOpacity: 'Card opacity', bgFit: 'Own image',
+    secExport: 'Save theme', hintExport: 'A theme is a THEMES/<Name>/ folder with theme.yml (and background.png). Select it on the transmitter under Appearance or in the Transmitter tab.',
+    saveRadio: 'Save to transmitter', unsaved: 'Unsaved screen changes for %s. "Save to transmitter" or "Save screens" writes them to the transmitter.', screensSaved: 'screens of %s saved', busySaving: 'Saving to the transmitter', stepImages: 'Creating images…', stepWrite: 'Writing files…', stepActivate: 'Activating the theme…', stepScreens: 'Writing screens…', stepSettings: 'Writing settings…', busyDone: 'Done.', unplugNow: 'Now unplug the USB cable: the transmitter restarts and applies the changes.', ok: 'OK', orientSaved: 'Orientation stored on the transmitter; active after unplugging the cable.', activateTheme: 'Activate after saving', activated: 'active after unplugging the cable', loadRadio: 'Load', dlZip: 'Download as ZIP', loadTheme: 'Open theme.yml', noThemes: 'No themes on the transmitter',
+    secCar: 'Car', hintCar: 'Screens belong to a car. Load a car from the transmitter, change its screens and save.',
+    reload: 'Load again', saveScreens: 'Save screens', demoCar: 'Example car (not on a transmitter)',
+    notEditable: 'Open this car once on the transmitter (ApexTX sets up its screens), then load it again.',
+    secScreens: 'Screens', hintScreens: 'Home and up to 9 more screens. Swipe between them on the transmitter.',
+    home: 'Home', screen: 'Screen', addScreen: 'Add screen', delScreen: 'Remove screen', restoreHome: 'Restore ApexTX design',
+    secLayout: 'Layout', hintLayout: 'How the screen is divided. ApexTX Racing keeps the header and RF/TX/RX indicators.',
+    layoutOptions: 'LAYOUT OPTIONS',
+    secZones: 'Tiles', hintZones: 'Choose a widget for every tile, or leave it empty. Click a tile in the preview to jump to it.',
+    zone: 'Tile', empty: '— empty —', grpApex: 'ApexTX', grpEdge: 'EdgeTX',
+    optOnRadio: 'More settings of this widget on the transmitter: long press the tile.',
+    secAppearance: 'Appearance', hintAppearance: 'Palette or theme, accent colour and orientation of the whole transmitter.',
+    selTheme: 'Palette / theme', accent: 'Accent', orientation: 'Orientation',
+    secLights: 'Lights', hintLights: 'The LED strip of the transmitter. Charging temporarily overrides the colour.',
+    ledMode: 'Mode', ledColor: 'Colour', saveSettings: 'Save settings',
+    accents: ['Palette accent', 'Blue', 'Orange', 'Green', 'Red', 'Yellow', 'Cyan', 'Magenta', 'White'],
+    orients: ['Portrait', 'Landscape'],
+    ledModes: ['Off', 'Fixed colour', 'Breathing', 'Battery state'],
+    ledColors: ['White', 'Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta'],
+    previewNote: 'Preview with simulated driving. Click a tile to edit it. The transmitter may differ slightly at pixel level.',
+    portrait: 'Portrait', landscape: 'Landscape', fill: 'Fill', fit: 'Show all',
+    simDrift: 'Drift', simRace: 'Race', simCrawl: 'Crawler', simIdle: 'Still',
+    contrast: 'Low contrast between text (PRIMARY1) and card background (PRIMARY2): ',
+    saved: 'Saved: ', loaded: 'Loaded.', backupAt: 'Backup: ', needRadio: 'Connect the transmitter first.',
+    bg_none: 'None', bg_image: 'Own image', bg_gradient: 'Glow', bg_hex: 'Honeycomb', bg_smoke: 'Tire smoke', bg_neon: 'Neon grid', bg_speed: 'Speed lines',
+    bg_checker: 'Checkered', bg_kerb: 'Kerbs', bg_carbon: 'Carbon', bg_topo: 'Topo map', bg_camo: 'Camo', bg_rock: 'Rock',
+    bg_city: 'Neon city', bg_touge: 'Touge night', bg_bokeh: 'Rain lights', bg_circuit: 'Circuit',
+  },
+  de: {
+    h1: 'Fernbedienung gestalten',
+    subtitle: 'Themes, Bildschirme und Widgets für deine FlySky Noble NB4 oder NB4+, genau wie auf der Fernbedienung, nur bequemer. Mit Live-Vorschau.',
+    footer: 'ApexTX Theme Editor · läuft komplett lokal, es werden keine Daten gesendet. Vor jeder Änderung auf der Fernbedienung wird eine Sicherung in ApexTX-Backups abgelegt.',
+    tabTheme: 'Theme', tabScreens: 'Bildschirme', tabRadio: 'Fernbedienung',
+    fwLive: 'Gezeichnet von der ApexTX-Firmware selbst: genau das, was die Fernbedienung zeigt.', fwStarting: 'Firmware startet …', fwFailed: 'Firmware-Vorschau nicht verfügbar, angezeigt wird eine Näherung. ',
+    connNone: 'Keine Fernbedienung gefunden. An der Fernbedienung: Anzeige & Bedienung > Erscheinungsbild > Mit Theme-Editor verbinden, dann USB-Kabel einstecken.',
+    connOk: 'Fernbedienung verbunden:', connLocal: 'Ohne Fernbedienung: Themes werden gespeichert unter', refresh: 'Neu suchen',
+    secTheme: 'Theme', hintTheme: 'Name, Autor und Beschreibung erscheinen im Theme-Auswahlmenü der Fernbedienung.',
+    name: 'Name', author: 'Autor', info: 'Beschreibung',
+    grpOriginal: 'APEXTX-ORIGINALE (ALS ANPASSBARE KOPIE)', grpDrift: 'DRIFT', grpRace: 'RENNEN', grpCrawler: 'CRAWLER', grpDetail: 'DETAILREICH',
+    reserved: 'Die eingebauten Namen sind von ApexTX reserviert. Deine geänderte Version braucht einen eigenen Namen, zum Beispiel: ',
+    secPalette: 'Farbpalette', badgeBase: 'LÄUFT MIT JEDER APEXTX-VERSION',
+    hintPalette: 'Die 13 Farben aus theme.yml, genau wie in den eingebauten ApexTX-Themes.',
+    secInstr: 'Instrumentenfarben', badgeExt: 'ERWEITERUNG',
+    hintInstr: 'Lenkung, Gas, Bremse und Kanal 3/4 in allen Lenk- und Gas-Widgets. Firmware ohne Erweiterung nimmt ihre eigenen Farben.',
+    secBg: 'Hintergrund', hintBg: 'Fertige Hintergründe in deinen Theme-Farben oder ein eigenes Bild. Wird als background.png (320×480) gespeichert; die Karten werden darüber durchscheinend.',
+    dropBg: 'Eigenes Bild verwenden: hier ablegen oder klicken', bgDim: 'Abdunkeln', cardOpacity: 'Deckkraft der Karten', bgFit: 'Eigenes Bild',
+    secExport: 'Theme speichern', hintExport: 'Ein Theme ist ein Ordner THEMES/<Name>/ mit theme.yml (und background.png). Auswahl an der Fernbedienung unter Erscheinungsbild oder im Reiter Fernbedienung.',
+    saveRadio: 'Auf Fernbedienung speichern', unsaved: 'Ungespeicherte Änderungen an den Bildschirmen von %s. „Auf Fernbedienung speichern“ oder „Bildschirme speichern“ schreibt sie auf die Fernbedienung.', screensSaved: 'Bildschirme von %s gespeichert', busySaving: 'Speichern auf der Fernbedienung', stepImages: 'Bilder erzeugen …', stepWrite: 'Dateien schreiben …', stepActivate: 'Theme aktivieren …', stepScreens: 'Bildschirme schreiben …', stepSettings: 'Einstellungen schreiben …', busyDone: 'Fertig.', unplugNow: 'Jetzt das USB-Kabel abziehen: Die Fernbedienung startet neu und übernimmt die Änderungen.', ok: 'OK', orientSaved: 'Ausrichtung auf der Fernbedienung gespeichert; aktiv nach dem Abziehen des Kabels.', activateTheme: 'Nach dem Speichern aktivieren', activated: 'aktiv nach dem Abziehen des Kabels', loadRadio: 'Laden', dlZip: 'Als ZIP herunterladen', loadTheme: 'theme.yml öffnen', noThemes: 'Keine Themes auf der Fernbedienung',
+    secCar: 'Auto', hintCar: 'Bildschirme gehören zu einem Auto. Auto von der Fernbedienung laden, Bildschirme ändern, speichern.',
+    reload: 'Neu laden', saveScreens: 'Bildschirme speichern', demoCar: 'Beispiel-Auto (nicht auf einer Fernbedienung)',
+    notEditable: 'Dieses Auto einmal an der Fernbedienung öffnen (ApexTX richtet dabei die Bildschirme ein), dann neu laden.',
+    secScreens: 'Bildschirme', hintScreens: 'Startseite und bis zu 9 weitere Bildschirme. An der Fernbedienung wischt man zwischen ihnen.',
+    home: 'Startseite', screen: 'Bildschirm', addScreen: 'Bildschirm hinzufügen', delScreen: 'Bildschirm entfernen', restoreHome: 'ApexTX-Design wiederherstellen',
+    secLayout: 'Raster', hintLayout: 'Wie der Bildschirm aufgeteilt ist. ApexTX Racing behält Kopfzeile und RF/TX/RX-Anzeigen.',
+    layoutOptions: 'RASTER-OPTIONEN',
+    secZones: 'Kacheln', hintZones: 'Für jede Kachel ein Widget wählen oder leer lassen. Klick auf eine Kachel in der Vorschau springt dorthin.',
+    zone: 'Kachel', empty: '— leer —', grpApex: 'ApexTX', grpEdge: 'EdgeTX',
+    optOnRadio: 'Weitere Einstellungen dieses Widgets an der Fernbedienung: Kachel lange drücken.',
+    secAppearance: 'Erscheinungsbild', hintAppearance: 'Palette oder Theme, Akzentfarbe und Ausrichtung der ganzen Fernbedienung.',
+    selTheme: 'Palette / Theme', accent: 'Akzent', orientation: 'Ausrichtung',
+    secLights: 'Licht', hintLights: 'Die LED-Leiste der Fernbedienung. Beim Laden wird die Farbe vorübergehend ersetzt.',
+    ledMode: 'Modus', ledColor: 'Farbe', saveSettings: 'Einstellungen speichern',
+    accents: ['Akzent der Palette', 'Blau', 'Orange', 'Grün', 'Rot', 'Gelb', 'Cyan', 'Magenta', 'Weiß'],
+    orients: ['Hochformat', 'Querformat'],
+    ledModes: ['Aus', 'Feste Farbe', 'Atmen', 'Akkustand'],
+    ledColors: ['Weiß', 'Rot', 'Orange', 'Gelb', 'Grün', 'Cyan', 'Blau', 'Magenta'],
+    previewNote: 'Vorschau mit simulierter Fahrt. Klick auf eine Kachel zum Bearbeiten. Auf der Fernbedienung kann es pixelgenau leicht abweichen.',
+    portrait: 'Hochformat', landscape: 'Querformat', fill: 'Füllen', fit: 'Ganz zeigen',
+    simDrift: 'Drift', simRace: 'Rennen', simCrawl: 'Crawler', simIdle: 'Stand',
+    contrast: 'Geringer Kontrast zwischen Text (PRIMARY1) und Kartenhintergrund (PRIMARY2): ',
+    saved: 'Gespeichert: ', loaded: 'Geladen.', backupAt: 'Sicherung: ', needRadio: 'Erst die Fernbedienung verbinden.',
+    bg_none: 'Keiner', bg_image: 'Eigenes Bild', bg_gradient: 'Glühen', bg_hex: 'Waben', bg_smoke: 'Reifenqualm', bg_neon: 'Neon-Gitter', bg_speed: 'Speedlines',
+    bg_checker: 'Zielflagge', bg_kerb: 'Curbs', bg_carbon: 'Carbon', bg_topo: 'Höhenkarte', bg_camo: 'Tarnmuster', bg_rock: 'Fels',
+    bg_city: 'Neon-Stadt', bg_touge: 'Touge bei Nacht', bg_bokeh: 'Regenlichter', bg_circuit: 'Platine',
+  },
+  es: {
+    h1: 'Diseña tu emisora',
+    subtitle: 'Temas, pantallas y widgets para tu FlySky Noble NB4 o NB4+, igual que en la emisora, pero más cómodo. Con vista previa en vivo.',
+    footer: 'ApexTX Theme Editor · funciona totalmente en local, no se envía ningún dato. Antes de cada cambio en la emisora se guarda una copia en ApexTX-Backups.',
+    tabTheme: 'Tema', tabScreens: 'Pantallas', tabRadio: 'Emisora',
+    fwLive: 'Dibujado por el propio firmware ApexTX: exactamente lo que muestra la emisora.', fwStarting: 'Iniciando el firmware…', fwFailed: 'Vista previa del firmware no disponible, se muestra una aproximación. ',
+    connNone: 'No se encontró ninguna emisora. En la emisora: Pantalla e interfaz > Apariencia > Conectar con el editor de temas y conecta el cable USB.',
+    connOk: 'Emisora conectada:', connLocal: 'Sin emisora: los temas se guardan en', refresh: 'Buscar de nuevo',
+    secTheme: 'Tema', hintTheme: 'El nombre, el autor y la descripción aparecen en el selector de temas de la emisora.',
+    name: 'Nombre', author: 'Autor', info: 'Descripción',
+    grpOriginal: 'ORIGINALES DE APEXTX (COPIA EDITABLE)', grpDrift: 'DRIFT', grpRace: 'CARRERAS', grpCrawler: 'CRAWLER', grpDetail: 'DETALLADOS',
+    reserved: 'ApexTX reserva los nombres integrados. Tu versión modificada necesita su propio nombre, por ejemplo: ',
+    secPalette: 'Paleta', badgeBase: 'FUNCIONA CON CUALQUIER VERSIÓN DE APEXTX',
+    hintPalette: 'Los 13 colores de theme.yml, igual que en los temas integrados de ApexTX.',
+    secInstr: 'Colores de instrumentos', badgeExt: 'EXTENSIÓN',
+    hintInstr: 'Dirección, gas, freno y canal 3/4 en todos los widgets de dirección y gas. El firmware sin la extensión usa sus propios colores.',
+    secBg: 'Fondo', hintBg: 'Fondos listos en los colores de tu tema o tu propia imagen. Se guarda como background.png (320×480); las tarjetas se vuelven translúcidas encima.',
+    dropBg: 'Usar tu propia imagen: suéltala aquí o haz clic', bgDim: 'Oscurecer', cardOpacity: 'Opacidad de las tarjetas', bgFit: 'Imagen propia',
+    secExport: 'Guardar tema', hintExport: 'Un tema es una carpeta THEMES/<Nombre>/ con theme.yml (y background.png). Selecciónalo en la emisora en Apariencia o en la pestaña Emisora.',
+    saveRadio: 'Guardar en la emisora', unsaved: 'Cambios sin guardar en las pantallas de %s. «Guardar en la emisora» o «Guardar pantallas» los escribe en la emisora.', screensSaved: 'pantallas de %s guardadas', busySaving: 'Guardando en la emisora', stepImages: 'Creando imágenes…', stepWrite: 'Escribiendo archivos…', stepActivate: 'Activando el tema…', stepScreens: 'Escribiendo pantallas…', stepSettings: 'Escribiendo ajustes…', busyDone: 'Listo.', unplugNow: 'Ahora desconecta el cable USB: la emisora se reinicia y aplica los cambios.', ok: 'OK', orientSaved: 'Orientación guardada en la emisora; activa al desconectar el cable.', activateTheme: 'Activar al guardar', activated: 'activo al desconectar el cable', loadRadio: 'Cargar', dlZip: 'Descargar como ZIP', loadTheme: 'Abrir theme.yml', noThemes: 'No hay temas en la emisora',
+    secCar: 'Coche', hintCar: 'Las pantallas pertenecen a un coche. Carga un coche de la emisora, cambia sus pantallas y guarda.',
+    reload: 'Volver a cargar', saveScreens: 'Guardar pantallas', demoCar: 'Coche de ejemplo (no está en una emisora)',
+    notEditable: 'Abre este coche una vez en la emisora (ApexTX prepara sus pantallas) y vuelve a cargarlo.',
+    secScreens: 'Pantallas', hintScreens: 'Inicio y hasta 9 pantallas más. En la emisora se desliza entre ellas.',
+    home: 'Inicio', screen: 'Pantalla', addScreen: 'Añadir pantalla', delScreen: 'Quitar pantalla', restoreHome: 'Restaurar diseño ApexTX',
+    secLayout: 'Distribución', hintLayout: 'Cómo se divide la pantalla. ApexTX Racing mantiene la cabecera y los indicadores RF/TX/RX.',
+    layoutOptions: 'OPCIONES DE DISTRIBUCIÓN',
+    secZones: 'Mosaicos', hintZones: 'Elige un widget para cada mosaico o déjalo vacío. Haz clic en un mosaico de la vista previa para ir a él.',
+    zone: 'Mosaico', empty: '— vacío —', grpApex: 'ApexTX', grpEdge: 'EdgeTX',
+    optOnRadio: 'Más ajustes de este widget en la emisora: mantén pulsado el mosaico.',
+    secAppearance: 'Apariencia', hintAppearance: 'Paleta o tema, color de acento y orientación de toda la emisora.',
+    selTheme: 'Paleta / tema', accent: 'Acento', orientation: 'Orientación',
+    secLights: 'Luces', hintLights: 'La tira LED de la emisora. Al cargar, el color se sustituye temporalmente.',
+    ledMode: 'Modo', ledColor: 'Color', saveSettings: 'Guardar ajustes',
+    accents: ['Acento de la paleta', 'Azul', 'Naranja', 'Verde', 'Rojo', 'Amarillo', 'Cian', 'Magenta', 'Blanco'],
+    orients: ['Vertical', 'Horizontal'],
+    ledModes: ['Apagado', 'Color fijo', 'Respiración', 'Estado de batería'],
+    ledColors: ['Blanco', 'Rojo', 'Naranja', 'Amarillo', 'Verde', 'Cian', 'Azul', 'Magenta'],
+    previewNote: 'Vista previa con conducción simulada. Haz clic en un mosaico para editarlo. En la emisora puede variar ligeramente a nivel de píxel.',
+    portrait: 'Vertical', landscape: 'Horizontal', fill: 'Rellenar', fit: 'Mostrar todo',
+    simDrift: 'Drift', simRace: 'Carrera', simCrawl: 'Crawler', simIdle: 'Parado',
+    contrast: 'Poco contraste entre el texto (PRIMARY1) y el fondo de las tarjetas (PRIMARY2): ',
+    saved: 'Guardado: ', loaded: 'Cargado.', backupAt: 'Copia: ', needRadio: 'Conecta primero la emisora.',
+    bg_none: 'Ninguno', bg_image: 'Imagen propia', bg_gradient: 'Brillo', bg_hex: 'Panal', bg_smoke: 'Humo', bg_neon: 'Rejilla neón', bg_speed: 'Velocidad',
+    bg_checker: 'Bandera', bg_kerb: 'Pianos', bg_carbon: 'Carbono', bg_topo: 'Topográfico', bg_camo: 'Camuflaje', bg_rock: 'Roca',
+    bg_city: 'Ciudad neón', bg_touge: 'Touge de noche', bg_bokeh: 'Luces de lluvia', bg_circuit: 'Circuito',
+  },
+};
+let lang = 'en';
+const t = k => (T[lang] && T[lang][k] !== undefined ? T[lang][k] : T.en[k] !== undefined ? T.en[k] : k);
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Firmware catalogue (tools/nb4-editor-catalog.py), filled in by the app
+// ---------------------------------------------------------------------------
+let CATALOG = /*__CATALOG__*/null;
+const FALLBACK_CATALOG = {
+  layouts: [{id: 'ApexTXRacing', name: 'ApexTX Racing', zones: [], options: [], racing: true},
+    {id: 'Layout1x1', name: '1 x 1', zones: [[0, 0, 60, 60]], options: []},
+    {id: 'Layout2x2', name: '2 x 2', zones: [[0, 0, 30, 30], [0, 30, 30, 30], [30, 0, 30, 30], [30, 30, 30, 30]], options: []}],
+  widgets: ['ApexSteering', 'ApexThrottle', 'ApexTimer', 'ApexStats'].map(id => ({id, label: {en: id}, options: [], nb4: true})),
+  layoutOptionLabels: {},
+};
+const catalog = () => CATALOG || FALLBACK_CATALOG;
+const layoutById = id => catalog().layouts.find(l => l.id === id);
+const widgetById = id => catalog().widgets.find(w => w.id === id);
+const wLabel = w => (w.label && (w.label[lang] || w.label.en)) || w.id;
+const optLabel = o => (o.label && (o.label[lang] || o.label.en)) || (catalog().layoutOptionLabels[o.name] || {})[lang] || o.name;
+
+// ---------------------------------------------------------------------------
+// Theme model (base keys follow sdcard/THEMES/*/theme.yml)
+// ---------------------------------------------------------------------------
+const COLOR_KEYS = [
+  ['PRIMARY1', 'Text'], ['PRIMARY2', 'Cards'], ['PRIMARY3', 'Secondary text'],
+  ['SECONDARY1', 'Details'], ['SECONDARY2', 'Borders, scales'], ['SECONDARY3', 'Screen'],
+  ['FOCUS', 'Accent'], ['EDIT', 'Edit, OK'], ['ACTIVE', 'Active'], ['WARNING', 'Warning'],
+  ['DISABLED', 'Disabled'], ['QM_BG', 'Quick menu'], ['QM_FG', 'Quick menu text'],
+];
+const INSTR_KEYS = [['STEERING', 'Steering'], ['THROTTLE', 'Throttle'], ['BRAKE', 'Brake'], ['AUX', 'Channel 3/4']];
+const BG_GROUPS = [
+  ['', ['none', 'image', 'gradient', 'hex']],
+  ['grpDetail', ['city', 'touge', 'bokeh', 'circuit']],
+  ['grpDrift', ['smoke', 'neon', 'speed']],
+  ['grpRace', ['checker', 'kerb', 'carbon']],
+  ['grpCrawler', ['topo', 'camo', 'rock']],
+];
+const ORDER = COLOR_KEYS.map(([k]) => k);
+const hexes = list => Object.fromEntries(list.map((v, i) => [ORDER[i], v.toString(16).padStart(6, '0').toUpperCase()]));
+const DARK_INK = {STEERING: '35A7F0', THROTTLE: '3FD956', BRAKE: 'FF5A3C', AUX: 'A8A8A8'};
+const LIGHT_INK = {STEERING: '0A5FA8', THROTTLE: '1B7A34', BRAKE: 'B02A18', AUX: '5A6B78'};
+const preset = (info, colors, nb4, look = {}) => ({info, colors: hexes(colors), nb4, look});
+
+const PRESETS = {
+  grpOriginal: {
+    'ApexTX Dark': preset('Night and garage', [0xF5F5F5, 0x080808, 0xA8A8A8, 0xE0E0E0, 0x181818, 0x000000, 0xFF8C1A, 0x35D07A, 0x9A5410, 0xFF5A4E, 0x808080, 0x000000, 0xF5F5F5], DARK_INK),
+    'ApexTX Light': preset('Daylight', [0x101A22, 0xFFFFFF, 0x5A6B78, 0x0B4F82, 0xBACFE0, 0xEDF2F5, 0x0069C0, 0x00792E, 0xFFC400, 0xC81E1E, 0x76838D, 0x101A22, 0xFFFFFF], LIGHT_INK),
+    'ApexTX Sun': preset('Direct sun, maximum contrast', [0x000000, 0xFFFFFF, 0x3A3A3A, 0x000000, 0xAFAFAF, 0xF0F0F0, 0x0033CC, 0x006B00, 0xE8A000, 0xC00000, 0x5E5E5E, 0x000000, 0xFFFFFF], LIGHT_INK),
+    'ApexTX Red': preset('Night red, preserves night vision', [0xFF7A6B, 0x1F1011, 0xD26D5E, 0xFFA79B, 0x502923, 0x060202, 0xFF4A3D, 0xFF9A8D, 0x5A1611, 0xFFB0A4, 0x8A4A42, 0x000000, 0xFF7A6B], {STEERING: 'FF9A8D', THROTTLE: 'FF4A3D', BRAKE: 'D26D5E', AUX: 'D26D5E'}),
+    'ApexTX Green': preset('Track green', [0xE4F3E8, 0x0E1A13, 0x86B295, 0xC9E6D3, 0x274532, 0x040A07, 0x2ECC71, 0x5FE39A, 0x18703E, 0xFF6B5E, 0x6E8F7A, 0x000000, 0xE4F3E8], DARK_INK),
+    'ApexTX Orange': preset('Noble orange', [0xF5F2EF, 0x1A1510, 0xA79C93, 0xE6DED6, 0x3E362E, 0x060505, 0xFF7A00, 0x4FD37A, 0xA04E00, 0xFF6B4A, 0x8C837B, 0x000000, 0xF5F2EF], DARK_INK),
+    'ApexTX Mono': preset('Black and white', [0xF5F5F5, 0x121212, 0x9A9A9A, 0xE0E0E0, 0x333333, 0x000000, 0xFFFFFF, 0xBEBEBE, 0x555555, 0xFF6060, 0x777777, 0x000000, 0xF5F5F5], {STEERING: 'FFFFFF', THROTTLE: 'BEBEBE', BRAKE: 'FF6060', AUX: '9A9A9A'}),
+  },
+  grpDrift: {
+    'Drift Neon': preset('Night run, violet black with neon pink and cyan', [0xF2F4FF, 0x0B0716, 0x9C8FC7, 0x00E5FF, 0x1A1030, 0x05030B, 0xFF2E88, 0x00E5FF, 0x8A1050, 0xFFB300, 0x5E5873, 0x05030B, 0xF2F4FF], {STEERING: '00E5FF', THROTTLE: 'FF2E88', BRAKE: 'FFB300', AUX: 'B388FF'}, {bg: 'neon', opa: 82}),
+    'Synthwave': preset('Outrun sunset, deep indigo with hot pink and teal', [0xFFF0FA, 0x150A2E, 0xB79AD8, 0x05D9E8, 0x2B1656, 0x0D0221, 0xFF2A6D, 0x05D9E8, 0x7A1440, 0xFFD319, 0x6A5A8C, 0x0D0221, 0xFFF0FA], {STEERING: '05D9E8', THROTTLE: 'FF2A6D', BRAKE: 'FFD319', AUX: 'D16BA5'}, {bg: 'city', opa: 80}),
+    'Acid Drift': preset('Black with acid lime and magenta', [0xF4FFE8, 0x0A0D06, 0x9DB287, 0xB6FF00, 0x1F2A12, 0x030402, 0xB6FF00, 0xFF00A0, 0x4F6E00, 0xFF3B30, 0x5C6B4C, 0x030402, 0xF4FFE8], {STEERING: 'B6FF00', THROTTLE: 'FF00A0', BRAKE: 'FF3B30', AUX: '7CFFCB'}, {bg: 'speed', opa: 84}),
+    'Ice Drift': preset('Frozen night, navy with ice blue and white', [0xF0FAFF, 0x081627, 0x8FB4CF, 0x7FDBFF, 0x13304D, 0x030B14, 0x7FDBFF, 0xB8F2E6, 0x2C6E91, 0xFF6B6B, 0x557089, 0x030B14, 0xF0FAFF], {STEERING: 'FFFFFF', THROTTLE: '7FDBFF', BRAKE: 'FF6B6B', AUX: 'B8F2E6'}, {bg: 'bokeh', opa: 80}),
+    'Midnight Purple': preset('Deep purple with gold, like a classic midnight paint', [0xFAF3FF, 0x1A0B2E, 0xB99AD6, 0xFFC857, 0x34195C, 0x0C0418, 0xB967FF, 0xFFC857, 0x5A2C8A, 0xFF5E5B, 0x6E5A8A, 0x0C0418, 0xFAF3FF], {STEERING: 'FFC857', THROTTLE: 'B967FF', BRAKE: 'FF5E5B', AUX: 'E2C4FF'}, {bg: 'touge', opa: 82}),
+    'Drift Sunset': preset('Touge evening, deep purple with orange and gold', [0xFFF4E8, 0x1A0E1F, 0xC9A3B8, 0xFFB347, 0x33203A, 0x0E0712, 0xFF6A1F, 0xFFD23F, 0x8C3410, 0xFF3355, 0x6E5A6E, 0x0E0712, 0xFFF4E8], {STEERING: 'FFD23F', THROTTLE: 'FF6A1F', BRAKE: 'FF3355', AUX: 'C9A3B8'}, {bg: 'gradient', opa: 85}),
+    'Tokyo Midnight': preset('Wet city lights, deep blue with electric violet', [0xE8EEFF, 0x0A0F24, 0x8291C2, 0x6EC1FF, 0x1A2348, 0x04060F, 0x8A5CFF, 0x3DF2C5, 0x3B2580, 0xFF4F7B, 0x56608A, 0x04060F, 0xE8EEFF], {STEERING: '6EC1FF', THROTTLE: '3DF2C5', BRAKE: 'FF4F7B', AUX: '8A5CFF'}, {bg: 'city', opa: 84}),
+    'Tire Smoke': preset('Grey smoke, black and a hot red', [0xF0F0F0, 0x151515, 0x9E9E9E, 0xD0D0D0, 0x2C2C2C, 0x0A0A0A, 0xFF3B30, 0xE0E0E0, 0x7A1A15, 0xFFB000, 0x666666, 0x0A0A0A, 0xF0F0F0], {STEERING: 'F0F0F0', THROTTLE: 'FF3B30', BRAKE: 'FFB000', AUX: '9E9E9E'}, {bg: 'smoke', opa: 80}),
+  },
+  grpRace: {
+    'Rosso Corsa': preset('Race red, black and white', [0xFFFFFF, 0x111111, 0xB0B0B0, 0xFFFFFF, 0x2A2A2A, 0x050505, 0xE10600, 0x2BD96B, 0x7A0300, 0xFFC400, 0x707070, 0x050505, 0xFFFFFF], {STEERING: 'FFFFFF', THROTTLE: '2BD96B', BRAKE: 'E10600', AUX: 'B0B0B0'}, {bg: 'carbon', opa: 90}),
+    'Endurance Blue': preset('Classic endurance light blue and orange', [0xFFFFFF, 0x0E2234, 0xA9C8E0, 0x8FC1E3, 0x1D3A55, 0x081624, 0xF37021, 0x8FC1E3, 0x7A3610, 0xFF4040, 0x5C7690, 0x081624, 0xFFFFFF], {STEERING: '8FC1E3', THROTTLE: 'F37021', BRAKE: 'FF4040', AUX: 'A9C8E0'}, {bg: 'kerb', opa: 88}),
+    'Checkered': preset('Black and white with racing yellow', [0xFFFFFF, 0x0D0D0D, 0xA6A6A6, 0xFFFFFF, 0x2E2E2E, 0x000000, 0xFFD000, 0x31D67B, 0x806800, 0xFF4B3E, 0x6E6E6E, 0x000000, 0xFFFFFF], {STEERING: 'FFD000', THROTTLE: '31D67B', BRAKE: 'FF4B3E', AUX: 'A6A6A6'}, {bg: 'checker', opa: 86}),
+    'Racing Green': preset('British racing green with cream', [0xF4EFDF, 0x0C2016, 0xA9B9A4, 0xE8DDBB, 0x1F3D2B, 0x061109, 0xD4AF37, 0x7FD36B, 0x6B5A1A, 0xFF6B4A, 0x637A68, 0x061109, 0xF4EFDF], {STEERING: 'E8DDBB', THROTTLE: '7FD36B', BRAKE: 'FF6B4A', AUX: 'A9B9A4'}, {bg: 'circuit', opa: 90}),
+  },
+  grpCrawler: {
+    'Trail': preset('Olive drab and sand', [0xF1ECD9, 0x1C1F14, 0xB3AE8F, 0xD9CFA3, 0x3A3F29, 0x0F110A, 0xC7A146, 0x9ACD5A, 0x6A5520, 0xFF7043, 0x7A7A60, 0x0F110A, 0xF1ECD9], {STEERING: 'D9CFA3', THROTTLE: '9ACD5A', BRAKE: 'FF7043', AUX: 'C7A146'}, {bg: 'topo', opa: 88}),
+    'Desert': preset('Sand, terracotta and sky blue', [0x2B1E14, 0xF3E3C8, 0x6E5A44, 0x8A4B2A, 0xD8BF96, 0xE9D4B0, 0xC2562B, 0x2F7D6D, 0xF2B544, 0xB3261E, 0x9C8B73, 0x2B1E14, 0xF3E3C8], {STEERING: '2F7D6D', THROTTLE: 'C2562B', BRAKE: 'B3261E', AUX: '8A4B2A'}, {bg: 'camo', opa: 86}),
+    'Rock Crawler': preset('Slate grey with safety orange', [0xEDEFF2, 0x1A1D21, 0xA2A9B2, 0xD5DAE0, 0x353B43, 0x0C0E10, 0xFF6F00, 0x8BC34A, 0x7A3500, 0xFF3D3D, 0x6C737C, 0x0C0E10, 0xEDEFF2], {STEERING: 'D5DAE0', THROTTLE: 'FF6F00', BRAKE: 'FF3D3D', AUX: '8BC34A'}, {bg: 'rock', opa: 84}),
+    'Mud Run': preset('Dark mud with lime', [0xF2EEE6, 0x1E1712, 0xB0A190, 0xE0D3BE, 0x3D3027, 0x0F0B08, 0xB5E61D, 0xF2C14E, 0x55690A, 0xFF5A36, 0x7D6E60, 0x0F0B08, 0xF2EEE6], {STEERING: 'E0D3BE', THROTTLE: 'B5E61D', BRAKE: 'FF5A36', AUX: 'F2C14E'}, {bg: 'camo', opa: 82}),
+  },
+};
+const RESERVED = Object.keys(PRESETS.grpOriginal);
+
+const state = {
+  name: '', author: '', info: '', colors: {}, nb4: {},
+  bgPattern: 'none', bgImage: null, bgDim: 20, cardOpacity: 100, bgFit: 'fill',
+  landscape: false, sim: 'drift', view: 'theme',
+};
+
+function applyPreset(group, name) {
+  const p = PRESETS[group][name];
+  Object.assign(state, {colors: {...p.colors}, nb4: {...p.nb4}, info: p.info,
+    bgPattern: p.look.bg || 'none', cardOpacity: p.look.opa || 100, bgDim: p.look.bg ? 20 : 30,
+    sim: group === 'grpRace' ? 'race' : group === 'grpCrawler' ? 'crawl' : 'drift',
+    name: RESERVED.includes(name) ? name.replace('ApexTX ', '') + ' Custom' : name});
+  refreshAll();
+}
+
+// ---------------------------------------------------------------------------
+// Colour helpers
+// ---------------------------------------------------------------------------
+const col = k => '#' + (state.colors[k] || state.nb4[k] || '000000');
+const C = k => state.colors[k] || state.nb4[k];
+function rgb(hex) { const n = parseInt(hex, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function alpha(hex, a) { const [r, g, b] = rgb(hex); return `rgba(${r},${g},${b},${a})`; }
+function lum(hex) {
+  return rgb(hex).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); })
+    .reduce((a, v, i) => a + v * [.2126, .7152, .0722][i], 0);
+}
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); }
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; }
+
+// ---------------------------------------------------------------------------
+// Backgrounds, generated in the theme colours
+// ---------------------------------------------------------------------------
+const PATTERNS = {
+  gradient(g, W, H) {
+    let gr = g.createRadialGradient(W * .8, H * .1, 10, W * .8, H * .1, H * .9);
+    gr.addColorStop(0, alpha(C('FOCUS'), .75)); gr.addColorStop(.45, alpha(C('FOCUS'), .18)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    gr = g.createRadialGradient(W * .1, H, 10, W * .1, H, H * .7);
+    gr.addColorStop(0, alpha(C('EDIT'), .45)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  },
+  hex(g, W, H) {
+    const r = 18, hh = r * Math.sqrt(3);
+    g.lineWidth = 1.2;
+    for (let row = -1; row < H / hh + 1; row++) for (let c = -1; c < W / (r * 1.5) + 1; c++) {
+      const x = c * r * 1.5, y = row * hh + (c & 1 ? hh / 2 : 0), d = Math.hypot(x - W * .7, y - H * .3) / H;
+      g.strokeStyle = alpha(C('FOCUS'), Math.max(.06, .55 - d * .8));
+      g.beginPath();
+      for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i; g.lineTo(x + Math.cos(a) * (r - 2), y + Math.sin(a) * (r - 2)); }
+      g.closePath(); g.stroke();
+    }
+  },
+  city(g, W, H) {
+    const R = rng(17), hz = H * .58;
+    let gr = g.createLinearGradient(0, 0, 0, hz);
+    gr.addColorStop(0, alpha(C('SECONDARY3'), 1)); gr.addColorStop(1, alpha(C('FOCUS'), .55));
+    g.fillStyle = gr; g.fillRect(0, 0, W, hz);
+    // stars
+    for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${R() * .6})`; g.fillRect(R() * W, R() * hz * .6, 1.2, 1.2); }
+    // three skyline layers, back to front
+    for (const [depth, shade, win] of [[.55, .25, .25], [.75, .55, .45], [1, .9, .85]]) {
+      let x = -10;
+      while (x < W) {
+        const bw = 18 + R() * 38, bh = (40 + R() * 150) * depth, top = hz - bh;
+        g.fillStyle = alpha(C('SECONDARY2'), shade); g.fillStyle = `rgba(${rgb(C('SECONDARY3')).map(v => Math.round(v * (1 - depth * .3))).join(',')},1)`;
+        g.fillRect(x, top, bw, bh);
+        g.strokeStyle = alpha(C('FOCUS'), .25 * depth); g.strokeRect(x + .5, top + .5, bw - 1, bh);
+        for (let wy = top + 6; wy < hz - 6; wy += 9) for (let wx = x + 4; wx < x + bw - 5; wx += 7)
+          if (R() < .38) { g.fillStyle = alpha(R() < .5 ? C('EDIT') : C('WARNING'), win * (.4 + R() * .6)); g.fillRect(wx, wy, 3, 4); }
+        if (R() < .25) { g.fillStyle = '#' + C('FOCUS'); g.fillRect(x + bw / 2 - 1, top - 10, 2, 10); }
+        x += bw + 2;
+      }
+    }
+    // wet street with reflections
+    gr = g.createLinearGradient(0, hz, 0, H);
+    gr.addColorStop(0, alpha(C('FOCUS'), .35)); gr.addColorStop(1, alpha(C('SECONDARY3'), 1));
+    g.fillStyle = gr; g.fillRect(0, hz, W, H - hz);
+    for (let i = 0; i < 60; i++) { g.fillStyle = alpha(R() < .5 ? C('EDIT') : C('FOCUS'), R() * .35); g.fillRect(R() * W, hz + R() * (H - hz), 2, 6 + R() * 30); }
+    g.strokeStyle = alpha(C('PRIMARY1'), .5); g.setLineDash([16, 14]); g.lineWidth = 3;
+    g.beginPath(); g.moveTo(W / 2, hz + 4); g.lineTo(W / 2, H); g.stroke(); g.setLineDash([]);
+  },
+  touge(g, W, H) {
+    const R = rng(29);
+    let gr = g.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, alpha(C('SECONDARY3'), 1)); gr.addColorStop(.5, alpha(C('FOCUS'), .35)); gr.addColorStop(1, alpha(C('SECONDARY3'), 1));
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.fillStyle = alpha(C('PRIMARY1'), .85); g.beginPath(); g.arc(W * .74, H * .16, 22, 0, 7); g.fill();
+    for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(255,255,255,${R() * .5})`; g.fillRect(R() * W, R() * H * .35, 1.2, 1.2); }
+    // mountain ridges
+    for (let layer = 0; layer < 4; layer++) {
+      const base = H * (.32 + layer * .09), amp = 50 - layer * 8;
+      g.fillStyle = `rgba(${rgb(C('SECONDARY3')).map(v => Math.round(v * .6 + 12 * (3 - layer))).join(',')},1)`;
+      g.beginPath(); g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 8) g.lineTo(x, base - Math.abs(Math.sin(x / (60 + layer * 25) + layer)) * amp - R() * 6);
+      g.lineTo(W, H); g.closePath(); g.fill();
+    }
+    // hairpin road with light trails
+    const road = t => [W * (.5 + Math.sin(t * 7) * .35 * (1 - t * .3)), H * (.45 + t * .6)];
+    for (const [w, c, a] of [[22, C('SECONDARY2'), 1], [3, C('WARNING'), .9], [2, C('EDIT'), .9]]) {
+      g.strokeStyle = alpha(c, a); g.lineWidth = w; g.beginPath();
+      for (let i = 0; i <= 80; i++) { const [x, y] = road(i / 80); const off = c === C('WARNING') ? -6 : c === C('EDIT') ? 6 : 0; g.lineTo(x + off, y); }
+      g.stroke();
+    }
+  },
+  bokeh(g, W, H) {
+    const R = rng(41);
+    const gr = g.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, alpha(C('SECONDARY3'), 1)); gr.addColorStop(1, alpha(C('FOCUS'), .25));
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    const cols = [C('FOCUS'), C('EDIT'), C('WARNING'), C('PRIMARY1')];
+    for (let i = 0; i < 46; i++) {
+      const x = R() * W, y = R() * H, r = 6 + R() * 34, c = cols[i % 4];
+      const rg = g.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, alpha(c, .45 * R() + .1)); rg.addColorStop(.75, alpha(c, .18)); rg.addColorStop(1, alpha(c, 0));
+      g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      g.strokeStyle = alpha(c, .25); g.lineWidth = 1; g.stroke();
+    }
+    g.lineCap = 'round';
+    for (let i = 0; i < 160; i++) {
+      const x = R() * W, y = R() * H, l = 6 + R() * 18;
+      g.strokeStyle = `rgba(255,255,255,${R() * .25})`; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - l * .25, y + l); g.stroke();
+    }
+  },
+  circuit(g, W, H) {
+    const R = rng(53), step = 16;
+    g.lineWidth = 1.6; g.lineCap = 'round';
+    for (let i = 0; i < 70; i++) {
+      let x = Math.round(R() * W / step) * step, y = Math.round(R() * H / step) * step;
+      const c = R() < .7 ? C('EDIT') : C('FOCUS'), a = .15 + R() * .4;
+      g.strokeStyle = alpha(c, a); g.beginPath(); g.moveTo(x, y);
+      for (let s = 0; s < 4 + R() * 6; s++) {
+        const dir = (R() * 4) | 0, len = step * (1 + ((R() * 3) | 0));
+        x += [len, -len, 0, 0][dir]; y += [0, 0, len, -len][dir];
+        if (R() < .4) { x += len * .5; y += len * .5; }
+        g.lineTo(x, y);
+      }
+      g.stroke();
+      g.fillStyle = alpha(c, a + .2); g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
+    }
+    for (let i = 0; i < 8; i++) {
+      const x = R() * (W - 50), y = R() * (H - 30);
+      g.fillStyle = alpha(C('SECONDARY2'), .9); g.fillRect(x, y, 40, 22);
+      g.strokeStyle = alpha(C('FOCUS'), .4); g.strokeRect(x + .5, y + .5, 40, 22);
+      for (let p = 0; p < 5; p++) { g.fillStyle = alpha(C('PRIMARY3'), .6); g.fillRect(x + 4 + p * 8, y - 3, 3, 3); g.fillRect(x + 4 + p * 8, y + 22, 3, 3); }
+    }
+  },
+  smoke(g, W, H) {
+    const R = rng(7);
+    for (let i = 0; i < 34; i++) {
+      const x = R() * W, y = H * (.25 + R() * .8), r = 40 + R() * 120;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(235,235,240,${.06 + R() * .12})`); gr.addColorStop(1, 'rgba(235,235,240,0)');
+      g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+    }
+    g.lineCap = 'round';
+    for (const off of [-22, 22]) {
+      g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 13;
+      g.beginPath(); g.moveTo(-20 + off, H + 20); g.bezierCurveTo(W * .9 + off, H * .75, W * .05 + off, H * .35, W * .7 + off, -20); g.stroke();
+    }
+    const gr = g.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, alpha(C('FOCUS'), .25)); gr.addColorStop(.5, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  },
+  neon(g, W, H) {
+    const hz = H * .42;
+    let gr = g.createLinearGradient(0, 0, 0, hz);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, alpha(C('FOCUS'), .45));
+    g.fillStyle = gr; g.fillRect(0, 0, W, hz);
+    const sr = W * .3, sy = hz - sr * .35;
+    gr = g.createLinearGradient(0, sy - sr, 0, hz);
+    gr.addColorStop(0, '#' + C('WARNING')); gr.addColorStop(1, '#' + C('FOCUS'));
+    g.save(); g.beginPath(); g.rect(0, 0, W, hz); g.clip();
+    g.fillStyle = gr; g.beginPath(); g.arc(W / 2, sy, sr, 0, 7); g.fill();
+    g.fillStyle = '#' + C('SECONDARY3');
+    for (let i = 0; i < 6; i++) g.fillRect(0, sy + i * 9, W, 2 + i * .9);
+    g.restore();
+    g.strokeStyle = alpha(C('EDIT'), .8); g.lineWidth = 1.4;
+    for (let i = -10; i <= 10; i++) { g.beginPath(); g.moveTo(W / 2, hz); g.lineTo(W / 2 + i * W * .22, H); g.stroke(); }
+    for (let i = 1; i < 14; i++) { const y = hz + (H - hz) * Math.pow(i / 13, 2); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.fillStyle = alpha(C('EDIT'), .9); g.fillRect(0, hz - 1, W, 2);
+  },
+  speed(g, W, H) {
+    const R = rng(3), a = -20 * Math.PI / 180, cols = [C('FOCUS'), C('EDIT'), C('PRIMARY1')];
+    g.lineCap = 'round';
+    for (let i = 0; i < 110; i++) {
+      const x = R() * W * 1.4 - W * .2, y = R() * H, len = 30 + R() * 190;
+      g.strokeStyle = alpha(cols[i % 3], .06 + R() * .45); g.lineWidth = .8 + R() * 3.5;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+    }
+  },
+  checker(g, W, H) {
+    const s = 26;
+    g.save(); g.translate(W / 2, H * .38); g.rotate(-.35);
+    for (let r = -14; r < 14; r++) for (let c = -12; c < 12; c++) {
+      if ((r + c) & 1) continue;
+      g.fillStyle = alpha(C('PRIMARY1'), .16);
+      g.fillRect(c * s, r * s + Math.sin(c * .5) * 9, s, s);
+    }
+    g.restore();
+    const gr = g.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.75, alpha(C('SECONDARY3'), .9));
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.fillStyle = alpha(C('FOCUS'), .8); g.fillRect(0, H * .66, W, 3);
+  },
+  kerb(g, W, H) {
+    const R = rng(11);
+    for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(255,255,255,${R() * .05})`; g.fillRect(R() * W, R() * H, 1.5, 1.5); }
+    for (const side of [0, 1]) {
+      for (let i = 0; i < 40; i++) {
+        const p = k => [side ? W - 30 - Math.sin(k / 40 * Math.PI) * 60 : 30 + Math.sin(k / 40 * Math.PI) * 50, H * k / 40];
+        const [x1, y1] = p(i), [x2, y2] = p(i + 1);
+        g.strokeStyle = i & 1 ? '#' + C('WARNING') : alpha(C('PRIMARY1'), .9); g.lineWidth = 16;
+        g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+      }
+    }
+    g.setLineDash([22, 18]); g.strokeStyle = alpha(C('PRIMARY1'), .35); g.lineWidth = 3;
+    g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.stroke(); g.setLineDash([]);
+  },
+  carbon(g, W, H) {
+    const s = 8, light = alpha(C('PRIMARY1'), .07), dark = 'rgba(0,0,0,.45)';
+    for (let y = 0; y < H; y += s) for (let x = 0; x < W; x += s) {
+      const odd = ((x + y) / s) & 1;
+      g.fillStyle = odd ? light : dark; g.fillRect(x, y, s, s / 2);
+      g.fillStyle = odd ? dark : light; g.fillRect(x, y + s / 2, s, s / 2);
+    }
+    const gr = g.createLinearGradient(0, 0, W, H);
+    gr.addColorStop(0, 'rgba(255,255,255,.10)'); gr.addColorStop(.4, 'rgba(255,255,255,0)'); gr.addColorStop(1, alpha(C('FOCUS'), .25));
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  },
+  topo(g, W, H) {
+    const R = rng(5);
+    g.lineWidth = 1.3;
+    for (const [cx, cy] of [[W * .25, H * .3], [W * .8, H * .65], [W * .4, H * .9]]) {
+      const ph = R() * 6;
+      for (let k = 1; k < 16; k++) {
+        g.strokeStyle = alpha(k % 5 ? C('EDIT') : C('FOCUS'), k % 5 ? .28 : .55);
+        g.beginPath();
+        for (let i = 0; i <= 72; i++) {
+          const a = i / 72 * Math.PI * 2, r = k * 14 * (1 + .18 * Math.sin(a * 3 + ph + k * .2) + .08 * Math.sin(a * 5 - ph));
+          g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r * .8);
+        }
+        g.stroke();
+      }
+    }
+  },
+  camo(g, W, H) {
+    const R = rng(21), cols = [C('SECONDARY2'), C('ACTIVE'), C('EDIT'), C('PRIMARY3')];
+    for (let i = 0; i < 46; i++) {
+      const cx = R() * W, cy = R() * H, r = 18 + R() * 46, n = 9;
+      g.fillStyle = alpha(cols[i % 4], .35 + R() * .25);
+      g.beginPath();
+      for (let k = 0; k <= n; k++) { const a = k / n * Math.PI * 2, q = r * (.6 + R() * .6); g.lineTo(cx + Math.cos(a) * q * 1.4, cy + Math.sin(a) * q); }
+      g.closePath(); g.fill();
+    }
+  },
+  rock(g, W, H) {
+    const R = rng(13);
+    for (let i = 0; i < 70; i++) {
+      const cx = R() * W, cy = R() * H, r = 14 + R() * 38, n = 5 + (R() * 4 | 0), pts = [];
+      for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2 + R() * .5; pts.push([cx + Math.cos(a) * r * (.7 + R() * .4), cy + Math.sin(a) * r * (.6 + R() * .3)]); }
+      g.fillStyle = alpha(C('SECONDARY2'), .55 + R() * .35);
+      g.beginPath(); pts.forEach(p => g.lineTo(...p)); g.closePath(); g.fill();
+      g.strokeStyle = alpha(C('PRIMARY1'), .12); g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.stroke();
+    }
+    const gr = g.createLinearGradient(0, H, W, 0);
+    gr.addColorStop(0, alpha(C('FOCUS'), .25)); gr.addColorStop(.5, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  },
+};
+
+function paintBackground(g, W, H, pattern = state.bgPattern) {
+  g.fillStyle = col('SECONDARY3'); g.fillRect(0, 0, W, H);
+  if (pattern === 'none') return;
+  if (pattern === 'image') {
+    const img = state.bgImage;
+    if (!img) return;
+    const s = state.bgFit === 'fill' ? Math.max(W / img.width, H / img.height) : Math.min(W / img.width, H / img.height);
+    g.drawImage(img, (W - img.width * s) / 2, (H - img.height * s) / 2, img.width * s, img.height * s);
+  } else {
+    g.save(); PATTERNS[pattern](g, W, H); g.restore();
+  }
+  g.fillStyle = `rgba(0,0,0,${state.bgDim / 100})`; g.fillRect(0, 0, W, H);
+}
+let bgCache = null;
+function cachedBackground(W, H) {
+  const key = [state.bgPattern, state.bgDim, state.bgFit, W, H, JSON.stringify(state.colors), state.bgImage && state.bgImage.src].join('|');
+  if (!bgCache || bgCache.key !== key) {
+    const c = document.createElement('canvas'); c.width = W * 2; c.height = H * 2;
+    const g = c.getContext('2d'); g.scale(2, 2);
+    paintBackground(g, W, H);
+    bgCache = {key, canvas: c};
+  }
+  return bgCache.canvas;
+}
+// Saved for both orientations (background.png, background_480x320.png).
+const hasBg = () => state.bgPattern !== 'none' && (state.bgPattern !== 'image' || state.bgImage);
+
+// ---------------------------------------------------------------------------
+// Car screens (MODELS/<car>.yml, raw values as the radio writes them)
+// ---------------------------------------------------------------------------
+const unq = v => typeof v === 'string' && v.length > 1 && v[0] === '"' && v.at(-1) === '"' ? v.slice(1, -1).replace(/\\"/g, '"') : v;
+const qt = s => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+const RACING_ZONES = ['ApexSteering', 'ApexThrottle', 'ApexTimer', 'ApexStats'];
+function racingScreen() {
+  return {LayoutId: 'ApexTXRacing', layoutData: {zones: Object.fromEntries(RACING_ZONES.map((w, i) => [String(i), {widgetName: qt(w)}]))}};
+}
+const demoCar = () => ({file: '', name: t('demoCar'), editable: true, hash: '', screenData: {
+  0: racingScreen(),
+  1: {LayoutId: 'Layout2x2', layoutData: {zones: {0: {widgetName: qt('NB4SteerWheel')}, 1: {widgetName: qt('NB4ThrRing')},
+    2: {widgetName: qt('NB4Link')}, 3: {widgetName: qt('NB4Aux')}}}},
+}});
+let car = null, selScreen = '0', selZone = 0;
+
+const screenKeys = () => Object.keys(car.screenData).sort((a, b) => a - b);
+const curScreen = () => car.screenData[selScreen];
+const curLayout = () => layoutById(unq(curScreen().LayoutId)) || layoutById('Layout1x1');
+const zonesOf = s => ((s.layoutData = s.layoutData || {}).zones = s.layoutData.zones || {});
+const zoneCount = l => l.racing ? 4 : l.zones.length;
+function layoutOpt(s, i, def) {
+  const o = (((s.layoutData || {}).options || {})[i] || {}).value;
+  return o && o.boolValue !== undefined ? +o.boolValue : def;
+}
+function setLayoutOpt(s, i, v) {
+  const opts = (s.layoutData.options = s.layoutData.options || {});
+  opts[i] = {type: 'Bool', value: {boolValue: String(v ? 1 : 0)}};
+}
+
+function setLayout(id) {
+  const s = curScreen(), l = layoutById(id);
+  if (l.racing) { car.screenData[selScreen] = racingScreen(); }
+  else {
+    s.LayoutId = id;
+    const zones = zonesOf(s);
+    for (const k of Object.keys(zones)) if (+k >= l.zones.length) delete zones[k];
+    delete s.layoutData.options;
+  }
+  selZone = 0; dirtyCar(); buildScreens();
+}
+function setWidget(zi, id) {
+  const zones = zonesOf(curScreen());
+  if (id) zones[zi] = {widgetName: qt(id)}; else delete zones[zi];
+  dirtyCar(); buildScreens();
+}
+function widgetIn(s, zi) { const z = zonesOf(s)[zi]; return z ? unq(z.widgetName) : ''; }
+function optionValue(s, zi, idx, opt) {
+  const v = ((((zonesOf(s)[zi] || {}).widgetData || {}).options || {})[idx] || {}).value || {};
+  const raw = v.signedValue ?? v.unsignedValue ?? v.boolValue ?? v.stringValue;
+  if (raw === undefined) return opt.default;
+  return opt.type === 'String' ? unq(raw) : +raw;
+}
+function setOption(zi, idx, opt, value) {
+  const z = zonesOf(curScreen())[zi];
+  const opts = ((z.widgetData = z.widgetData || {}).options = z.widgetData.options || {});
+  if (opt.type === 'Integer') opts[idx] = {type: 'Signed', value: {signedValue: String(Math.round(value))}};
+  else if (opt.type === 'Bool') opts[idx] = {type: 'Bool', value: {boolValue: String(value ? 1 : 0)}};
+  else if (opt.type === 'String') opts[idx] = {type: 'String', value: {stringValue: qt(String(value).slice(0, 12))}};
+  dirtyCar();
+}
+function addScreen() {
+  const n = screenKeys().length;
+  if (n >= 10) return;
+  car.screenData[String(n)] = {LayoutId: 'Layout2x2', layoutData: {zones: {}}};
+  selScreen = String(n); selZone = 0; dirtyCar(); buildScreens();
+}
+function removeScreen() {
+  if (selScreen === '0') return;
+  // Screens are stored contiguously; the radio stops at the first gap.
+  const rest = screenKeys().filter(k => k !== selScreen).map(k => car.screenData[k]);
+  car.screenData = Object.fromEntries(rest.map((s, i) => [String(i), s]));
+  selScreen = String(Math.max(0, +selScreen - 1)); dirtyCar(); buildScreens();
+}
+let carDirty = false;
+function dirtyCar() { carDirty = true; $('carSave').classList.toggle('off', !radioRoot() || !car.file || !car.editable); showUnsaved(); }
+// Screen changes live in the car's file, not in the theme: say so until saved.
+function showUnsaved() {
+  const w = $('unsavedWarn'), on = carDirty && !!car.file && car.editable && !!radioRoot();
+  w.style.display = on ? 'block' : 'none';
+  if (on) w.textContent = t('unsaved').replace('%s', car.name);
+}
+
+// ---------------------------------------------------------------------------
+// Preview: Nb4HomeScreen chrome, RacingLayout::getZone(), Layout::getZone()
+// ---------------------------------------------------------------------------
+const cv = $('screen'), ctx = cv.getContext('2d');
+const SCALE = 1.25;
+let zoneRects = [];
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function card(x, y, w, h) {
+  rr(x + .5, y + .5, w - 1, h - 1, 10);
+  ctx.fillStyle = alpha(state.colors.PRIMARY2, hasBg() ? state.cardOpacity / 100 : 1); ctx.fill();
+  ctx.strokeStyle = col('SECONDARY2'); ctx.lineWidth = 1; ctx.stroke();
+}
+function well(x, y, w, h, r = 6) {
+  rr(x, y, w, h, r); ctx.fillStyle = alpha(state.colors.SECONDARY3, hasBg() ? state.cardOpacity / 100 : 1); ctx.fill();
+  ctx.strokeStyle = col('SECONDARY2'); ctx.lineWidth = 1; ctx.stroke();
+}
+function text(s, x, y, size, color, weight = 400, align = 'left') {
+  ctx.font = `${weight} ${size}px "Segoe UI",Roboto,system-ui,sans-serif`;
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(s, x, y);
+}
+function hair(x, y, w, h) { ctx.fillStyle = col('SECONDARY2'); ctx.fillRect(x, y, w, h); }
+function glow(color, blur) { ctx.shadowColor = color; ctx.shadowBlur = blur; }
+function noGlow() { ctx.shadowBlur = 0; }
+function arcLine(cx, cy, r, a0, a1, color, width, withGlow) {
+  ctx.lineWidth = width; ctx.strokeStyle = color;
+  if (withGlow) glow(color, 10);
+  ctx.beginPath(); ctx.arc(cx, cy, r, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke();
+  noGlow();
+}
+const fit = (w, h, n, max = 64) => Math.max(11, Math.min(max, h, w / (n * .62)));
+function title(x, y, s, color) { text(s, x + 8, y + 19, 11, color || col('PRIMARY3'), 700); }
+function icon(kind, x, y) {
+  ctx.save(); ctx.translate(x, y); ctx.strokeStyle = col('PRIMARY3'); ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  if (kind === 'gear') {
+    ctx.beginPath(); ctx.arc(15, 15, 6, 0, 7); ctx.stroke();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(15 + Math.cos(a) * 9, 15 + Math.sin(a) * 9); ctx.lineTo(15 + Math.cos(a) * 12, 15 + Math.sin(a) * 12); ctx.stroke(); }
+  } else {
+    ctx.beginPath(); ctx.moveTo(6, 24); ctx.lineTo(17, 13); ctx.stroke();
+    ctx.beginPath(); ctx.arc(20, 10, 5.5, Math.PI * .75, Math.PI * 2.25); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// --- Widgets -------------------------------------------------------------
+const W = {};
+const thrInk = v => v < 0 ? col('BRAKE') : col('THROTTLE');
+const thrWord = v => v < 0 ? 'BRAKE' : 'THR';
+
+W.ApexSteering = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'STEERING', col('STEERING'));
+  const r = Math.max(14, Math.min(w * .4, h * .36)), cx = x + w / 2, cy = y + h * .47;
+  const a0 = Math.PI * 150 / 180, a1 = Math.PI * 30 / 180 + Math.PI * 2, mid = Math.PI * 1.5, av = mid + v.steer / 100 * Math.PI * 2 / 3;
+  ctx.lineCap = 'butt'; arcLine(cx, cy, r, a0, a1, col('SECONDARY2'), Math.max(4, r / 7)); arcLine(cx, cy, r, mid, av, col('STEERING'), Math.max(4, r / 7), true);
+  for (let i = 0; i <= 12; i++) {
+    const a = a0 + (a1 - a0) * i / 12, major = i % 3 === 0, ri = r - (major ? r * .26 : r * .19);
+    ctx.strokeStyle = major ? col('PRIMARY3') : col('SECONDARY2'); ctx.lineWidth = major ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * (r - r * .11), cy + Math.sin(a) * (r - r * .11)); ctx.lineTo(cx + Math.cos(a) * ri, cy + Math.sin(a) * ri); ctx.stroke();
+  }
+  ctx.strokeStyle = col('PRIMARY1'); ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(av) * r * .82, cy + Math.sin(av) * r * .82); ctx.stroke();
+  text(Math.abs(v.steer) + '%', cx, Math.min(y + h - 8, cy + r * .75), fit(w, h / 4, 4, 30), col('PRIMARY1'), 800, 'center');
+};
+W.NB4SteerDial = (x, y, w, h, v) => halfDial(x, y, w, h, v.steer, 'STEERING', () => col('STEERING'));
+W.NB4ThrDial = (x, y, w, h, v) => halfDial(x, y, w, h, v.thr, 'THR / BRAKE', thrInk);
+function halfDial(x, y, w, h, val, label, inkOf) {
+  card(x, y, w, h); title(x, y, label, inkOf(0));
+  const r = Math.max(14, Math.min((w - 16) / 2, h - 78)), cx = x + w / 2, cy = y + 30 + r, ink = inkOf(val);
+  ctx.lineCap = 'butt'; arcLine(cx, cy, r, Math.PI, Math.PI * 2, col('SECONDARY2'), Math.max(6, r / 7));
+  arcLine(cx, cy, r, Math.PI * 1.5, Math.PI * 1.5 + val / 100 * Math.PI / 2, ink, Math.max(6, r / 7), true);
+  const a = Math.PI * 1.5 + val / 100 * Math.PI / 2;
+  ctx.strokeStyle = ink; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * .75, cy + Math.sin(a) * r * .75); ctx.stroke();
+  text(val + '%', cx, Math.min(y + h - 8, cy + 30), fit(w, 32, 5, 32), ink, 800, 'center');
+}
+W.NB4SteerBar = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'STEERING', col('STEERING'));
+  text(v.steer + '%', x + w - 8, y + Math.min(h - 50, 30 + fit(w, h - 80, 5, 53)), fit(w, h - 80, 5, 53), col('STEERING'), 800, 'right');
+  const bh = h < 110 ? 22 : 34, by = y + h - bh - 42, bw = w - 16, mid = x + 8 + bw / 2;
+  well(x + 8, by, bw, bh, 3); glow(col('STEERING'), 10); ctx.fillStyle = col('STEERING');
+  const len = bw / 2 * v.steer / 100; ctx.fillRect(Math.min(mid, mid + len), by, Math.abs(len), bh); noGlow();
+  hair(mid - 1, by, 2, bh);
+  text('-100', x + 8, by + bh + 22, 10, col('PRIMARY3')); text('0', mid, by + bh + 22, 10, col('PRIMARY3'), 400, 'center'); text('+100', x + w - 8, by + bh + 22, 10, col('PRIMARY3'), 400, 'right');
+};
+W.NB4SteerWheel = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'STEERING', col('STEERING'));
+  const r = Math.max(16, Math.min((w - 32) / 2, (h - 92) / 2)), cx = x + w / 2, cy = y + 30 + r, accent = col('STEERING');
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(v.steer * 1.35 * Math.PI / 180);
+  ctx.lineWidth = Math.max(4, r / 6); ctx.strokeStyle = col('SECONDARY2'); ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.stroke();
+  glow(accent, 12); ctx.strokeStyle = accent; ctx.beginPath(); ctx.arc(0, 0, r, -Math.PI / 2 - .24, -Math.PI / 2 + .24); ctx.stroke(); noGlow();
+  ctx.lineWidth = r < 40 ? 3 : 5; ctx.strokeStyle = col('PRIMARY3'); ctx.lineCap = 'round';
+  for (const a of [90, 210, 330]) { const q = a * Math.PI / 180; ctx.beginPath(); ctx.moveTo(Math.cos(q) * r / 4, Math.sin(q) * r / 4); ctx.lineTo(Math.cos(q) * (r - 2), Math.sin(q) * (r - 2)); ctx.stroke(); }
+  ctx.fillStyle = col('PRIMARY2'); ctx.beginPath(); ctx.arc(0, 0, Math.max(6, r / 4), 0, 7); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+  text(v.steer + '%', cx, Math.min(y + h - 8, cy + r + 36), fit(w, 40, 5, 43), col('PRIMARY1'), 800, 'center');
+};
+W.NB4SteerCar = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'STEERING', col('STEERING'));
+  const bodyH = Math.max(40, Math.min(h - 96, (w - 60) * 2)), bodyW = bodyH / 2, cx = x + w / 2, cy = y + 38 + bodyH / 2, wl = bodyH / 5, lock = v.steer * .3 * Math.PI / 180;
+  const wheel = (wx, wy, rot) => { ctx.save(); ctx.translate(wx, wy); ctx.rotate(rot); ctx.fillStyle = col('PRIMARY1'); ctx.fillRect(-Math.max(5, bodyW / 4) / 2, -wl / 2, Math.max(5, bodyW / 4), wl); ctx.restore(); };
+  const ay = [cy - bodyH * .3, cy + bodyH * .3];
+  wheel(cx - bodyW / 2 - 2, ay[0], lock); wheel(cx + bodyW / 2 + 2, ay[0], lock); wheel(cx - bodyW / 2 - 2, ay[1], 0); wheel(cx + bodyW / 2 + 2, ay[1], 0);
+  rr(cx - bodyW / 2, cy - bodyH / 2, bodyW, bodyH, bodyW / 3); ctx.fillStyle = col('SECONDARY2'); ctx.fill();
+  glow(col('STEERING'), 8); ctx.strokeStyle = col('STEERING'); ctx.lineWidth = 2; ctx.stroke(); noGlow();
+  ctx.fillStyle = col('SECONDARY3'); ctx.fillRect(cx - bodyW / 3, cy - bodyH / 8, bodyW * 2 / 3, bodyH / 4);
+  ctx.strokeStyle = col('STEERING'); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, ay[0] - wl / 2); ctx.lineTo(cx + Math.sin(lock) * wl, ay[0] - wl / 2 - Math.cos(lock) * wl); ctx.stroke();
+  text(v.steer + '%', cx, Math.min(y + h - 8, cy + bodyH / 2 + 34), fit(w, 40, 5, 43), col('PRIMARY1'), 800, 'center');
+};
+W.NB4SteerBig = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'STEERING', col('STEERING'));
+  const side = 44, fs = fit(w - side * 2, h - 64, 4, 67), midY = y + 28 + (h - 54) / 2;
+  text(Math.abs(v.steer) + '', x + w / 2, midY + fs * .35, fs, col('PRIMARY1'), 800, 'center');
+  const lit = Math.abs(v.steer) > 75 ? 3 : Math.abs(v.steer) > 45 ? 2 : Math.abs(v.steer) > 15 ? 1 : 0, half = Math.max(8, fs / 4);
+  for (let i = 0; i < 3; i++) for (const s of [-1, 1]) {
+    const on = (s > 0 ? v.steer > 0 : v.steer < 0) && i < lit, bx = s > 0 ? x + w - side + 4 + i * 12 : x + side - 4 - i * 12;
+    ctx.strokeStyle = on ? col('STEERING') : col('SECONDARY2'); ctx.lineWidth = 4; ctx.lineCap = 'round';
+    if (on) glow(col('STEERING'), 8);
+    ctx.beginPath(); ctx.moveTo(bx - s * 5, midY - half); ctx.lineTo(bx + s * 3, midY); ctx.lineTo(bx - s * 5, midY + half); ctx.stroke(); noGlow();
+  }
+  const bw = w - 32, mid = x + 16 + bw / 2; well(x + 16, y + h - 20, bw, 6, 3);
+  ctx.fillStyle = col('STEERING'); const len = bw / 2 * v.steer / 100; ctx.fillRect(Math.min(mid, mid + len), y + h - 20, Math.abs(len), 6);
+};
+W.ApexThrottle = W.NB4ThrColumn = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'THR', col('THROTTLE')); text('BRAKE', x + 52, y + 19, 11, col('PRIMARY3'), 700);
+  const top = y + 32, bottom = y + h - 8, colW = Math.max(14, Math.min(30, w / 8)), cx0 = x + 14, axis = top + (bottom - top) / 2;
+  well(cx0, top, colW, bottom - top, 4);
+  glow(thrInk(v.thr), 10); ctx.fillStyle = thrInk(v.thr);
+  const len = Math.abs(v.thr) * ((bottom - top) / 2 - 2) / 100;
+  if (v.thr >= 0) ctx.fillRect(cx0 + 2, axis - len, colW - 4, len); else ctx.fillRect(cx0 + 2, axis, colW - 4, len); noGlow();
+  ctx.fillStyle = col('PRIMARY3'); ctx.fillRect(cx0 - 4, axis - 1, colW + 8, 2);
+  const rx = cx0 + colW + 14, rw = x + w - 8 - rx;
+  text(v.thr + '%', rx + rw / 2, axis + 10, fit(rw, (bottom - top) / 2, 5, 60), thrInk(v.thr), 800, 'center');
+  text(thrWord(v.thr), rx + rw / 2, axis - 22, 10, col('PRIMARY3'), 700, 'center');
+};
+W.NB4ThrRing = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'THR / BRAKE');
+  const r = Math.max(20, Math.min((w - 16) / 2, (h - 58) / 2)), cx = x + w / 2, cy = y + 30 + r, up = -Math.PI / 2, ink = thrInk(v.thr), lw = Math.max(6, r / 5);
+  ctx.lineCap = 'butt'; arcLine(cx, cy, r, 0, Math.PI * 2, col('SECONDARY2'), lw);
+  if (v.thr) arcLine(cx, cy, r, up, up + Math.sign(v.thr) * Math.PI * 2 * Math.abs(v.thr) / 100 * .95, ink, lw, true);
+  text(Math.abs(v.thr) + '', cx, cy + fit(r * 1.4, r, 4, 60) * .35, fit(r * 1.4, r, 4, 60), ink, 800, 'center');
+  text(thrWord(v.thr), cx, Math.min(y + h - 6, cy + r + 18), 11, ink, 700, 'center');
+};
+W.NB4ThrSegments = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'THR / BRAKE');
+  const n = 14, gap = 3, top = y + 32, bottom = y + h - 8, sh = Math.max(3, (bottom - top - gap * (n - 1)) / n), sw = w * 2 / 5;
+  const gasLit = v.thr > 0 ? Math.ceil(v.thr * 10 / 100) : 0, brakeLit = v.thr < 0 ? Math.ceil(-v.thr * 4 / 100) : 0;
+  for (let i = 0; i < n; i++) {
+    const on = i < 4 ? 3 - i < brakeLit : i - 4 < gasLit, c = i < 4 ? col('BRAKE') : col('THROTTLE');
+    if (on) glow(c, 8);
+    rr(x + 12, bottom - (i + 1) * sh - i * gap, sw, sh, 2); ctx.fillStyle = on ? c : col('SECONDARY2'); ctx.fill(); noGlow();
+  }
+  const rx = x + 12 + sw + 8, rw = x + w - 8 - rx;
+  text(v.thr + '%', rx + rw / 2, (top + bottom) / 2 + 10, fit(rw, (bottom - top) / 2, 4, 50), thrInk(v.thr), 800, 'center');
+};
+W.NB4ThrSplit = (x, y, w, h, v) => {
+  card(x, y, w, h);
+  const fs = fit(w - 16, 43, 4, 43), top = y + 30, bottom = y + h - 12 - fs, cw = (w - 24) / 2;
+  [[col('THROTTLE'), Math.max(0, v.thr), 'THR', x + 8], [col('BRAKE'), Math.max(0, -v.thr), 'BRAKE', x + 16 + cw]].forEach(([c, val, lab, bx]) => {
+    text(lab, bx, y + 19, 11, c, 700); well(bx, top, cw, bottom - top, 4);
+    const len = (bottom - top - 4) * val / 100; glow(c, 10); ctx.fillStyle = c; ctx.fillRect(bx + 2, bottom - 2 - len, cw - 4, len); noGlow();
+  });
+  text(v.thr + '%', x + w / 2, y + h - 8, fs, thrInk(v.thr), 800, 'center');
+};
+W.NB4ThrBar = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'THR / BRAKE');
+  const bh = h < 110 ? 18 : 30, bx = x + 8, bw = w - 16, by = y + h - 24 - bh, zero = bx + bw * .3;
+  well(bx, by, bw, bh, 4); glow(thrInk(v.thr), 10); ctx.fillStyle = thrInk(v.thr);
+  if (v.thr >= 0) ctx.fillRect(zero, by + 3, (bx + bw - 3 - zero) * v.thr / 100, bh - 6); else { const l = (zero - bx - 3) * -v.thr / 100; ctx.fillRect(zero - l, by + 3, l, bh - 6); } noGlow();
+  ctx.fillStyle = col('PRIMARY1'); ctx.fillRect(zero - 1, by - 4, 2, bh + 8);
+  text('BRAKE', bx, by + bh + 14, 10, col('BRAKE'), 700); text('THR', bx + bw, by + bh + 14, 10, col('THROTTLE'), 700, 'right');
+  text(v.thr + '%', x + w / 2, y + 30 + (by - y - 30) / 2 + 12, fit(w - 16, by - y - 34, 4, 53), thrInk(v.thr), 800, 'center');
+};
+W.NB4Aux = (x, y, w, h, v) => {
+  card(x, y, w, h);
+  const row = h < 88;
+  [['CH3', v.ch3], ['CH4', v.ch4]].forEach(([lab, val], i) => {
+    const cx = row ? x + i * w / 2 : x, cy = row ? y : y + i * h / 2, cw = row ? w / 2 : w, ch = row ? h : h / 2;
+    text(lab, cx + 8, cy + ch / 2 + 5, 13, col('AUX'), 700);
+    const bx = cx + 52, bw = Math.max(20, cw - 52 - 54), mid = bx + bw / 2;
+    well(bx, cy + ch / 2 - 5, bw, 10, 3); ctx.fillStyle = col('AUX');
+    const len = bw / 2 * val / 100; ctx.fillRect(Math.min(mid, mid + len), cy + ch / 2 - 5, Math.abs(len), 10);
+    text(val + '', cx + cw - 8, cy + ch / 2 + 6, 14, col('PRIMARY1'), 700, 'right');
+  });
+};
+function lapText(ms) { const s = ms / 1000; return Math.floor(s / 60) + ':' + (s % 60).toFixed(2).padStart(5, '0'); }
+const lapMs = () => state.sim === 'idle' ? 42370 : (performance.now() - lapStart) % 60000;
+W.ApexTimer = W.NB4Lap = (x, y, w, h) => {
+  card(x, y, w, h); title(x, y, 'LAP 7');
+  text(lapText(lapMs()), x + 10, y + h - 12, fit(w * .75, h - 26, 7, 46), col('PRIMARY1'), 800);
+  text('-0.21', x + w - 10, y + h - 14, 15, col('EDIT'), 700, 'right');
+};
+W.ApexStats = W.NB4Session = (x, y, w, h) => {
+  card(x, y, w, h);
+  [['BEST', '0:41.88'], ['LAST', '0:42.58'], ['LAPS', '7/12']].forEach(([k, val], i) => {
+    const cx = x + w * i / 3 + 10;
+    text(k, cx, y + 18, 10, col('PRIMARY3'), 700);
+    text(val, cx, y + h - 10, Math.min(15, h / 2.5), i === 0 ? col('FOCUS') : col('PRIMARY1'), 700);
+  });
+};
+W.NB4Link = (x, y, w, h) => {
+  card(x, y, w, h); title(x, y, 'RF');
+  for (let s = 0; s < 5; s++) { ctx.fillStyle = s < 4 ? col('EDIT') : col('SECONDARY2'); ctx.fillRect(x + w - 50 + s * 8, y + 22 - s * 3, 6, 6 + s * 3); }
+  text('-42 dBm', x + 10, y + h - 12, fit(w, h - 34, 7, 32), col('PRIMARY1'), 700);
+};
+W.NB4Battery = (x, y, w, h) => {
+  card(x, y, w, h); title(x, y, 'RX');
+  text('7.84 V', x + 10, y + h - 26, fit(w, h - 50, 6, 32), col('PRIMARY1'), 700);
+  well(x + 10, y + h - 18, w - 20, 8, 3); ctx.fillStyle = col('EDIT'); ctx.fillRect(x + 10, y + h - 18, (w - 20) * .78, 8);
+};
+W.NB4Sensor = (x, y, w, h) => {
+  card(x, y, w, h); title(x, y, 'TEMP');
+  text('48 °C', x + 10, y + h - 26, fit(w, h - 50, 6, 32), col('PRIMARY1'), 700);
+  well(x + 10, y + h - 18, w - 20, 8, 3); ctx.fillStyle = col('FOCUS'); ctx.fillRect(x + 10, y + h - 18, (w - 20) * .48, 8);
+};
+W.NB4Trims = (x, y, w, h) => {
+  card(x, y, w, h); title(x, y, 'TRIMS');
+  [['ST', 12], ['TH', -6]].forEach(([k, val], i) => {
+    const by = y + 34 + i * Math.max(18, (h - 44) / 2), bw = w - 60, mid = x + 40 + bw / 2;
+    text(k, x + 10, by + 6, 11, col('PRIMARY3'), 700); well(x + 40, by - 3, bw, 8, 3);
+    ctx.fillStyle = col('FOCUS'); ctx.fillRect(mid + bw / 2 * val / 100 - 3, by - 5, 6, 12);
+  });
+};
+W.NB4Racing = (x, y, w, h, v) => {
+  card(x, y, w, h); title(x, y, 'RACING');
+  const bw = w - 20, mid = x + 10 + bw / 2;
+  well(x + 10, y + 30, bw, 10, 3); ctx.fillStyle = col('STEERING'); const l = bw / 2 * v.steer / 100; ctx.fillRect(Math.min(mid, mid + l), y + 30, Math.abs(l), 10);
+  well(x + 10, y + 48, bw, 10, 3); ctx.fillStyle = thrInk(v.thr); ctx.fillRect(x + 10, y + 48, bw * Math.abs(v.thr) / 100, 10);
+  if (h > 90) text(lapText(lapMs()), x + 10, y + h - 10, fit(w, h - 70, 7, 32), col('PRIMARY1'), 800);
+};
+W.Gauge = (x, y, w, h, v) => {
+  text('CH1', x + 4, y + 14, 11, col('PRIMARY1'), 700); well(x + 4, y + 20, w - 8, Math.min(20, h - 24), 2);
+  ctx.fillStyle = col('WARNING'); ctx.fillRect(x + 4, y + 20, (w - 8) * (v.steer + 100) / 200, Math.min(20, h - 24));
+};
+W.Value = (x, y, w, h, v) => { text('CH1', x + 4, y + 14, 11, col('PRIMARY2'), 700); text(v.steer + '%', x + 4, y + 14 + fit(w, h - 18, 5, 32), fit(w, h - 18, 5, 32), col('PRIMARY2'), 700); };
+W.Text = (x, y, w, h, v, z) => text(String(z && z.text !== undefined ? z.text : 'My Text'), x + 4, y + 18, 15, col('SECONDARY1'), 700);
+W.Timer = (x, y, w, h) => { card(x, y, w, h); text('TIMER 1', x + 8, y + 16, 10, col('PRIMARY3'), 700); text('04:12', x + 8, y + h - 8, fit(w, h - 22, 5, 46), col('PRIMARY1'), 800); };
+W.Outputs = (x, y, w, h, v) => {
+  const vals = [v.steer, v.thr, v.ch3, v.ch4], rh = Math.max(10, Math.min(18, (h - 4) / 4));
+  vals.forEach((val, i) => { const by = y + 2 + i * (rh + 2), mid = x + w / 2; well(x + 2, by, w - 4, rh, 2); ctx.fillStyle = col('SECONDARY1'); const l = (w - 4) / 2 * val / 100; ctx.fillRect(Math.min(mid, mid + l), by, Math.abs(l), rh); text('CH' + (i + 1), x + 6, by + rh - 3, 10, col('PRIMARY1'), 700); });
+};
+W.ModelBmp = (x, y, w, h) => { text(car ? car.name : 'Car', x + 6, y + 20, 15, col('SECONDARY1'), 700); };
+W['Radio Info'] = (x, y, w, h) => { text('TX 4.1V', x + 4, y + 16, 12, col('PRIMARY2'), 700); };
+W['Date Time'] = (x, y, w, h) => { const d = new Date(); text(d.toTimeString().slice(0, 5), x + 4, y + 18, 15, col('PRIMARY2'), 700); };
+W['Internal GPS'] = (x, y, w, h) => { text('GPS', x + 4, y + 16, 12, col('PRIMARY2'), 700); };
+
+function drawZone(id, x, y, w, h, v, zoneData) {
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  if (id && W[id]) W[id](x, y, w, h, v, zoneData);
+  else if (id) { card(x, y, w, h); text(id, x + 8, y + 20, 12, col('PRIMARY3'), 700); }
+  ctx.restore();
+}
+
+// --- Screens -------------------------------------------------------------
+let simT = 0, lapStart = performance.now();
+const smooth = {steer: 0, thr: 0, ch3: 0, ch4: 0};
+function simulate(dt) {
+  simT += dt;
+  const s = simT / 1000;
+  let steer = 0, thr = 0;
+  if (state.sim === 'drift') {
+    const phase = Math.sin(s * .9);
+    steer = -phase * 78 + Math.sin(s * 6.3) * 9;
+    thr = 72 + Math.sin(s * 2.1) * 22 - (Math.abs(phase) < .15 ? 55 : 0);
+  } else if (state.sim === 'race') {
+    const lap = s % 6;
+    thr = lap < 3.2 ? 100 : lap < 3.9 ? -85 : lap < 4.6 ? 15 : 80;
+    steer = lap > 3.6 && lap < 5.2 ? Math.sin((lap - 3.6) / 1.6 * Math.PI) * 55 : Math.sin(s * 3) * 4;
+  } else if (state.sim === 'crawl') {
+    steer = Math.sin(s * .45) * 92;
+    thr = Math.max(-20, 14 + Math.sin(s * .8) * 14 + (Math.sin(s * .23) > .8 ? -30 : 0));
+  }
+  const k = Math.min(1, dt / 120);
+  smooth.steer += (steer - smooth.steer) * k;
+  smooth.thr += (thr - smooth.thr) * k;
+  smooth.ch3 += ((Math.sin(s * .3) > 0 ? 100 : -100) - smooth.ch3) * k * .5;
+  smooth.ch4 += (Math.sin(s * .55) * 100 - smooth.ch4) * k;
+  const c = n => Math.round(Math.max(-100, Math.min(100, n)));
+  return {steer: c(smooth.steer), thr: c(smooth.thr), ch3: c(smooth.ch3), ch4: c(smooth.ch4)};
+}
+
+function telltale(x, y, w, h, i, boxed) {
+  if (boxed) card(x, y, w, h);
+  text(['RF', 'TX', 'RX'][i], x + 10, y + 21, 11, col('PRIMARY3'), 700);
+  text(['-42 dBm', '4.12 V', '7.84 V'][i], x + 10, y + h - 12, 17, col('PRIMARY1'), 700);
+  if (i === 0) for (let s = 0; s < 5; s++) { ctx.fillStyle = s < 4 ? col('EDIT') : col('SECONDARY2'); ctx.fillRect(x + w - 44 + s * 7, y + 20 - s * 3, 5, 6 + s * 3); }
+  else { rr(x + w - 36, y + 10, 24, 12, 2); ctx.strokeStyle = col('PRIMARY3'); ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = col('EDIT'); ctx.fillRect(x + w - 33, y + 13, i === 1 ? 14 : 18, 6); }
+}
+
+function drawRacing(Wd, Hd, s, v) {
+  const land = Wd > Hd, edge = 2, gap = 2, full = Wd - 2 * edge;
+  card(edge, edge, full, 48);
+  text(car ? car.name : '', 10, 24, 16, col('PRIMARY1'), 700);
+  text({drift: 'DRIFT  ·  RWD', race: 'TOURING  ·  4WD', crawl: 'CRAWLER  ·  4WS', idle: 'CAR'}[state.sim], 10, 41, 9.5, col('PRIMARY3'), 600);
+  const gearX = edge + full - 48, wrenchX = gearX - 44;
+  hair(wrenchX - 6, edge + 10, 1, 28); icon('wrench', wrenchX + 7, edge + 9); icon('gear', gearX + 7, edge + 9);
+  if (land) {
+    hair(edge + 148, edge + 8, 1, 32);
+    for (let i = 0; i < 3; i++) { const x = edge + 154 + 74 * i; if (i) hair(x - 6, edge + 8, 1, 32); telltale(x, edge, 68, 48, i, false); }
+  } else {
+    const usable = full - 2 * gap;
+    for (let i = 0; i < 3; i++) {
+      const x = edge + Math.floor(usable * i / 3) + gap * i, cw = Math.floor(usable * (i + 1) / 3) - Math.floor(usable * i / 3);
+      telltale(x, 52, cw, 56, i, true);
+    }
+  }
+  // RacingLayout::getZone()
+  const top = land ? 52 : 110, footer = Hd - 2 - (land ? 58 : 122), dial = Math.floor((full - 2) * 3 / 5);
+  const rects = [[2, top, dial, footer - 2 - top], [4 + dial, top, full - 2 - dial, footer - 2 - top],
+    land ? [2, footer, 202, 58] : [2, footer, full, 70], land ? [206, footer, full - 204, 58] : [2, footer + 72, full, 50]];
+  return rects;
+}
+
+function layoutRects(Wd, Hd, s, l) {
+  const topbar = layoutOpt(s, 0, 1), deco = layoutOpt(s, 2, 1) || layoutOpt(s, 3, 1) || layoutOpt(s, 1, 1);
+  let x = 0, y = 0, w = Wd, h = Hd;
+  if (topbar) {
+    // configurable top bar
+    ctx.fillStyle = alpha(state.colors.SECONDARY1 ? state.colors.PRIMARY2 : '000000', hasBg() ? .85 : 1); ctx.fillRect(0, 0, Wd, 45);
+    text(car ? car.name : '', 8, 28, 14, col('PRIMARY1'), 700);
+    text(new Date().toTimeString().slice(0, 5), Wd - 8, 28, 13, col('PRIMARY3'), 700, 'right');
+    hair(0, 45, Wd, 1);
+    y = 45; h -= 45;
+  }
+  // Layout::getMainZone(): every custom screen carries the car name and the
+  // two menu buttons above its zones (nb4ScreenHeader()).
+  if (!String(s.LayoutId).includes('Layout1x1AM')) {
+    card(2, y + 2, Wd - 4, 48);
+    text(car ? car.name : '', 10, y + 32, 16, col('PRIMARY1'), 700);
+    icon('wrench', Wd - 94, y + 10); icon('gear', Wd - 50, y + 10);
+    y += 52; h -= 52;
+  }
+  if (deco) {
+    // sliders/trims: thin bars at the edges
+    ctx.fillStyle = col('SECONDARY2');
+    ctx.fillRect(2, y + 4, 4, h - 8); ctx.fillRect(Wd - 6, y + 4, 4, h - 8); ctx.fillRect(10, Hd - 6, Wd - 20, 4);
+    x += 12; y += 12; w -= 24; h -= 24;
+  }
+  const mirror = layoutOpt(s, 4, 0);
+  return l.zones.map(([zx, zy, zw, zh]) => {
+    let rx = x + w * zx / 60;
+    if (mirror) rx = x + w - w * (zx + zw) / 60;
+    return [rx, y + h * zy / 60, w * zw / 60, h * zh / 60];
+  });
+}
+
+let lastFrame = performance.now(), values = {steer: 0, thr: 0, ch3: 0, ch4: 0};
+function render() {
+  const land = state.landscape, Wd = land ? 480 : 320, Hd = land ? 320 : 480, px = SCALE * devicePixelRatio;
+  if (cv.width !== Math.round(Wd * px)) {
+    cv.width = Math.round(Wd * px); cv.height = Math.round(Hd * px);
+    cv.style.width = Wd * SCALE + 'px'; cv.style.height = Hd * SCALE + 'px';
+  }
+  ctx.setTransform(px, 0, 0, px, 0, 0);
+  ctx.drawImage(cachedBackground(Wd, Hd), 0, 0, Wd, Hd);
+  if (!car) return;
+  const s = curScreen(), l = curLayout();
+  zoneRects = l.racing ? drawRacing(Wd, Hd, s, values) : layoutRects(Wd, Hd, s, l);
+  zoneRects.forEach(([x, y, w, h], i) => {
+    const id = widgetIn(s, i), z = zonesOf(s)[i];
+    const textOpt = id === 'Text' ? {text: optionValue(s, i, 0, {type: 'String', default: 'My Text'})} : null;
+    drawZone(id, x, y, w, h, values, textOpt);
+    if (state.view === 'screens' && !fwShown(Wd, Hd)) {
+      ctx.setLineDash([5, 4]); ctx.lineWidth = i === selZone ? 2 : 1;
+      ctx.strokeStyle = i === selZone ? '#54b7f6' : 'rgba(84,183,246,.35)';
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
+      if (!id) text('+', x + w / 2, y + h / 2 + 8, 24, 'rgba(84,183,246,.7)', 700, 'center');
+    }
+  });
+  if (fwShown(Wd, Hd)) {
+    ctx.drawImage(fw.canvas, 0, 0, Wd, Hd);
+    // The firmware's own zone grid, once it shows this screen's layout.
+    if (fw.zones && fw.view === screenKeys().indexOf(selScreen) && fw.zones.length === zoneRects.length) zoneRects = fw.zones;
+    if (state.view === 'screens') zoneRects.forEach(([x, y, w, h], i) => {
+      ctx.setLineDash([5, 4]); ctx.lineWidth = i === selZone ? 2 : 1;
+      ctx.strokeStyle = i === selZone ? '#54b7f6' : 'rgba(84,183,246,.35)';
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Firmware preview: the ApexTX firmware, built for the PC, draws the screen
+// from the same files the transmitter would get (tools/nb4_preview.py).
+// ---------------------------------------------------------------------------
+const FW_THEME = 'Editor Preview', FW_FOLDER = 'EditorPreview';
+const fw = {on: false, canvas: document.createElement('canvas'), w: 0, h: 0, seq: 0, key: '', due: 0, busy: false, sent: '', error: ''};
+function fwShown(Wd, Hd) { return fw.on && fw.w === Wd && fw.h === Hd && !fw.error; }
+function fwKey() {
+  return JSON.stringify([state.colors, state.nb4, state.cardOpacity, state.bgPattern, state.bgFit, state.bgDim,
+    state.bgImage ? (state.bgImage.src || '').length : 0, state.landscape, car && car.screenData, car && car.file,
+    selScreen, radioRoot(), radio && radio.settings.nb4Accent]);
+}
+async function fwStage() {
+  fw.busy = true;
+  const key = fwKey();
+  try {
+    // The preview theme gets its own name: the firmware refuses files that
+    // reuse a built-in theme's name, and the edited name may be one.
+    const yml = themeYml().replace(/^  name: .*$/m, '  name: ' + FW_THEME);
+    const dir = 'THEMES/' + FW_FOLDER + '/';
+    const files = [{name: dir + 'theme.yml', data: bytesB64(new TextEncoder().encode(yml))}];
+    const png = await backgroundPng();
+    if (png) files.push({name: dir + 'background.png', data: bytesB64(png)});
+    const wide = await backgroundPng(480, 320);
+    if (wide) files.push({name: dir + 'background_480x320.png', data: bytesB64(wide)});
+    const body = {files, selectedTheme: FW_THEME, nb4Orientation: state.landscape ? 1 : 0,
+      nb4Accent: radio ? +(radio.settings.nb4Accent || 0) : 0, view: screenKeys().indexOf(selScreen)};
+    if (car) body.screenData = car.screenData;
+    if (car && car.file && radioRoot()) { body.model = car.file; body.target = radioRoot(); }
+    await api('/api/preview', body);
+    fw.key = key; fw.sent = ''; fw.error = '';
+    $('fwBadge').textContent = t('fwLive');
+    document.querySelector('[data-t="previewNote"]').style.display = 'none';
+  } catch (e) {
+    fw.key = key; fw.error = e.message;
+    $('fwBadge').textContent = t('fwFailed') + e.message;
+    document.querySelector('[data-t="previewNote"]').style.display = '';
+  }
+  fw.busy = false;
+}
+async function fwFrames() {
+  for (;;) {
+    try {
+      const r = await fetch('/api/preview/frame?after=' + fw.seq, {headers: {'X-ApexTX-Token': TOKEN}});
+      if (r.status === 200) {
+        const [seq, w, h, shown] = r.headers.get('X-Frame').split(' ').map(Number);
+        const px = new Uint16Array(await r.arrayBuffer());
+        if (fw.canvas.width !== w || fw.canvas.height !== h) { fw.canvas.width = w; fw.canvas.height = h; }
+        const g = fw.canvas.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+        for (let i = 0, j = 0; i < px.length; i++, j += 4) {
+          const v = px[i];
+          d[j] = (v >> 11) * 255 / 31; d[j + 1] = ((v >> 5) & 63) * 255 / 63; d[j + 2] = (v & 31) * 255 / 31; d[j + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+        fw.seq = seq; fw.w = w; fw.h = h; fw.view = shown;
+        fw.zones = (r.headers.get('X-Zones') || '').split(';').filter(Boolean).map(z => z.split(',').map(Number));
+        continue;
+      }
+    } catch (e) { /* editor closing */ }
+    await new Promise(res => setTimeout(res, 30));
+  }
+}
+function fwTick() {
+  if (!fw.on) return;
+  const key = fwKey(), now = performance.now();
+  if (key !== fw.key && !fw.busy) {
+    if (!fw.due) fw.due = now + 350;
+    else if (now >= fw.due) { fw.due = 0; fwStage(); }
+  }
+  const inputs = JSON.stringify({steer: Math.round(values.steer), thr: Math.round(values.thr), ch3: Math.round(values.ch3), ch4: Math.round(values.ch4)});
+  if (inputs !== fw.sent && now - (fw.inputAt || 0) > 50) {
+    fw.sent = inputs; fw.inputAt = now;
+    api('/api/preview/input', JSON.parse(inputs)).catch(() => {});
+  }
+}
+async function fwInit() {
+  try {
+    const s = await (await fetch('/api/preview/status', {headers: {'X-ApexTX-Token': TOKEN}})).json();
+    if (!s.available) return;
+    fw.on = true;
+    $('fwBadge').textContent = t('fwStarting');
+    fwFrames();
+    setInterval(fwTick, 50);
+  } catch (e) { /* approximation only */ }
+}
+
+function loop(now) {
+  const dt = Math.min(100, now - lastFrame); lastFrame = now;
+  values = state.sim === 'idle' ? {steer: 24, thr: 38, ch3: 100, ch4: -40} : simulate(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+cv.addEventListener('click', e => {
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / SCALE, y = (e.clientY - r.top) / SCALE;
+  const i = zoneRects.findIndex(([zx, zy, zw, zh]) => x >= zx && x < zx + zw && y >= zy && y < zy + zh);
+  if (i < 0) return;
+  selZone = i;
+  if (state.view !== 'screens') showView('screens');
+  buildZones();
+  const el = document.querySelector(`.zone[data-z="${i}"]`);
+  if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
+});
+
+// ---------------------------------------------------------------------------
+// Theme controls
+// ---------------------------------------------------------------------------
+function colorRow(key, desc, get, set) {
+  const row = document.createElement('label');
+  row.className = 'color';
+  row.innerHTML = '<input type="color"><div><b></b><span></span></div><code></code>';
+  const input = row.querySelector('input');
+  row.querySelector('b').textContent = key;
+  row.querySelector('span').textContent = desc;
+  const code = row.querySelector('code');
+  row.sync = () => { input.value = '#' + get(); code.textContent = '0x' + get(); };
+  input.addEventListener('input', () => { set(input.value.slice(1).toUpperCase()); row.sync(); bgCache = null; drawTiles(); });
+  return row;
+}
+function segment(el, items, get, set) {
+  el.innerHTML = '';
+  for (const [v, label] of items) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = get() === v ? 'on' : '';
+    b.onclick = () => { set(v); [...el.children].forEach(c => c.className = ''); b.className = 'on'; bgCache = null; };
+    el.appendChild(b);
+  }
+}
+let colorRows = [], tileCanvases = [];
+function buildThemeControls() {
+  const pal = $('palette'), ins = $('instrColors');
+  pal.innerHTML = ''; ins.innerHTML = ''; colorRows = [];
+  for (const [k, d] of COLOR_KEYS) { const r = colorRow(k, d, () => state.colors[k], v => state.colors[k] = v); pal.appendChild(r); colorRows.push(r); }
+  for (const [k, d] of INSTR_KEYS) { const r = colorRow(k, d, () => state.nb4[k], v => state.nb4[k] = v); ins.appendChild(r); colorRows.push(r); }
+  const pre = $('presets');
+  pre.innerHTML = '';
+  for (const group of Object.keys(PRESETS)) {
+    const h = document.createElement('h3'); h.textContent = t(group); pre.appendChild(h);
+    const box = document.createElement('div'); box.className = 'presets';
+    for (const name of Object.keys(PRESETS[group])) {
+      const b = document.createElement('button'), c = PRESETS[group][name].colors;
+      b.innerHTML = '<i></i><i></i>';
+      const [i1, i2] = b.querySelectorAll('i');
+      i1.style.background = '#' + c.SECONDARY3; i1.style.boxShadow = 'inset 0 0 0 1px #444'; i2.style.background = '#' + c.FOCUS;
+      b.appendChild(document.createTextNode(name));
+      b.onclick = () => applyPreset(group, name);
+      box.appendChild(b);
+    }
+    pre.appendChild(box);
+  }
+  segment($('segFit'), [['fill', t('fill')], ['fit', t('fit')]], () => state.bgFit, v => state.bgFit = v);
+  const tiles = $('bgTiles');
+  tiles.innerHTML = ''; tileCanvases = [];
+  for (const [group, list] of BG_GROUPS) {
+    if (group) { const h = document.createElement('h3'); h.textContent = t(group); tiles.appendChild(h); }
+    const box = document.createElement('div'); box.className = 'tiles';
+    for (const p of list) {
+      const b = document.createElement('button'), c = document.createElement('canvas'), s = document.createElement('span');
+      c.width = 80; c.height = 120; s.textContent = t('bg_' + p);
+      b.append(c, s);
+      b.onclick = () => { if (p === 'image' && !state.bgImage) { $('bgFile').click(); return; } state.bgPattern = p; bgCache = null; drawTiles(); };
+      box.appendChild(b); tileCanvases.push([p, c, b]);
+    }
+    tiles.appendChild(box);
+  }
+  drawTiles();
+}
+function drawTiles() {
+  for (const [p, c, b] of tileCanvases) {
+    b.className = state.bgPattern === p ? 'on' : '';
+    const g = c.getContext('2d');
+    g.setTransform(80 / 320, 0, 0, 120 / 480, 0, 0);
+    paintBackground(g, 320, 480, p);
+    g.fillStyle = alpha(state.colors.PRIMARY2, p === 'none' ? 1 : state.cardOpacity / 100);
+    for (const [x, y, w, h] of [[8, 8, 304, 64], [8, 150, 180, 200], [196, 150, 116, 200], [8, 370, 304, 90]]) { g.beginPath(); g.roundRect(x, y, w, h, 16); g.fill(); }
+  }
+}
+function syncThemeInputs() {
+  $('tName').value = state.name; $('tAuthor').value = state.author; $('tInfo').value = state.info;
+  $('bgDim').value = state.bgDim; $('cardOpa').value = state.cardOpacity;
+  $('vDim').textContent = state.bgDim + ' %'; $('vOpa').textContent = state.cardOpacity + ' %';
+  colorRows.forEach(r => r.sync());
+}
+
+// ---------------------------------------------------------------------------
+// Screen controls
+// ---------------------------------------------------------------------------
+function layoutThumb(l) {
+  const c = document.createElement('canvas'); c.width = 96; c.height = 144;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0f1113'; g.fillRect(0, 0, 96, 144);
+  g.strokeStyle = '#54b7f6'; g.lineWidth = 3; g.fillStyle = 'rgba(32,160,240,.18)';
+  const rects = l.racing ? [[4, 4, 88, 14], [4, 22, 52, 70], [58, 22, 34, 70], [4, 96, 88, 22], [4, 122, 88, 18]]
+    : l.zones.map(([x, y, w, h]) => [4 + 88 * x / 60, 4 + 136 * y / 60, 88 * w / 60, 136 * h / 60]);
+  for (const [x, y, w, h] of rects) { g.fillRect(x + 2, y + 2, w - 4, h - 4); g.strokeRect(x + 2, y + 2, w - 4, h - 4); }
+  return c;
+}
+function buildScreens() {
+  if (!car) return;
+  if (!car.screenData[selScreen]) selScreen = '0';
+  const list = $('screenList'); list.innerHTML = '';
+  for (const k of screenKeys()) {
+    const b = document.createElement('button');
+    b.textContent = k === '0' ? t('home') : t('screen') + ' ' + (+k + 1);
+    b.className = k === selScreen ? 'on' : '';
+    b.onclick = () => { selScreen = k; selZone = 0; buildScreens(); };
+    list.appendChild(b);
+  }
+  $('addScreen').classList.toggle('off', screenKeys().length >= 10);
+  $('delScreen').classList.toggle('off', selScreen === '0');
+  const s = curScreen(), cur = curLayout();
+  const ll = $('layoutList'); ll.innerHTML = '';
+  for (const l of catalog().layouts) {
+    const b = document.createElement('button'), span = document.createElement('span');
+    span.textContent = l.name; b.append(layoutThumb(l), span);
+    b.className = l.id === cur.id ? 'on' : '';
+    b.onclick = () => setLayout(l.id);
+    ll.appendChild(b);
+  }
+  const lo = $('layoutOpts'); lo.innerHTML = '';
+  (cur.options || []).forEach((o, i) => {
+    if (o.type !== 'Bool') return;
+    const lab = document.createElement('label'), cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = !!layoutOpt(s, i, o.default);
+    cb.onchange = () => { setLayoutOpt(s, i, cb.checked); dirtyCar(); };
+    lab.append(cb, document.createTextNode(optLabel(o)));
+    lo.appendChild(lab);
+  });
+  if (!lo.children.length) lo.textContent = '—';
+  buildZones();
+}
+function widgetSelect(value) {
+  const sel = document.createElement('select');
+  const add = (parent, v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; parent.appendChild(o); };
+  add(sel, '', t('empty'));
+  for (const [key, test] of [['grpApex', w => w.nb4], ['grpEdge', w => !w.nb4]]) {
+    const g = document.createElement('optgroup'); g.label = t(key);
+    catalog().widgets.filter(test).forEach(w => add(g, w.id, wLabel(w)));
+    sel.appendChild(g);
+  }
+  if (value && !widgetById(value)) add(sel, value, value);
+  sel.value = value;
+  return sel;
+}
+function buildZones() {
+  const box = $('zoneList'); box.innerHTML = '';
+  const s = curScreen(), l = curLayout();
+  for (let i = 0; i < zoneCount(l); i++) {
+    const id = widgetIn(s, i), w = widgetById(id);
+    const div = document.createElement('div');
+    div.className = 'zone' + (i === selZone ? ' on' : ''); div.dataset.z = i;
+    const head = document.createElement('div'); head.className = 'head';
+    const b = document.createElement('b'); b.textContent = t('zone') + ' ' + (i + 1);
+    const sel = widgetSelect(id);
+    sel.onchange = () => { selZone = i; setWidget(i, sel.value); };
+    sel.onfocus = () => { selZone = i; document.querySelectorAll('.zone').forEach(z => z.classList.toggle('on', +z.dataset.z === i)); };
+    head.append(b, sel); div.appendChild(head);
+    if (w && w.options.length) {
+      const opts = document.createElement('div'); opts.className = 'opts';
+      let hidden = false;
+      w.options.forEach((o, idx) => {
+        if (!['Integer', 'Bool', 'String'].includes(o.type) || (o.type === 'Integer' && typeof o.default !== 'number')) { hidden = true; return; }
+        const lab = document.createElement('label'); lab.className = 'f';
+        const span = document.createElement('span'); span.textContent = optLabel(o);
+        let input;
+        if (o.type === 'Bool') { input = document.createElement('input'); input.type = 'checkbox'; input.checked = !!optionValue(s, i, idx, o); input.onchange = () => setOption(i, idx, o, input.checked); }
+        else if (o.type === 'Integer') { input = document.createElement('input'); input.type = 'number'; input.value = optionValue(s, i, idx, o); if (typeof o.min === 'number') input.min = o.min; if (typeof o.max === 'number') input.max = o.max; input.onchange = () => setOption(i, idx, o, Math.max(o.min ?? -30000, Math.min(o.max ?? 30000, +input.value || 0))); }
+        else { input = document.createElement('input'); input.type = 'text'; input.maxLength = 12; input.value = optionValue(s, i, idx, o) || ''; input.oninput = () => setOption(i, idx, o, input.value); }
+        lab.append(span, input); opts.appendChild(lab);
+      });
+      div.appendChild(opts);
+      if (hidden) { const n = document.createElement('div'); n.className = 'note'; n.textContent = t('optOnRadio'); div.appendChild(n); }
+    }
+    box.appendChild(div);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// theme.yml + background.png
+// ---------------------------------------------------------------------------
+function folderName() { return (state.name || 'MyTheme').replace(/[^A-Za-z0-9]+/g, '').slice(0, 26) || 'MyTheme'; }
+function yamlStr(s) { return /^[\w .,()+\-/]*$/.test(s) && s.trim() === s && s ? s : JSON.stringify(s); }
+function themeYml() {
+  const L = ['# SPDX-License-Identifier: GPL-2.0-only', '---', 'summary:',
+    '  name: ' + yamlStr(state.name || 'My Theme'), '  author: ' + yamlStr(state.author || '-'), '  info: ' + yamlStr(state.info || '-'), 'colors:'];
+  for (const [k] of COLOR_KEYS) L.push(`  ${k}: 0x${state.colors[k]}`);
+  // Optional ApexTX extension; firmware without support skips unknown sections.
+  L.push('nb4:');
+  for (const [k] of INSTR_KEYS) L.push(`  ${k}: 0x${state.nb4[k]}`);
+  if (state.bgPattern !== 'none') L.push('  CARD_OPACITY: ' + state.cardOpacity, '  BACKGROUND: ' + state.bgPattern);
+  return L.join('\n') + '\n';
+}
+function parseYml(src) {
+  let section = '';
+  state.bgPattern = 'none'; state.cardOpacity = 100;
+  for (const raw of src.split(/\r?\n/)) {
+    const line = raw.replace(/\s+#.*$/, '');
+    if (!line.trim() || line.trim().startsWith('#') || line.startsWith('---')) continue;
+    const m = line.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!m) continue;
+    const [, ind, key, val0] = m;
+    if (!ind) { section = key; continue; }
+    const val = val0.trim().replace(/^"(.*)"$/, '$1'), hex = val.match(/^0x([0-9a-fA-F]{6})$/);
+    if (section === 'summary' && ['name', 'author', 'info'].includes(key)) state[key] = val === '-' ? '' : val;
+    else if (section === 'colors' && hex) state.colors[key] = hex[1].toUpperCase();
+    else if (section === 'nb4') {
+      if (hex) state.nb4[key] = hex[1].toUpperCase();
+      else if (key === 'CARD_OPACITY') state.cardOpacity = Math.max(30, Math.min(100, +val || 100));
+      else if (key === 'BACKGROUND' && (PATTERNS[val] || val === 'image')) state.bgPattern = val;
+    }
+  }
+  if (RESERVED.includes(state.name)) state.name = state.name.replace('ApexTX ', '') + ' Custom';
+}
+// One image per orientation: background.png (portrait) and
+// background_480x320.png, which the firmware picks in landscape.
+function backgroundPng(w = 320, h = 480) {
+  if (state.bgPattern === 'none' || (state.bgPattern === 'image' && !state.bgImage)) return Promise.resolve(null);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  paintBackground(c.getContext('2d'), w, h);
+  return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
+}
+function updateOutputs() {
+  $('yml').textContent = themeYml();
+  const c = contrast(state.colors.PRIMARY1, state.colors.PRIMARY2), w = $('contrastWarn');
+  w.style.display = c < 4.5 ? 'block' : 'none';
+  w.textContent = t('contrast') + c.toFixed(1) + ' : 1';
+  const r = $('reservedWarn'), bad = RESERVED.includes(state.name.trim());
+  r.style.display = bad ? 'block' : 'none';
+  r.textContent = t('reserved') + state.name.replace('ApexTX ', '') + ' Custom';
+}
+setInterval(updateOutputs, 400);
+
+const CRC = (() => { const tb = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; tb[n] = c >>> 0; } return tb; })();
+function crc32(d) { let c = 0xFFFFFFFF; for (const b of d) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(h.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true);
+    c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), name);
+    off += 30 + name.length + data.length;
+  }
+  const size = central.reduce((a, p) => a + p.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], {type: 'application/zip'});
+}
+async function themeFiles() {
+  if (RESERVED.includes(state.name.trim())) throw new Error(t('reserved') + state.name.replace('ApexTX ', '') + ' Custom');
+  const dir = 'THEMES/' + folderName() + '/';
+  const files = [{name: dir + 'theme.yml', data: new TextEncoder().encode(themeYml())}];
+  const png = await backgroundPng();
+  if (png) files.push({name: dir + 'background.png', data: png});
+  const wide = await backgroundPng(480, 320);
+  if (wide) files.push({name: dir + 'background_480x320.png', data: wide});
+  files.push({name: dir + 'logo.png', data: await previewPng()});
+  return files;
+}
+
+// logo.png is the picture the theme selector on the radio shows: the current
+// preview at half size, without the editor's tile outlines.
+function previewPng() {
+  // In the orientation the radio uses, so the selector can show it large.
+  const view = state.view, landscape = state.landscape;
+  state.view = 'theme';
+  if (radio && radio.settings.nb4Orientation !== undefined) state.landscape = +radio.settings.nb4Orientation === 1;
+  render();
+  const fwFrame = fw.on && !fw.error && fw.w === (state.landscape ? 480 : 320);
+  state.view = view;
+  state.landscape = landscape;
+  const c = document.createElement('canvas');
+  if (fwFrame) {
+    c.width = fw.w / 2; c.height = fw.h / 2;
+    c.getContext('2d').drawImage(fw.canvas, 0, 0, c.width, c.height);
+    return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
+  }
+  c.width = cv.width / (SCALE * devicePixelRatio) / 2;
+  c.height = cv.height / (SCALE * devicePixelRatio) / 2;
+  c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
+}
+function status(id, msg, bad) { const s = $(id); s.textContent = msg; s.style.color = bad ? 'var(--bad)' : ''; }
+
+// ---------------------------------------------------------------------------
+// Transmitter storage (inside the app, apextx-theme-editor.py)
+// ---------------------------------------------------------------------------
+const TOKEN = '__SESSION_TOKEN__';
+const inApp = !TOKEN.startsWith('__');
+const api = (path, body) => fetch(path, {
+  method: body ? 'POST' : 'GET', body: body && JSON.stringify(body),
+  headers: {'X-ApexTX-Token': TOKEN, 'Content-Type': 'application/json'},
+}).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
+let targets = [];
+const target = () => $('target').value;
+const radioRoot = () => { const tg = targets.find(x => x.path === target()); return tg && tg.settings ? tg.path : ''; };
+const q = s => encodeURIComponent(s);
+
+async function loadTargets() {
+  if (!inApp) { $('connText').textContent = t('connNone'); $('refresh').style.display = 'none'; return; }
+  targets = await api('/api/targets');
+  const sel = $('target'), old = sel.value;
+  sel.innerHTML = '';
+  for (const tg of targets) { const o = document.createElement('option'); o.value = tg.path; o.textContent = tg.path; sel.appendChild(o); }
+  const radio = targets.find(x => x.settings);
+  sel.value = targets.some(x => x.path === old) ? old : radio ? radio.path : targets[0].path;
+  sel.style.display = targets.length > 1 ? '' : 'none';
+  onTargetChanged();
+}
+async function onTargetChanged() {
+  const root = radioRoot();
+  $('connDot').classList.toggle('on', !!root);
+  $('connText').innerHTML = '';
+  const b = document.createElement('b'); b.textContent = target();
+  $('connText').append(document.createTextNode((root ? t('connOk') : t('connNone') + ' ' + t('connLocal')) + ' '), b);
+  document.querySelectorAll('.radioOnly').forEach(e => e.style.display = '');
+  await loadThemeList().catch(() => {});
+  await loadCars().catch(e => status('carStatus', e.message, true));
+  await loadRadio().catch(e => status('radioStatus', e.message, true));
+}
+async function loadThemeList() {
+  const list = await api('/api/themes?target=' + q(target())), sel = $('radioThemes');
+  sel.innerHTML = '';
+  for (const th of list) { const o = document.createElement('option'); o.value = th.folder; o.textContent = th.name; sel.appendChild(o); }
+  if (!list.length) { const o = document.createElement('option'); o.textContent = t('noThemes'); o.value = ''; sel.appendChild(o); }
+  themesOnRadio = list;
+  fillRadioThemes();
+}
+
+// --- Cars ---
+let models = [];
+async function loadCars() {
+  const sel = $('carSelect');
+  sel.innerHTML = '';
+  models = radioRoot() ? await api('/api/models?target=' + q(radioRoot())) : [];
+  for (const m of models) { const o = document.createElement('option'); o.value = m.file; o.textContent = m.name + (m.current ? '  ●' : ''); sel.appendChild(o); }
+  const demo = document.createElement('option'); demo.value = ''; demo.textContent = t('demoCar'); sel.appendChild(demo);
+  const current = models.find(m => m.current);
+  sel.value = current ? current.file : '';
+  await openCar(sel.value);
+}
+async function openCar(file) {
+  $('carWarn').style.display = 'none';
+  if (!file) { car = demoCar(); }
+  else {
+    const m = await api(`/api/model?target=${q(radioRoot())}&file=${q(file)}`);
+    car = {file, name: (models.find(x => x.file === file) || {}).name || file, editable: m.editable, hash: m.hash,
+      screenData: Object.keys(m.screenData).length ? m.screenData : {0: racingScreen()}};
+    if (!m.editable) { $('carWarn').textContent = t('notEditable'); $('carWarn').style.display = 'block'; }
+  }
+  selScreen = '0'; selZone = 0; carDirty = false; showUnsaved();
+  $('carSave').classList.toggle('off', true);
+  buildScreens();
+}
+$('carSelect').onchange = () => openCar($('carSelect').value).catch(e => status('carStatus', e.message, true));
+$('carReload').onclick = () => openCar($('carSelect').value).then(() => status('carStatus', t('loaded'))).catch(e => status('carStatus', e.message, true));
+$('carSave').onclick = async () => {
+  try {
+    busy();
+    busyStep(40, t('stepScreens'));
+    const res = await api('/api/model', {target: radioRoot(), file: car.file, hash: car.hash, screenData: car.screenData});
+    car.hash = res.hash; carDirty = false; $('carSave').classList.add('off'); showUnsaved();
+    status('carStatus', t('saved') + car.name + '  ·  ' + t('backupAt') + res.backup);
+    busyDone(t('saved') + car.name);
+  } catch (e) { status('carStatus', e.message, true); busyFail(e.message); }
+};
+$('addScreen').onclick = addScreen;
+$('delScreen').onclick = removeScreen;
+$('restoreHome').onclick = () => { car.screenData[selScreen] = racingScreen(); selZone = 0; dirtyCar(); buildScreens(); };
+
+// --- Transmitter settings ---
+let radio = null, themesOnRadio = [];
+function fillSelect(el, items, value) {
+  el.innerHTML = '';
+  items.forEach(([v, label]) => { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); });
+  el.value = value;
+}
+function fillRadioThemes() {
+  const names = [...RESERVED, ...themesOnRadio.map(x => x.name).filter(n => !RESERVED.includes(n))];
+  const current = radio ? radio.settings.selectedTheme : '';
+  if (current && !names.includes(current)) names.push(current);
+  fillSelect($('rTheme'), names.map(n => [n, n]), current);
+}
+async function loadRadio() {
+  const on = !!radioRoot();
+  document.querySelectorAll('#view-radio select, #radioSave').forEach(e => e.classList.toggle('off', !on));
+  if (!on) { radio = null; status('radioStatus', t('needRadio'), true); return; }
+  radio = await api('/api/radio?target=' + q(radioRoot()));
+  const s = radio.settings;
+  fillRadioThemes();
+  fillSelect($('rAccent'), t('accents').map((n, i) => [i, n]), +(s.nb4Accent || 0));
+  fillSelect($('rOrient'), t('orients').map((n, i) => [i, n]), +(s.nb4Orientation || 0));
+  fillSelect($('rLedMode'), t('ledModes').map((n, i) => [i, n]), +(s.nb4LedMode || 0));
+  fillSelect($('rLedColor'), t('ledColors').map((n, i) => [i, n]), +(s.nb4LedColor || 0));
+  state.landscape = +(s.nb4Orientation || 0) === 1;
+  buildCommon();
+  status('radioStatus', '');
+}
+$('rOrient').onchange = () => setOrientation($('rOrient').value === '1');
+
+// The preview orientation is the transmitter's orientation: switching it here
+// stores nb4Orientation on a connected transmitter right away.
+async function setOrientation(landscape) {
+  state.landscape = landscape;
+  buildCommon();
+  if (!radioRoot() || !radio || +radio.settings.nb4Orientation === (landscape ? 1 : 0)) return;
+  try {
+    const fresh = await api('/api/radio?target=' + q(radioRoot()));
+    const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {nb4Orientation: landscape ? 1 : 0}});
+    radio = {hash: done.hash, settings: {...fresh.settings, nb4Orientation: landscape ? '1' : '0'}};
+    $('rOrient').value = landscape ? 1 : 0;
+    status('previewStatus', t('orientSaved'));
+  } catch (e) { status('previewStatus', e.message, true); }
+}
+$('radioReload').onclick = () => loadRadio().then(() => status('radioStatus', t('loaded'))).catch(e => status('radioStatus', e.message, true));
+$('radioSave').onclick = async () => {
+  try {
+    const settings = {selectedTheme: $('rTheme').value, nb4Accent: +$('rAccent').value, nb4Orientation: +$('rOrient').value,
+      nb4LedMode: +$('rLedMode').value, nb4LedColor: +$('rLedColor').value};
+    busy();
+    busyStep(40, t('stepSettings'));
+    const res = await api('/api/radio', {target: radioRoot(), hash: radio.hash, settings});
+    radio.hash = res.hash;
+    status('radioStatus', t('saved') + t('backupAt') + res.backup);
+    busyDone(t('busyDone'));
+  } catch (e) { status('radioStatus', e.message, true); busyFail(e.message); }
+};
+
+// Save progress, like the Flasher; ends with the unplug instruction when the
+// files went to a transmitter.
+function busy() {
+  $('busyTitle').textContent = t('busySaving');
+  $('busyBar').value = 0;
+  $('busyText').textContent = '';
+  $('busyText').style.color = '';
+  $('busyUnplug').style.display = 'none';
+  $('busyOk').style.display = 'none';
+  $('busy').classList.add('on');
+}
+function busyStep(pct, text) { $('busyBar').value = pct; $('busyText').textContent = text; }
+function busyDone(text) {
+  busyStep(100, text);
+  $('busyUnplug').style.display = radioRoot() && target() === radioRoot() ? 'block' : 'none';
+  $('busyOk').style.display = 'inline-flex';
+}
+function busyFail(text) {
+  $('busyText').textContent = text;
+  $('busyText').style.color = 'var(--bad)';
+  $('busyOk').style.display = 'inline-flex';
+}
+$('busyOk').onclick = () => $('busy').classList.remove('on');
+
+// --- Themes on the transmitter ---
+$('target').onchange = onTargetChanged;
+$('refresh').onclick = () => loadTargets().catch(e => status('themeStatus', e.message, true));
+$('loadRadio').onclick = async () => {
+  if (!$('radioThemes').value) return;
+  try {
+    const res = await api(`/api/theme?target=${q(target())}&folder=${q($('radioThemes').value)}`);
+    parseYml(res.yml);
+    if (res.background) { await setImage('data:image/png;base64,' + res.background); state.bgDim = 0; state.bgFit = 'fill'; }
+    refreshAll(); status('themeStatus', t('loaded'));
+  } catch (e) { status('themeStatus', e.message, true); }
+};
+function bytesB64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); }
+$('saveRadio').onclick = async () => {
+  try {
+    busy();
+    busyStep(10, t('stepImages'));
+    const files = (await themeFiles()).map(f => ({name: f.name, data: bytesB64(f.data)}));
+    busyStep(45, t('stepWrite'));
+    const res = await api('/api/save', {target: target(), files});
+    let msg = t('saved') + res.folder;
+    // Same setting as the Transmitter tab: the radio uses the theme from its next start.
+    if ($('activateTheme').checked && radioRoot()) {
+      busyStep(80, t('stepActivate'));
+      const fresh = await api('/api/radio?target=' + q(radioRoot()));
+      const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {selectedTheme: state.name.trim()}});
+      radio = {hash: done.hash, settings: {...fresh.settings, selectedTheme: state.name.trim()}};
+      fillRadioThemes();
+      msg += '  ·  ' + t('activated');
+    }
+    // Pending screen changes go along, so one save brings everything over.
+    if (carDirty && car.file && car.editable && radioRoot() && target() === radioRoot()) {
+      busyStep(90, t('stepScreens'));
+      const res2 = await api('/api/model', {target: radioRoot(), file: car.file, hash: car.hash, screenData: car.screenData});
+      car.hash = res2.hash; carDirty = false; $('carSave').classList.add('off'); showUnsaved();
+      msg += '  ·  ' + t('screensSaved').replace('%s', car.name);
+    }
+    status('themeStatus', msg);
+    busyDone(msg);
+    loadThemeList().catch(() => {});
+  } catch (e) { status('themeStatus', e.message, true); busyFail(e.message); }
+};
+$('dlZip').onclick = async () => {
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(zip(await themeFiles()));
+    a.download = folderName() + '.zip'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (e) { status('themeStatus', e.message, true); }
+};
+$('loadTheme').onclick = () => $('ymlFile').click();
+$('ymlFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; parseYml(await f.text()); refreshAll(); status('themeStatus', t('loaded')); };
+
+// ---------------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------------
+function showView(v) {
+  state.view = v;
+  document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'view-' + v));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  try { localStorage.setItem('apextxThemeView', v); } catch (e) {}
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showView(b.dataset.view));
+function buildCommon() {
+  segment($('segOrient'), [['p', t('portrait')], ['l', t('landscape')]], () => state.landscape ? 'l' : 'p', v => setOrientation(v === 'l'));
+  segment($('segSim'), [['drift', t('simDrift')], ['race', t('simRace')], ['crawl', t('simCrawl')], ['idle', t('simIdle')]], () => state.sim, v => state.sim = v);
+}
+function refreshAll() { bgCache = null; buildThemeControls(); syncThemeInputs(); buildCommon(); buildScreens(); }
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-t]').forEach(e => e.textContent = t(e.dataset.t));
+  document.querySelectorAll('.lang button').forEach(b => b.className = b.dataset.lang === l ? 'on' : '');
+  try { localStorage.setItem('apextxThemeLang', l); } catch (e) {}
+  if (car && !car.file) car.name = t('demoCar');
+  refreshAll();
+  loadTargets().catch(() => {});
+}
+$('tName').oninput = e => { state.name = e.target.value; };
+$('tAuthor').oninput = e => { state.author = e.target.value; };
+$('tInfo').oninput = e => { state.info = e.target.value; };
+$('bgDim').oninput = e => { state.bgDim = +e.target.value; syncThemeInputs(); bgCache = null; drawTiles(); };
+$('cardOpa').oninput = e => { state.cardOpacity = +e.target.value; syncThemeInputs(); drawTiles(); };
+function setImage(src) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => { state.bgImage = img; state.bgPattern = 'image'; bgCache = null; drawTiles(); res(); };
+    img.src = src;
+  });
+}
+function loadImage(file) { if (file && file.type.startsWith('image/')) setImage(URL.createObjectURL(file)); }
+$('bgFile').onchange = e => loadImage(e.target.files[0]);
+$('drop').ondragover = e => e.preventDefault();
+$('drop').ondrop = e => { e.preventDefault(); loadImage(e.dataTransfer.files[0]); };
+document.querySelectorAll('.lang button').forEach(b => b.onclick = () => setLang(b.dataset.lang));
+
+// Opened directly from the tools folder, the placeholders are not filled in.
+if ($('logo').getAttribute('src').startsWith('__')) $('logo').src = 'apextx-updater-logo.png';
+
+(async () => {
+  if (!CATALOG) { try { CATALOG = await (await fetch('apextx-theme-editor-catalog.json')).json(); } catch (e) {} }
+  let saved = (navigator.language || 'en').slice(0, 2);
+  try { saved = localStorage.getItem('apextxThemeLang') || saved; } catch (e) {}
+  if (!T[saved]) saved = 'en';
+  const first = PRESETS.grpDrift['Drift Neon'];
+  Object.assign(state, {colors: {...first.colors}, nb4: {...first.nb4}, info: first.info, name: 'Drift Neon', bgPattern: 'neon', cardOpacity: 82});
+  car = demoCar();
+  if (!inApp) document.querySelectorAll('.radioOnly').forEach(e => e.style.display = 'none');
+  let view = 'theme';
+  try { view = localStorage.getItem('apextxThemeView') || view; } catch (e) {}
+  // #theme, #screens or #radio opens that tab directly.
+  if (['#theme', '#screens', '#radio'].includes(location.hash)) view = location.hash.slice(1);
+  showView(view);
+  setLang(saved);
+  if (inApp) fwInit();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
