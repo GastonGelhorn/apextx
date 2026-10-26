@@ -187,4 +187,15 @@ if(TARGET SDL2::SDL2)
   target_link_libraries(simu PUBLIC imgui)
 endif()
 
+# Headless firmware for the ApexTX Theme Editor preview (no Qt, no SDL).
+if(PCB STREQUAL "PL18" AND PCBREV MATCHES "^NB4P?$")
+  add_library(nb4-preview SHARED EXCLUDE_FROM_ALL ${SIMU_SRC} no_audio.cpp nb4_preview.cpp)
+  set_target_properties(nb4-preview PROPERTIES PREFIX "")
+  target_compile_options(nb4-preview PRIVATE ${SIMU_SRC_OPTIONS})
+  target_compile_definitions(nb4-preview PUBLIC ${APP_COMMON_DEFINES})
+  if(MINGW)
+    target_link_options(nb4-preview PRIVATE -static)
+  endif()
+endif()
+
 PrintTargetReport("simu/libsimulator")

@@ -16,6 +16,8 @@ from pathlib import Path
 
 MODEL_FILE = re.compile(r'^[A-Za-z0-9_-]{1,32}\.yml$')
 RADIO_KEYS = ('selectedTheme', 'nb4Accent', 'nb4Orientation', 'nb4LedMode', 'nb4LedColor')
+# Only ever written to the preview's private copy, never to the radio.
+PREVIEW_KEYS = ('currModelFilename',)
 MAX_SCREENS = 10
 MAX_ZONES = 10
 
@@ -190,11 +192,9 @@ def _check_scalars(node):
             raise EditorFileError(f'Invalid value for {key}')
 
 
-def write_model(root, file, expected_hash, screens, backup_root):
-    path = _model_path(root, file)
-    raw = path.read_bytes()
-    if digest(raw) != expected_hash:
-        raise EditorFileError('The model was changed on the radio meanwhile. Load it again.')
+def model_with_screens(raw, screens, view=None):
+    """The model file with its screenData block replaced (and, for the
+    preview, the main view to start on)."""
     lines, newline = _split_lines(raw)
     if _scalar(lines, 'nb4ScreenVersion') != '1':
         raise EditorFileError('Open this car once on the radio before editing its screens.')
@@ -209,8 +209,22 @@ def write_model(root, file, expected_hash, screens, backup_root):
         anchor = _block(lines, 'topbarData')
         at = anchor[0] if anchor else len(lines) - (1 if lines and lines[-1] == '' else 0)
         lines[at:at] = new_block
+    if view is not None:
+        for i, line in enumerate(lines):
+            if re.match(r'view:', line):
+                lines[i] = f'view: {int(view)}'
+                break
+    return newline.join(lines).encode('utf-8')
+
+
+def write_model(root, file, expected_hash, screens, backup_root):
+    path = _model_path(root, file)
+    raw = path.read_bytes()
+    if digest(raw) != expected_hash:
+        raise EditorFileError('The model was changed on the radio meanwhile. Load it again.')
+    data = model_with_screens(raw, screens)
     saved = backup(path, backup_root)
-    write_durable(path, newline.join(lines).encode('utf-8'))
+    write_durable(path, data)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}
 
 
@@ -235,11 +249,8 @@ def radio_checksum(body):
     return binascii.crc_hqx(body, 0xFFFF)
 
 
-def write_radio(root, expected_hash, settings, backup_root):
-    path = Path(root) / 'RADIO' / 'radio.yml'
-    raw = path.read_bytes()
-    if digest(raw) != expected_hash:
-        raise EditorFileError('The radio settings changed meanwhile. Load them again.')
+def radio_with_settings(raw, settings):
+    """radio.yml with single keys replaced and its checksum line recomputed."""
     # The firmware rejects a file whose checksum line does not match and
     # restores the previous copy, so the line is recomputed after editing.
     header = CHECKSUM.match(raw)
@@ -247,9 +258,9 @@ def write_radio(root, expected_hash, settings, backup_root):
         raw = raw[header.end():].lstrip(b'\r\n')
     lines, newline = _split_lines(raw)
     for key, value in settings.items():
-        if key not in RADIO_KEYS:
+        if key not in RADIO_KEYS + PREVIEW_KEYS:
             raise EditorFileError(f'Setting not editable: {key}')
-        if key == 'selectedTheme':
+        if key in ('selectedTheme', 'currModelFilename'):
             text = str(value)
             if not text or len(text) > 26 or not re.fullmatch(r'[\w .,()+\-/]+', text):
                 raise EditorFileError('Invalid theme name.')
@@ -264,9 +275,20 @@ def write_radio(root, expected_hash, settings, backup_root):
         else:
             at = len(lines) - (1 if lines and lines[-1] == '' else 0)
             lines.insert(at, line)
-    saved = backup(path, backup_root)
     body = newline.join(lines).encode('utf-8')
     if header:
         body = b'checksum: %d\r\n' % radio_checksum(body) + body
-    write_durable(path, body)
+    return body
+
+
+def write_radio(root, expected_hash, settings, backup_root):
+    path = Path(root) / 'RADIO' / 'radio.yml'
+    raw = path.read_bytes()
+    if digest(raw) != expected_hash:
+        raise EditorFileError('The radio settings changed meanwhile. Load them again.')
+    if any(key not in RADIO_KEYS for key in settings):
+        raise EditorFileError('Setting not editable.')
+    data = radio_with_settings(raw, settings)
+    saved = backup(path, backup_root)
+    write_durable(path, data)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}

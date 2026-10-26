@@ -270,6 +270,7 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
   <div class="seg" id="segOrient"></div>
   <div class="radio"><canvas id="screen"></canvas></div>
   <div class="seg" id="segSim"></div>
+  <p class="note" id="fwBadge" style="margin:0;text-align:center;max-width:420px"></p>
   <p class="status" id="previewStatus" style="margin:0;text-align:center;max-width:420px"></p>
   <p class="note" data-t="previewNote"></p>
 </div>
@@ -296,6 +297,7 @@ const T = {
     subtitle: 'Themes, screens and widgets for your FlySky Noble NB4 or NB4+, exactly as on the transmitter, just easier. With a live preview.',
     footer: 'ApexTX Theme Editor · runs entirely locally, no data is sent anywhere. Before every change on the transmitter a backup is stored in ApexTX-Backups.',
     tabTheme: 'Theme', tabScreens: 'Screens', tabRadio: 'Transmitter',
+    fwLive: 'Drawn by the ApexTX firmware itself: exactly what the transmitter shows.', fwStarting: 'Starting the firmware…', fwFailed: 'Firmware preview unavailable, showing an approximation. ',
     connNone: 'No transmitter found. On the transmitter: Display & interface > Appearance > Connect to Theme Editor, then plug in the USB cable.',
     connOk: 'Transmitter connected:', connLocal: 'Without transmitter: themes are saved to', refresh: 'Search again',
     secTheme: 'Theme', hintTheme: 'Name, author and description appear in the theme selector of the transmitter.',
@@ -342,6 +344,7 @@ const T = {
     subtitle: 'Themes, Bildschirme und Widgets für deine FlySky Noble NB4 oder NB4+, genau wie auf der Fernbedienung, nur bequemer. Mit Live-Vorschau.',
     footer: 'ApexTX Theme Editor · läuft komplett lokal, es werden keine Daten gesendet. Vor jeder Änderung auf der Fernbedienung wird eine Sicherung in ApexTX-Backups abgelegt.',
     tabTheme: 'Theme', tabScreens: 'Bildschirme', tabRadio: 'Fernbedienung',
+    fwLive: 'Gezeichnet von der ApexTX-Firmware selbst: genau das, was die Fernbedienung zeigt.', fwStarting: 'Firmware startet …', fwFailed: 'Firmware-Vorschau nicht verfügbar, angezeigt wird eine Näherung. ',
     connNone: 'Keine Fernbedienung gefunden. An der Fernbedienung: Anzeige & Bedienung > Erscheinungsbild > Mit Theme-Editor verbinden, dann USB-Kabel einstecken.',
     connOk: 'Fernbedienung verbunden:', connLocal: 'Ohne Fernbedienung: Themes werden gespeichert unter', refresh: 'Neu suchen',
     secTheme: 'Theme', hintTheme: 'Name, Autor und Beschreibung erscheinen im Theme-Auswahlmenü der Fernbedienung.',
@@ -388,6 +391,7 @@ const T = {
     subtitle: 'Temas, pantallas y widgets para tu FlySky Noble NB4 o NB4+, igual que en la emisora, pero más cómodo. Con vista previa en vivo.',
     footer: 'ApexTX Theme Editor · funciona totalmente en local, no se envía ningún dato. Antes de cada cambio en la emisora se guarda una copia en ApexTX-Backups.',
     tabTheme: 'Tema', tabScreens: 'Pantallas', tabRadio: 'Emisora',
+    fwLive: 'Dibujado por el propio firmware ApexTX: exactamente lo que muestra la emisora.', fwStarting: 'Iniciando el firmware…', fwFailed: 'Vista previa del firmware no disponible, se muestra una aproximación. ',
     connNone: 'No se encontró ninguna emisora. En la emisora: Pantalla e interfaz > Apariencia > Conectar con el editor de temas y conecta el cable USB.',
     connOk: 'Emisora conectada:', connLocal: 'Sin emisora: los temas se guardan en', refresh: 'Buscar de nuevo',
     secTheme: 'Tema', hintTheme: 'El nombre, el autor y la descripción aparecen en el selector de temas de la emisora.',
@@ -1215,6 +1219,14 @@ function layoutRects(Wd, Hd, s, l) {
     hair(0, 45, Wd, 1);
     y = 45; h -= 45;
   }
+  // Layout::getMainZone(): every custom screen carries the car name and the
+  // two menu buttons above its zones (nb4ScreenHeader()).
+  if (!String(s.LayoutId).includes('Layout1x1AM')) {
+    card(2, y + 2, Wd - 4, 48);
+    text(car ? car.name : '', 10, y + 32, 16, col('PRIMARY1'), 700);
+    icon('wrench', Wd - 94, y + 10); icon('gear', Wd - 50, y + 10);
+    y += 52; h -= 52;
+  }
   if (deco) {
     // sliders/trims: thin bars at the edges
     ctx.fillStyle = col('SECONDARY2');
@@ -1245,14 +1257,111 @@ function render() {
     const id = widgetIn(s, i), z = zonesOf(s)[i];
     const textOpt = id === 'Text' ? {text: optionValue(s, i, 0, {type: 'String', default: 'My Text'})} : null;
     drawZone(id, x, y, w, h, values, textOpt);
-    if (state.view === 'screens') {
+    if (state.view === 'screens' && !fwShown(Wd, Hd)) {
       ctx.setLineDash([5, 4]); ctx.lineWidth = i === selZone ? 2 : 1;
       ctx.strokeStyle = i === selZone ? '#54b7f6' : 'rgba(84,183,246,.35)';
       ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
       if (!id) text('+', x + w / 2, y + h / 2 + 8, 24, 'rgba(84,183,246,.7)', 700, 'center');
     }
   });
+  if (fwShown(Wd, Hd)) {
+    ctx.drawImage(fw.canvas, 0, 0, Wd, Hd);
+    // The firmware's own zone grid, once it shows this screen's layout.
+    if (fw.zones && fw.view === screenKeys().indexOf(selScreen) && fw.zones.length === zoneRects.length) zoneRects = fw.zones;
+    if (state.view === 'screens') zoneRects.forEach(([x, y, w, h], i) => {
+      ctx.setLineDash([5, 4]); ctx.lineWidth = i === selZone ? 2 : 1;
+      ctx.strokeStyle = i === selZone ? '#54b7f6' : 'rgba(84,183,246,.35)';
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
+    });
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Firmware preview: the ApexTX firmware, built for the PC, draws the screen
+// from the same files the transmitter would get (tools/nb4_preview.py).
+// ---------------------------------------------------------------------------
+const FW_THEME = 'Editor Preview', FW_FOLDER = 'EditorPreview';
+const fw = {on: false, canvas: document.createElement('canvas'), w: 0, h: 0, seq: 0, key: '', due: 0, busy: false, sent: '', error: ''};
+function fwShown(Wd, Hd) { return fw.on && fw.w === Wd && fw.h === Hd && !fw.error; }
+function fwKey() {
+  return JSON.stringify([state.colors, state.nb4, state.cardOpacity, state.bgPattern, state.bgFit, state.bgDim,
+    state.bgImage ? (state.bgImage.src || '').length : 0, state.landscape, car && car.screenData, car && car.file,
+    selScreen, radioRoot(), radio && radio.settings.nb4Accent]);
+}
+async function fwStage() {
+  fw.busy = true;
+  const key = fwKey();
+  try {
+    // The preview theme gets its own name: the firmware refuses files that
+    // reuse a built-in theme's name, and the edited name may be one.
+    const yml = themeYml().replace(/^  name: .*$/m, '  name: ' + FW_THEME);
+    const dir = 'THEMES/' + FW_FOLDER + '/';
+    const files = [{name: dir + 'theme.yml', data: bytesB64(new TextEncoder().encode(yml))}];
+    const png = await backgroundPng();
+    if (png) files.push({name: dir + 'background.png', data: bytesB64(png)});
+    const wide = await backgroundPng(480, 320);
+    if (wide) files.push({name: dir + 'background_480x320.png', data: bytesB64(wide)});
+    const body = {files, selectedTheme: FW_THEME, nb4Orientation: state.landscape ? 1 : 0,
+      nb4Accent: radio ? +(radio.settings.nb4Accent || 0) : 0, view: screenKeys().indexOf(selScreen)};
+    if (car) body.screenData = car.screenData;
+    if (car && car.file && radioRoot()) { body.model = car.file; body.target = radioRoot(); }
+    await api('/api/preview', body);
+    fw.key = key; fw.sent = ''; fw.error = '';
+    $('fwBadge').textContent = t('fwLive');
+    document.querySelector('[data-t="previewNote"]').style.display = 'none';
+  } catch (e) {
+    fw.key = key; fw.error = e.message;
+    $('fwBadge').textContent = t('fwFailed') + e.message;
+    document.querySelector('[data-t="previewNote"]').style.display = '';
+  }
+  fw.busy = false;
+}
+async function fwFrames() {
+  for (;;) {
+    try {
+      const r = await fetch('/api/preview/frame?after=' + fw.seq, {headers: {'X-ApexTX-Token': TOKEN}});
+      if (r.status === 200) {
+        const [seq, w, h, shown] = r.headers.get('X-Frame').split(' ').map(Number);
+        const px = new Uint16Array(await r.arrayBuffer());
+        if (fw.canvas.width !== w || fw.canvas.height !== h) { fw.canvas.width = w; fw.canvas.height = h; }
+        const g = fw.canvas.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+        for (let i = 0, j = 0; i < px.length; i++, j += 4) {
+          const v = px[i];
+          d[j] = (v >> 11) * 255 / 31; d[j + 1] = ((v >> 5) & 63) * 255 / 63; d[j + 2] = (v & 31) * 255 / 31; d[j + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+        fw.seq = seq; fw.w = w; fw.h = h; fw.view = shown;
+        fw.zones = (r.headers.get('X-Zones') || '').split(';').filter(Boolean).map(z => z.split(',').map(Number));
+        continue;
+      }
+    } catch (e) { /* editor closing */ }
+    await new Promise(res => setTimeout(res, 30));
+  }
+}
+function fwTick() {
+  if (!fw.on) return;
+  const key = fwKey(), now = performance.now();
+  if (key !== fw.key && !fw.busy) {
+    if (!fw.due) fw.due = now + 350;
+    else if (now >= fw.due) { fw.due = 0; fwStage(); }
+  }
+  const inputs = JSON.stringify({steer: Math.round(values.steer), thr: Math.round(values.thr), ch3: Math.round(values.ch3), ch4: Math.round(values.ch4)});
+  if (inputs !== fw.sent && now - (fw.inputAt || 0) > 50) {
+    fw.sent = inputs; fw.inputAt = now;
+    api('/api/preview/input', JSON.parse(inputs)).catch(() => {});
+  }
+}
+async function fwInit() {
+  try {
+    const s = await (await fetch('/api/preview/status', {headers: {'X-ApexTX-Token': TOKEN}})).json();
+    if (!s.available) return;
+    fw.on = true;
+    $('fwBadge').textContent = t('fwStarting');
+    fwFrames();
+    setInterval(fwTick, 50);
+  } catch (e) { /* approximation only */ }
+}
+
 function loop(now) {
   const dt = Math.min(100, now - lastFrame); lastFrame = now;
   values = state.sim === 'idle' ? {steer: 24, thr: 38, ch3: 100, ch4: -40} : simulate(dt);
@@ -1540,9 +1649,15 @@ function previewPng() {
   state.view = 'theme';
   if (radio && radio.settings.nb4Orientation !== undefined) state.landscape = +radio.settings.nb4Orientation === 1;
   render();
+  const fwFrame = fw.on && !fw.error && fw.w === (state.landscape ? 480 : 320);
   state.view = view;
   state.landscape = landscape;
   const c = document.createElement('canvas');
+  if (fwFrame) {
+    c.width = fw.w / 2; c.height = fw.h / 2;
+    c.getContext('2d').drawImage(fw.canvas, 0, 0, c.width, c.height);
+    return new Promise(res => c.toBlob(b => b.arrayBuffer().then(a => res(new Uint8Array(a))), 'image/png'));
+  }
   c.width = cv.width / (SCALE * devicePixelRatio) / 2;
   c.height = cv.height / (SCALE * devicePixelRatio) / 2;
   c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
@@ -1832,6 +1947,7 @@ if ($('logo').getAttribute('src').startsWith('__')) $('logo').src = 'apextx-upda
   if (['#theme', '#screens', '#radio'].includes(location.hash)) view = location.hash.slice(1);
   showView(view);
   setLang(saved);
+  if (inApp) fwInit();
   requestAnimationFrame(loop);
 })();
 </script>

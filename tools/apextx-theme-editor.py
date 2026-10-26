@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, parse_qs
 
 import nb4_editor_files as radio_files
+import nb4_preview
 
 APP_VERSION = '1.0'
 MAX_THEME_BYTES = 4 * 1024 * 1024
@@ -148,6 +149,7 @@ def save_theme(target, files):
 
 def serve(port=0, open_browser=True):
     token = secrets.token_urlsafe(32)
+    preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -186,6 +188,25 @@ def serve(port=0, open_browser=True):
                 self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/targets':
                 self.reply(200, theme_targets())
+            elif self.path == '/api/preview/status':
+                self.reply(200, {'available': preview is not None})
+            elif urlparse(self.path).path == '/api/preview/frame':
+                after = int(parse_qs(urlparse(self.path).query).get('after', ['0'])[0] or 0)
+                frame = preview.latest(after) if preview else None
+                if not frame:
+                    self.send_response(204)
+                    self.send_header('Cache-Control', 'no-store')
+                    self.end_headers()
+                    return
+                seq, width, height, data, zones, shown = frame
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Frame', f'{seq} {width} {height} {shown}')
+                self.send_header('X-Zones', ';'.join(','.join(map(str, z)) for z in zones))
+                self.end_headers()
+                self.wfile.write(data)
             elif urlparse(self.path).path in ('/api/models', '/api/model', '/api/radio'):
                 query = parse_qs(urlparse(self.path).query)
                 route = urlparse(self.path).path
@@ -217,7 +238,7 @@ def serve(port=0, open_browser=True):
                 self.reply(403, {'error': 'Invalid session. Reopen the theme editor.'})
                 return
             route = urlparse(self.path).path
-            if route not in ('/api/save', '/api/model', '/api/radio'):
+            if route not in ('/api/save', '/api/model', '/api/radio', '/api/preview', '/api/preview/input'):
                 self.reply(404, {'error': 'Not found.'})
                 return
             try:
@@ -226,7 +247,17 @@ def serve(port=0, open_browser=True):
                     raise ValueError('The theme is too large.')
                 self.connection.settimeout(15)
                 request = json.loads(self.rfile.read(size))
-                if route == '/api/save':
+                if route == '/api/preview/input':
+                    if preview:
+                        preview.set_inputs(request)
+                    result = {'ok': True}
+                elif route == '/api/preview':
+                    if not preview:
+                        raise ValueError('The firmware preview is not part of this build.')
+                    target = request.get('target') or ''
+                    root = _radio_root(target) if target else None
+                    result = preview.restart(request, root)
+                elif route == '/api/save':
                     result = {'ok': True, 'folder': save_theme(request.get('target', ''), request.get('files', []))}
                 elif route == '/api/model':
                     result = radio_files.write_model(_radio_root(request.get('target', '')), request.get('file', ''),
@@ -234,7 +265,7 @@ def serve(port=0, open_browser=True):
                 else:
                     result = radio_files.write_radio(_radio_root(request.get('target', '')), request.get('hash', ''),
                                                      request.get('settings', {}), BACKUP_ROOT)
-            except (ValueError, OSError, json.JSONDecodeError) as error:
+            except (ValueError, OSError, json.JSONDecodeError, radio_files.EditorFileError) as error:
                 self.reply(400, {'error': str(error)})
                 return
             self.reply(200, result)
@@ -261,6 +292,8 @@ def serve(port=0, open_browser=True):
         finally:
             server.shutdown()
             server.server_close()
+            if preview:
+                preview.close()
         return
     if open_browser:
         webbrowser.open(address)
@@ -270,9 +303,14 @@ def serve(port=0, open_browser=True):
         pass
     finally:
         server.server_close()
+        if preview:
+            preview.close()
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == '--preview-worker':
+        nb4_preview.worker_main(sys.argv[2], int(sys.argv[3]))
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--no-browser', action='store_true')

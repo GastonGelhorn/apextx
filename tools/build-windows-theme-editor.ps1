@@ -7,6 +7,12 @@
 #
 # Requirements: Windows, Python 3.11+ on PATH.
 # Run from the repository root:  pwsh tools/build-windows-theme-editor.ps1
+#
+# The preview is drawn by the firmware itself when nb4-preview.dll is passed
+# (-PreviewDll): the NB4 firmware built for the PC with MinGW-w64, see
+# docs/nb4/CUSTOMIZATION.md. Without it the editor draws an approximation.
+
+param([string]$PreviewDll = '')
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -39,12 +45,22 @@ c.save(r'$ico'.replace('\\','/'), sizes=[(256,256),(128,128),(64,64),(48,48),(32
 print('icon ok')
 "@
 
+$preview = @()
+if ($PreviewDll) {
+    $dll = (Resolve-Path $PreviewDll).Path
+    Write-Host "==> Firmware preview: $dll"
+    $preview = @('--add-binary', "$dll;.", '--add-data', 'tools/nb4-preview-defaults;nb4-preview-defaults')
+} else {
+    Write-Host '==> No -PreviewDll: the preview stays an approximation'
+}
+
 Write-Host '==> PyInstaller'
 & (Join-Path $venv 'Scripts/pyinstaller.exe') --onefile --windowed --name ApexTX-Theme-Editor `
     --icon $ico `
     --add-data "tools/apextx-theme-editor.html;." `
     --add-data "tools/apextx-updater-logo.png;." `
     --add-data "tools/apextx-theme-editor-catalog.json;." `
+    @preview `
     --collect-all webview `
     --paths tools --noconfirm --clean (Join-Path $root 'tools/apextx-theme-editor.py')
 

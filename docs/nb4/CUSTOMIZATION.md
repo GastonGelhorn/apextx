@@ -111,3 +111,21 @@ storage, so the radio appears as a drive as soon as the cable is in.
   keys of `radio.yml`, refuses files changed since they were read, refuses
   cars without `nb4ScreenVersion: 1`, and stores a backup under
   `~/ApexTX-Backups/theme-editor/` before every write.
+- The preview is drawn by the firmware itself: `nb4-preview.dll` is the NB4
+  firmware built for the PC (`radio/src/targets/simu`, target `nb4-preview`,
+  no Qt or SDL). `tools/nb4_preview.py` runs it in a worker process on a
+  private copy of the storage (the connected radio's `radio.yml` and car, or
+  `tools/nb4-preview-defaults/`, the firmware's own factory files) and restarts
+  it on every change. Steering, throttle and CH3/CH4 of the simulated drive go
+  to its analog inputs; the zones it reports are the grid the editor outlines.
+  Build it with MinGW-w64 (w64devkit) and pass it to the app build:
+
+  ```
+  cmake -S . -B build/nb4-preview -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake     -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 -DNB4_PLUS_HW=ON     -DCMAKE_BUILD_TYPE=Release -DDISABLE_COMPANION=ON     -DCMAKE_C_FLAGS=-mno-ms-bitfields -DCMAKE_CXX_FLAGS=-mno-ms-bitfields
+  cmake --build build/nb4-preview --target nb4-preview
+  strip -s build/nb4-preview/nb4-preview.dll
+  pwsh tools/build-windows-theme-editor.ps1 -PreviewDll build/nb4-preview/nb4-preview.dll
+  ```
+
+  `-mno-ms-bitfields` keeps the persistent structures at their radio size.
+  Without the DLL the editor draws an approximation.
