@@ -35,7 +35,11 @@
   #define USB_PRODUCT                     'N', 'V', '1', '4', ' ', ' ', ' ', ' '  /* 8 Bytes */
 #elif defined(RADIO_NB4)
 
-  #define USB_NAME                        "ApexTX NB4"
+  #if defined(RADIO_NB4PLUS_HW)
+    #define USB_NAME                      "ApexTX NB4+"
+  #else
+    #define USB_NAME                      "ApexTX NB4"
+  #endif
   #define USB_MANUFACTURER                'A', 'p', 'e', 'x', 'T', 'X', ' ', ' '  /* 8 bytes */
   #define USB_PRODUCT                     'N', 'B', '4', ' ', ' ', ' ', ' ', ' '  /* 8 Bytes */
 #elif defined(RADIO_NB4P)

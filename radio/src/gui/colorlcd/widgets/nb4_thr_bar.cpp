@@ -35,9 +35,9 @@ class Nb4ThrBarWidget : public Widget
     rectangle(lvobj, barX + zero - 1, barY - 4, 2, barH + 8, textColor());
     fillY = barY + 3;
     fillH = barH - 6;
-    auto b = tiny(this, {barX, (coord_t)(barY + barH + 2), 60, 16}, STR_NB4_BRAKE);
+    auto b = caption(this, {barX, (coord_t)(barY + barH + 2), 60, 16}, STR_NB4_BRAKE);
     ink(b, brakeInk);
-    auto g = tiny(this, {(coord_t)(barX + barW - 60), (coord_t)(barY + barH + 2), 60, 16}, STR_NB4_THR, RIGHT);
+    auto g = caption(this, {(coord_t)(barX + barW - 60), (coord_t)(barY + barH + 2), 60, 16}, STR_NB4_THR, RIGHT);
     ink(g, gasInk);
 
     const LcdFlags f = fontForChars(w - PAD * 2, 4, barY - 30);

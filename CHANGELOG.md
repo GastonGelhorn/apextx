@@ -6,8 +6,23 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-10-24
+
 - Updated the maintained EdgeTX base from 2.12.4 to 2.12.5, retaining the
   ApexTX NB4/NB4+ interface, AFHDS3 support and guarded update workflow.
+- Refined the touch interface with consistent navigation, aligned icons,
+  larger controls, readable input labels and improved Appearance dropdowns.
+- Fixed USB host detection and session teardown while using the NB4 base pack.
+- Added shared Windows and macOS flashers that detect the radio and installed
+  version, find compatible releases, and download, verify and install updates.
+  Local firmware loading remains available; newer releases can explicitly
+  replace an older development build.
+- Added complete firmware/bootloader recovery with mandatory backup, full-image
+  verification, automatic startup and clear progress during the black-screen
+  ROM installation. Fixed complete USB version reporting and transient status
+  stalls during normal updates.
+- Published direct NB4/NB4+ firmware binaries and Windows, Mac Apple Silicon
+  and Mac Intel flasher downloads with checksums and build attestations.
 
 ## [0.1.0-alpha.4] - 2026-10-20
 
@@ -60,7 +75,8 @@ First public build for the original FlySky Noble NB4.
 - English and Spanish interface, switchable on the radio.
 - Build, validation, packaging, compatibility and installation documentation.
 
-[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.4...HEAD
+[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.5...HEAD
+[0.1.0-alpha.5]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...v0.1.0-alpha.3
 [0.1.0-alpha.1]: https://github.com/GastonGelhorn/apextx/releases/tag/v0.1.0-alpha.1

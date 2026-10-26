@@ -57,6 +57,27 @@ The automated menu checks are in `Nb4Routes`, `Nb4Ux`, `Nb4RacingUi`,
 versions and migration/rollback files. Hardware checks remain required before
 release; simulator tests cannot qualify a transmitter or receiver.
 
+## USB sessions while charging from the base pack
+
+Run this matrix on each supported radio, both with the base pack connected and
+with it removed. Record the hardware, host OS, firmware revision and result;
+results from the original NB4 do not qualify the NB4+.
+
+| Case | Expected result |
+| --- | --- |
+| Base pack or wall charger, no USB host | No repeated USB chooser or restart; leave the base connected for at least two minutes. |
+| USB chooser cancelled, then cable removed | Home remains responsive and the radio does not restart. |
+| Joystick connected to a computer | Host sees axes/buttons; unplugging keeps the UI running without a phantom USB chooser. Reconnect three times and check enumeration each time. |
+| Serial connected to a computer | Host can exchange CLI data; unplugging keeps the UI running. Reconnect three times and check communication each time. |
+| Storage connected to a computer | Read and write a disposable file, eject, then unplug. The radio restarts once and reaches Home with models and calibration intact. Reconnect and verify the file. |
+| Cable removed while storage is waiting for audio or a pending save | Storage/audio resume locally; no hang or restart before a storage session actually starts. |
+
+The host tests in `tools/tests/test_nb4_usb_transitions.py` execute extracted
+firmware functions for base-pack detection, USB frame timeout, immediate
+data-line re-probing, repeated sessions, IRQ/PHY teardown and storage handoff.
+They do not measure electrical levels, host enumeration or filesystem behavior
+on the physical device, so the matrix above remains a hardware check.
+
 ## ApexTX 0.1.0-alpha.3 release validation — 2026-09-29
 
 - Clean public original-NB4 ARM build: **passed** with

@@ -35,3 +35,5 @@ imgui.ini
 
 # Local hardware-checklist notes stay on the machine that recorded them.
 docs/nb4/rf/bench-acceptance-*.json
+# Desktop flasher packages are generated locally and in CI.
+/dist/

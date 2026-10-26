@@ -79,6 +79,12 @@ class ChannelsViewPage : public PageGroupItem
       PageGroupItem(title), startChan(startChan), rows(rows), cols(cols)
   {
     icon = ICON_MONITOR;
+#if defined(RADIO_NB4_FAMILY)
+    // A row of identical monitor glyphs cannot tell a finger which bank
+    // will open. Keep the channel range on the tab itself.
+    tabLabel = std::to_string(startChan + 1) + "-" +
+        std::to_string(std::min<int>(MAX_OUTPUT_CHANNELS, startChan + rows * cols));
+#endif
   }
 
   static constexpr coord_t CHANS_H = 3 * ChannelBar::BAR_HEIGHT + PAD_THREE;

@@ -19,6 +19,7 @@
 #include "mainwindow.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_car_state.h"
+#include "nb4_routes.h"
 #endif
 
 #include "board.h"
@@ -91,6 +92,12 @@ void MainWindow::shutdown()
 
   // Delete main view screens
   LayoutFactory::deleteCustomScreens();
+
+#if defined(RADIO_NB4_FAMILY)
+  // Parked grids are not on the layer stack; delete them before clear()
+  // frees their objects underneath them.
+  nb4DropGridCache();
+#endif
 
   // clear layer stack first
   for (Window* w = Layer::back(); w; w = Layer::back()) {

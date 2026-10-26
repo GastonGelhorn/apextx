@@ -29,6 +29,10 @@
 #include "page.h"
 #include "static.h"
 #include "theme_manager.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#include "layer.h"
+#endif
 
 #include <algorithm>
 
@@ -70,7 +74,12 @@ BaseDialog::BaseDialog(const char* title,
 
   if (title) {
 
-    const coord_t headerH = EdgeTxStyles::STD_FONT_HEIGHT + PAD_MEDIUM * 2;
+    // The close button is a full touch target, so the title bar is as tall.
+    constexpr coord_t headerH = 44;
+    header->padTop((headerH - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+    header->padBottom(headerH - EdgeTxStyles::STD_FONT_HEIGHT -
+                      (headerH - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+    header->padRight(headerH);
     auto close = new TextButton(content, {0, 0, headerH, headerH}, LV_SYMBOL_CLOSE,
                                 [this]() { onCancel(); return 0; });
     closeButton = close;
@@ -127,39 +136,84 @@ void BaseDialog::useSectionHeader()
   closeWhenClickOutside = false;
   sectionHeader = true;
   // The QuickMenu header treatment, with a real section title in place of a logo.
-  etx_solid_bg(header->getLvObj(), COLOR_THEME_QM_BG_INDEX);
-  etx_txt_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  const auto bg = pageLayout ? COLOR_THEME_HEADER_BG_INDEX : COLOR_THEME_QM_BG_INDEX;
+  const auto fg = pageLayout ? COLOR_THEME_HEADER_FG_INDEX : COLOR_THEME_QM_FG_INDEX;
+  etx_solid_bg(header->getLvObj(), bg);
+  etx_txt_color(header->getLvObj(), fg);
   etx_font(header->getLvObj(), FONT_BOLD_INDEX);
-  header->setHeight(44);
+  header->setHeight(pageLayout ? Nb4Ui::HeaderH : Nb4Ui::Touch);
   header->padAll(PAD_ZERO);
+  header->padBottom(PAD_ZERO);
   header->padLeft(PageHeader::PAGE_TITLE_LEFT);
-  header->padRight(helpButton ? 84 : 40);
+  header->padRight(pageLayout ? 124 : helpButton ? 92 : 44);
   lv_obj_set_style_pad_top(
       header->getLvObj(),
       std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
       LV_PART_MAIN);
-  lv_obj_set_style_text_align(header->getLvObj(), LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_align(header->getLvObj(), pageLayout ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_border_side(header->getLvObj(), LV_BORDER_SIDE_TOP, 0);
-  lv_obj_set_style_border_width(header->getLvObj(), 3, 0);
-  etx_border_color(header->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+  lv_obj_set_style_border_width(header->getLvObj(), pageLayout ? 0 : 3, 0);
+  etx_border_color(header->getLvObj(), fg);
   lv_label_set_long_mode(header->getLvObj(), LV_LABEL_LONG_CLIP);
   if (closeButton) {
-    closeButton->setSize(40, 40);
-    etx_txt_color(closeButton->getLvObj(), COLOR_THEME_QM_FG_INDEX);
+    closeButton->setSize(pageLayout ? 72 : Nb4Ui::Touch, Nb4Ui::Touch);
+    etx_txt_color(closeButton->getLvObj(), fg);
   }
+  updateSectionTitleStyle();
+}
+
+void BaseDialog::usePageLayout()
+{
+  pageLayout = true;
+  useSectionHeader();
+  const coord_t w = lv_disp_get_hor_res(nullptr);
+  const coord_t h = lv_disp_get_ver_res(nullptr);
+  content->setSize(w, h);
+  lv_obj_align(content->getLvObj(), LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_clear_flag(content->getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
+  etx_solid_bg(content->getLvObj(), COLOR_THEME_SECONDARY3_INDEX);
+  etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
+  form->setWidth(LV_PCT(100));
+  form->setHeight(0);
+  lv_obj_set_flex_grow(form->getLvObj(), 1);
+  lv_obj_set_style_max_height(form->getLvObj(),
+      h - Nb4Ui::HeaderH - (scopeLabel ? 22 : 0), 0);
+  lv_obj_set_scroll_dir(form->getLvObj(), LV_DIR_VER);
+  form->padAll(PAD_MEDIUM);
+  form->padRow(Nb4Ui::Gap);
+  if (closeButton) {
+    closeButton->setText(STR_NB4_BACK);
+    Nb4Ui::button(closeButton->getLvObj());
+    lv_obj_set_style_bg_opa(closeButton->getLvObj(), LV_OPA_COVER, 0);
+    lv_obj_align(closeButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -Nb4Ui::SpaceXS,
+                  (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2);
+  }
+  if (helpButton)
+    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -80,
+                  (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2);
+  // A settings page owns the entire viewport. Parked grids and Home are
+  // restored by Layer when Back closes it, without drawing through a dimmer.
+  Layer::cover(this);
+  setRouteIcon(ICON_RADIO_SETUP);
   updateSectionTitleStyle();
 }
 
 void BaseDialog::updateSectionTitleStyle()
 {
   if (!sectionHeader || !header) return;
-  // Route titles must remain equally legible. Long names are clipped at the
-  // trailing edge instead of shrinking every character to XS/XXS.
-  etx_font(header->getLvObj(), FONT_BOLD_INDEX);
-  lv_obj_set_style_pad_top(
-      header->getLvObj(),
-      std::max<coord_t>(0, (44 - getFontHeight(FONT(BOLD))) / 2),
-      LV_PART_MAIN);
+  // A long route title takes two lines, smaller if it must, rather than
+  // losing its end under the buttons.
+  auto o = header->getLvObj();
+  const coord_t border = lv_obj_get_style_border_width(o, LV_PART_MAIN);
+  const coord_t dialogW = lv_obj_get_style_width(content->getLvObj(), LV_PART_MAIN);
+  // A dialog sized by its content has no width to fit against yet.
+  const coord_t width = LV_COORD_IS_SPEC(dialogW) ? LV_COORD_MAX
+                        : dialogW - lv_obj_get_style_pad_left(o, LV_PART_MAIN) -
+                              lv_obj_get_style_pad_right(o, LV_PART_MAIN) - 2 * border;
+  const coord_t barHeight = pageLayout ? Nb4Ui::HeaderH : Nb4Ui::Touch;
+  const coord_t height = nb4FitHeaderTitle(o, width, barHeight - 2 * border);
+  lv_obj_set_style_pad_top(o, std::max<coord_t>(0, (barHeight - 2 * border - height) / 2),
+                           LV_PART_MAIN);
 }
 
 void BaseDialog::setRouteIcon(uint8_t icon)
@@ -182,11 +236,14 @@ bool BaseDialog::setHelpHandler(std::function<void()> action)
   helpHandler = std::move(action);
   if (helpHandler) closeWhenClickOutside = false;
   if (!helpButton && helpHandler) {
-    helpButton = new TextButton(content, {0, 0, 40, 40}, "?",
+    helpButton = new TextButton(content, {0, 0, 44, 44}, "?",
       [this] { if (helpHandler) helpHandler(); return 0; });
+    Nb4Ui::help(helpButton->getLvObj());
     lv_obj_add_flag(helpButton->getLvObj(), LV_OBJ_FLAG_FLOATING);
-    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, -44, 0);
-    header->padRight(84);
+    lv_obj_align(helpButton->getLvObj(), LV_ALIGN_TOP_RIGHT, pageLayout ? -80 : -48,
+                  pageLayout ? (Nb4Ui::HeaderH - Nb4Ui::Touch) / 2 : 0);
+    header->padRight(pageLayout ? 124 : 92);
+    updateSectionTitleStyle();
     lv_group_remove_obj(helpButton->getLvObj());
   }
   if (helpButton) helpButton->show(bool(helpHandler));
@@ -214,13 +271,12 @@ void BaseDialog::useBrandHeader()
                  ICON_TOP_LOGO, COLOR_THEME_QM_FG_INDEX);
   const coord_t identityW = logoW + 16;
   lv_obj_update_layout(content->getLvObj());
-  const coord_t brandW = lv_obj_get_width(brand->getLvObj());
-  const coord_t titleH = getFontHeight(FONT(BOLD));
+  const coord_t brandW = lv_obj_get_content_width(brand->getLvObj());
+  const coord_t titleW = coord_t(std::max<int>(40, brandW - identityW - Nb4Ui::Touch - Nb4Ui::SpaceXS));
   auto title = new StaticText(
-      brand,
-      {identityW, 0,
-       coord_t(std::max<int>(40, brandW - identityW - 44)), titleH},
+      brand, {identityW, 0, titleW, getFontHeight(FONT(BOLD))},
       header->getText(), COLOR_THEME_QM_FG_INDEX, FONT(BOLD) | CENTERED);
+  title->setHeight(nb4FitHeaderTitle(title->getLvObj(), titleW, 44 - 2 * 3));
   lv_obj_align(title->getLvObj(), LV_ALIGN_LEFT_MID, identityW, 0);
 }
 #endif

@@ -365,7 +365,12 @@ class EdgeTxStyles
 #else
   static LAYOUT_VAL_SCALED(UI_ELEMENT_HEIGHT, 32)
 #endif
+#if defined(RADIO_NB4_FAMILY)
+  // Nb4Ui::HeaderH; keep every native and routed page on the same bar.
+  static constexpr coord_t MENU_HEADER_HEIGHT = 48;
+#else
   static LAYOUT_VAL_SCALED(MENU_HEADER_HEIGHT, 45)
+#endif
   static LAYOUT_VAL_SCALED(EDIT_FLD_WIDTH_NARROW, 70)
   static LAYOUT_VAL_SCALED(EDIT_FLD_WIDTH, 100)
 

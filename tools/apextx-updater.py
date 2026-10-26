@@ -12,6 +12,7 @@ from urllib.parse import urlparse, parse_qs
 
 from nb4_update_image import FLASH_SIZE, VARIANTS, package_target, update_package
 from nb4_usb_update import run_update, discover
+from nb4_flasher_session import FlasherSession
 import nb4_rom_flash
 
 import base64
@@ -20,7 +21,31 @@ import functools
 import os
 import sys
 
-APP_VERSION = '1.0'
+APP_VERSION = '1.2'
+
+
+def package_self_test():
+    """Check the packaged dependencies without discovering or writing a radio."""
+    from nb4_usb_update import usb_modules
+    folder = Path(__file__).resolve().parent
+    page = (folder / 'apextx-updater.html').read_text(encoding='utf-8')
+    if 'id="updatePanel"' not in page or 'id="recoverPanel"' not in page or not _logo_data_uri():
+        raise RuntimeError('The shared flasher interface is incomplete.')
+    _core, _util, backend = usb_modules()
+    if backend is None:
+        raise RuntimeError('The bundled USB backend could not be loaded.')
+    result = nb4_rom_flash._run([nb4_rom_flash.dfu_util_path(), '--version'])
+    if result.returncode != 0 or 'dfu-util 0.11' not in result.stdout:
+        raise RuntimeError('The bundled dfu-util could not be started: ' + result.stdout)
+    metadata = json.loads((folder / 'apextx-flasher-build.json').read_text(encoding='utf-8'))
+    import certifi
+    import ssl
+    if ssl.create_default_context(cafile=certifi.where()).cert_store_stats()['x509_ca'] == 0:
+        raise RuntimeError('The packaged release-download CA store is missing.')
+    from nb4_releases import Version
+    if not Version('0.1.0-alpha.9') < Version('0.1.0-alpha.10'):
+        raise RuntimeError('The shared release client could not be loaded.')
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True)
 
 
 def _enable_bundled_libusb():
@@ -56,16 +81,27 @@ def _logo_data_uri():
 
 def serve(port=0, open_browser=True):
     token = secrets.token_urlsafe(32)
-    lock = threading.Lock()
-    status = {'running': False, 'progress': 0, 'message': 'Ready to update', 'error': False}
+    session = FlasherSession()
+    lock, status = session.lock, session.status
+    monitor = threading.Thread(target=session.monitor, daemon=True)
+    monitor.start()
 
     def progress(message, percent):
         with lock:
             status.update(message=message, progress=percent)
 
-    def update(image):
+    def update(image, device=None):
         try:
-            run_update(image, progress)
+            with session.usb_lock:
+                # Local images must obey the same bootloader requirement as
+                # release downloads; manual loading cannot silently skip it.
+                from nb4_usb_update import probe
+                session.check_bootloader(probe(), image)
+                if device:
+                    run_update(image, progress, serial=device['serial'], wait_seconds=0,
+                               finder=session.pinned_finder(device))
+                else:
+                    run_update(image, progress)
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
@@ -73,7 +109,11 @@ def serve(port=0, open_browser=True):
             with lock:
                 status['running'] = False
 
-    def recover(image, radio_variant):
+    def recover(image, radio_variant, expected_serial=None):
+        with session.usb_lock:
+            recover_locked(image, radio_variant, expected_serial)
+
+    def recover_locked(image, radio_variant, expected_serial=None):
         try:
             wanted = nb4_rom_flash.validate_full_image(image)
             if wanted != radio_variant:
@@ -85,6 +125,11 @@ def serve(port=0, open_browser=True):
                 raise nb4_rom_flash.RomFlashError(
                     'No radio in STM32 ROM DFU mode was found. Put the radio into ROM DFU '
                     '(hold the recessed grip button while switching it on) and connect USB.')
+            if expected_serial and serial != expected_serial:
+                raise nb4_rom_flash.RomFlashError('The connected DFU device changed. Reconnect the original radio. Nothing was written.')
+            with lock:
+                status.update(serial=serial, target=next(
+                    number for number, name in VARIANTS.items() if name == radio_variant))
             # 1) Mandatory backup of the radio's current firmware.
             folder = Path.home() / 'ApexTX-Backups'
             folder.mkdir(parents=True, exist_ok=True)
@@ -105,12 +150,16 @@ def serve(port=0, open_browser=True):
                      'Installing the complete image...', 23)
             # 3) Write the full image, verify by read-back, then start the radio.
             nb4_rom_flash.run_install(image, progress, serial)
+            if expected_serial:
+                with lock:
+                    session.bootloader_install = None
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
         finally:
             with lock:
                 status['running'] = False
+            session.wake.set()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -139,25 +188,57 @@ def serve(port=0, open_browser=True):
 
         def do_GET(self):
             if not self.authorized():
-                self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
+                self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
             elif urlparse(self.path).path == '/':
                 page = Path(__file__).with_name('apextx-updater.html').read_text(encoding='utf-8')
                 page = (page.replace('__SESSION_TOKEN__', token)
                             .replace('__LOGO_DATA__', _logo_data_uri())
-                            .replace('__APP_VERSION__', APP_VERSION))
+                            .replace('__APP_VERSION__', APP_VERSION)
+                            .replace('__HOST_PLATFORM__', sys.platform))
                 self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/status':
-                with lock:
-                    snapshot = dict(status)
-                self.reply(200, snapshot)
+                self.reply(200, session.snapshot())
             else:
                 self.reply(404, {'error': 'Not found.'})
 
         def do_POST(self):
             if not self.authorized():
-                self.reply(403, {'error': 'Invalid session. Reopen the updater from the terminal.'})
+                self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
             request_path = urlparse(self.path).path
+            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade',
+                                '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel'):
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    if not 0 <= size <= 2048:
+                        raise ValueError('Invalid request size.')
+                    self.connection.settimeout(15)
+                    data = json.loads(self.rfile.read(size) or b'{}')
+                    if not isinstance(data, dict):
+                        raise ValueError('Invalid request.')
+                    with lock:
+                        if request_path in ('/api/upgrade', '/api/bootloader/prepare'):
+                            preparing = request_path.endswith('/prepare')
+                            device, offer = session.choice(data.get('serial'), data.get('target'), data.get('release_id'), bootloader=preparing)
+                            session.begin('prepare_bootloader' if preparing else 'upgrade')
+                            threading.Thread(target=session.prepare_bootloader if preparing else session.automatic,
+                                             args=(device, offer), daemon=False).start()
+                        elif request_path == '/api/bootloader/install':
+                            args = session.bootloader_choice(data.get('serial'), data.get('target'), data.get('release_id'))
+                            session.begin('bootloader')
+                            threading.Thread(target=recover, args=args, daemon=False).start()
+                        elif request_path == '/api/bootloader/cancel':
+                            session.cancel_bootloader()
+                        elif request_path == '/api/channel':
+                            if not isinstance(data.get('preview'), bool):
+                                raise ValueError('Choose a release channel.')
+                            session.refresh(data['preview'])
+                        else:
+                            session.refresh()
+                    self.reply(202, {'ok': True})
+                except (ValueError, OSError, RuntimeError) as error:
+                    self.reply(409, {'error': str(error)})
+                return
             if request_path not in ('/api/update', '/api/recover'):
                 self.reply(404, {'error': 'Not found.'})
                 return
@@ -189,11 +270,21 @@ def serve(port=0, open_browser=True):
                 if status['running']:
                     self.reply(409, {'error': 'An operation is already in progress.'})
                     return
-                status.update(running=True, error=False, progress=0,
-                              message='Backing up and installing...' if recovery else 'Waiting for the radio...')
+                if session.bootloader_install:
+                    self.reply(409, {'error': 'Finish or cancel the guided bootloader installation first.'})
+                    return
+                device = None
+                serial = self.headers.get('X-ApexTX-Serial')
+                if not recovery and serial:
+                    current = session.device
+                    if current.get('state') != 'ready' or serial != current.get('serial'):
+                        self.reply(409, {'error': 'The radio changed. Check the detected radio and try again.'})
+                        return
+                    device = dict(current)
+                session.begin('recover' if recovery else 'manual')
             # Non-daemon: closing the UI/server must not kill an active write.
             target = recover if recovery else update
-            args = (image, radio_variant) if recovery else (image,)
+            args = (image, radio_variant) if recovery else (image, device)
             threading.Thread(target=target, args=args, daemon=False).start()
             self.reply(202, {'ok': True})
 
@@ -205,20 +296,26 @@ def serve(port=0, open_browser=True):
     if os.environ.get('APEXTX_UPDATER_WINDOW') == '1':
         # Show the UI in a native application window; serve in the background.
         # Fall back to the default browser where no system WebView is present,
-        # so the app still runs on any Windows.
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        # so the shared UI remains available if the native renderer is absent.
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
         try:
             import webview
-            webview.create_window('ApexTX Flasher', address,
-                                  width=860, height=940, min_size=(560, 680))
+            window = webview.create_window('ApexTX Flasher', address,
+                                           width=860, height=940, min_size=(560, 680))
+            def can_close():
+                with lock:
+                    return not status['running']
+            window.events.closing += can_close
             webview.start()
         except Exception:
             webbrowser.open(address)
             try:
-                server.serve_forever()
+                server_thread.join()
             except KeyboardInterrupt:
                 pass
         finally:
+            session.stop.set()
             server.shutdown()
             server.server_close()
         return
@@ -229,6 +326,7 @@ def serve(port=0, open_browser=True):
     except KeyboardInterrupt:
         pass
     finally:
+        session.stop.set()
         server.server_close()
 
 
@@ -239,10 +337,14 @@ def main():
     parser.add_argument('--serial')
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument('--self-test', type=Path, metavar='REPORT.json',
+                        help='Check the packaged app without accessing a radio and write a report.')
     args = parser.parse_args()
     _enable_bundled_libusb()
     try:
-        if args.firmware:
+        if args.self_test:
+            args.self_test.write_text(json.dumps(package_self_test(), indent=2) + '\n', encoding='utf-8')
+        elif args.firmware:
             image = args.firmware.read_bytes()
             if args.check:
                 package = update_package(image)

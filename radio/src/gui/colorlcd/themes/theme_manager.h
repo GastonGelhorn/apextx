@@ -186,13 +186,18 @@ class HeaderDateTime : public Window
   void checkEvents() override;
 };
 
-class HeaderIcon : public StaticIcon
+class HeaderIcon : public
+#if defined(RADIO_NB4_FAMILY)
+    Window
+#else
+    StaticIcon
+#endif
 {
  public:
   HeaderIcon(Window *parent, EdgeTxIcon icon, std::function<void()> action = nullptr);
   HeaderIcon(Window *parent, const char* iconFile, std::function<void()> action = nullptr);
 
-  void setIcon(EdgeTxIcon newIcon) { if (icon) icon->setIcon(newIcon); }
+  void setIcon(EdgeTxIcon newIcon);
 
  protected:
   std::function<void()> action;

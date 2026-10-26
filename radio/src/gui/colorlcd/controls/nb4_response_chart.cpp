@@ -74,11 +74,16 @@ Nb4ResponseChart::Nb4ResponseChart(Window* parent, const rect_t& rect,
   for (int t : xTicks) {
     char text[8];
     snprintf(text, sizeof(text), "%d", t);
-    const coord_t labelX = limit<coord_t>(0, plotX(t * RESX / 100) - 18, rect.w - 36);
+    // The end marks line up with the plot's edges, so the left one clears
+    // the vertical scale's lowest mark instead of sitting on it.
+    const LcdFlags align = t == -100 ? LEFT : t == 100 ? RIGHT : CENTERED;
+    const coord_t labelX = t == -100 ? px
+                         : t == 100  ? (coord_t)(px + pw - 36)
+                                     : (coord_t)(plotX(t * RESX / 100) - 18);
     new StaticText(this,
                    rect_t{labelX,
                           (coord_t)(py + ph + 1), 36, CHART_TICKS},
-                   text, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS) | CENTERED);
+                   text, COLOR_THEME_PRIMARY3_INDEX, FONT(XXS) | align);
   }
 
   const coord_t zoneY = py + ph + CHART_TICKS;
@@ -175,17 +180,47 @@ void Nb4ResponseChart::buildFrame()
 void Nb4ResponseChart::rebuildCurve()
 {
   if (!curveLine || pw <= 1) return;
-  if (!curvePoints) {
-    curveCount = (unsigned)pw;
-    curvePoints = new lv_point_t[curveCount];
-  }
-  for (unsigned i = 0; i < curveCount; i += 1) {
+  if (!curvePoints) curvePoints = new lv_point_t[pw];
+  const unsigned columns = (unsigned)pw;
+  for (unsigned i = 0; i < columns; i += 1) {
     const int input =
         divRoundClosest((int32_t)((int)i - (pw - 1) / 2) * RESX, (pw - 1) / 2);
     curvePoints[i] = {(lv_coord_t)(px + i), plotY(map ? map(input) : 0)};
   }
 
-  splitAt = curveCount / 2;
+  // Keep only the points the line needs: every redraw (each scroll frame)
+  // draws one segment and two round caps per point, and a straight or gently
+  // bent half needs a handful of them, not one per column.
+  const unsigned neutral = columns / 2;
+  curveCount = 0;
+  auto simplify = [&](unsigned first, unsigned last) {
+    unsigned anchor = first;
+    curvePoints[curveCount++] = curvePoints[first];
+    for (unsigned next = first + 1; next < last; ++next) {
+      const lv_point_t a = curvePoints[anchor], b = curvePoints[next + 1];
+      bool straight = true;
+      for (unsigned k = anchor + 1; k <= next && straight; ++k) {
+        const lv_point_t p = curvePoints[k];
+        // Distance of p from a-b, times |a-b|, against 0.5 px.
+        const int64_t cross = (int64_t)(b.x - a.x) * (p.y - a.y) -
+                              (int64_t)(b.y - a.y) * (p.x - a.x);
+        const int64_t dx = b.x - a.x, dy = b.y - a.y;
+        straight = 4 * cross * cross <= dx * dx + dy * dy;
+      }
+      if (!straight) {
+        anchor = next;
+        curvePoints[curveCount++] = curvePoints[next];
+      }
+    }
+    curvePoints[curveCount++] = curvePoints[last];
+  };
+  simplify(0, neutral);
+  splitAt = curveCount - 1;
+  simplify(neutral, columns - 1);
+  // The neutral point closes the left half and opens the right one.
+  for (unsigned i = splitAt + 1; i + 1 < curveCount; ++i)
+    curvePoints[i] = curvePoints[i + 1];
+  curveCount -= 1;
   lv_line_set_points(curveLine, curvePoints, splitAt + 1);
   lv_line_set_points(curveLineRight, &curvePoints[splitAt],
                      curveCount - splitAt);

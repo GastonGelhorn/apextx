@@ -393,7 +393,7 @@ char *getValueOrSrcVarString(char *dest, size_t len, gvar_t value,
     if (abs(v.value) >= MIXSRC_FIRST_GVAR && v.value <= MIXSRC_LAST_GVAR) {
       getGVarString(dest, (v.value < 0) ? v.value + MIXSRC_FIRST_GVAR - 1 : v.value - MIXSRC_FIRST_GVAR);
     } else {
-      const char* s = getSourceString(v.value);
+      const char* s = getSourceDisplayString(v.value);
       strncpy(dest, s, len);
     }
   } else {
@@ -886,6 +886,33 @@ template char *getSourceString<16>(char (&dest)[16], mixsrc_t idx, bool defaultO
 char *getSourceString(mixsrc_t idx, bool defaultOnly)
 {
   return getSourceString(_static_str_buffer, idx, defaultOnly);
+}
+
+template <size_t L>
+char *getSourceDisplayString(char (&dest)[L], mixsrc_t idx, bool defaultOnly)
+{
+#if defined(RADIO_NB4_FAMILY)
+  const auto source = idx < 0 ? -idx : idx;
+  if (source >= MIXSRC_FIRST_INPUT && source <= MIXSRC_LAST_INPUT) {
+    const unsigned input = source - MIXSRC_FIRST_INPUT;
+    // An explicit input number stays recognisable beside a physical control
+    // with the same name, and avoids the legacy font's tiny input pictogram.
+    const int used = snprintf(dest, L, "%sI%02u", idx < 0 ? "-" : "", input + 1);
+    if (!defaultOnly && used >= 0 && size_t(used) + 1 < L && g_model.inputNames[input][0]) {
+      snprintf(dest + used, L - used, ":%.*s", int(sizeof(g_model.inputNames[input])),
+               g_model.inputNames[input]);
+    }
+    return dest;
+  }
+#endif
+  return getSourceString(dest, idx, defaultOnly);
+}
+
+template char *getSourceDisplayString<16>(char (&dest)[16], mixsrc_t idx, bool defaultOnly);
+
+char *getSourceDisplayString(mixsrc_t idx, bool defaultOnly)
+{
+  return getSourceDisplayString(_static_str_buffer, idx, defaultOnly);
 }
 
 char *getCurveString(int idx)

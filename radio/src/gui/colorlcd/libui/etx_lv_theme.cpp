@@ -27,6 +27,9 @@
 #include "window.h"
 #include "../colors.h"
 #include "fonts.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_ui.h"
+#endif
 
 extern lv_color_t makeLvColor(uint32_t colorFlags);
 
@@ -51,7 +54,11 @@ LV_STYLE_CONST_SINGLE_INIT(EdgeTxStyles::fg_opacity_cover, LV_STYLE_OPA,
                            LV_OPA_COVER);
 
 // Corner rounding (button, edit box, etc)
+#if defined(RADIO_NB4_FAMILY)
+LV_STYLE_CONST_SINGLE_INIT(EdgeTxStyles::rounded, LV_STYLE_RADIUS, Nb4Ui::ControlRadius);
+#else
 LV_STYLE_CONST_SINGLE_INIT(EdgeTxStyles::rounded, LV_STYLE_RADIUS, 6);
+#endif
 
 // Toggle switch and slider knob rounding
 LV_STYLE_CONST_SINGLE_INIT(EdgeTxStyles::circle, LV_STYLE_RADIUS,

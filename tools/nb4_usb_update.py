@@ -1,15 +1,23 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """ApexTX's RAM-staged NB4 updater transport. Never writes a ROM DFU device."""
+import errno
+import re
 import struct
+import sys
 import time
 from collections import namedtuple
 from pathlib import Path
 
 from nb4_update_image import HEADER, VARIANTS, package_target, update_package
+from nb4_releases import firmware_identity
 
 STAGE = 0xc0200000
 CONTROL = 0xc03f0000
 TRANSFER = 4096
+# USBD_IDX_CONFIG_STR in ST's standard string dispatcher. Some inherited
+# class descriptors advertise iConfiguration=0 (HID/CDC) or 2 (DFU/product),
+# so query the protocol's fixed slot rather than trusting that class field.
+USB_INFO_STRING = 4
 # The bootloader names the hardware it was built for, and so the only manifest
 # target it installs (radio/src/bootloader/nb4_update_id.h). Bootloaders from
 # before the NB4+ build option existed are all original NB4 bootloaders.
@@ -26,6 +34,79 @@ Selection = namedtuple('Selection', 'device config interface alternate serial ta
 
 class UpdateError(RuntimeError):
     pass
+
+
+def probe():
+    """Read standard USB descriptors only; never claim, configure, or reset."""
+    core, util, backend = usb_modules()
+    radios, recovery, unreadable = [], [], 0
+    ids = {(0x0483, 0xdf11), (0x0483, 0x5720),
+           (0x0483, 0x5740), (0x1209, 0x4f54)}
+    for device in core.find(find_all=True, backend=backend,
+                            custom_match=lambda d: (d.idVendor, d.idProduct) in ids):
+        try:
+            product = util.get_string(device, device.iProduct)
+            if product == 'STM32 BOOTLOADER':
+                serial = util.get_string(device, device.iSerialNumber)
+                if not serial:
+                    raise UpdateError('The DFU device did not provide its USB serial number.')
+                recovery.append(dict(state='recovery', serial=serial))
+                continue
+            normal = {f'ApexTX {model} {mode}': target
+                      for target, model in VARIANTS.items()
+                      for mode in ('Joystick', 'Serial Port', 'Mass Storage')}
+            target = PRODUCTS.get(product, normal.get(product))
+            if target is None:
+                continue
+            serial = util.get_string(device, device.iSerialNumber)
+            if not serial:
+                raise UpdateError('The radio did not provide its USB serial number.')
+            ready, info = False, None
+            try:
+                value = util.get_string(device, USB_INFO_STRING) or ''
+            except Exception:
+                value = ''
+            generation = 0
+            if value.startswith('APXINFO'):
+                fields = value.split(';', 2)
+                expected = 'nb4' if target == 1 else 'nb4plus'
+                identity = re.fullmatch(r'APXINFO([1-9][0-9]{0,3})', fields[0])
+                if len(fields) != 3 or fields[1] != expected or not identity:
+                    raise UpdateError('The USB model and firmware identity disagree. Nothing was written.')
+                info = firmware_identity(fields[2])
+                generation = int(identity[1])
+            for config in device:
+                if product in PRODUCTS:
+                    ready = ready or any(
+                        (i.bInterfaceClass, i.bInterfaceSubClass, i.bInterfaceProtocol) == (0xfe, 1, 2)
+                        and util.get_string(device, i.iInterface) in INTERFACES[product] for i in config)
+            if product in PRODUCTS and not ready:
+                raise UpdateError('The radio has an unrecognized update interface. Nothing was written.')
+            # Older NB4+ applications used the original NB4 product name.
+            # Only Update or the new descriptor establishes that model.
+            identified = ready or info is not None or 'NB4+' in product
+            radios.append(dict(state='ready' if ready else 'normal', serial=serial,
+                               target=target if identified else None,
+                               model=VARIANTS[target] if identified else 'NB4 / NB4+',
+                               bootloader=generation if ready else None,
+                               **(info or firmware_identity(''))))
+        except UpdateError:
+            raise
+        except Exception:
+            if (device.idVendor, device.idProduct) == (0x0483, 0xdf11):
+                unreadable += 1
+        finally:
+            util.dispose_resources(device)
+    if len(radios) + len(recovery) > 1:
+        return dict(state='multiple')
+    if radios:
+        return radios[0]
+    if recovery:
+        return recovery[0]
+    if unreadable:
+        raise UpdateError('A USB update device could not be read. Close other USB tools; '
+                          'on Windows, check its WinUSB driver.')
+    return dict(state='absent')
 
 
 def connection_lost(phase, cause):
@@ -49,8 +130,18 @@ def usb_modules():
         import usb.backend.libusb1
     except ImportError as error:
         raise UpdateError('Install the dependencies listed in tools/requirements-updater.txt.') from error
-    backend = usb.backend.libusb1.get_backend()
-    if backend is None:
+    if getattr(sys, 'frozen', False):
+        # Finder/Explorer launches do not inherit a developer's library paths.
+        # Load our own runtime explicitly instead of a host-installed libusb.
+        folder = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+        name = 'libusb-1.0.0.dylib' if sys.platform == 'darwin' else 'libusb-1.0.dll'
+        library = folder / name
+        if not library.is_file():
+            raise UpdateError('The app is missing its bundled libusb runtime. Download a complete copy of ApexTX Flasher.')
+        backend = usb.backend.libusb1.get_backend(find_library=lambda _: str(library))
+    else:
+        backend = usb.backend.libusb1.get_backend()
+    if backend is None and not getattr(sys, 'frozen', False):
         # Homebrew libraries may not be in the GUI process's loader path.
         for location in ['/opt/homebrew/lib/libusb-1.0.dylib', '/usr/local/lib/libusb-1.0.dylib']:
             if Path(location).is_file():
@@ -232,8 +323,23 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
             transport.command(b'APXSTART')
             reached[0] = 'installing'
             deadline = time.monotonic() + 180
+            read_failures, last_progress = 0, 50
             while True:
-                status = transport.read(CONTROL, 32)
+                try:
+                    status = transport.read(CONTROL, 32)
+                except OSError as error:
+                    # Internal-flash writes can briefly stall the control pipe.
+                    # Only retry status reads: never restage/restart an install
+                    # whose outcome is unknown, and never infer success from a
+                    # disconnect. A genuine removal (ENODEV) still fails at once.
+                    if (error.errno not in (errno.EIO, errno.EPIPE, errno.ETIMEDOUT)
+                            or read_failures >= 3 or time.monotonic() >= deadline):
+                        raise
+                    read_failures += 1
+                    progress('Waiting for the radio to finish writing flash...', last_progress)
+                    time.sleep(1)
+                    continue
+                read_failures = 0
                 magic, state, percent, actual_size, actual_crc, error, received = struct.unpack('<8s6I', status)
                 if (magic != b'APXSTAT1' or actual_size != size or actual_crc != crc or
                         received != len(package) or percent > 100):
@@ -251,7 +357,8 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
                     break
                 if state not in (1, 2) or time.monotonic() > deadline:
                     raise UpdateError('Installation could not be confirmed. Check the radio display and reconnect the updater.')
-                progress('Installing and verifying firmware...', 50 + percent * 47 // 100)
+                last_progress = 50 + percent * 47 // 100
+                progress('Installing and verifying firmware...', last_progress)
                 time.sleep(.5)
             if state == 3:
                 break

@@ -1817,7 +1817,7 @@
 #define TR_NB4_TRIMS_LABEL "Trimmungen"
 #define TR_NB4_CONFIGURE_QUICK_ACCESS "Schnellzugriff einrichten"
 #define TR_NB4_CHOOSING_WHAT_GOES_INTO_QUICK_ACCESS_IS "Die Auswahl, was in den Schnellzugriff kommt, ist noch nicht gebaut: die acht Einträge sind vorerst fest. Der Schnellzugriff selbst funktioniert: es ist das Werkzeug-Symbol auf der Startseite."
-#define TR_NB4_MONITOR "Ein-/Ausgangs-Monitor"
+#define TR_NB4_MONITOR "Monitor"
 #define TR_NB4_TELEMETRY_IS_SWITCHED_OFF_FOR_THIS_CAR_T "Telemetrie ist für dieses Auto ausgeschaltet. Schalte sie in den Anzeige-Optionen der Funk-Einstellungen ein."
 #define TR_NB4_TRACK_VIEW "Telemetrie-Ansicht"
 #define TR_NB4_STATISTICS "Statistik"

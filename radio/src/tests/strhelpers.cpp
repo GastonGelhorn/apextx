@@ -22,6 +22,38 @@
 #include "gtests.h"
 #include "strhelpers.h"
 
+#if defined(RADIO_NB4_FAMILY)
+TEST(StrHelpers, VirtualInputDisplayKeepsPersistedIdentifiersCompatible)
+{
+  MODEL_RESET();
+  memcpy(g_model.inputNames[0], "ST", 3);
+  memcpy(g_model.inputNames[1], "TH", 3);
+  const auto stored = std::string(getSourceString(MIXSRC_FIRST_INPUT));
+  EXPECT_EQ(stored, std::string(CHAR_INPUT "ST"));
+
+  EXPECT_STREQ(getSourceDisplayString(MIXSRC_FIRST_INPUT), "I01:ST");
+  EXPECT_STREQ(getSourceDisplayString(MIXSRC_FIRST_INPUT + 1), "I02:TH");
+  EXPECT_STREQ(getSourceDisplayString(MIXSRC_FIRST_INPUT + 2), "I03");
+  EXPECT_STREQ(getSourceDisplayString(-MIXSRC_FIRST_INPUT), "-I01:ST");
+  EXPECT_STREQ(getSourceDisplayString(MIXSRC_FIRST_INPUT, true), "I01");
+  // Source labels are used by YAML too. Displaying them must not change
+  // the canonical name or its ability to resolve to the original source.
+  EXPECT_STREQ(getSourceString(MIXSRC_FIRST_INPUT), stored.c_str());
+  EXPECT_EQ(getSourceIndex(stored.c_str(), true), MIXSRC_FIRST_INPUT);
+  EXPECT_STREQ(getSourceString(-MIXSRC_FIRST_INPUT), ("-" + stored).c_str());
+
+  const auto raw = std::string(getSourceString(MIXSRC_FIRST_STICK));
+  EXPECT_STREQ(getSourceDisplayString(MIXSRC_FIRST_STICK), raw.c_str());
+  EXPECT_NE(raw, std::string(getSourceDisplayString(MIXSRC_FIRST_INPUT)));
+
+  // Input names fill their entire fixed field and need not end in NUL.
+  memset(g_model.inputNames[0], 'A', sizeof(g_model.inputNames[0]));
+  char label[16];
+  getSourceDisplayString(label, MIXSRC_FIRST_INPUT);
+  EXPECT_EQ(std::string(label), "I01:" + std::string(sizeof(g_model.inputNames[0]), 'A'));
+}
+#endif
+
 TEST(StrHelpers, SwitchPositionNameSpecial)
 {
   MODEL_RESET();

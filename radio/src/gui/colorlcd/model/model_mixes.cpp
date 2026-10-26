@@ -176,7 +176,14 @@ class MixGroup : public InputMixGroupBase
   {
     adjustHeight();
 
+#if defined(RADIO_NB4_FAMILY)
+    const bool namedChannel = idx >= MIXSRC_FIRST_CH && idx <= MIXSRC_LAST_CH &&
+        g_model.limitData[idx - MIXSRC_FIRST_CH].name[0] != '\0';
+    lv_obj_set_pos(label, PAD_TINY, namedChannel ? 0 :
+                    (ListLineButton::BTN_H - EdgeTxStyles::STD_FONT_HEIGHT) / 2);
+#else
     lv_obj_set_pos(label, PAD_TINY, -1);
+#endif
 
     lv_obj_t* chText = nullptr;
     if (idx >= MIXSRC_FIRST_CH && idx <= MIXSRC_LAST_CH &&
@@ -338,7 +345,7 @@ void ModelMixesPage::newMix()
         skip_mix = (ch == 0 && is_memclear(line, sizeof(MixData)));
       }
     } else {
-      std::string ch_name(getSourceString(MIXSRC_FIRST_CH + ch));
+      std::string ch_name(getSourceDisplayString(MIXSRC_FIRST_CH + ch));
       menu->addLineBuffered(ch_name.c_str(), [=]() { insertMix(ch, index); });
     }
   }

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "nb4_update.h"
 #include "boot.h"
+#include "fw_version.h"
 #include "board.h"
 #include "hal/usb_driver.h"
 #include "hal/abnormal_reboot.h"
 #include "os/time.h"
 #include "lcd.h"
 #include "stm32_hal_ll.h"
+#include <stdio.h>
+#include <string.h>
 extern "C" {
 #include "usbd_dfu.h"
 }
@@ -19,6 +22,65 @@ extern const etx_flash_driver_t stm32_flash_driver;
 alignas(4) static uint8_t staging[StageCapacity] __attribute__((section(".sdram")));
 static Updater updater(staging);
 static bool mayExit = false;
+static char usbInfo[126] = NB4_USB_INFO_PREFIX;
+
+extern uint32_t _reboot_cmd;
+extern "C" uint32_t _estack;
+
+extern "C" __attribute__((used, section(".bootstrap"), noreturn)) void nb4RomDfuReset()
+{
+  __disable_irq();
+  _reboot_cmd = REBOOT_CMD_RESUME;
+  // A C call to Reset_Handler leaves the ROM's clock/peripheral state intact
+  // and does not set the software-reset cause. The early power hook needs that
+  // cause to latch the NB4's rails before SDRAM/application initialization.
+  // A real reset also clears pending ROM USB interrupts (ST AN3156).
+  NVIC_SystemReset();
+  for (;;) {}
+}
+
+// AN3156 Leave DFU loads SP and reset from the selected vector pair. The ROM
+// clears RCC_AHB1ENR, including CCMDATARAMEN, before jumping. Our stack and
+// reboot command live in CCM: even a compiler-generated push would fault before
+// reaching the reset request. Enable CCM without touching the stack first.
+// Both stages run from flash before normal RAM/C++ initialization.
+static_assert(RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR) == 0x40023830u);
+static_assert(RCC_AHB1ENR_CCMDATARAMEN == (1u << 20));
+extern "C" __attribute__((naked, section(".bootstrap"), noreturn)) void nb4RomDfuStart()
+{
+  asm volatile (
+    "cpsid i\n"
+    "ldr r0, =0x40023830\n"
+    "ldr r1, [r0]\n"
+    "orr r1, r1, #0x100000\n"
+    "str r1, [r0]\n"
+    "dsb\n"
+    "b nb4RomDfuReset\n"
+  );
+}
+
+struct RomDfuEntry {
+  char magic[8];
+  const uint32_t* stack;
+  void (*reset)();
+};
+__attribute__((used, section(".rom_dfu_entry"), aligned(4)))
+static const RomDfuEntry romDfuEntry = {"APXROM1", &_estack, nb4RomDfuStart};
+
+extern "C" const char* nb4UpdateUsbInfo(void)
+{
+  return usbInfo;
+}
+
+static void cacheUsbInfo()
+{
+  // No valid application means no version, even if old text remains in flash.
+  snprintf(usbInfo, sizeof(usbInfo), NB4_USB_INFO_PREFIX);
+  const char* installed = mayExit ? getFirmwareVersion(nullptr) : nullptr;
+  if (installed && strnlen(installed, 100) < 100) {
+    snprintf(usbInfo, sizeof(usbInfo), NB4_USB_INFO_PREFIX "%s", installed);
+  }
+}
 
 static int eraseForUpdate(uint32_t address)
 {
@@ -144,6 +206,10 @@ void bootloaderNB4Update()
   // enabled it cannot be stopped, only reprogrammed.
   armUpdateWatchdog();
   mayExit = nb4BootApplicationValid();
+  // Cache before USB starts: no flash reads or CRC work in a USB interrupt.
+  // Existing application stamps are supported too. Invalid applications have
+  // no installed version. The normal update still preserves this bootloader.
+  cacheUsbInfo();
   usbRegisterDFUMedia(&media);
   usbStart(); // NB4 has no reliable VBUS pin; wait even without a cable.
   etx_flash_driver_t updateFlash = stm32_flash_driver;
