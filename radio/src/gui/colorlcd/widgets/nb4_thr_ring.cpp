@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
-#include "nb4_widget_kit.h"
+#include "nb4_trim_row.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -8,12 +8,12 @@ using namespace nb4w;
 
 // Full ring around the percentage: throttle fills clockwise from 12 o'clock,
 // brake anticlockwise.
-class Nb4ThrRingWidget : public Widget
+class Nb4ThrRingWidget : public Nb4TrimWidget
 {
  public:
   Nb4ThrRingWidget(const WidgetFactory* factory, Window* parent,
                    const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4TrimWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
@@ -21,15 +21,16 @@ class Nb4ThrRingWidget : public Widget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
-    const coord_t w = width(), h = height();
+    // Everything below lays out in the height the trim row leaves.
+    const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_TH, Nb4Ui::throttleColor());
     gasInk = Nb4Ui::throttleColor();
     brakeInk = Nb4Ui::brakeColor();
-    nb4Label(this, {PAD, 6, (coord_t)(w - PAD * 2), 20}, STR_NB4_THR_BRAKE, FONT(BOLD));
+    const coord_t T = titleRow(STR_NB4_THR_BRAKE, textColor());
 
     coord_t r = (w - PAD * 2) / 2;
-    if (r > (h - 58) / 2) r = (h - 58) / 2;
+    if (r > (h - T - 30) / 2) r = (h - T - 30) / 2;
     if (r < 20) r = 20;
-    const coord_t cx = w / 2, cy = 30 + r;
+    const coord_t cx = w / 2, cy = T + 2 + r;
     const coord_t width = r / 5 < 6 ? 6 : r / 5;
     ring(lvobj, cx, cy, r, width, trackColor());
     fill = ring(lvobj, cx, cy, r, width, gasInk);
@@ -50,6 +51,7 @@ class Nb4ThrRingWidget : public Widget
   {
     if (!loaded) return;
     Widget::checkEvents();
+    trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.throttleChannel);
     if (v == last) return;
     last = v;
@@ -61,7 +63,7 @@ class Nb4ThrRingWidget : public Widget
     lv_obj_set_style_arc_color(fill, c, LV_PART_MAIN);
     if (pct) ink(pct, c);
     if (word) {
-      word->setText(v < 0 ? STR_NB4_BRAKE : STR_NB4_THR);
+      word->setText(v < 0 ? STR_NB4_BRAKE_B80D : STR_NB4_THR);
       ink(word, c);
     }
   }
@@ -75,6 +77,6 @@ class Nb4ThrRingWidget : public Widget
 };
 
 Nb4WidgetFactory<Nb4ThrRingWidget> nb4ThrRingWidget(
-    "NB4ThrRing", nullptr, NB4_STR(WIDGET_THR_RING));
+    "NB4ThrRing", trimOptions, NB4_STR(WIDGET_THR_RING));
 
 #endif

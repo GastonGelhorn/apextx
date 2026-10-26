@@ -68,6 +68,9 @@ def default_value(raw):
     if m:
         r, g, b = (int(v) for v in m.groups())
         return f'0x{r:02X}{g:02X}{b:02X}'
+    m = re.match(r'WidgetOptionValue\{\s*\.boolValue\s*=\s*(true|false)\s*\}', raw)
+    if m:
+        return int(m.group(1) == 'true')
     if raw in ('true', 'false'):
         return int(raw == 'true')
     if re.fullmatch(r'-?\d+', raw):
@@ -138,8 +141,13 @@ def layouts():
     return result
 
 
-def widget_options(text, cls):
+def widget_options(text, cls, array=None):
+    # The widget's own Class::options[], or a shared array such as trimOptions
+    # (widgets/nb4_trim_row.h) passed to the factory by name.
     m = re.search(re.escape(cls) + r'::options\[\]\s*=\s*\{(.*?)\};', text, re.S)
+    if not m and array:
+        shared = text + (GUI / 'widgets' / 'nb4_trim_row.h').read_text(encoding='utf-8')
+        m = re.search(r'WidgetOption\s+' + re.escape(array) + r'\[\]\s*=\s*\{(.*?)\};', shared, re.S)
     if not m:
         return []
     options = []
@@ -167,7 +175,7 @@ def widgets():
         text = path.read_text(encoding='utf-8')
         for cls, wid, opts, name in pattern.findall(text):
             key = string_key(name.strip())
-            options = widget_options(text, cls) if opts != 'nullptr' else []
+            options = widget_options(text, cls, opts) if opts != 'nullptr' else []
             result.append({'id': wid, 'label': label(key) if key else {l: wid for l in LANGS},
                            'options': options, 'nb4': wid.startswith(('NB4', 'Apex'))})
         for wid, name in racing.findall(text):

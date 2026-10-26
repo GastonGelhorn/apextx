@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
-#include "nb4_widget_kit.h"
+#include "nb4_trim_row.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
 using namespace nb4w;
 
 // Two columns side by side: throttle on the left, brake on the right.
-class Nb4ThrSplitWidget : public Widget
+class Nb4ThrSplitWidget : public Nb4TrimWidget
 {
  public:
   Nb4ThrSplitWidget(const WidgetFactory* factory, Window* parent,
                     const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4TrimWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
@@ -20,21 +20,25 @@ class Nb4ThrSplitWidget : public Widget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
-    const coord_t w = width(), h = height();
+    // Everything below lays out in the height the trim row leaves.
+    const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_TH, Nb4Ui::throttleColor());
     gasInk = Nb4Ui::throttleColor();
     brakeInk = Nb4Ui::brakeColor();
 
     const LcdFlags f = fontForChars(w - PAD * 2, 4, 43);
     const coord_t fh = fontHeight(f);
-    top = 30;
+    titleShown = titled();
+    top = titleShown ? 30 : 6;
     bottom = h - PAD - fh - 4;
     colW = (w - PAD * 3) / 2;
     const coord_t x[2] = {PAD, (coord_t)(PAD * 2 + colW)};
-    const char* titles[2] = {STR_NB4_THR, STR_NB4_BRAKE};
+    const char* titles[2] = {STR_NB4_THR, STR_NB4_BRAKE_B80D};
     const lv_color_t inks[2] = {gasInk, brakeInk};
     for (unsigned i = 0; i < 2; ++i) {
-      auto t = nb4Label(this, {x[i], 6, colW, 20}, titles[i], FONT(BOLD));
-      ink(t, inks[i]);
+      if (titleShown) {
+        auto t = nb4Label(this, {x[i], 6, colW, 20}, titles[i], FONT(BOLD));
+        ink(t, inks[i]);
+      }
       track(lvobj, x[i], top, colW, bottom - top, 4);
       fills[i] = rectangle(lvobj, x[i] + 2, bottom, colW - 4, 0, inks[i], 2);
       colX[i] = x[i];
@@ -52,6 +56,7 @@ class Nb4ThrSplitWidget : public Widget
   {
     if (!loaded) return;
     Widget::checkEvents();
+    trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.throttleChannel);
     if (v == last) return;
     last = v;
@@ -73,6 +78,6 @@ class Nb4ThrSplitWidget : public Widget
 };
 
 Nb4WidgetFactory<Nb4ThrSplitWidget> nb4ThrSplitWidget(
-    "NB4ThrSplit", nullptr, NB4_STR(WIDGET_THR_SPLIT));
+    "NB4ThrSplit", trimOptions, NB4_STR(WIDGET_THR_SPLIT));
 
 #endif

@@ -1094,6 +1094,16 @@
    "nb4": true
   },
   {
+   "id": "NB4CarSetup",
+   "label": {
+    "en": "Car setup",
+    "de": "Fahrzeug-Setup",
+    "es": "Ajustes del coche"
+   },
+   "options": [],
+   "nb4": true
+  },
+  {
    "id": "NB4Aux",
    "label": {
     "en": "CH3 / CH4",
@@ -1189,6 +1199,37 @@
    "nb4": true
   },
   {
+   "id": "NB4SteerThr",
+   "label": {
+    "en": "Steer + thr",
+    "de": "Lenkung + Gas",
+    "es": "Dirección + gas"
+   },
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
+   "nb4": true
+  },
+  {
    "id": "NB4SteerBar",
    "label": {
     "en": "Steer bar",
@@ -1205,7 +1246,28 @@
     "de": "Lenkung Auto",
     "es": "Coche dirección"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1225,7 +1287,28 @@
     "de": "Lenkung Zahl",
     "es": "Número dirección"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1235,7 +1318,28 @@
     "de": "Lenkrad",
     "es": "Volante"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1245,7 +1349,28 @@
     "de": "Gas + Bremse",
     "es": "Gas + freno"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1255,7 +1380,28 @@
     "de": "Gasbalken",
     "es": "Barra gas"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1279,13 +1425,65 @@
    "nb4": true
   },
   {
+   "id": "NB4ThrGauge",
+   "label": {
+    "en": "Thr gauge",
+    "de": "Gas-Tacho",
+    "es": "Reloj de gas"
+   },
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
+   "nb4": true
+  },
+  {
    "id": "NB4ThrRing",
    "label": {
     "en": "Thr ring",
     "de": "Gasring",
     "es": "Anillo gas"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {
@@ -1295,7 +1493,28 @@
     "de": "Gassegmente",
     "es": "Segmentos gas"
    },
-   "options": [],
+   "options": [
+    {
+     "name": "TRIMS",
+     "type": "Bool",
+     "default": 0,
+     "label": {
+      "en": "Trims",
+      "de": "Trimmer",
+      "es": "Trims"
+     }
+    },
+    {
+     "name": "NB4_WIDGET_TITLE",
+     "type": "Bool",
+     "default": 1,
+     "label": {
+      "en": "Title",
+      "de": "Titel",
+      "es": "Título"
+     }
+    }
+   ],
    "nb4": true
   },
   {

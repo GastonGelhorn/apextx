@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
-#include "nb4_widget_kit.h"
+#include "nb4_trim_row.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
 using namespace nb4w;
 
 // Steering wheel that turns with the steering channel (+-100 % = +-135 deg).
-class Nb4SteerWheelWidget : public Widget
+class Nb4SteerWheelWidget : public Nb4TrimWidget
 {
  public:
   Nb4SteerWheelWidget(const WidgetFactory* factory, Window* parent,
                       const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4TrimWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
@@ -20,22 +20,22 @@ class Nb4SteerWheelWidget : public Widget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
-    const coord_t w = width(), h = height();
+    // Everything below lays out in the height the trim row leaves.
+    const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_ST, Nb4Ui::steeringColor());
     const lv_color_t color = Nb4Ui::steeringColor();
     const bool compact = compactZone(h);
-    auto title = nb4Label(this, {PAD, 6, (coord_t)(w - PAD * 2), 20}, STR_NB4_STEERING, FONT(BOLD));
-    ink(title, color);
+    const coord_t T = titleRow(STR_NB4_STEERING, color);
 
     coord_t r;
     if (compact) {
-      r = (h - 36) / 2;
+      r = (h - T - 8) / 2;
       cx = PAD + r + 4;
-      cy = 30 + r;
+      cy = T + 2 + r;
     } else {
       r = (w - PAD * 4) / 2;
-      if (r > (h - 92) / 2) r = (h - 92) / 2;
+      if (r > (h - T - 64) / 2) r = (h - T - 64) / 2;
       cx = w / 2;
-      cy = 30 + r;
+      cy = T + 2 + r;
     }
     if (r < 16) r = 16;
     rimR = r;
@@ -55,8 +55,8 @@ class Nb4SteerWheelWidget : public Widget
     LcdFlags f;
     if (compact) {
       const coord_t px = cx + r + PAD;
-      f = fontForChars(w - px - PAD, 5, h - 40);
-      pr = {px, (coord_t)((h - fontHeight(f)) / 2 + 8), (coord_t)(w - px - PAD), fontHeight(f)};
+      f = fontForChars(w - px - PAD, 5, h - T - 12);
+      pr = {px, (coord_t)((h + T - 12 - fontHeight(f)) / 2), (coord_t)(w - px - PAD), fontHeight(f)};
     } else {
       f = fontForChars(w - PAD * 2, 5, h - cy - r - 12);
       pr = {0, (coord_t)(cy + r + 6), w, fontHeight(f)};
@@ -72,6 +72,7 @@ class Nb4SteerWheelWidget : public Widget
   {
     if (!loaded) return;
     Widget::checkEvents();
+    trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.steeringChannel);
     if (v == last) return;
     last = v;
@@ -98,6 +99,6 @@ class Nb4SteerWheelWidget : public Widget
 };
 
 Nb4WidgetFactory<Nb4SteerWheelWidget> nb4SteerWheelWidget(
-    "NB4SteerWheel", nullptr, NB4_STR(WIDGET_STEER_WHEEL));
+    "NB4SteerWheel", trimOptions, NB4_STR(WIDGET_STEER_WHEEL));
 
 #endif

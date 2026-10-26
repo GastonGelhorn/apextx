@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
-#include "nb4_widget_kit.h"
+#include "nb4_trim_row.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
 using namespace nb4w;
 
 // LED-style column: brake segments below the neutral line, throttle above.
-class Nb4ThrSegmentsWidget : public Widget
+class Nb4ThrSegmentsWidget : public Nb4TrimWidget
 {
   static constexpr unsigned SEGMENTS = 14;
   static constexpr unsigned BRAKE_SEGMENTS = 4;
@@ -15,7 +15,7 @@ class Nb4ThrSegmentsWidget : public Widget
  public:
   Nb4ThrSegmentsWidget(const WidgetFactory* factory, Window* parent,
                        const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4TrimWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
@@ -23,12 +23,13 @@ class Nb4ThrSegmentsWidget : public Widget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
-    const coord_t w = width(), h = height();
+    // Everything below lays out in the height the trim row leaves.
+    const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_TH, Nb4Ui::throttleColor());
     gasInk = Nb4Ui::throttleColor();
     brakeInk = Nb4Ui::brakeColor();
-    nb4Label(this, {PAD, 6, (coord_t)(w - PAD * 2), 20}, STR_NB4_THR_BRAKE, FONT(BOLD));
+    const coord_t T = titleRow(STR_NB4_THR_BRAKE, textColor());
 
-    const coord_t top = 32, bottom = h - PAD, gap = 3;
+    const coord_t top = T + 4, bottom = h - PAD, gap = 3;
     const coord_t segH = (bottom - top - gap * (SEGMENTS - 1)) / SEGMENTS;
     const coord_t segW = w * 2 / 5;
     for (unsigned i = 0; i < SEGMENTS; ++i) {
@@ -50,6 +51,7 @@ class Nb4ThrSegmentsWidget : public Widget
   {
     if (!loaded) return;
     Widget::checkEvents();
+    trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.throttleChannel);
     if (v == last) return;
     last = v;
@@ -72,6 +74,6 @@ class Nb4ThrSegmentsWidget : public Widget
 };
 
 Nb4WidgetFactory<Nb4ThrSegmentsWidget> nb4ThrSegmentsWidget(
-    "NB4ThrSegments", nullptr, NB4_STR(WIDGET_THR_SEGMENTS));
+    "NB4ThrSegments", trimOptions, NB4_STR(WIDGET_THR_SEGMENTS));
 
 #endif

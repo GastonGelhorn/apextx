@@ -25,8 +25,13 @@ extern "C" void lcdFlushed();
 extern struct TouchState simTouchState;
 extern bool simTouchOccured;
 
-// Raw ADC values (0..4095) the simulated ADC driver reads; centred inputs.
+// Raw ADC values (0..4095) the simulated ADC driver reads. Centred from the
+// start and kept across nb4p_start(), so values set before it apply at once.
 static uint16_t analogs[MAX_ANALOG_INPUTS];
+static const bool analogsCentred = [] {
+  for (auto& value : analogs) value = 2048;
+  return true;
+}();
 
 uint16_t simu_get_analog(uint8_t idx)
 {
@@ -38,7 +43,6 @@ NB4P_EXPORT int nb4p_version() { return 1; }
 NB4P_EXPORT int nb4p_start(const char* storagePath)
 {
   if (simuIsRunning()) return 1;
-  for (auto& value : analogs) value = 2048;
   simuInit();
   // The settings live on the same storage as the themes and models.
   simuStart(false, storagePath, storagePath);

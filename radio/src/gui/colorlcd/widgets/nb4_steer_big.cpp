@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
-#include "nb4_widget_kit.h"
+#include "nb4_trim_row.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
 using namespace nb4w;
 
 // Steering as one large number with direction chevrons and a thin scale.
-class Nb4SteerBigWidget : public Widget
+class Nb4SteerBigWidget : public Nb4TrimWidget
 {
  public:
   Nb4SteerBigWidget(const WidgetFactory* factory, Window* parent,
                     const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4TrimWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
@@ -20,24 +20,34 @@ class Nb4SteerBigWidget : public Widget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
-    const coord_t w = width(), h = height();
+    // Everything below lays out in the height the trim row leaves.
+    const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_ST, Nb4Ui::steeringColor());
     color = Nb4Ui::steeringColor();
-    auto title = nb4Label(this, {PAD, 6, (coord_t)(w - PAD * 2), 20}, STR_NB4_STEERING, FONT(BOLD));
-    ink(title, color);
+    const coord_t T = titleRow(STR_NB4_STEERING, color);
 
+    // Chevrons beside the number, or in a row below it when that leaves the
+    // number clearly larger (narrow zones).
     const coord_t side = 3 * 12 + PAD;
-    const LcdFlags f = fontForChars(w - side * 2, 4, h - 64);
+    LcdFlags f = fontForChars(w - side * 2, 4, h - T - 36);
+    const LcdFlags wide = fontForChars(w - PAD * 2, 4, h - T - 36 - 24);
+    const bool stacked = fontHeight(wide) > fontHeight(f);
+    if (stacked) f = wide;
     const coord_t fh = fontHeight(f);
-    const coord_t top = 28 + (h - 28 - 26 - fh) / 2;
-    new DynamicNumber<int16_t>(this, {side, top, (coord_t)(w - side * 2), fh},
+    const coord_t block = fh + (stacked ? 24 : 0);
+    const coord_t top = T + (h - T - 26 - block) / 2;
+    const coord_t numX = stacked ? PAD : side;
+    new DynamicNumber<int16_t>(this, {numX, top, (coord_t)(w - numX * 2), fh},
                                []() { return (int16_t)abs(channelPct(g_model.nb4Racing.steeringChannel)); },
                                COLOR_THEME_PRIMARY1_INDEX, f | CENTERED);
-    const coord_t midY = top + fh / 2;
-    const coord_t half = fh / 4 < 8 ? 8 : fh / 4;
+    const coord_t midY = stacked ? top + fh + 12 : top + fh / 2;
+    const coord_t half = stacked ? 7 : (fh / 4 < 8 ? 8 : fh / 4);
+    // Inner edges of the two chevron groups.
+    const coord_t leftEdge = stacked ? w / 2 - 10 : side - 4;
+    const coord_t rightEdge = stacked ? w / 2 + 10 : w - side + 4;
     for (unsigned i = 0; i < 3; ++i) {
       for (unsigned s = 0; s < 2; ++s) {
         // s = 0 points left, s = 1 points right; i = 0 is nearest the number.
-        const coord_t x = s ? w - side + 4 + i * 12 : side - 4 - i * 12;
+        const coord_t x = s ? rightEdge + i * 12 : leftEdge - i * 12;
         const int dir = s ? 1 : -1;
         auto& p = chevronPts[s][i];
         p[0] = {(lv_coord_t)(x - dir * 5), (lv_coord_t)(midY - half)};
@@ -57,6 +67,7 @@ class Nb4SteerBigWidget : public Widget
   {
     if (!loaded) return;
     Widget::checkEvents();
+    trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.steeringChannel);
     if (v == last) return;
     last = v;
@@ -78,6 +89,6 @@ class Nb4SteerBigWidget : public Widget
 };
 
 Nb4WidgetFactory<Nb4SteerBigWidget> nb4SteerBigWidget(
-    "NB4SteerBig", nullptr, NB4_STR(WIDGET_STEER_BIG));
+    "NB4SteerBig", trimOptions, NB4_STR(WIDGET_STEER_BIG));
 
 #endif
