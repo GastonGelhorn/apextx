@@ -142,6 +142,7 @@ def create(args):
         "licenses/Barlow-OFL.txt": ROOT / "radio/src/fonts/Barlow/OFL.txt",
         "licenses/BarlowCondensed-OFL.txt": ROOT / "radio/src/fonts/Barlow/OFL-Condensed.txt",
         "licenses/Roboto-Apache-2.txt": ROOT / "radio/src/fonts/Roboto/LICENSE.txt",
+        "licenses/NotoSansCJK-OFL.txt": ROOT / "radio/src/fonts/Noto/LICENSE_OFL.txt",
         "licenses/font-sources.json": ROOT / "radio/src/fonts/Barlow/sources.json",
     }
     if args.tests:
@@ -177,9 +178,9 @@ def create(args):
         "sourceDirty": source_dirty,
         "baseTag": "v2.12.5",
         "carApi": 1, "drivingFormat": 2, "visualPreferences": 2, "historyFormat": 1, "resourceVersion": 5,
-        "audioPackFormat": 1, "audioLanguages": ["en", "es", "de"],
-        "languages": ["en", "es", "de"], "homes": ["ApexTX"],
-        "fonts": ["Roboto", "Barlow Condensed"],
+        "audioPackFormat": 1, "audioLanguages": ["en", "es", "de", "cn"],
+        "languages": ["en", "es", "de", "cn"], "homes": ["ApexTX"],
+        "fonts": ["Roboto", "Barlow Condensed", "Noto Sans CJK SC"],
         "orientations": [[320, 480], [480, 320]], "outputChannels": 8,
         "rf": f"AFHDS3; {rf_profile}; {verify_framing}",
         # What this package can honestly claim: it compiled, its automated
