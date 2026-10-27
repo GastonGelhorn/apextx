@@ -226,15 +226,23 @@ jobs:
         working-directory: dist
         run: sha256sum *.bin *.tar.gz *.zip *.exe *.update.json > SHA256SUMS
 
-      - name: Verify all radio and desktop downloads are present
+      - name: Verify all radio, desktop and audio downloads are present
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
           for file in \
             "apextx-nb4-$version.bin" \
             "apextx-nb4plus-$version.bin" \
+            "apextx-nb4-$version.zip" \
+            "apextx-nb4plus-$version.zip" \
+            "apextx-nb4-$version.tar.gz" \
+            "apextx-nb4plus-$version.tar.gz" \
             "apextx-nb4-$version.update.json" \
             "apextx-nb4plus-$version.update.json" \
+            "apextx-audio-en-$version.zip" \
+            "apextx-audio-es-$version.zip" \
+            "apextx-audio-de-$version.zip" \
+            "apextx-audio-cn-$version.zip" \
             ApexTX-Flasher.exe \
             ApexTX-Flasher-macOS-arm64.zip \
             ApexTX-Flasher-macOS-x86_64.zip; do
@@ -253,6 +261,15 @@ jobs:
           prerelease=()
           case "$version" in *-*) prerelease=(--prerelease);; esac
           cat > release-notes.md <<EOF
+          ## What's new
+
+          - Complete Simplified Chinese interface, with fonts and screenshots
+            checked in portrait and landscape.
+          - Four audio packs: English, Spanish, German and Mandarin Chinese,
+            each with the ApexTX welcome prompt.
+          - Guided bootloader upgrades when required by a new firmware version.
+          - Corrected battery indicators and live charging-status LED updates.
+
           ## Choose your radio
 
           | Radio | Direct firmware binary | Full package |
@@ -281,9 +298,23 @@ jobs:
           and bootloader also refuse a mismatch. NB4 Pro and NB4 Pro+ are not
           supported.
 
+          ## Choose one audio pack
+
+          | Voice language | Download |
+          | --- | --- |
+          | English | \`apextx-audio-en-$version.zip\` |
+          | Spanish | \`apextx-audio-es-$version.zip\` |
+          | German | \`apextx-audio-de-$version.zip\` |
+          | Mandarin Chinese | \`apextx-audio-cn-$version.zip\` |
+
+          Audio packs work on both radios. Install **one pack only** in USB
+          Storage mode; firmware updates do not install external audio files.
+          The interface language and installed voice language are independent.
+          See [audio installation instructions](https://github.com/GastonGelhorn/apextx/blob/$GITHUB_REF_NAME/docs/nb4/AUDIO.md).
+
           The NB4+ build is experimental. Installation and update have been
-          verified on real NB4+ hardware, but the first status LED can still
-          flicker red; see issue #19. Voice packs are shared by both radios.
+          verified on real NB4+ hardware, but status-LED flicker or incorrect
+          colours remain under investigation; see issues #19 and #20.
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
