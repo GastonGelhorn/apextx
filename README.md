@@ -12,7 +12,7 @@ It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-ApexTX **0.1.0-alpha.5** is based on EdgeTX **2.12.5**.
+ApexTX **0.1.0-alpha.6** is based on EdgeTX **2.12.5**.
 
 ## Features
 
@@ -59,7 +59,8 @@ PCBREV=NB4
 The NB4+ has a separate **experimental alpha** package. Its full-image recovery,
 wrong-model refusal, normal update and boot have been tested on real hardware;
 charging, RF/failsafe under load and the complete peripheral checklist are not
-yet qualified. The first NB4+ status LED can still flicker red (issue #19).
+yet qualified. NB4+ status LEDs can still flicker or show incorrect colours
+(issues #19 and #20).
 NB4 Pro and NB4 Pro+ require separate board ports and are not supported. See
 the [Noble compatibility and feature matrix](docs/nb4/COMPATIBILITY.md).
 

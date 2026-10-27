@@ -131,7 +131,7 @@ has an NB4 bootloader and needs one installation through ROM DFU, following
 NB4+ builds are experimental and are published only in the separately named
 `apextx-nb4plus-*` package. Full recovery and normal update have worked on real
 NB4+ hardware, but that does not replace the remaining charging, RF/failsafe
-under load and peripheral checks. The first status LED can still flicker red
+under load and peripheral checks. Status LEDs can still flicker or show incorrect colours
 (issue #19).
 
 Firmware updates do not modify the external audio files. When a release changes
