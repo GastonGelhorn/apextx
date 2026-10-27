@@ -593,12 +593,12 @@ TEST_F(Nb4Afhds3Bind, RejectedPageStopsInsteadOfStartingBind) {
   memcpy(language, g_eeGeneral.uiLanguage, sizeof(language));
   for (const char* code : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, code, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     afhds3::getStatusString(0, status);
     EXPECT_STREQ(status, STR_NB4_RF_CONFIG_REJECTED) << code;
   }
   memcpy(g_eeGeneral.uiLanguage, language, sizeof(language));
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
 }
 
 TEST_F(Nb4Afhds3Bind, TruncatedReplyIsNotSuccess) {

@@ -91,7 +91,7 @@ TEST(Nb4Ui, RacingHomeRendersAndPreservesDrivingState)
     root->setRect({0, 0, w, h}); home->setRect({0, 0, w, h});
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     for (unsigned design = 0; design < 1; ++design) {
       g_eeGeneral.nb4Home = design;
       for (unsigned theme = 0; theme < 2; ++theme) {
@@ -166,7 +166,7 @@ TEST(Nb4Ui, RacingHomeRendersAndPreservesDrivingState)
     coord_t w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
     root->setRect({0, 0, w, h}); home->setRect({0, 0, w, h});
     themes->applyTheme(0); memcpy(g_eeGeneral.uiLanguage, "es", 2);
-    currentLangStrings = langStrings[getLanguageId("es")];
+    nb4TestApplyUiLanguage();
     for (unsigned section = 0; section <= unsigned(Nb4Section::Appearance); ++section) {
       nb4OpenSection(static_cast<Nb4Section>(section));
       lv_obj_update_layout(root->getLvObj()); lv_tick_inc(50); lv_timer_handler(); root->run();

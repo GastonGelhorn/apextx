@@ -53,6 +53,7 @@ enum RadioLanguage {
   LANG_EN,
   LANG_ES,
   LANG_DE,
+  LANG_CN,
 #else
   LANG_CN,
   LANG_CZ,
@@ -83,6 +84,7 @@ enum RadioLanguage {
 extern const LanguagePack enLanguagePack;
 extern const LanguagePack esLanguagePack;
 extern const LanguagePack deLanguagePack;
+extern const LanguagePack cnLanguagePack;
 #else
 extern const LanguagePack cnLanguagePack;
 extern const LanguagePack czLanguagePack;
@@ -114,6 +116,7 @@ const LanguagePack * const languagePacks[] = {
   &enLanguagePack,
   &esLanguagePack,
   &deLanguagePack,
+  &cnLanguagePack,
 #else
   // alphabetical order
   &cnLanguagePack,

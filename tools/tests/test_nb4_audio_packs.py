@@ -33,6 +33,19 @@ installer = load("nb4_install_audio", "tools/nb4-install-audio.py")
 
 
 class Nb4AudioPacksTest(unittest.TestCase):
+    def test_chinese_numbers_and_welcome_have_matching_recording_names(self) -> None:
+        phrases = load('nb4_tts_cn', 'radio/util/tts_cn.py')
+        system = dict((name, text) for text, name in phrases.systemSounds)
+        # tts_cn.cpp uses these numbered recordings for numbers and decimals;
+        # units and warnings use named files from the same upstream table.
+        for index in list(range(113)) + list(range(167, 177)):
+            self.assertIn(f'{index:04}.wav', system)
+        for name in ('volt0.wav', 'volt1.wav', 'second0.wav', 'second1.wav',
+                     'lowbatt.wav', 'rssi_org.wav', 'rssi_red.wav', 'telemko.wav'):
+            self.assertIn(name, system)
+        self.assertEqual(system['hello.wav'], '欢迎使用 Apex T X')
+        self.assertEqual(len(system), len(phrases.systemSounds))
+
     def make_pack(self, root: Path, language: str = "es") -> Path:
         staging = root / "pack"
         sound = staging / "SOUNDS" / language / "SYSTEM" / "hello.wav"

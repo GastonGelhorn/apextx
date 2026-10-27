@@ -135,7 +135,7 @@ under load and peripheral checks. The first status LED can still flicker red
 (issue #19).
 
 Firmware updates do not modify the external audio files. When a release changes
-voice resources, install one matching English, Spanish or German package
+voice resources, install one matching English, Spanish, German or Mandarin Chinese package
 separately in USB Storage mode as described in [AUDIO.md](AUDIO.md).
 
 ## Failure and recovery

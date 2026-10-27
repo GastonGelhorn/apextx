@@ -28,7 +28,7 @@ The Noble NB4 builds include:
 - Detect-and-assign configuration for the wheel, trigger, grip buttons,
   switches, trims, interface navigation, and racing actions.
 - Integrated lap timing, history, pit tools, spoken alerts, USB modes, and
-  English, Spanish or German sound packs.
+  English, Spanish, German or Mandarin Chinese sound packs.
 - A maintained, testable firmware base that can absorb selected upstream
   improvements while keeping the NB4-specific interface and AFHDS3 support.
 
@@ -107,7 +107,8 @@ Read this before flashing anything:
 The firmware is under active development and is tested on an original Noble
 NB4. The maintained configuration uses the USART6 AFHDS3 route and
 English firmware strings. The interface can be switched between English,
-Spanish and German, independently of the single English, Spanish or German
+Spanish, German and Simplified Chinese, independently of the single English,
+Spanish, German or Mandarin Chinese
 voice pack installed on the expanded storage volume.
 
 Device-specific factory images, calibration data, OTP contents, and local build
@@ -135,7 +136,7 @@ details, and validation:
 - [Build instructions](docs/nb4/BUILD.md)
 - [Install from the FlySky firmware](docs/nb4/FLASH.md)
 - [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
-- [Install English, Spanish or German audio](docs/nb4/AUDIO.md)
+- [Install English, Spanish, German or Mandarin Chinese audio](docs/nb4/AUDIO.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
 - [Control latency](docs/nb4/LATENCY.md)

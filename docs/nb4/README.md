@@ -4,9 +4,9 @@ This tree contains the maintained EdgeTX port for the original FlySky Noble NB4.
 The target is `PCB=PL18`, `PCBREV=NB4` and uses the NB4 AFHDS3 hardware
 profile for USART6.
 
-The interface supports English, Spanish and German, and a fresh installation
+The interface supports English, Spanish, German and Simplified Chinese, and a fresh installation
 starts in English. Source code, comments, tests, build tools, and engineering
-documentation are written in English; Spanish and German text is kept only as
+documentation are written in English; Spanish, German and Chinese text is kept only as
 localized content shown by the radio.
 
 The project version is read from `APEXTX_VERSION`. Development builds identify
@@ -29,7 +29,7 @@ race results, and data migration. See
 [COMPATIBILITY.md](COMPATIBILITY.md) for the verified status of each Noble
 model. Use [FLASH.md](FLASH.md) for the first installation from FlySky firmware,
 [UPDATE.md](UPDATE.md) for subsequent ApexTX application updates, and
-[AUDIO.md](AUDIO.md) to install one verified English, Spanish or German voice
+[AUDIO.md](AUDIO.md) to install one verified English, Spanish, German or Mandarin voice
 pack.
 [BUILD.md](BUILD.md), [HARDWARE.md](HARDWARE.md),
 and [VALIDATION.md](VALIDATION.md) contain the maintained engineering

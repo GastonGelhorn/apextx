@@ -8,6 +8,7 @@
 // images go; without it they land in the system temp directory.
 
 #include "gtests.h"
+#include "nb4_ui_languages.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -75,7 +76,7 @@ struct Bench {
     memcpy(originalLanguage, g_eeGeneral.uiLanguage, sizeof(originalLanguage));
     originalStrings = currentLangStrings;
     memcpy(g_eeGeneral.uiLanguage, "es", 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
 
     root = MainWindow::instance();
     originalScreen = lv_scr_act();
@@ -89,7 +90,7 @@ struct Bench {
   ~Bench()
   {
     memcpy(g_eeGeneral.uiLanguage, originalLanguage, sizeof(originalLanguage));
-    currentLangStrings = originalStrings;
+    nb4TestApplyUiLanguage();
     nb4RacingReset();
     lcdSetOrientation(false);
     root->setRect(originalRect);
