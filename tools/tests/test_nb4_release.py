@@ -60,6 +60,18 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         ]
         self.assertEqual(missing, [])
 
+    def test_publication_requires_both_radios_and_all_four_audio_packs(self) -> None:
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        required = workflow.split(
+            "- name: Verify all radio, desktop and audio downloads are present", 1
+        )[1].split("- name: Publish release", 1)[0]
+        for model in ("nb4", "nb4plus"):
+            for extension in ("bin", "zip", "tar.gz", "update.json"):
+                self.assertIn(f'"apextx-{model}-$version.{extension}"', required)
+        for language in ("en", "es", "de", "cn"):
+            self.assertIn(f'"apextx-audio-{language}-$version.zip"', required)
+        self.assertIn('test -s "dist/$file"', required)
+
     def test_apextx_brand_assets_and_names_are_consistent(self) -> None:
         for relative in (
             "docs/branding/apextx-logo-source.jpg",
