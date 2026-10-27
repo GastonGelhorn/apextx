@@ -27,6 +27,14 @@
 #include "dialog.h"
 #include "pulses/afhds3.h"
 #include "mainview/nb4_help.h"
+// Pick a label by the current UI language (German / Spanish / English),
+// matching how the NB4 tiles localise their short labels at runtime.
+static const char* nb4Tr(const char* de, const char* en, const char* es)
+{
+  if (g_eeGeneral.uiLanguage[0] == 'd' && g_eeGeneral.uiLanguage[1] == 'e') return de;
+  if (g_eeGeneral.uiLanguage[0] == 'e' && g_eeGeneral.uiLanguage[1] == 's') return es;
+  return en;
+}
 #endif
 
 #include "bind_menu_d16.h"
@@ -337,6 +345,49 @@ class ModuleWindow : public Window
     fsLine = newLine(grid);
     new StaticText(fsLine, rect_t{}, STR_FAILSAFE);
     fsChoice = new FailsafeChoice(fsLine, moduleIdx);
+
+#if defined(RADIO_NB4_FAMILY) && defined(AFHDS3)
+    // Read-only firmware version of the RF module and the connected receiver
+    // (NB4 internal module). Labels follow the UI language.
+    if (moduleIdx == INTERNAL_MODULE) {
+      auto mvLine = newLine(grid);
+      new StaticText(mvLine, rect_t{},
+                     nb4Tr("Funkmodul", "RF module", "Módulo RF"));
+      new DynamicText(mvLine, rect_t{}, []() {
+        const auto v = afhds3::getModuleVersionInfo(INTERNAL_MODULE);
+        if (!v.valid)
+          return std::string(nb4Tr("wird gelesen...", "reading...", "leyendo..."));
+        // The module reports its firmware version in the field the struct calls
+        // bootloaderVersion. Show just that one version to keep it clear.
+        char b[48];
+        snprintf(b, sizeof(b), "%s %lX",
+                 nb4Tr("Firmware", "Firmware", "Firmware"),
+                 (unsigned long)v.bootloaderVersion);
+        return std::string(b);
+      });
+      auto rvLine = newLine(grid);
+      new StaticText(rvLine, rect_t{},
+                     nb4Tr("Empfänger", "Receiver", "Receptor"));
+      new DynamicText(rvLine, rect_t{}, []() {
+        const auto v = afhds3::getReceiverVersionInfo(INTERNAL_MODULE);
+        if (!v.valid)
+          return std::string(
+              nb4Tr("nicht verbunden", "not connected", "no conectado"));
+        // Show the model name (e.g. FGr8B) plus one firmware version. Fall back
+        // to the raw product number only if the model is not in the table.
+        const char* name = afhds3::receiverModelName(v.productNumber);
+        char b[64];
+        if (name)
+          snprintf(b, sizeof(b), "%s  -  %s %X", name,
+                   nb4Tr("Firmware", "Firmware", "Firmware"), v.firmwareVersion);
+        else
+          snprintf(b, sizeof(b), "%s %lX  -  %s %X",
+                   nb4Tr("Typ", "Type", "Tipo"), (unsigned long)v.productNumber,
+                   nb4Tr("Firmware", "Firmware", "Firmware"), v.firmwareVersion);
+        return std::string(b);
+      });
+    }
+#endif
 
     // PPM modules
     if (isModulePPM(moduleIdx)) {

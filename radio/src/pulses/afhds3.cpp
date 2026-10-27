@@ -309,6 +309,9 @@ class ProtoState
 #endif
 #if defined(RADIO_NB4)
    BindPhase getBindPhase();
+   Nb4ModuleVersion getModuleVersionInfo() const;
+   Nb4ReceiverVersion getReceiverVersionInfo() const;
+   void armVersionRead() { nb4VersionWantedAt = get_tmr10ms(); }
    Nb4ReceiverTelemetry receiverTelemetry;
 #endif
    uint16_t RFCurrentPower;
@@ -361,6 +364,26 @@ class ProtoState
     tmr10ms_t nb4BindStarted = 0;
     tmr10ms_t nb4FailedAt = 0;
     Nb4Str nb4Error = nullptr;
+    // Read-only module version, requested once per module boot. A timed-out
+    // request is tolerated (the module may still be booting) and retried a few
+    // times, so a missing version never fails the RF link.
+    bool nb4HaveVersion = false;
+    uint8_t nb4VersionTries = 0;
+    uint8_t nb4VersionLen = 0;
+    // Read-only receiver version, requested once per connection. Reset when the
+    // link drops so a newly bound receiver is read again.
+    bool nb4HaveRxVersion = false;
+    uint8_t nb4RxVersionTries = 0;
+    // Version reads wait until the module/link has been stable for a moment, so
+    // they never collide with the initial connection (which briefly flapped the
+    // telemetry status). 0 means "not settled yet".
+    tmr10ms_t nb4ActiveSince = 0;
+    tmr10ms_t nb4ConnSince = 0;
+    // A version read briefly perturbs the live link, so it is only done on
+    // demand: when the receiver page is open it polls the getters, which stamp
+    // this; the RF task reads only while that stamp is fresh. At startup nothing
+    // polls, so no read happens and the telemetry status is never disturbed.
+    tmr10ms_t nb4VersionWantedAt = 0;
     void setupNb4Frame();
     bool parseNb4Data(const AfhdsFrame* frame, uint8_t length);
     void parseNb4Telemetry(const uint8_t* data, unsigned size);
@@ -488,6 +511,52 @@ Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module)
 void resetReceiverTelemetry()
 {
   for (auto& protocol : protoState) protocol.receiverTelemetry = {};
+}
+
+Nb4ModuleVersion ProtoState::getModuleVersionInfo() const
+{
+  Nb4ModuleVersion v;
+  if (nb4HaveVersion) {
+    v.valid = true;
+    v.replyLen = nb4VersionLen;
+    v.productNumber = version.productNumber;
+    v.hardwareVersion = version.hardwareVersion;
+    v.bootloaderVersion = version.bootloaderVersion;
+    v.firmwareVersion = version.firmwareVersion;
+    v.rfVersion = version.rfVersion;
+  }
+  return v;
+}
+
+Nb4ModuleVersion getModuleVersionInfo(uint8_t module)
+{
+  if (module >= MAX_MODULES) return Nb4ModuleVersion{};
+  // A reader (the receiver page) is asking: arm the on-demand read.
+  protoState[module].armVersionRead();
+  return protoState[module].getModuleVersionInfo();
+}
+
+Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
+{
+  Nb4ReceiverVersion v;
+  if (nb4HaveRxVersion) {
+    v.valid = true;
+    v.productNumber = rx_version.ProductNumber;
+    v.mainboardVersion = rx_version.MainboardVersion;
+    v.rfModuleVersion = rx_version.RFModuleVersion;
+    v.bootloaderVersion = rx_version.BootloaderVersion;
+    v.firmwareVersion = rx_version.FirmwareVersion;
+    v.rfLibraryVersion = rx_version.RFLibraryVersion;
+  }
+  return v;
+}
+
+Nb4ReceiverVersion getReceiverVersionInfo(uint8_t module)
+{
+  if (module >= MAX_MODULES) return Nb4ReceiverVersion{};
+  // A reader (the receiver page) is asking: arm the on-demand read.
+  protoState[module].armVersionRead();
+  return protoState[module].getReceiverVersionInfo();
 }
 
 #endif
@@ -858,11 +927,17 @@ void ProtoState::setupNb4Frame()
     // A state poll timing out while driving must not stop channel streaming.
     // Configuration failures, however, must never be reported as a bind.
     else if (nb4Stage == Nb4Stage::Active &&
-             (nb4Pending == MODULE_STATE || nb4Pending == SEND_COMMAND)) {
+             (nb4Pending == MODULE_STATE || nb4Pending == SEND_COMMAND ||
+              nb4Pending == MODULE_VERSION)) {
+      const bool wasVersion = nb4Pending == MODULE_VERSION;
       trsp.clear();
       nb4Pending = 0;
-      state = STATE_SYNC_RUNNING;
-      cfg.others.isConnected = false;
+      // A version read that times out is only diagnostic and must not look like
+      // a lost link; leave the running state and connection flag untouched.
+      if (!wasVersion) {
+        state = STATE_SYNC_RUNNING;
+        cfg.others.isConnected = false;
+      }
     } else {
       nb4Fail(NB4_STR(RF_MODULE_NOT_RESPONDING));
       return;
@@ -913,9 +988,50 @@ void ProtoState::setupNb4Frame()
     }
   }
 
+  // Reaching here means the module is running (Active). Remember since when so
+  // the version reads below can wait for it to settle.
+  if (nb4ActiveSince == 0) nb4ActiveSince = now;
+  constexpr tmr10ms_t NB4_READ_SETTLE = 500;  // 5 s in 10 ms ticks
+
   if (isConnected() && sensorCalibration()) {
     nb4Pending = SEND_COMMAND;
     return;
+  }
+
+  // Only read while the receiver page is actively polling the getters (fresh
+  // request stamp). At startup nothing polls, so no read disturbs the link.
+  // nb4VersionWantedAt stays 0 until a getter runs; the != 0 test is essential
+  // because right after boot `now` is near 0, so `now - 0` would spuriously
+  // look "recent" for the first second and fire a read during startup.
+  const bool wanted = nb4VersionWantedAt != 0 &&
+                      (tmr10ms_t)(now - nb4VersionWantedAt) < 100;
+
+  // Read the module version once, but only after it has been running a moment,
+  // so the query never collides with the initial sync. Timeouts are tolerated.
+  if (wanted && !nb4Binding && !nb4HaveVersion && nb4VersionTries < 10 &&
+      (tmr10ms_t)(now - nb4ActiveSince) >= NB4_READ_SETTLE) {
+    nb4VersionTries++;
+    nb4Request(MODULE_VERSION, nullptr, 0, REQUEST_GET_DATA);
+    return;
+  }
+
+  // With a receiver connected, read the receiver version once, but only after
+  // the link has been stable for a moment. Sending it during the first connect
+  // briefly flapped the telemetry status, so it waits here. Re-armed on drop.
+  if (!isConnected()) {
+    nb4HaveRxVersion = false;
+    nb4RxVersionTries = 0;
+    nb4ConnSince = 0;
+  } else {
+    if (nb4ConnSince == 0) nb4ConnSince = now;
+    if (wanted && !nb4Binding && !nb4HaveRxVersion && nb4RxVersionTries < 10 &&
+        (tmr10ms_t)(now - nb4ConnSince) >= NB4_READ_SETTLE) {
+      uint8_t data[] = { (uint8_t)(RX_CMD_GET_VERSION & 0xFF),
+                         (uint8_t)((RX_CMD_GET_VERSION >> 8) & 0xFF), 0x00 };
+      nb4RxVersionTries++;
+      nb4Request(SEND_COMMAND, data, sizeof(data), REQUEST_SET_EXPECT_DATA);
+      return;
+    }
   }
 
   if ((tmr10ms_t)(now - nb4LastPoll) >= 20) {
@@ -959,8 +1075,20 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
     nb4Pending = 0;
     return true; // Application result follows separately as command 0x0d.
   }
-  if (frame->command == COMMAND_RESULT && notification)
+  if (frame->command == COMMAND_RESULT && notification) {
+    // Read-only receiver version result: {cmd(2), result(1), len(1), payload}.
+    // Only the version is captured; everything else keeps the prior behaviour.
+    if (size >= 4) {
+      const uint16_t cmd = data[0] | (data[1] << 8);
+      const uint8_t result = data[2], len = data[3];
+      if (cmd == RX_CMD_GET_VERSION && result == RXSUCCESS &&
+          len == sizeof(rx_version) && (unsigned)(4 + len) <= size) {
+        std::memcpy((void*)&rx_version, &data[4], sizeof(rx_version));
+        nb4HaveRxVersion = true;
+      }
+    }
     return size < 4 || data[3] > size - 4;
+  }
 
   if (frame->command == MODULE_APPLY_CONFIG && notification) {
     // A short 0x05 reply is only a page mask. Only the full bind notification
@@ -987,6 +1115,22 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
     return true;
   }
 
+  // Read-only module version reply (command 0x20): multi-byte payload, so it is
+  // handled before the single-byte status block below.
+  if (reply && frame->command == MODULE_VERSION && nb4Pending == MODULE_VERSION) {
+    nb4Pending = 0;
+    // The NB4 internal module reports fewer bytes than the full ModuleVersion
+    // struct (company + 6x u32), so copy what arrived and zero the rest rather
+    // than requiring the full size. The received length is kept for display.
+    if (size >= 6) {
+      std::memset((void*)&version, 0, sizeof(version));
+      std::memcpy((void*)&version, data, size < sizeof(version) ? size : sizeof(version));
+      nb4VersionLen = (uint8_t)(size > 255 ? 255 : size);
+      nb4HaveVersion = true;
+    }
+    return true;
+  }
+
   if (reply && frame->command == nb4Pending) {
     nb4Pending = 0;
     if (size != 1) {
@@ -1001,6 +1145,13 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
         } else {
           state = STATE_READY;
           nb4Stage = Nb4Stage::Standby;
+          // The module (re)booted: read its version again on the next run.
+          nb4HaveVersion = false;
+          nb4VersionTries = 0;
+          nb4HaveRxVersion = false;
+          nb4RxVersionTries = 0;
+          nb4ActiveSince = 0;
+          nb4ConnSince = 0;
           applyConfigFromModel();
         }
         break;
@@ -1140,6 +1291,12 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
 #if defined(RADIO_NB4)
   hardFaulted = false;
   receiverTelemetry = {};
+  nb4HaveVersion = false;
+  nb4VersionTries = 0;
+  nb4HaveRxVersion = false;
+  nb4RxVersionTries = 0;
+  nb4ActiveSince = 0;
+  nb4ConnSince = 0;
   nb4Stage = Nb4Stage::Ready;
   nb4Pending = nb4Page = nb4ReadyTries = 0;
   nb4AppliedModelKey = Nb4RfConfig::modelKey();
@@ -1705,6 +1862,32 @@ void ProtoState::applyConfigFromModel()
     } else {
       cfg.v0.FailsafeOutputMode = false;
     }
+  }
+}
+
+const char* receiverModelName(uint32_t productNumber)
+{
+  switch (productNumber) {
+    case PN_FTR10:    return "FTr10";
+    case PN_FGR4:     return "FGr4";
+    case PN_FTR4:     return "FTr4";   // shared id with FGr4S / FGr4P
+    case PN_FTR16S:   return "FTr16S";
+    case PN_FTR8B:    return "FTr8B";
+    case PN_FTR12B:   return "FTr12B";
+    case PN_FGR8B:    return "FGr8B";
+    case PN_FGR12B:   return "FGr12B";
+    case PN_GMR:      return "GMr";
+    case PN_TMR:      return "TMr";
+    case PN_INR4_GYB: return "INr4-GYB";
+    case PN_INR6_HS:  return "INr6-HS";
+    case PN_FTR4B:    return "FTr4B";
+    case PN_FGR4B:    return "FGr4B";
+    case PN_FBR12:    return "FBr12";
+    case PN_INR6_FC:  return "INr6-FC";
+    case PN_TR8B:     return "Tr8B";
+    case PN_FBR8:     return "FBr8";
+    case PN_FBR4:     return "FBr4";
+    default:          return nullptr;
   }
 }
 
