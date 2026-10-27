@@ -3736,6 +3736,7 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
   ViewMain::instance();
   auto originalLayer = Layer::back();
   for (unsigned orientation = 0; orientation < 2; ++orientation) {
+    g_eeGeneral.nb4Orientation = orientation;
     scene.orient(orientation);
     for (const char* language : NB4_UI_LANGUAGES) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
@@ -3746,6 +3747,8 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
       // this capture loop opens the next modal without that intervening frame.
       LayoutFactory::loadCustomScreens();
       auto capture = [&](const char* name) {
+        ASSERT_EQ(lv_disp_get_hor_res(nullptr), orientation ? 480 : 320);
+        ASSERT_EQ(lv_disp_get_ver_res(nullptr), orientation ? 320 : 480);
         nb4StorageProcess();
         for (unsigned frame = 0; frame < 3; ++frame) render(scene.root);
         char file[100]; snprintf(file, sizeof(file), "racing-%s-%s-%s", orientation ? "landscape" : "portrait", language, name);
