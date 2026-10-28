@@ -20,8 +20,9 @@ MAX_BUNDLE = 2 * 1024 * 1024
 MAX_IMAGE = 512 * 1024
 FORMAT = 'apextx-rf-catalog-3'
 
-# Exact image identities accepted by this catalog.
-IMAGES = (
+# Exact image identities accepted by this catalog. Engine indices 0..2 are
+# the module and the two FGr4 V2 variants; keep them stable.
+COMMON_IMAGES = (
     dict(kind='module', product=0x12340003, reported_product=0x00010003, version=0x10021, bytes=38954,
          sha256='9f91794947ca8c24b6e3b242d373b9d02c17d794e4b794f2584341231bbe9b25',
          label='RF module (PN 0x12340003)'),
@@ -32,15 +33,51 @@ IMAGES = (
          sha256='adaed3edf380bfce83b04342cffb2e12ab8b87311975bb5ea720261421cc6a84',
          label='FGr4S V2 (shared product ID)'),
 )
+# Package provenance and receiver compatibility are independent. These pins
+# authorize offline extraction/assessment only; hardware/write qualification
+# remains separate. Keep the original engine indices 0..2 unchanged.
+RECEIVERS_FROM_NB4 = (
+    dict(kind='receiver', product=0x00010107, version=0x114, bytes=64464,
+         sha256='a3f55ca1b90d0e82b1302ea3004600431d79b62fc9231ca54af4ebbd10aeb8b5', label='FGr8B'),
+    dict(kind='receiver', product=0x00010104, version=0x107, bytes=52376,
+         sha256='6fb87ea3e8206eb7398046dd5618c6c2f7c4e80201b3f85f074c96b27a9a2e2d', label='Mini-Z (receiver entry)'),
+    dict(kind='receiver', product=0x0001010e, version=0x103, bytes=61956,
+         sha256='a3f155303c50e5b960e74b8298c1470ab90ba4873faa2d4d49246f0eaed16159', label='FGr4B'),
+    dict(kind='receiver', product=0x00010108, version=0x10c, bytes=65720,
+         sha256='8f1e6fffcdc74b1ef7f880d5aa3c106808b85c8df874257802883278be937dd6', label='FGr12B'),
+    dict(kind='receiver', product=0x0001010b, version=0x108, bytes=71344,
+         sha256='cc0780c06c4d5737ba407363c20866f983c8892c4ac96aa2a773016cf3d76f72', label='INr4-GYB'),
+)
+RECEIVERS_FROM_NB4PLUS = (
+    dict(kind='receiver', product=0x00010107, version=0x117, bytes=88320,
+         sha256='f0f25179d309f90d2d33611cbbacae200457c058aee3d2255b558e5eaaa5a37a', label='FGr8B'),
+    dict(kind='receiver', product=0x00010104, version=0x108, bytes=52056,
+         sha256='9e9411c68a76be97b0a429c69e5f7d8abb11492530f8fad74bf187d893ef628e', label='Mini-Z (receiver entry)'),
+    dict(kind='receiver', product=0x0001010e, version=0x117, bytes=86780,
+         sha256='9d5c95fa810e97c424a2898463964cae2e2f9239afeab6c25252d120c58f570d', label='FGr4B'),
+    dict(kind='receiver', product=0x00010108, version=0x117, bytes=88916,
+         sha256='0e9f277a34fb8a6b1432fa665e2f5616344477867668243c0bd38e0cc83a9ed1', label='FGr12B'),
+)
+FGR8B_NB4, FGR8B_NB4PLUS = RECEIVERS_FROM_NB4[0], RECEIVERS_FROM_NB4PLUS[0]
+IMAGES = COMMON_IMAGES + RECEIVERS_FROM_NB4 + RECEIVERS_FROM_NB4PLUS
+
+# Observed in an exact reviewed source, but rejected by our current CRC
+# gate. Do not export or select this payload until its format is qualified.
+UNVERIFIED_RECEIVER_IMAGES = (
+    dict(kind='receiver', product=0x0001010b, version=0x109, bytes=71344,
+         sha256='74e5ae3b30e24b15078f138fc82b6f7ac96cc2bad1dcc75df4b034a46b2aa5a3',
+         label='INr4-GYB', source_radio='nb4plus', reason='crc32-mismatch'),
+)
+
 PROFILES = (
     dict(id='nb4-rf-1a', radio='nb4',
          sha256='ddd46193f0abaeb8d11eb5f3e7998fb97d7b868c27ae7a44a9ce7cc22d619c02',
          resource_sha256='37780d8512809d8fc3ec43764b1672d28f2758e6f9ca26a850bf8888b848a665',
-         images=IMAGES),
+         images=COMMON_IMAGES + RECEIVERS_FROM_NB4),
     dict(id='nb4plus-rf-1a', radio='nb4plus',
          sha256='5f5475055b7d4e19fc647f4180b30e478e72a68ef0987aefdbfe1d6f9fd6c248',
          resource_sha256='71a09fb94b656de17028ee35441dcbd0ba1b37735330eea4ea8f3f1911dab825',
-         images=IMAGES),
+         images=COMMON_IMAGES + RECEIVERS_FROM_NB4PLUS),
 )
 PROFILES += (
     dict(PROFILES[0], id='nb4-rf-1b',
@@ -49,18 +86,19 @@ PROFILES += (
          sha256='1b119de1e2a0efa9787f3db3fd9abe01cd16b4a7f4069d254dcf8b9e46b90b72'),
 )
 
-# Hardware readings are separate from transfer/recovery qualification. Reading
-# a matching version does not establish that an interrupted write is recoverable.
+# Hardware tuples the radio may write. Transfer and recovery of the module and
+# the FGr4 V2 variants were exercised on the bench (docs/nb4/RF_BENCH.md), so
+# the radio installs them in production builds. The other receivers have no
+# identity evidence yet and therefore no rule: the radio never selects them.
 UPDATE_HARDWARE = (
     dict(target=1, image=0, hardware=0x10003, rf_hardware=0, bootloader=0,
-         rf_library=0x30000, transfer=False, recovery=False),
+         rf_library=0x30000, transfer=True, recovery=True),
     dict(target=1, image=1, hardware=0x104, rf_hardware=0x104, bootloader=0x103,
-         rf_library=0x301, transfer=False, recovery=False),
+         rf_library=0x301, transfer=True, recovery=True),
     dict(target=1, image=2, hardware=0x104, rf_hardware=0x104, bootloader=0x107,
-         rf_library=0x301, transfer=False, recovery=False),
+         rf_library=0x301, transfer=True, recovery=True),
 )
-# The second target uses the same candidate component tuples. Both targets
-# still require independent transfer/recovery evidence for public support.
+# The second target (NB4+) carries the same module and receiver tuples.
 UPDATE_HARDWARE += tuple(dict(rule, target=2) for rule in UPDATE_HARDWARE)
 
 
@@ -378,3 +416,47 @@ def assess_receiver(description, installed):
                             'available' if version < match['version'] else 'ahead',
                       installed=version, available=match['version'], product=product)
     return result
+
+
+def assess_receiver_catalogs(descriptions, installed):
+    """Latest verified receiver candidate across source packages, read-only.
+
+    A package's radio model is provenance, not a receiver compatibility rule.
+    This result never authorizes transfer or certifies a hardware/bootloader/RF
+    combination. Callers must obtain descriptions through verify_bundle() and
+    invalidate disconnected or stale inventory before presenting any candidate.
+    """
+    unknown = dict(state='unknown', required=False, write_supported=False,
+                   compatibility_verified=False)
+    if (not isinstance(descriptions, (list, tuple)) or
+            not 1 <= len(descriptions) <= len(PROFILES) or
+            not isinstance(installed, dict) or installed.get('fresh') is False):
+        return unknown
+    candidates = []
+    for description in descriptions:
+        try:
+            profile = next((p for p in PROFILES if canonical(manifest(p)) == canonical(description)), None)
+        except (TypeError, ValueError):
+            return unknown
+        if profile is None:
+            return unknown
+        assessment = assess_receiver(description, installed)
+        if assessment['state'] != 'unknown':
+            image = next(entry for entry in profile['images'] if entry['kind'] == 'receiver' and
+                         entry['product'] == installed['product'])
+            candidates.append((image, profile, assessment))
+    if not candidates:
+        return unknown
+    latest_version = max(item[0]['version'] for item in candidates)
+    latest = [item for item in candidates if item[0]['version'] == latest_version]
+    if len({item[0]['sha256'] for item in latest}) != 1:
+        return dict(unknown, state='ambiguous', product=installed['product'], available=latest_version)
+    image, _, assessment = latest[0]
+    sources = sorted({(profile['id'], profile['radio']) for candidate, profile, _ in candidates
+                      if (candidate['version'], candidate['sha256']) == (image['version'], image['sha256'])})
+    pending = [dict(version=entry['version'], source_radio=entry['source_radio'], reason=entry['reason'])
+               for entry in UNVERIFIED_RECEIVER_IMAGES if entry['product'] == image['product'] and
+               entry['version'] > image['version']]
+    return dict(assessment, compatibility_verified=False, image=dict(image),
+                source_profiles=[dict(profile=identifier, radio=radio) for identifier, radio in sources],
+                known_unverified=pending)
