@@ -1,12 +1,13 @@
 # ApexTX Updater for the original Noble NB4
 
-For the separate RF catalog preparer and the remaining integrated-update work,
-see [Integrated update status](INTEGRATED_UPDATE.md). RF/receiver firmware
-writing is not yet supported; a catalog ZIP is never a transmitter image.
+For the experimental component wizard, RF catalog preparation, complete
+backup and recovery, see [Integrated update](INTEGRATED_UPDATE.md).
+Normal builds keep RF/receiver writes disabled pending hardware qualification;
+a catalog ZIP is never a transmitter image.
 
 Normal updates follow this flow:
 
-1. On the radio, open **Settings > System > Update** and confirm.
+1. On the radio, open **Menu > System > Update > Update radio firmware** and confirm.
 2. The radio keeps its display and power latch active and shows **ApexTX Update**.
 3. Connect USB, open the computer updater, and select the new `firmware.bin`.
 4. The updater transfers and verifies the image, requests installation, waits
@@ -39,7 +40,7 @@ The first-installation guide covers these steps:
    application together.
 4. Complete storage setup, resource installation, calibration, and receiver
    checks as described in that guide.
-5. For subsequent application updates, use **Settings > System > Update** and
+5. For subsequent application updates, use **Menu > System > Update** and
    this updater.
 
 An older ApexTX image that jumps to the STM32 ROM from its Update menu also

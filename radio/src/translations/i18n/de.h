@@ -1993,7 +1993,7 @@
 #define TR_NB4_UX_HELP_TIMERS "Konfiguriere die Modell-Timer und den Gaskanal für die gasbasierte Zeitmessung. Box nutzt Timer 2; die Rennzeit nutzt Timer 1."
 #define TR_NB4_UX_HELP_LAPS "Starte einen Lauf, markiere Runden und beende ihn. Weise Runde markieren vor der Fahrt einem erreichbaren physischen Bedienelement zu. Ergebnis ansehen öffnet den beendeten Lauf, sobald der Speicher ihn bestätigt."
 #define TR_NB4_UX_HELP_INDEX "Wähle eine Kategorie und Einstellung, um zu lesen, was sie ändert, und ihren Editor zu öffnen."
-#define TR_NB4_UX_HELP_UPDATE "In den Firmware-Update-Modus neu starten. Nur bestätigen, wenn du bereit bist, die Funke für ein Update mit dem Computer zu verbinden."
+#define TR_NB4_UX_HELP_UPDATE "Komponenten von Sender und Empfänger vor dem Update prüfen."
 #define TR_NB4_UX_HELP_INPUTS "Eingänge formen die Signale physischer Bedienelemente über Gewichtung, Ansprechkurven und Bedingungen, bevor die Mischer sie nutzen."
 #define TR_NB4_UX_HELP_MIXES "Mischer kombinieren Eingänge zu Ausgangskanälen. Wähle eine Kurve in einem Mischer, um ein eigenes Ansprechen zu erstellen oder wiederzuverwenden; ihre anderen Nutzer werden vor dem Bearbeiten aufgelistet."
 #define TR_NB4_UX_HELP_OUTPUTS "Ausgänge setzen Grenzen, Richtung und Mitte jedes Servokanals nach den Mischern. Das sind dieselben Grenzen, die die Achsen-Editoren des Autos zeigen."
@@ -2185,3 +2185,36 @@
 #define TR_NB4_RF_RECEIVER_VERSION "Empfänger-Firmware"
 #define TR_NB4_RF_RECEIVER_MODEL "Empfängermodell"
 #define TR_NB4_RF_VERSION_UNAVAILABLE "Nicht verfügbar"
+#define TR_NB4_UPDATE_COMPONENTS_HELP "Komponenten von Sender und Empfänger vor dem Update prüfen."
+#define TR_NB4_UPDATE_FIRMWARE "Sender-Firmware aktualisieren"
+#define TR_NB4_UPDATE_USB_INVENTORY "Mit ApexTX Flasher verbinden"
+#define TR_NB4_UPDATE_USB_ACTIVE "Flasher-Modus aktiv"
+#define TR_NB4_UPDATE_USB_INFO "Komponenten in ApexTX Flasher prüfen und Updates vorbereiten. Die USB-Verbindung installiert nichts automatisch."
+#define TR_NB4_UPDATE_RF_UNQUALIFIED "HF-Installation ist in dieser experimentellen Version noch nicht freigegeben."
+#define TR_NB4_UPDATE_USB_BUSY "USB zuerst trennen und von dieser Seite erneut verbinden."
+#define TR_NB4_UPDATE_RECEIVER_PENDING "Empfänger getrennt. Versionsprüfung ausstehend."
+
+#define TR_NB4_UPDATE_BENCH_INFO "Experimenteller HF-Test. Motor abklemmen. Dieser Build gilt nur für ein Gerät; Übertragung und Wiederherstellung müssen noch am Gerät geprüft werden."
+
+#define TR_NB4_UPDATE_RF_REINSTALL "Vorbereitetes HF-Image neu installieren"
+
+#define TR_NB4_UPDATE_RF_RECOVER "HF-Update wiederherstellen"
+
+#define TR_NB4_UPDATE_RF_RECOVERY "HF-Wartung ist unvollständig. Fahrbetrieb gesperrt. Dateien aufbewahren und HF-Wiederherstellung verwenden."
+
+#define TR_NB4_UPDATE_RF_PROGRESS "HF-Update: %u%%"
+
+#define TR_NB4_RECOVERY_RESTART "Normal neu starten"
+
+#define TR_NB4_RECOVERY_RESTART_INFO "Gespeicherten Fehler löschen und mit aktiven Skripten neu starten? Autos und Kalibrierung bleiben erhalten. Bei erneutem Fehler startet wieder der Wiederherstellungsmodus."
+
+#define TR_NB4_UPDATE_BENCH_LABEL "Experimenteller HF-Test"
+
+#define TR_NB4_UPDATE_AVAILABLE "HF-Update"
+#define TR_NB4_UPDATE_AVAILABLE_INFO "Ein vorbereitetes Image ist neuer als die verbundene Komponente. Versionen und Update-Plan prüfen. Die Installation beginnt erst nach Bestätigung."
+#define TR_NB4_UPDATE_REVIEW "Update prüfen"
+#define TR_NB4_UPDATE_LATER "Später"
+#define TR_NB4_UPDATE_DEFER_FAILED "Die Auswahl konnte nicht gespeichert werden. Später erneut zurückstellen."
+
+#define TR_NB4_UPDATE_AUDIO "Sprache"
+#define TR_NB4_UPDATE_AUDIO_PENDING "ausstehend"

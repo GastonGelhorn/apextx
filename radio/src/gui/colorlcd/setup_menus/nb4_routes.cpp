@@ -44,6 +44,9 @@
 #include "view_channels.h"
 #include "view_main.h"
 #include "nb4_menu_pages.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 #include "nb4_help.h"
 #include "model_setup.h"
 
@@ -386,7 +389,11 @@ const Nb4Route routes[] = {
       });
     }, Recovery, "system/storage", UX_HELP_SYSTEM, true),
 
+#if defined(RADIO_NB4)
+    AV("settings/system/update", NB4_STR(UPDATE), nb4OpenUpdate, Recovery, "system/update", UX_HELP_UPDATE, false),
+#else
     AV("settings/system/update", NB4_STR(UPDATE), nb4RequestUpdateMode, Recovery, "system/update", UX_HELP_UPDATE, false),
+#endif
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
     AV("settings/system/date_time_location", NB4_STR(LOCATION), openDateTime, RadioOnly, "system/date_time_location", UX_HELP_SYSTEM, true),
 #else
@@ -1306,6 +1313,10 @@ Nb4RouteAccess nb4RouteAccessOf(const char* path)
 
 bool nb4RouteIsOpenable(const Nb4Route& route)
 {
+#if defined(RADIO_NB4)
+  if (nb4RfUpdateStorageOwned() && (!route.destination ||
+      (strcmp(route.destination, "system/update") && strcmp(route.destination, "system/help")))) return false;
+#endif
   if (route.state != Nb4RouteState::Available || !route.open) return false;
   if (nb4ModelBlocked() && nb4RouteAccessOf(route.path) == Nb4RouteAccess::ModelData)
     return false;

@@ -1997,7 +1997,7 @@
 #define TR_NB4_UX_HELP_TIMERS "配置模型计时器和油门计时使用的通道。进站使用计时器 2，比赛使用计时器 1。"
 #define TR_NB4_UX_HELP_LAPS "开始场次、记录圈数并结束比赛。行驶前请将记录一圈分配给便于操作的按键。确认保存后，查看成绩可打开刚结束的场次。"
 #define TR_NB4_UX_HELP_INDEX "选择类别和设置，阅读用途并打开对应编辑器。"
-#define TR_NB4_UX_HELP_UPDATE "重启进入固件更新模式。准备好连接电脑更新时再确认。"
+#define TR_NB4_UX_HELP_UPDATE "更新前检查遥控器和接收机的组件。"
 #define TR_NB4_UX_HELP_INPUTS "输入通过权重、响应曲线和条件处理操纵信号，再送入混控。"
 #define TR_NB4_UX_HELP_MIXES "混控将输入组合成输出通道。可在混控中选择曲线以新建或复用响应，编辑前会列出其他引用。"
 #define TR_NB4_UX_HELP_OUTPUTS "输出设置混控后的各舵机通道限位、方向和中心，与车辆操纵轴编辑器使用同一数据。"
@@ -2189,3 +2189,36 @@
 #define TR_NB4_RF_RECEIVER_VERSION "接收机固件"
 #define TR_NB4_RF_RECEIVER_MODEL "接收机型号"
 #define TR_NB4_RF_VERSION_UNAVAILABLE "不可用"
+#define TR_NB4_UPDATE_COMPONENTS_HELP "更新前检查遥控器和接收机的组件。"
+#define TR_NB4_UPDATE_FIRMWARE "更新遥控器固件"
+#define TR_NB4_UPDATE_USB_INVENTORY "连接 ApexTX 刷写工具"
+#define TR_NB4_UPDATE_USB_ACTIVE "刷写模式已启用"
+#define TR_NB4_UPDATE_USB_INFO "在 ApexTX Flasher 中查看组件并准备更新。连接 USB 不会自动安装任何内容。"
+#define TR_NB4_UPDATE_RF_UNQUALIFIED "此实验版本尚未启用射频固件安装。"
+#define TR_NB4_UPDATE_USB_BUSY "请先断开 USB，然后从此页面重新连接。"
+#define TR_NB4_UPDATE_RECEIVER_PENDING "接收机未连接，版本待检查。"
+
+#define TR_NB4_UPDATE_BENCH_INFO "实验性射频测试。请断开电机。此版本仅适用于一台遥控器，传输和恢复仍需硬件验证。"
+
+#define TR_NB4_UPDATE_RF_REINSTALL "重新安装已准备的射频固件"
+
+#define TR_NB4_UPDATE_RF_RECOVER "恢复射频更新"
+
+#define TR_NB4_UPDATE_RF_RECOVERY "射频维护尚未完成，驾驶已禁用。请保留已准备的文件并使用射频恢复。"
+
+#define TR_NB4_UPDATE_RF_PROGRESS "射频更新：%u%%"
+
+#define TR_NB4_RECOVERY_RESTART "正常重启"
+
+#define TR_NB4_RECOVERY_RESTART_INFO "清除已保存的故障并启用脚本重启？车辆设置和校准将保留。如果故障再次出现，系统将返回恢复模式。"
+
+#define TR_NB4_UPDATE_BENCH_LABEL "实验性射频测试"
+
+#define TR_NB4_UPDATE_AVAILABLE "射频更新"
+#define TR_NB4_UPDATE_AVAILABLE_INFO "已准备的镜像比已连接组件更新。请检查版本及更新计划。安装前必须确认。"
+#define TR_NB4_UPDATE_REVIEW "检查更新"
+#define TR_NB4_UPDATE_LATER "稍后"
+#define TR_NB4_UPDATE_DEFER_FAILED "无法保存提醒选择。可稍后再次推迟。"
+
+#define TR_NB4_UPDATE_AUDIO "语音"
+#define TR_NB4_UPDATE_AUDIO_PENDING "未完成"

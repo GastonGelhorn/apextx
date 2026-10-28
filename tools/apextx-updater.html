@@ -23,7 +23,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 .lang button.on{background:var(--blue);color:#05121d}
 h1{font-size:36px;letter-spacing:-1.2px;line-height:1.08;margin:0 0 12px;font-weight:800}
 .intro{color:var(--muted);max-width:620px;margin:0 0 22px;font-size:16px}
-.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin:0 0 20px;max-width:440px}
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin:0 0 20px;max-width:100%}
 .tabs button{all:unset;flex:1;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);padding:10px;border-radius:9px}
 .tabs button.on{background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink)}
 .panel{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:24px;border-radius:18px;box-shadow:0 26px 64px -34px rgba(0,0,0,.85)}
@@ -89,12 +89,15 @@ footer a:hover{text-decoration:underline}
 button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--blue2);outline-offset:4px}
 [hidden]{display:none!important}
 @media(max-width:640px){.device-meta{gap:12px}.device-meta strong{font-size:15px}.device-head strong{font-size:16px}}
+.component-row{padding:16px 0;border-bottom:1px solid var(--line)}.component-row label{display:flex;gap:10px;align-items:center}.component-row p{color:var(--muted);margin:8px 0;overflow-wrap:anywhere}#componentPanel input[type=text]{display:block;width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}#componentDirectory{overflow-wrap:anywhere}#componentPanel h3{margin-top:28px}
+.wizard-step{margin:14px 0;border-bottom:1px solid var(--line);padding-bottom:14px}.wizard-step summary{font-size:17px;font-weight:700;cursor:pointer;padding:8px 0}.file input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.file:focus-within{outline:2px solid var(--blue)}
+#appUpdates{margin-top:24px}#appUpdates summary{cursor:pointer;font-weight:700;min-height:44px;padding:8px 0}#appUpdates .actions{display:flex;flex-wrap:wrap;gap:6px}#appUpdateStatus,#appUpdateNotes{font-size:14px;overflow-wrap:anywhere}#appUpdates>p:last-child{font-size:12px;color:var(--muted)}
 </style>
 <main>
 <header>
   <div class="brand"><img src="__LOGO_DATA__" alt="ApexTX"></div>
   <div class="hgroup">
-    <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button></div>
+    <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button><button data-lang="cn">中文</button></div>
     <div class="tag">NOBLE&nbsp;NB4 / NB4+</div>
   </div>
 </header>
@@ -104,6 +107,7 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
 
 <div class="tabs" id="tabs">
   <button data-mode="update" class="on" data-k="tabUpdate">Update</button>
+  <button data-mode="components" data-k="componentsTitle">Components</button>
   <button data-mode="recover" data-k="tabRecover">Install / Recovery</button>
 </div>
 
@@ -115,6 +119,14 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
     <div><span data-k="latest">Latest compatible release</span><strong id="latestVersion">—</strong><small class="preview-badge" id="previewBadge" data-k="previewLabel" hidden>PREVIEW</small></div>
   </div>
   <p class="device-help" id="deviceHelp" aria-live="polite"></p>
+  <details class="manual" id="componentsPanel">
+    <summary data-k="componentsTitle">Components</summary>
+    <p class="device-help" data-k="componentsHelp"></p>
+    <button class="quiet" id="readComponents" data-k="componentsRead"></button>
+    <p class="device-help" id="componentsStatus" role="status"></p>
+    <p class="device-help"><span data-k="componentModule"></span>: <strong id="componentModule">—</strong></p>
+    <p class="device-help"><span data-k="componentReceiver"></span>: <strong id="componentReceiver">—</strong></p>
+  </details>
   <label class="channel"><input id="preview" type="checkbox" checked><span data-k="includePreview">Include alpha / beta releases</span></label>
   <p class="release-help" id="releaseHelp" aria-live="polite"></p>
   <a class="release-link" id="releaseLink" target="_blank" rel="noreferrer noopener" data-k="releaseNotes" hidden>Release notes ↗</a>
@@ -148,6 +160,43 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
 </section>
 
 <!-- INSTALL / RECOVERY MODE -->
+<section class="panel hide" id="componentPanel">
+  <h2 data-k="wizardTitle"></h2><p class="device-help" data-k="wizardHelp"></p><div id="componentTransferSlot"></div><details class="manual" id="componentErrorDetails" hidden><summary data-k="wizardTechnical"></summary><pre id="componentErrorTechnical" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
+  <details class="wizard-step" id="componentPackageDetails" open><summary data-k="wizardPackage"></summary><label class="file"><strong data-k="wizardPackage"></strong><input id="componentPackage" type="file" accept=".zip,.gz,.tgz"><span id="componentPackageName"></span></label>
+  <button class="quiet" id="componentDownload" data-k="wizardDownload"></button></details>
+  <details class="manual"><summary data-k="wizardResume"></summary>
+    <label for="componentSessionPath" data-k="wizardSessionFolder"></label><input id="componentSessionPath" type="text"><button class="quiet" id="componentSessionBrowse" data-k="wizardBrowse"></button>
+    <button class="quiet" id="componentOpen" data-k="wizardOpen"></button>
+  </details>
+  <div id="componentPlan" hidden>
+    <h3 id="componentUnit"></h3><p class="device-help" id="componentOutcome" role="status"></p><p class="device-help" id="componentMode"></p>
+    <p class="note" id="componentDirectory"></p>
+    <details class="wizard-step" id="componentBackupDetails" open><summary data-k="wizardBackup"></summary><p class="device-help" data-k="wizardBackupHelp"></p>
+    <button class="quiet" id="componentBackup" data-k="wizardBackupCreate"></button>
+    <label for="componentBackupPath" data-k="wizardBackupFolder"></label><input id="componentBackupPath" type="text"><button class="quiet" id="componentBackupBrowse" data-k="wizardBrowse"></button>
+    <button class="quiet" id="componentAttachBackup" data-k="wizardBackupAttach"></button><p class="device-help" id="componentBackupStatus"></p></details>
+    <h3 data-k="wizardReview"></h3>
+    <p class="device-help" id="componentBootloader"></p>
+    <div id="componentRows">
+      <div class="component-row"><label><input id="select_application" type="checkbox"><strong data-k="wizardApplication"></strong></label><p id="state_application"></p><button class="quiet" id="install_application" data-k="wizardInstall"></button></div>
+      <div class="component-row"><label><input id="select_module" type="checkbox"><strong data-k="componentModule"></strong></label><p id="state_module"></p><button class="quiet" id="stage_module" data-k="wizardStage"></button><button class="quiet" id="install_module" data-k="wizardInstall"></button><button class="quiet" id="cancel_module" data-k="wizardCancel"></button><button class="quiet" id="recover_module" data-k="wizardRecover"></button></div>
+      <div class="component-row"><label><input id="select_receiver" type="checkbox"><strong data-k="componentReceiver"></strong></label><p id="state_receiver"></p><button class="quiet" id="stage_receiver" data-k="wizardStage"></button><button class="quiet" id="install_receiver" data-k="wizardInstall"></button><button class="quiet" id="cancel_receiver" data-k="wizardCancel"></button><button class="quiet" id="recover_receiver" data-k="wizardRecover"></button></div>
+      <div class="component-row"><label><input id="select_resources" type="checkbox"><strong data-k="wizardResources"></strong></label><p id="state_resources"></p><button class="quiet" id="install_resources" data-k="wizardInstall"></button></div>
+      <div class="component-row"><label><input id="select_audio" type="checkbox"><strong data-k="wizardAudio"></strong></label><p id="state_audio"></p><button class="quiet" id="install_audio" data-k="wizardInstall"></button></div>
+    </div>
+    <button class="quiet" id="componentRead" data-k="componentsRead"></button>
+    <label class="file"><strong data-k="wizardAudioChoose"></strong><input id="componentAudio" type="file" accept=".zip"><span id="componentAudioName"></span></label>
+    <label class="channel"><input id="componentReinstall" type="checkbox"><span data-k="wizardReinstall"></span></label>
+    <label class="channel"><input id="componentConfirm" type="checkbox"><span data-k="wizardConfirm"></span></label>
+    <button class="cta" id="componentApprove" data-k="wizardApprove"></button>
+    <details class="wizard-step" id="componentStorageDetails"><summary data-k="wizardStorage"></summary><p class="device-help" data-k="wizardStorageHelp"></p>
+    <button class="quiet" id="componentStorage" data-k="wizardStoragePrepare"></button>
+    <label for="componentVolume" data-k="wizardVolumeFolder"></label><input id="componentVolume" type="text"><button class="quiet" id="componentVolumeBrowse" data-k="wizardBrowse"></button></details>
+    <details class="manual"><summary data-k="wizardRecovery"></summary><p class="device-help" data-k="wizardRecoveryHelp"></p>
+      <button class="quiet" id="componentRestoreAudio" data-k="wizardRestoreAudio"></button><button class="quiet" id="componentRestoreNor" data-k="wizardRestoreNor"></button><button class="quiet" id="componentRestoreApp" data-k="wizardRestoreApp"></button>
+    </details>
+  </div>
+</section>
 <section class="panel hide" id="recoverPanel">
   <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span data-k="rwarn">This replaces the complete firmware including the bootloader — for first installation or recovery. The radio must be in STM32 ROM DFU mode (hold the recessed grip button while switching it on). Your current firmware is backed up first.</span></div>
   <label class="file">
@@ -174,6 +223,21 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div></div>
 
 <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.</span></p>
+<details class="panel" id="appUpdates">
+<summary data-k="appTitle">ApexTX Flasher updates</summary>
+<p id="appUpdateStatus" role="status" aria-live="polite"></p>
+<pre id="appUpdateNotes" style="white-space:pre-wrap;font:inherit"></pre>
+<p id="appInstallLocation" class="device-help"></p>
+<p id="appUpdateError" class="error" role="alert"></p>
+<label class="channel"><input type="checkbox" id="appPreview"><span data-k="appPreview">Include preview versions of the desktop app</span></label>
+<label class="channel"><input type="checkbox" id="appRelocate"><span data-k="appRelocate">Install in my user folder</span></label>
+<div class="actions"><button class="quiet" id="appCheck" data-k="appCheck">Check app updates</button>
+<button class="cta" id="appInstall" data-k="appInstall">Update and restart</button>
+<button class="quiet" id="appLater" data-k="appLater">Remind me tomorrow</button>
+<button class="quiet" id="appSkip" data-k="appSkip">Skip this version</button></div>
+<button class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe">I checked the radio; recovery is finished</button>
+<p data-k="appSigning">Updates are authenticated with ApexTX's own signature. Windows or macOS may require permission to open an app without an official publisher certificate.</p>
+</details>
 <footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
@@ -239,6 +303,7 @@ Object.assign(T.es,{rduration:"Puede tardar entre 5 y 10 minutos. La pantalla de
 Object.assign(T.de,{rduration:"Dies kann 5–10 Minuten dauern. Das Display bleibt während der Installation schwarz. Fortschritt hier verfolgen und USB verbunden lassen.",rautoDone:"Firmware und Bootloader verifiziert. Die Fernbedienung startet automatisch. Bitte den Startbildschirm bestätigen.",rbackup:"Aktuelle Firmware wird gesichert…",rerase:"Interner Flash wird gelöscht…",rwrite:"Firmware und Bootloader werden geschrieben…",rverify:"Vollständiges Image wird geprüft…",rfinish:"Image verifiziert. Fernbedienung startet…"});
 const $=s=>document.querySelector(s);
 Object.assign(T.en,{
+ maintenanceConnected:"Maintenance connected",maintenanceHelp:"Ready to read component versions below. To replace the main radio firmware, select System > Update > Update radio firmware on the radio.",
  bootloaderTitle:"Bootloader update required",
  bootloaderHelp:"This release needs a newer bootloader. A normal Update keeps the old one. The flasher will download the full image and guide you into STM32 ROM DFU to install both firmware and bootloader.",
  bootloaderUpdate:"Prepare full installation · {version}",
@@ -256,6 +321,7 @@ Object.assign(T.en,{
  dfuPreparing:"Downloading and verifying the complete firmware…"
 });
 Object.assign(T.es,{
+ maintenanceConnected:"Mantenimiento conectado",maintenanceHelp:"Ya puedes consultar las versiones de los componentes debajo. Para cambiar el firmware principal, selecciona Sistema > Actualización > Actualizar firmware de la emisora.",
  bootloaderTitle:"Es necesario actualizar el bootloader",
  bootloaderHelp:"Esta versión necesita un bootloader nuevo. Una actualización normal conserva el anterior. El flasher descargará la imagen completa y te guiará para entrar en STM32 ROM DFU e instalar el firmware y el bootloader.",
  bootloaderUpdate:"Preparar instalación completa · {version}",
@@ -273,6 +339,7 @@ Object.assign(T.es,{
  dfuPreparing:"Descargando y verificando el firmware completo…"
 });
 Object.assign(T.de,{
+ maintenanceConnected:"Wartung verbunden",maintenanceHelp:"Die Komponentenversionen können unten gelesen werden. Zum Austausch der Senderfirmware am Sender System > Update > Senderfirmware aktualisieren wählen.",
  bootloaderTitle:"Bootloader-Update erforderlich",
  bootloaderHelp:"Diese Version benötigt einen neueren Bootloader. Ein normales Update behält den bisherigen bei. Der Flasher lädt das vollständige Image herunter und führt durch den STM32-ROM-DFU-Modus, um Firmware und Bootloader zu installieren.",
  bootloaderUpdate:"Vollständige Installation vorbereiten · {version}",
@@ -289,14 +356,139 @@ Object.assign(T.de,{
  dfuCancel:"Installation abbrechen",
  dfuPreparing:"Vollständige Firmware wird heruntergeladen und geprüft…"
 });
+Object.assign(T.en,{
+ componentsTitle:"Components",componentsRead:"Read component versions",
+ componentsHelp:"On the radio open System > Update > Connect to ApexTX Flasher, then connect USB. This experimental connection reads versions; RF installation is not enabled.",
+ componentsDone:"Component versions read. No firmware was written.",
+ componentsStale:"Previous reading. Read again before planning an update.",
+ componentModule:"RF module (reported version)",componentReceiver:"Receiver firmware",
+ componentPending:"Receiver disconnected · version check pending"
+});
+Object.assign(T.es,{
+ componentsTitle:"Componentes",componentsRead:"Consultar versiones",
+ componentsHelp:"En la emisora abre Sistema > Actualización > Conectar con ApexTX Flasher y conecta USB. Esta conexión experimental lee versiones; la instalación RF aún no está habilitada.",
+ componentsDone:"Versiones consultadas. No se escribió firmware.",
+ componentsStale:"Lectura anterior. Vuelve a consultar antes de preparar una actualización.",
+ componentModule:"Módulo RF (versión reportada)",componentReceiver:"Firmware del receptor",
+ componentPending:"Receptor desconectado · falta comprobar su versión"
+});
+Object.assign(T.de,{
+ componentsTitle:"Komponenten",componentsRead:"Komponentenversionen lesen",
+ componentsHelp:"Am Sender System > Update > Mit ApexTX Flasher verbinden öffnen, dann USB verbinden. Diese experimentelle Verbindung liest Versionen; HF-Installation ist noch nicht freigegeben.",
+ componentsDone:"Versionen gelesen. Keine Firmware geschrieben.",
+ componentsStale:"Frühere Abfrage. Vor dem Update erneut auslesen.",
+ componentModule:"HF-Modul (gemeldete Version)",componentReceiver:"Empfänger-Firmware",
+ componentPending:"Empfänger getrennt · Versionsprüfung ausstehend"
+});
+T.cn={
+ maintenanceConnected:"维护连接已建立",maintenanceHelp:"可在下方读取组件版本。若要更换遥控器主固件，请在遥控器上选择系统 > 更新 > 更新遥控器固件。",
+ h1:"更新遥控器",
+ intro:"在 Noble NB4 或 NB4+ 上安装或更新 ApexTX。刷写工具会查找兼容固件，并在写入前验证。",
+ windowsDriver:"Windows 需要为更新接口安装兼容 WinUSB 的驱动程序。",
+ tabUpdate:"更新",tabRecover:"安装 / 恢复",
+ imglabel:"固件镜像",fileinfo:"firmware.bin · Noble NB4 / NB4+ 的 ApexTX 固件",
+ note:"写入时保持遥控器供电和 USB 连接。恢复失败时保持供电，并在 STM32 ROM DFU 模式重试。",
+ footer:"ApexTX 刷写工具在本机运行。固件通过 USB 直接传输到遥控器，不会上传到服务器。",
+ rwarn:"此操作写入包括引导程序在内的完整固件，仅用于首次安装或恢复。日常升级请使用更新。遥控器必须处于 STM32 ROM DFU 模式。工具会先备份当前内部固件。请选择正确型号，并妥善保存备份。",
+ rdone:"安装完成并已验证。长按电源键完全关闭遥控器，再重新开机。",
+ rimglabel:"完整固件镜像",rfileinfo:"完整 firmware.bin（引导程序和应用程序）",
+ radioPrompt:"连接的是哪款遥控器？",rmodelFor:"此镜像的目标型号：",
+ rmodelUnknown:"写入前将验证型号标记、清单和校验和。",
+ rconfirm:"确认我的遥控器是 {radio}，此镜像适用于 {image}。",
+ rconfirmGeneric:"确认已选择正确的遥控器型号和 ApexTX 固件镜像。",
+ select:"选择固件镜像以继续。",ready:"可以更新。",rready:"准备就绪。写入前会备份当前固件。",
+ sizeerr:"请选择用于 ApexTX 更新的 2 MiB firmware.bin。",
+ rsizeerr:"请选择包含引导程序和应用程序的完整 firmware.bin。",
+ validating:"正在验证固件镜像…",update:"更新固件",retry:"重试更新",updating:"正在更新固件…",
+ rbtn:"备份并安装",rretry:"重试",rworking:"正在备份并安装…",
+ previewLabel:"预览版",noUpdate:"没有可用更新",newerInstalled:"已安装更新版本",refresh:"重新检查",
+ installed:"已安装版本",latest:"最新兼容版本",includePreview:"包含 Alpha / Beta 版本",
+ releaseNotes:"版本说明 ↗",manual:"选择本地固件镜像",searching:"正在查找遥控器…",
+ absent:"请连接遥控器",connected:"Noble {model} 已连接",normal:"请在遥控器上打开更新",
+ recovery:"检测到恢复模式",multiple:"请每次只连接一台遥控器",usbError:"USB 连接不可用",
+ unknown:"不可用",dev:"开发版本",
+ connectHelp:"打开遥控器的菜单 → 系统 → 更新，然后连接 USB 数据线。仅充电连接无法被检测。",
+ normalHelp:"已检测到遥控器。请在遥控器上打开菜单 → 系统 → 更新以继续。",
+ readyHelp:"ApexTX 更新已就绪。请保持遥控器供电和连接。",
+ recoveryHelp:"STM32 恢复模式无法识别遥控器型号。请使用安装 / 恢复并确认型号。",
+ multipleHelp:"请断开其他遥控器，以确定唯一的更新目标。",
+ checking:"正在检查 GitHub 发布版本…",
+ noRelease:"此通道没有兼容版本。可启用 Alpha / Beta 版本或选择本地镜像。",
+ previewHelp:"这是预览版本。安装前请阅读版本说明。",
+ availableHelp:"有新的兼容版本可用。确认后将自动下载并验证。",
+ currentHelp:"遥控器已安装此版本。",
+ aheadHelp:"已安装版本高于此发布版本。不会自动降级。",
+ developmentHelp:"这是开发版本。如需替换，请选择本地镜像。",
+ downloadUpdate:"更新至 {version}",installLatest:"安装 {version}",upToDate:"已是最新版本",
+ waitRadio:"正在等待遥控器",working:"正在更新遥控器…",
+ offline:"无法检查发布版本。请检查网络连接或选择本地镜像。",
+ unavailable:"刷写工具不可用。请查看遥控器屏幕。",
+ downloading:"正在下载固件…",downloadVerified:"下载文件已验证。",waiting:"正在等待 ApexTX 更新…",
+ transferring:"正在传输固件…",transferCheck:"正在验证传输…",installing:"正在安装并验证固件…",
+ restarting:"固件已验证。正在重启遥控器…",done:"固件已验证。请确认遥控器已返回主页。",
+ restartManually:"固件已验证。请长按遥控器电源键以重启。",
+ flashBusy:"正在等待遥控器完成闪存写入…",
+ usbLostInstalling:"无法读取 USB 状态。请保持供电，遥控器仍在安装。请查看其屏幕，仅在显示固件验证完成后重启。",
+ usbLostVerified:"固件已写入并验证。请长按遥控器电源键以重启。",
+ usbLostTransfer:"闪存写入前 USB 连接已断开。请重新连接遥控器并重试。",
+ rduration:"预计需要 5–10 分钟。安装期间屏幕保持黑色，请在此查看进度并保持 USB 连接。",
+ rautoDone:"固件和引导程序已验证。遥控器正在自动启动，请确认主页出现。",
+ rbackup:"正在备份当前固件…",rerase:"正在擦除内部闪存…",rwrite:"正在写入固件和引导程序…",
+ rverify:"正在验证完整镜像…",rfinish:"镜像已验证。正在启动遥控器…",
+ bootloaderTitle:"需要更新引导程序",
+ bootloaderHelp:"此版本需要更新的引导程序。普通更新会保留旧引导程序。工具将下载完整镜像，并引导你进入 STM32 ROM DFU 模式完成安装。",
+ bootloaderUpdate:"准备完整安装 · {version}",dfuTitle:"请以 DFU 模式连接遥控器",
+ dfuDownloaded:"固件已下载并验证，尚未写入。",
+ dfuStep1:"断开 USB 并完全关闭遥控器。",
+ dfuStep2:"按住左侧握把内的凹陷按钮，同时开机并连接 USB 数据线。这与菜单 → 系统 → 更新不同。",
+ dfuStep3:"下方检测到 DFU 后松开握把按钮，再选择备份并安装。",
+ dfuBackup:"工具会备份当前内部固件，安装完整镜像并逐字节验证，然后自动启动遥控器。",
+ dfuWait:"正在等待处于 STM32 ROM DFU 模式的遥控器…",
+ dfuWrongRadio:"连接了另一台遥控器。请在 STM32 ROM DFU 模式重新连接原遥控器。",
+ dfuDetected:"遥控器已以 DFU 模式连接，可以进行完整安装。",
+ dfuInstall:"备份并安装到 Noble {model}",dfuCancel:"取消安装",
+ dfuPreparing:"正在下载并验证完整固件…",
+ componentsTitle:"组件",componentsRead:"读取组件版本",
+ componentsHelp:"在遥控器上打开系统 > 更新 > 连接 ApexTX 刷写工具，然后连接 USB。此实验连接仅读取版本，尚未启用射频固件安装。",
+ componentsDone:"组件版本已读取，没有写入固件。",
+ componentsStale:"这是之前的读取结果。准备更新前请重新读取。",
+ componentModule:"射频模块（报告版本）",componentReceiver:"接收机固件",
+ componentPending:"接收机未连接 · 版本待检查"
+};
+Object.assign(T.en,{"wizardTitle": "Component update", "wizardHelp": "Experimental workflow. Prepare the files, back up this radio and review each component. Connecting USB never starts an installation.", "wizardPackage": "Choose a complete ApexTX package (.zip or .tar.gz)", "wizardDownload": "Download complete release package", "wizardResume": "Resume a saved plan", "wizardBrowse": "Browse…", "wizardOpen": "Open plan", "wizardBackup": "1 · Recovery backup", "wizardBackupHelp": "Use ROM DFU (black screen) for the complete internal firmware and external storage copy. Keep this private backup on the computer. Existing cars and calibration are retained by normal updates; cars from the previous system are not converted automatically.", "wizardBackupCreate": "Create complete backup · ROM DFU", "wizardBackupAttach": "Use verified backup folder", "wizardReview": "2 · Review and select components", "wizardApplication": "Radio firmware", "wizardResources": "Themes and tools", "wizardAudio": "Voice pack", "wizardInstall": "Install", "wizardStage": "Prepare only", "wizardCancel": "Cancel preparation", "wizardRecover": "Recover RF", "wizardAudioChoose": "Optional: choose one audio pack", "wizardReinstall": "Reinstall current RF firmware (bench test)", "wizardConfirm": "I reviewed the radio, components and backup. The motor is disconnected for RF maintenance.", "wizardApprove": "Confirm this plan", "wizardStorage": "3 · USB Storage for resources and audio", "wizardStorageHelp": "First prepare storage from Maintenance. Then reconnect USB, select Storage on the radio and choose its mounted volume. The app checks that it belongs to this plan.", "wizardStoragePrepare": "Prepare storage connection", "wizardRecovery": "Complete backup restoration · experimental", "wizardRecoveryHelp": "Use ROM DFU and this radio’s verified backup. NOR restoration replaces all external storage; firmware restoration replaces internal firmware and bootloader. RF module and receiver recovery use their own Recover RF action.", "wizardRestoreNor": "Restore complete external storage", "wizardRestoreApp": "Restore internal firmware", "wizardDestructive": "Confirm the selected operation on this radio:", "wizardQualified": "RF writing is not qualified for this hardware/compilación.", "wizardBackupPending": "No verified recovery backup selected.", "wizardApproved": "Plan confirmed", "wizardUnapproved": "Review and confirm the plan before installing.", "wizardOutcome_complete": "Selected components verified.", "wizardOutcome_partial": "There are pending or deferred components.", "wizardOutcome_recovery_required": "Recovery is required before continuing.", "wizardMode_maintenance": "Maintenance connected · read versions and prepare RF or storage.", "wizardMode_update": "ApexTX Update connected · ready for the radio application.", "wizardMode_storage": "USB Storage connected · ready for resources and audio.", "wizardMode_recovery": "ROM DFU connected · complete backup or recovery.", "wizardMode_other": "Connect this transmitter in the mode required by the selected action.", "wizardState_unselected": "Not selected", "wizardState_pending": "Pending", "wizardState_current": "Current", "wizardState_ready": "Ready", "wizardState_unknown": "Unknown", "wizardState_blocked": "Blocked", "wizardState_staged": "Prepared", "wizardState_running": "In progress", "wizardState_verifying": "Verify after restart", "wizardState_complete": "Complete", "wizardState_cancelled": "Cancelled", "wizardState_failed": "Failed", "wizardState_recovery_required": "Recovery required", "wizardState_deferred": "Deferred"});
+Object.assign(T.es,{"wizardTitle": "Actualización de componentes", "wizardHelp": "Flujo experimental. Prepara los archivos, respalda esta emisora y revisa cada componente. Conectar USB nunca inicia una instalación.", "wizardPackage": "Elegir paquete completo de ApexTX (.zip o .tar.gz)", "wizardDownload": "Descargar paquete completo del release", "wizardResume": "Continuar un plan guardado", "wizardBrowse": "Examinar…", "wizardOpen": "Abrir plan", "wizardBackup": "1 · Copia de recuperación", "wizardBackupHelp": "Usa ROM DFU (pantalla negra) para copiar el firmware interno y todo el almacenamiento externo. Guarda esta copia privada en el ordenador. Las actualizaciones normales conservan coches y calibración; los coches del sistema anterior no se convierten automáticamente.", "wizardBackupCreate": "Crear copia completa · ROM DFU", "wizardBackupAttach": "Usar carpeta de copia verificada", "wizardReview": "2 · Revisar y seleccionar componentes", "wizardApplication": "Firmware de la emisora", "wizardResources": "Temas y herramientas", "wizardAudio": "Paquete de voz", "wizardInstall": "Instalar", "wizardStage": "Solo preparar", "wizardCancel": "Cancelar preparación", "wizardRecover": "Recuperar RF", "wizardAudioChoose": "Opcional: elegir un paquete de audio", "wizardReinstall": "Reinstalar RF aunque esté actualizado (prueba de banco)", "wizardConfirm": "He revisado la emisora, los componentes y la copia. El motor está desconectado para el mantenimiento RF.", "wizardApprove": "Confirmar este plan", "wizardStorage": "3 · USB Storage para recursos y audio", "wizardStorageHelp": "Prepara primero el almacenamiento desde Mantenimiento. Después reconecta USB, elige Storage en la emisora y selecciona el volumen montado. La app comprueba que pertenece a este plan.", "wizardStoragePrepare": "Preparar conexión de almacenamiento", "wizardRecovery": "Restaurar copia completa · experimental", "wizardRecoveryHelp": "Usa ROM DFU y la copia verificada de esta emisora. Restaurar NOR sustituye todo el almacenamiento externo; restaurar firmware sustituye firmware interno y bootloader. El módulo RF y el receptor tienen su propia acción Recuperar RF.", "wizardRestoreNor": "Restaurar todo el almacenamiento externo", "wizardRestoreApp": "Restaurar firmware interno", "wizardDestructive": "Confirma la operación seleccionada en esta emisora:", "wizardQualified": "La escritura RF no está validada para este hardware/compilación.", "wizardBackupPending": "Todavía no hay una copia de recuperación verificada.", "wizardApproved": "Plan confirmado", "wizardUnapproved": "Revisa y confirma el plan antes de instalar.", "wizardOutcome_complete": "Componentes seleccionados verificados.", "wizardOutcome_partial": "Quedan componentes pendientes o aplazados.", "wizardOutcome_recovery_required": "Hace falta recuperar antes de continuar.", "wizardMode_maintenance": "Mantenimiento conectado · consultar versiones y preparar RF o almacenamiento.", "wizardMode_update": "ApexTX Update conectado · listo para el firmware principal.", "wizardMode_storage": "USB Storage conectado · listo para recursos y audio.", "wizardMode_recovery": "ROM DFU conectado · copia completa o recuperación.", "wizardMode_other": "Conecta esta emisora en el modo que requiere la acción elegida.", "wizardState_unselected": "Sin seleccionar", "wizardState_pending": "Pendiente", "wizardState_current": "Actualizado", "wizardState_ready": "Preparado", "wizardState_unknown": "Desconocido", "wizardState_blocked": "Bloqueado", "wizardState_staged": "Imagen preparada", "wizardState_running": "En curso", "wizardState_verifying": "Verificar tras reiniciar", "wizardState_complete": "Completado", "wizardState_cancelled": "Cancelado", "wizardState_failed": "Falló", "wizardState_recovery_required": "Requiere recuperación", "wizardState_deferred": "Aplazado"});
+Object.assign(T.de,{"wizardTitle": "Komponenten aktualisieren", "wizardHelp": "Experimenteller Ablauf. Dateien vorbereiten, diesen Sender sichern und jede Komponente prüfen. Eine USB-Verbindung startet keine Installation.", "wizardPackage": "Vollständiges ApexTX-Paket wählen (.zip oder .tar.gz)", "wizardDownload": "Vollständiges Release-Paket herunterladen", "wizardResume": "Gespeicherten Plan fortsetzen", "wizardBrowse": "Durchsuchen…", "wizardOpen": "Plan öffnen", "wizardBackup": "1 · Wiederherstellungskopie", "wizardBackupHelp": "ROM DFU (schwarzer Bildschirm) sichert interne Firmware und den gesamten externen Speicher. Diese private Kopie auf dem Computer behalten. Normale Updates erhalten Autos und Kalibrierung; Autos des bisherigen Systems werden nicht automatisch konvertiert.", "wizardBackupCreate": "Vollständige Sicherung · ROM DFU", "wizardBackupAttach": "Geprüften Sicherungsordner verwenden", "wizardReview": "2 · Komponenten prüfen und auswählen", "wizardApplication": "Senderfirmware", "wizardResources": "Designs und Werkzeuge", "wizardAudio": "Sprachpaket", "wizardInstall": "Installieren", "wizardStage": "Nur vorbereiten", "wizardCancel": "Vorbereitung abbrechen", "wizardRecover": "HF wiederherstellen", "wizardAudioChoose": "Optional: ein Audiopaket wählen", "wizardReinstall": "Aktuelle HF-Firmware neu installieren (Prüfstand)", "wizardConfirm": "Sender, Komponenten und Sicherung sind geprüft. Der Motor ist für die HF-Wartung getrennt.", "wizardApprove": "Diesen Plan bestätigen", "wizardStorage": "3 · USB-Speicher für Ressourcen und Audio", "wizardStorageHelp": "Speicher zunächst im Wartungsmodus vorbereiten. USB neu verbinden, am Sender Speicher wählen und das Laufwerk auswählen. Die App prüft die Zuordnung zum Plan.", "wizardStoragePrepare": "Speicherverbindung vorbereiten", "wizardRecovery": "Vollständige Sicherung wiederherstellen · experimentell", "wizardRecoveryHelp": "ROM DFU und die geprüfte Sicherung dieses Senders verwenden. NOR ersetzt den externen Speicher; Firmware ersetzt interne Firmware und Bootloader. HF-Modul und Empfänger haben eine eigene HF-Wiederherstellung.", "wizardRestoreNor": "Gesamten externen Speicher wiederherstellen", "wizardRestoreApp": "Interne Firmware wiederherstellen", "wizardDestructive": "Ausgewählte Aktion für diesen Sender bestätigen:", "wizardQualified": "HF-Schreiben ist für diese Hardware/Firmware nicht qualifiziert.", "wizardBackupPending": "Keine geprüfte Wiederherstellungskopie ausgewählt.", "wizardApproved": "Plan bestätigt", "wizardUnapproved": "Plan vor der Installation prüfen und bestätigen.", "wizardOutcome_complete": "Ausgewählte Komponenten geprüft.", "wizardOutcome_partial": "Komponenten sind noch ausstehend oder zurückgestellt.", "wizardOutcome_recovery_required": "Vor dem Fortfahren ist Wiederherstellung erforderlich.", "wizardMode_maintenance": "Wartung verbunden · Versionen lesen und HF/Speicher vorbereiten.", "wizardMode_update": "ApexTX Update verbunden · bereit für die Senderanwendung.", "wizardMode_storage": "USB-Speicher verbunden · bereit für Ressourcen und Audio.", "wizardMode_recovery": "ROM DFU verbunden · vollständige Sicherung oder Wiederherstellung.", "wizardMode_other": "Diesen Sender im für die Aktion benötigten Modus verbinden.", "wizardState_unselected": "Nicht ausgewählt", "wizardState_pending": "Ausstehend", "wizardState_current": "Aktuell", "wizardState_ready": "Bereit", "wizardState_unknown": "Unbekannt", "wizardState_blocked": "Gesperrt", "wizardState_staged": "Vorbereitet", "wizardState_running": "In Arbeit", "wizardState_verifying": "Nach Neustart prüfen", "wizardState_complete": "Abgeschlossen", "wizardState_cancelled": "Abgebrochen", "wizardState_failed": "Fehlgeschlagen", "wizardState_recovery_required": "Wiederherstellung nötig", "wizardState_deferred": "Zurückgestellt"});
+Object.assign(T.cn,{"wizardTitle": "组件更新", "wizardHelp": "实验性流程。先准备文件、备份此遥控器并检查各组件。连接 USB 不会自动安装。", "wizardPackage": "选择完整 ApexTX 包（.zip 或 .tar.gz）", "wizardDownload": "下载完整发布包", "wizardResume": "继续已保存的计划", "wizardBrowse": "浏览…", "wizardOpen": "打开计划", "wizardBackup": "1 · 恢复备份", "wizardBackupHelp": "使用 ROM DFU（黑屏）复制内部固件及全部外部存储。请在电脑上保留此私密备份。正常更新保留车辆及校准；原系统的车辆不会自动转换。", "wizardBackupCreate": "创建完整备份 · ROM DFU", "wizardBackupAttach": "使用已验证的备份文件夹", "wizardReview": "2 · 检查并选择组件", "wizardApplication": "遥控器固件", "wizardResources": "主题与工具", "wizardAudio": "语音包", "wizardInstall": "安装", "wizardStage": "仅准备", "wizardCancel": "取消准备", "wizardRecover": "恢复射频", "wizardAudioChoose": "可选：选择一个语音包", "wizardReinstall": "重新安装当前射频固件（台架测试）", "wizardConfirm": "已检查遥控器、组件及备份。进行射频维护时电机已断开。", "wizardApprove": "确认此计划", "wizardStorage": "3 · 资源和音频的 USB 存储", "wizardStorageHelp": "先在维护模式准备存储，然后重新连接 USB，在遥控器上选择存储并选择已挂载的卷。应用会确认它属于此计划。", "wizardStoragePrepare": "准备存储连接", "wizardRecovery": "完整备份恢复 · 实验性", "wizardRecoveryHelp": "使用 ROM DFU 及此遥控器已验证的备份。恢复 NOR 将替换全部外部存储；恢复固件将替换内部固件及引导程序。射频模块和接收机分别使用恢复射频操作。", "wizardRestoreNor": "恢复全部外部存储", "wizardRestoreApp": "恢复内部固件", "wizardDestructive": "确认对此遥控器执行所选操作：", "wizardQualified": "此硬件或构建尚未通过射频写入验证。", "wizardBackupPending": "尚未选择已验证的恢复备份。", "wizardApproved": "计划已确认", "wizardUnapproved": "安装前请检查并确认计划。", "wizardOutcome_complete": "所选组件已验证。", "wizardOutcome_partial": "仍有待处理或已推迟的组件。", "wizardOutcome_recovery_required": "继续前需要恢复。", "wizardMode_maintenance": "维护已连接 · 读取版本并准备射频或存储。", "wizardMode_update": "ApexTX 更新已连接 · 可安装遥控器应用。", "wizardMode_storage": "USB 存储已连接 · 可安装资源和音频。", "wizardMode_recovery": "ROM DFU 已连接 · 完整备份或恢复。", "wizardMode_other": "请以所选操作要求的模式连接此遥控器。", "wizardState_unselected": "未选择", "wizardState_pending": "待处理", "wizardState_current": "已是最新", "wizardState_ready": "就绪", "wizardState_unknown": "未知", "wizardState_blocked": "已阻止", "wizardState_staged": "镜像已准备", "wizardState_running": "正在进行", "wizardState_verifying": "重启后验证", "wizardState_complete": "已完成", "wizardState_cancelled": "已取消", "wizardState_failed": "失败", "wizardState_recovery_required": "需要恢复", "wizardState_deferred": "已推迟"});
+Object.assign(T.en,{"wizardBackupFolder": "Backup folder on this computer", "wizardVolumeFolder": "Mounted radio storage volume"});
+Object.assign(T.es,{"wizardBackupFolder": "Carpeta de la copia en este ordenador", "wizardVolumeFolder": "Volumen de almacenamiento de la emisora"});
+Object.assign(T.de,{"wizardBackupFolder": "Sicherungsordner auf diesem Computer", "wizardVolumeFolder": "Eingebundenes Speicherlaufwerk des Senders"});
+Object.assign(T.cn,{"wizardBackupFolder": "此电脑上的备份文件夹", "wizardVolumeFolder": "遥控器已挂载的存储卷"});
+Object.assign(T.en,{"wizardRestoreAudio": "Restore previous audio"});
+Object.assign(T.es,{"wizardRestoreAudio": "Restaurar audio anterior"});
+Object.assign(T.de,{"wizardRestoreAudio": "Vorheriges Audio wiederherstellen"});
+Object.assign(T.cn,{"wizardRestoreAudio": "恢复之前的音频"});
+let displayedComponentPlan=null,displayedComponentBackup=null;
+Object.assign(T.cn,{"appTitle": "更新 ApexTX Flasher", "appPreview": "包含桌面应用预览版", "appRelocate": "安装到我的用户文件夹", "appCheck": "检查应用更新", "appInstall": "更新并重启", "appLater": "明天提醒我", "appSkip": "跳过此版本", "appRadioSafe": "已检查遥控器，恢复已完成", "appSigning": "更新使用 ApexTX 签名进行验证。Windows 或 macOS 可能要求允许打开没有官方发布者证书的应用。", "appInstalled": "已安装应用：{version}", "appAvailable": "有新版本 ApexTX Flasher {version}。", "appCurrent": "ApexTX Flasher 已是最新。", "appChecking": "正在检查 ApexTX Flasher 更新…", "appDownloading": "正在下载 ApexTX Flasher… {progress}%", "appVerifying": "正在验证 ApexTX Flasher 更新…", "appRestarting": "正在重启 ApexTX Flasher…", "appBlocked": "更新应用前请完成遥控器操作或恢复。", "appUnsupported": "自动安装需要官方 Windows 或 macOS 桌面包。", "appIncompatible": "此应用更新需要更新的操作系统。", "appLastCheck": "上次成功检查：{date}", "appOffline": "无法检查应用更新。本地遥控器操作仍可使用。", "appUpdated": "ApexTX Flasher 已成功更新。"});
+Object.assign(T.en,{"wizardKeepAudio": "Keep the installed voice pack", "wizardSessionFolder": "Saved plan folder", "wizardFirstSetup": "After first installation: run Menu > System > Calibration, then create a car and bind its receiver. Cars from the previous system remain in the backup."});
+Object.assign(T.es,{"wizardKeepAudio": "Conservar el paquete de voz instalado", "wizardSessionFolder": "Carpeta del plan guardado", "wizardFirstSetup": "Después de la primera instalación: Menú > Sistema > Calibración; después crea un coche y enlaza su receptor. Los coches del sistema anterior quedan en la copia."});
+Object.assign(T.de,{"wizardKeepAudio": "Installiertes Sprachpaket behalten", "wizardSessionFolder": "Ordner des gespeicherten Plans", "wizardFirstSetup": "Nach der Erstinstallation: Menü > System > Kalibrierung ausführen, dann ein Auto anlegen und den Empfänger binden. Bisherige Autos bleiben in der Sicherung."});
+Object.assign(T.cn,{"wizardKeepAudio": "保留已安装的语音包", "wizardSessionFolder": "已保存计划的文件夹", "wizardFirstSetup": "首次安装后，请在菜单 > 系统 > 校准进行校准，然后创建车辆并绑定接收机。原系统的车辆保留在备份中。"});
+Object.assign(T.en,{"wizardPhaseSaved": "Plan saved. Review each component’s state before the next phase.", "wizardPhaseWorking": "Preparing the selected component action…", "wizardPhasePreparing": "Preparing and verifying the complete package…", "wizardPhaseBackup": "Creating and verifying the complete recovery backup…", "wizardPhaseStage": "Preparing the RF image · no RF installation yet", "wizardPhaseRf": "Installing the RF component…", "wizardPhaseAudio": "Installing audio files…", "wizardPhaseResources": "Installing themes, tools and prepared RF images…", "wizardPhaseRestore": "Restoring and verifying the backup…", "wizardPhaseVerify": "Independently verifying the selected component…", "wizardErrorMode": "Reconnect the original transmitter in the required mode: {mode}.", "wizardErrorSpace": "Not enough storage. Defer audio/resources or free space while keeping the settings/history reserve.", "wizardErrorIdentity": "The component, radio or backup identity changed. Read versions and review the plan again.", "wizardErrorFirst": "First installation stays blocked until complete rollback is demonstrated on this transmitter model.", "wizardErrorResume": "Resume with the original package and backup, or restore the previous files.", "wizardErrorGeneric": "The action stopped. Review the connection, component state and recovery instructions before retrying.", "wizardTechnical": "Technical details"});
+Object.assign(T.es,{"wizardPhaseSaved": "Plan guardado. Revisa el estado de cada componente antes de la siguiente fase.", "wizardPhaseWorking": "Preparando la acción del componente elegido…", "wizardPhasePreparing": "Preparando y verificando el paquete completo…", "wizardPhaseBackup": "Creando y verificando la copia completa de recuperación…", "wizardPhaseStage": "Preparando imagen RF · todavía no se instala en RF", "wizardPhaseRf": "Instalando el componente RF…", "wizardPhaseAudio": "Instalando archivos de audio…", "wizardPhaseResources": "Instalando temas, herramientas e imágenes RF preparadas…", "wizardPhaseRestore": "Restaurando y verificando la copia…", "wizardPhaseVerify": "Verificando de forma independiente el componente…", "wizardErrorMode": "Reconecta la misma emisora en el modo requerido: {mode}.", "wizardErrorSpace": "Falta espacio. Aplaza audio/recursos o libera espacio conservando la reserva para ajustes e historial.", "wizardErrorIdentity": "Ha cambiado la identidad del componente, la emisora o la copia. Consulta versiones y vuelve a revisar el plan.", "wizardErrorFirst": "La primera instalación sigue bloqueada hasta demostrar la restauración completa en este modelo de emisora.", "wizardErrorResume": "Continúa con el paquete y la copia originales, o restaura los archivos anteriores.", "wizardErrorGeneric": "La acción se ha detenido. Revisa la conexión, el estado del componente y las instrucciones de recuperación antes de reintentar.", "wizardTechnical": "Detalles técnicos"});
+Object.assign(T.de,{"wizardPhaseSaved": "Plan gespeichert. Vor der nächsten Phase den Zustand jeder Komponente prüfen.", "wizardPhaseWorking": "Ausgewählte Komponentenaktion wird vorbereitet…", "wizardPhasePreparing": "Vollständiges Paket wird vorbereitet und geprüft…", "wizardPhaseBackup": "Vollständige Wiederherstellungskopie wird erstellt und geprüft…", "wizardPhaseStage": "HF-Image vorbereiten · noch keine HF-Installation", "wizardPhaseRf": "HF-Komponente wird installiert…", "wizardPhaseAudio": "Audiodateien werden installiert…", "wizardPhaseResources": "Designs, Werkzeuge und vorbereitete HF-Images werden installiert…", "wizardPhaseRestore": "Sicherung wird wiederhergestellt und geprüft…", "wizardPhaseVerify": "Komponente wird unabhängig geprüft…", "wizardErrorMode": "Ursprünglichen Sender im benötigten Modus verbinden: {mode}.", "wizardErrorSpace": "Nicht genug Speicher. Audio/Ressourcen zurückstellen oder Speicher freigeben; Reserve für Einstellungen und Verlauf behalten.", "wizardErrorIdentity": "Komponenten-, Sender- oder Sicherungsidentität geändert. Versionen erneut lesen und Plan prüfen.", "wizardErrorFirst": "Erstinstallation bleibt gesperrt, bis vollständige Wiederherstellung auf diesem Sendermodell nachgewiesen ist.", "wizardErrorResume": "Mit Originalpaket und Sicherung fortsetzen oder vorherige Dateien wiederherstellen.", "wizardErrorGeneric": "Aktion gestoppt. Verbindung, Komponentenzustand und Wiederherstellungsanleitung vor erneutem Versuch prüfen.", "wizardTechnical": "Technische Details"});
+Object.assign(T.cn,{"wizardPhaseSaved": "计划已保存。下一阶段前请检查各组件状态。", "wizardPhaseWorking": "正在准备所选组件操作…", "wizardPhasePreparing": "正在准备并验证完整包…", "wizardPhaseBackup": "正在创建并验证完整恢复备份…", "wizardPhaseStage": "正在准备射频镜像 · 尚未安装射频固件", "wizardPhaseRf": "正在安装射频组件…", "wizardPhaseAudio": "正在安装音频文件…", "wizardPhaseResources": "正在安装主题、工具和已准备的射频镜像…", "wizardPhaseRestore": "正在恢复并验证备份…", "wizardPhaseVerify": "正在独立验证所选组件…", "wizardErrorMode": "请以所需模式重新连接原遥控器：{mode}。", "wizardErrorSpace": "存储空间不足。请推迟音频或资源，或释放空间并保留设置和历史记录预留空间。", "wizardErrorIdentity": "组件、遥控器或备份身份已改变。请重新读取版本并检查计划。", "wizardErrorFirst": "此遥控器型号完成完整恢复验证前，首次安装保持禁用。", "wizardErrorResume": "请使用原包及备份继续，或恢复之前的文件。", "wizardErrorGeneric": "操作已停止。重试前请检查连接、组件状态及恢复说明。", "wizardTechnical": "技术详情"});
+const componentKeys=['application','module','receiver','resources','audio'];
+Object.assign(T.en,{"appTitle": "ApexTX Flasher updates", "appPreview": "Include preview versions of the desktop app", "appRelocate": "Install in my user folder", "appCheck": "Check app updates", "appInstall": "Update and restart", "appLater": "Remind me tomorrow", "appSkip": "Skip this version", "appRadioSafe": "I checked the radio; recovery is finished", "appSigning": "Updates are authenticated with ApexTX’s own signature. Windows or macOS may require permission to open an app without an official publisher certificate.", "appInstalled": "Installed app: {version}", "appAvailable": "ApexTX Flasher {version} is available.", "appCurrent": "ApexTX Flasher is up to date.", "appChecking": "Checking ApexTX Flasher updates…", "appDownloading": "Downloading ApexTX Flasher… {progress}%", "appVerifying": "Verifying the ApexTX Flasher update…", "appRestarting": "Restarting ApexTX Flasher…", "appBlocked": "Finish the radio operation or recovery before updating the app.", "appUnsupported": "Automatic installation requires an official Windows or macOS desktop package.", "appIncompatible": "This app update requires a newer operating system.", "appLastCheck": "Last successful check: {date}", "appOffline": "Could not check app updates. Local radio operations are still available.", "appUpdated": "ApexTX Flasher was updated successfully."});
+Object.assign(T.es,{"appTitle": "Actualizaciones de ApexTX Flasher", "appPreview": "Incluir versiones preliminares de la app de escritorio", "appRelocate": "Instalar en mi carpeta de usuario", "appCheck": "Buscar actualizaciones de la app", "appInstall": "Actualizar y reiniciar", "appLater": "Recordármelo mañana", "appSkip": "Omitir esta versión", "appRadioSafe": "He comprobado la emisora; la recuperación ha terminado", "appSigning": "Las actualizaciones se autentican con firma propia de ApexTX. Windows o macOS pueden pedir autorización para abrir una app sin certificado oficial de editor.", "appInstalled": "App instalada: {version}", "appAvailable": "ApexTX Flasher {version} está disponible.", "appCurrent": "ApexTX Flasher está actualizado.", "appChecking": "Buscando actualizaciones de ApexTX Flasher…", "appDownloading": "Descargando ApexTX Flasher… {progress}%", "appVerifying": "Verificando la actualización de ApexTX Flasher…", "appRestarting": "Reiniciando ApexTX Flasher…", "appBlocked": "Termina la operación o recuperación de la emisora antes de actualizar la app.", "appUnsupported": "La instalación automática requiere un paquete oficial de escritorio para Windows o macOS.", "appIncompatible": "Esta actualización de la app requiere un sistema operativo más reciente.", "appLastCheck": "Última comprobación correcta: {date}", "appOffline": "No se ha podido comprobar la actualización de la app. Las operaciones locales de la emisora siguen disponibles.", "appUpdated": "ApexTX Flasher se ha actualizado correctamente."});
+Object.assign(T.de,{"appTitle": "ApexTX Flasher aktualisieren", "appPreview": "Vorabversionen der Desktop-App einbeziehen", "appRelocate": "In meinem Benutzerordner installieren", "appCheck": "Nach App-Updates suchen", "appInstall": "Aktualisieren und neu starten", "appLater": "Morgen erinnern", "appSkip": "Diese Version überspringen", "appRadioSafe": "Fernbedienung geprüft; Wiederherstellung abgeschlossen", "appSigning": "Updates werden mit der eigenen ApexTX-Signatur geprüft. Windows oder macOS können eine Freigabe für Apps ohne offizielles Herausgeberzertifikat verlangen.", "appInstalled": "Installierte App: {version}", "appAvailable": "ApexTX Flasher {version} ist verfügbar.", "appCurrent": "ApexTX Flasher ist aktuell.", "appChecking": "ApexTX-Flasher-Updates werden gesucht…", "appDownloading": "ApexTX Flasher wird heruntergeladen… {progress}%", "appVerifying": "ApexTX-Flasher-Update wird geprüft…", "appRestarting": "ApexTX Flasher wird neu gestartet…", "appBlocked": "Vorgang oder Wiederherstellung der Fernbedienung vor dem App-Update abschließen.", "appUnsupported": "Automatische Installation erfordert ein offizielles Windows- oder macOS-App-Paket.", "appIncompatible": "Dieses App-Update erfordert ein neueres Betriebssystem.", "appLastCheck": "Letzte erfolgreiche Prüfung: {date}", "appOffline": "App-Updates konnten nicht geprüft werden. Lokale Funkgerätefunktionen bleiben verfügbar.", "appUpdated": "ApexTX Flasher wurde erfolgreich aktualisiert."});
 const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
 let running=false,lang='en',mode='update',rVariant=null,snapshot=null,requesting=false,localError=null;
 const IMG=2097152;
-function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const n=(navigator.language||'en').slice(0,2).toLowerCase();return T[n]?n:'en';}
-function setMode(m){if(running)return;mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');}
-function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l;
+function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const raw=(navigator.language||'en').slice(0,2).toLowerCase(),n=raw==='zh'?'cn':raw;return T[n]?n:'en';}
+function setMode(m){if(running)return;mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');$('#componentPanel').classList.toggle('hide',m!=='components');}
+function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l==='cn'?'zh-CN':l;
  document.querySelectorAll('[data-k]').forEach(el=>{if(d[el.dataset.k]!=null)el.textContent=d[el.dataset.k];});
  document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
  const uf=file.files[0],rf=rfile.files[0];fileinfo.textContent=uf?`${uf.name} · ${(uf.size/1048576).toFixed(2)} MiB`:d.fileinfo;rfileinfo.textContent=rf?`${rf.name} · ${(rf.size/1048576).toFixed(2)} MiB`:d.rfileinfo;
@@ -307,15 +499,21 @@ function refreshModel(){const d=T[lang];if(!rfile.files[0]){rmodel.style.display
  const radio=selectedRadio();rconfirmLabel.textContent=rVariant&&radio?d.rconfirm.replace('{radio}','Noble '+radio).replace('{image}','Noble '+rVariant):d.rconfirmGeneric;
 }
 function selectedRadio(){const picked=document.querySelector('input[name="radioVariant"]:checked');return picked?picked.value:null;}
-function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'searching'},offer=s.release,state=device.state,plan=s.bootloader_install;
+function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'searching'},offer=s.release,state=device.state,plan=s.bootloader_install,maintenance=state==='normal'&&device.maintenance===true;
  if(!s.operation&&!localError&&!requesting)$('#transfer').hidden=true;
- $('#deviceTitle').textContent=(d[state==='ready'?'connected':state==='error'?'usbError':state]||d.searching).replace('{model}',device.model||'');
+ $('#deviceTitle').textContent=(d[maintenance?'maintenanceConnected':state==='ready'?'connected':state==='error'?'usbError':state]||d.searching).replace('{model}',device.model||'');
  $('#deviceDot').classList.toggle('connected',state==='ready'||state==='normal');
  $('#installedVersion').textContent=device.version?(device.version+(device.development?' · dev':'')):state==='ready'||state==='normal'?d.unknown:'—';
  $('#installedVersion').title=device.revision||'';
  $('#latestVersion').textContent=offer?offer.version:s.checking?'…':'—';$('#previewBadge').hidden=!offer||!offer.prerelease;
- $('#deviceHelp').textContent=plan?'':state==='ready'?d.readyHelp:state==='normal'?d.normalHelp:state==='recovery'?d.recoveryHelp:state==='multiple'?d.multipleHelp:state==='error'?device.message:d.connectHelp;
- const slot=$('#'+(s.operation==='recover'?'recover':s.operation==='manual'?'manual':'update')+'TransferSlot');if($('#transfer').parentElement!==slot)slot.appendChild($('#transfer'));
+ $('#deviceHelp').textContent=plan?'':maintenance?d.maintenanceHelp:state==='ready'?d.readyHelp:state==='normal'?d.normalHelp:state==='recovery'?d.recoveryHelp:state==='multiple'?d.multipleHelp:state==='error'?device.message:d.connectHelp;
+ const components=s.components;
+ $('#readComponents').disabled=running||requesting||!!plan||state!=='normal'||!device.maintenance||!device.target||!device.serial;
+ $('#componentsStatus').textContent=components?(s.components_fresh?d.componentsDone:d.componentsStale):'';
+ $('#componentModule').textContent=components?.module?.valid?'0x'+components.module.firmware.toString(16).toUpperCase():d.unknown;
+ $('#componentReceiver').textContent=components&&!components.connected?d.componentPending:components?.receiver?.valid?'0x'+components.receiver.firmware.toString(16).toUpperCase():d.unknown;
+ const slot=$('#'+(s.operation==='components'||mode==='components'&&(localError||requesting)?'component':s.operation==='recover'?'recover':s.operation==='manual'?'manual':'update')+'TransferSlot');if($('#transfer').parentElement!==slot)slot.appendChild($('#transfer'));
+ renderAppUpdate();
  const decision=offer?.decision;
  $('#releaseHelp').textContent=plan?'':s.checking?d.checking:s.release_error?d.offline:offer?(decision==='unknown'||decision==='bootloader'?'':d[decision+'Help']||'')+(offer.prerelease?' '+d.previewHelp:''):device.target?d.noRelease:'';
  $('#releaseHelp').title=s.release_error||'';
@@ -340,7 +538,96 @@ function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'search
  start.textContent=running&&s.operation==='manual'?d.updating:d.update;
  rstart.textContent=running&&s.operation==='recover'?d.rworking:d.rbtn;
  rstart.disabled=running||requesting||!!plan||!rfile.files[0]||rfile.files[0].size!==IMG||!selectedRadio()||!rconfirm.checked;
+ renderComponents();
  document.querySelectorAll('#tabs button,input[name="radioVariant"],#rconfirm').forEach(el=>el.disabled=running||!!plan);
+}
+Object.assign(T.en,{"wizardBootloader": "Bootloader", "wizardBootRead": "Connect Update and read versions to check requirements.", "wizardBootRom": "This update requires ROM DFU and the verified recovery backup.", "wizardState_available": "Update available", "wizardQualified": "RF writing is not qualified for this hardware/build."});
+Object.assign(T.es,{"wizardBootloader": "Bootloader", "wizardBootRead": "Conecta Update y lee versiones para comprobar los requisitos.", "wizardBootRom": "Esta actualización requiere ROM DFU y la copia de recuperación verificada.", "wizardState_available": "Actualización disponible"});
+Object.assign(T.de,{"wizardBootloader": "Bootloader", "wizardBootRead": "Update-Modus verbinden und Versionen lesen, um die Anforderungen zu prüfen.", "wizardBootRom": "Dieses Update benötigt ROM DFU und die geprüfte Wiederherstellungskopie.", "wizardState_available": "Update verfügbar"});
+Object.assign(T.cn,{"wizardBootloader": "引导程序", "wizardBootRead": "连接 Update 模式并读取版本以检查要求。", "wizardBootRom": "本次更新需要 ROM DFU 和已验证的恢复备份。", "wizardState_available": "有可用更新"});
+function renderComponents(){
+ const p=snapshot?.integrated,device=snapshot?.device||{},busy=running||requesting,d=T[lang],maintenance=device.state==='normal'&&device.maintenance===true,rom=device.state==='recovery',storage=device.mode==='storage';
+ $('#componentPlan').hidden=!p;
+ if(p?.id!==displayedComponentPlan){$('#componentPackageDetails').open=!p;$('#componentBackupDetails').open=!p?.backup;displayedComponentPlan=p?.id;}
+ if(p?.backup&&p.backup!==displayedComponentBackup){$('#componentBackupDetails').open=false;displayedComponentBackup=p.backup;}
+ if(storage)$('#componentStorageDetails').open=true;
+ $('#componentPackage').disabled=busy||!!snapshot?.bootloader_install||!device.serial;
+ $('#componentAudio').disabled=busy||!p;
+ $('#componentDownload').disabled=busy||!snapshot?.release||!device.target;
+ $('#componentOpen').disabled=busy||!($('#componentSessionPath').value||'').trim();
+ for(const id of ['componentSessionBrowse','componentVolumeBrowse','componentBackupBrowse'])$('#'+id).disabled=busy;
+ if(snapshot?.operation==='components'&&!localError){$('#componentErrorDetails').hidden=!snapshot.error;$('#componentErrorTechnical').textContent=snapshot.error?snapshot.message||'':'';}
+ if(!p)return;
+ $('#componentUnit').textContent=`Noble ${p.target===1?'NB4':'NB4+'} · ${p.serial} · ${p.package_version}`;
+ $('#componentDirectory').textContent=p.directory;
+ $('#componentOutcome').textContent=d['wizardOutcome_'+p.outcome]+' '+d[p.approved?'wizardApproved':'wizardUnapproved'];
+ const mode=device.state==='recovery'?'recovery':device.mode;
+ $('#componentMode').textContent=(d['wizardMode_'+mode]||d.wizardMode_other)+(p.first_installation?' '+d.wizardFirstSetup:'');
+ $('#componentBackupStatus').textContent=p.backup||d.wizardBackupPending;
+ $('#componentBackup').disabled=busy||!rom||device.serial!==p.serial;
+ $('#componentAttachBackup').disabled=busy||!($('#componentBackupPath').value||'').trim();
+ $('#componentRead').disabled=busy||!(maintenance||device.state==='ready')||device.serial!==p.serial;
+ const boot=p.bootloader||{state:'pending'};
+ $('#componentBootloader').textContent=d.wizardBootloader+' · '+(d['wizardState_'+boot.state]||d.wizardState_unknown)+(Number.isInteger(boot.current)?` · ${boot.current} → ${boot.proposed}`:'')+(boot.state==='pending'?' · '+d.wizardBootRead:boot.state==='available'?' · '+d.wizardBootRom:'');
+ $('#componentApprove').disabled=busy||!p.backup||!$('#componentConfirm').checked;
+ $('#componentApprove').textContent=d[p.approved?'wizardApproved':'wizardApprove'];
+ $('#componentStorage').disabled=busy||!maintenance||!p.approved||!p.backup;
+ $('#componentRestoreAudio').disabled=busy||!storage||!p.approved||!p.backup||device.serial!==p.serial;
+ $('#componentRestoreNor').disabled=$('#componentRestoreApp').disabled=busy||!rom||!p.approved||!p.backup||device.serial!==p.serial;
+ const active=Object.values(p.steps).some(step=>['staged','running','recovery_required'].includes(step.state));
+ for(const key of componentKeys){
+  const step=p.steps[key],selected=p.selected[key],status=selected?step.state:'unselected';
+  $('#select_'+key).checked=selected;$('#select_'+key).disabled=busy||active||(key==='audio'&&!step.sha256);
+  const audioInfo=key==='audio'?` · ${p.installed_audio?.state==='installed'?[(p.installed_audio.language||'').toUpperCase(),p.installed_audio.release].filter(Boolean).join(' '):d.wizardState_unknown}`+(step.sha256?` → ${(step.language||'').toUpperCase()} ${step.release||''}`:''):'';
+  const versions=Number.isInteger(step.current)&&Number.isInteger(step.proposed)?` · 0x${step.current.toString(16).toUpperCase()} → 0x${step.proposed.toString(16).toUpperCase()}`:'';
+  $('#state_'+key).textContent=(key==='audio'&&!selected?d.wizardKeepAudio:d['wizardState_'+status]||d.wizardState_unknown)+versions+audioInfo+(step.write_supported===false?' · '+d.wizardQualified:'');
+  const ready=p.approved&&!!p.backup&&selected&&device.serial===p.serial;
+  let dependencies=!p.selected.application||['current','complete'].includes(p.steps.application.state)||key==='application';
+  if(!['application','module'].includes(key))dependencies=dependencies&&(!p.selected.module||['current','complete'].includes(p.steps.module.state));
+  let installable=key==='application'?(device.state==='ready'&&boot.state==='current')||(rom&&(boot.state==='available'||step.state==='recovery_required'||p.first_installation)):key==='resources'||key==='audio'?storage:maintenance&&step.write_supported===true;
+  $('#install_'+key).hidden=!selected||(step.state==='current'&&!$('#componentReinstall').checked);
+  $('#install_'+key).disabled=busy||!ready||!dependencies||!installable||['running','recovery_required','verifying','complete'].includes(step.state)||(step.state==='current'&&!$('#componentReinstall').checked);
+  if(key==='module'||key==='receiver'){
+   $('#stage_'+key).disabled=busy||!ready||!dependencies||!maintenance||!p.rf_assets||!Number.isInteger(step.image)||['staged','running','recovery_required'].includes(step.state);
+   $('#cancel_'+key).hidden=!['staged','failed'].includes(step.state);$('#cancel_'+key).disabled=busy||!ready||!maintenance;
+   $('#recover_'+key).hidden=step.state!=='recovery_required';$('#recover_'+key).disabled=busy||!ready||!maintenance;
+  }
+ }
+}
+async function componentAction(action,component,path){
+ const p=snapshot?.integrated;if(!p||running||requesting)return;
+ const destructive=['install','recover','restore-nor','restore-application','restore-audio'].includes(action);
+ const d=T[lang],label=d[component?{application:'wizardApplication',module:'componentModule',receiver:'componentReceiver',resources:'wizardResources',audio:'wizardAudio'}[component]:{'restore-nor':'wizardRestoreNor','restore-application':'wizardRestoreApp','restore-audio':'wizardRestoreAudio'}[action]]||action;
+ if(destructive&&!confirm(d.wizardDestructive+'\nNoble '+(p.target===1?'NB4':'NB4+')+' · '+p.serial+'\n'+label+(path?'\n'+path:'')))return;
+ return request('/api/components/action',{id:p.id,action,component,path,confirmed:destructive||action==='approve',reinstall:$('#componentReinstall').checked});
+}
+async function pickComponentPath(id){
+ if(running||requesting)return;
+ requesting=true;render();
+ try{const r=await fetch('/api/components/pick',{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:'{}'});const j=await r.json();if(!r.ok)throw Error(j.error);if(j.path)$('#'+id).value=j.path;}
+ catch(e){showError(e.message);}finally{requesting=false;render();}
+}
+$('#componentSessionBrowse').onclick=()=>pickComponentPath('componentSessionPath');
+$('#componentBackupBrowse').onclick=()=>pickComponentPath('componentBackupPath');
+$('#componentVolumeBrowse').onclick=()=>pickComponentPath('componentVolume');
+for(const id of ['componentSessionPath','componentBackupPath'])$('#'+id).oninput=render;
+$('#componentConfirm').onchange=$('#componentReinstall').onchange=render;
+$('#componentOpen').onclick=()=>request('/api/components/open',{path:$('#componentSessionPath').value});
+$('#componentPackage').onchange=()=>{const f=$('#componentPackage').files[0];$('#componentPackageName').textContent=f?.name||'';return send('/api/components/package',f,{'X-ApexTX-Serial':snapshot?.device?.serial});};
+$('#componentAudio').onchange=()=>{const f=$('#componentAudio').files[0];$('#componentAudioName').textContent=f?.name||'';return send('/api/components/audio',f,{'X-ApexTX-Serial':snapshot?.device?.serial,'X-ApexTX-Plan':snapshot?.integrated?.id});};
+$('#componentDownload').onclick=()=>request('/api/components/download',{serial:snapshot?.device?.serial,target:snapshot?.device?.target,release_id:snapshot?.release?.id});
+$('#componentBackup').onclick=()=>componentAction('backup');
+$('#componentAttachBackup').onclick=()=>componentAction('attach-backup',null,$('#componentBackupPath').value);
+$('#componentRead').onclick=()=>componentAction('read');
+$('#componentApprove').onclick=()=>componentAction('approve');
+$('#componentStorage').onclick=()=>componentAction('storage');
+$('#componentRestoreAudio').onclick=()=>componentAction('restore-audio',null,$('#componentVolume').value);
+$('#componentRestoreNor').onclick=()=>componentAction('restore-nor');
+$('#componentRestoreApp').onclick=()=>componentAction('restore-application');
+for(const key of componentKeys){
+ $('#select_'+key).onchange=()=>{const selected={...snapshot.integrated.selected,[key]:$('#select_'+key).checked};return request('/api/components/action',{id:snapshot.integrated.id,action:'select',selected});};
+ $('#install_'+key).onclick=()=>componentAction('install',key,['resources','audio'].includes(key)?$('#componentVolume').value:undefined);
+ if(key==='module'||key==='receiver')for(const action of ['stage','cancel','recover'])$('#'+action+'_'+key).onclick=()=>componentAction(action,key);
 }
 document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>applyLang(b.dataset.lang));
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
@@ -354,9 +641,46 @@ rfile.onchange=async()=>{clearError();const d=T[lang],f=rfile.files[0];rfileinfo
 rconfirm.onchange=render;
 rstart.onclick=()=>send('/api/recover',rfile.files[0],{'X-ApexTX-Radio-Variant':selectedRadio()});
 function clearError(){localError=null;if(!snapshot?.operation){$('#transfer').hidden=true;message.textContent='';message.className='';}}
-function showError(text){localError=text;message.textContent=text;message.className='error';$('#transfer').hidden=false;}
-async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
+function showError(text){if(mode==='components'){$('#componentTransferSlot').appendChild($('#transfer'));$('#componentErrorDetails').hidden=false;$('#componentErrorTechnical').textContent=text;text=componentError(text);}localError=text;message.textContent=text;message.className='error';$('#transfer').hidden=false;}
+async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);if(path.startsWith('/api/components/')&&r.status===202)running=true;return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
+function renderAppUpdate(){
+ const a=snapshot?.app_update||{},d=T[lang],busy=['downloading','verifying','restarting'].includes(a.state);
+ let text=(d.appInstalled||'').replace('{version}',a.version||'__APP_VERSION__');
+ const key={checking:'appChecking',current:'appCurrent',downloading:'appDownloading',verifying:'appVerifying',restarting:'appRestarting',error:'appOffline'}[a.state];
+ if(key)text+=' · '+d[key].replace('{progress}',a.progress||0);
+ else if(a.available&&!a.hidden)text+=' · '+d.appAvailable.replace('{version}',a.available);
+ if(a.blocked)text+=' '+d.appBlocked;
+ if(!a.supported)text+=' '+d.appUnsupported;
+ if(a.available&&!a.compatible)text+=' '+d.appIncompatible;
+ if(a.last_check)text+=' '+d.appLastCheck.replace('{date}',new Date(a.last_check*1000).toLocaleString());
+ if(a.last_result?.result==='updated'&&a.last_result.version===a.version)text+=' '+d.appUpdated;
+ $('#appUpdateStatus').textContent=text;
+ $('#appInstallLocation').textContent=a.last_result?.location||'';
+ $('#appUpdateError').textContent=a.error||a.last_result?.error||'';
+ $('#appUpdateNotes').textContent=a.hidden?'':a.notes||'';
+ $('#appInstall').disabled=busy||requesting||a.blocked||!a.supported||!a.compatible||!a.available||a.state==='checking';
+ $('#appCheck').disabled=busy||requesting||a.state==='checking';
+ $('#appPreview').checked=!!a.preview;$('#appPreview').disabled=busy||requesting||a.state==='checking';
+ $('#appRelocate').disabled=busy||requesting;
+ $('#appLater').hidden=$('#appSkip').hidden=!a.available||a.hidden||busy;
+ $('#appRadioSafe').hidden=!snapshot?.radio_unconfirmed;$('#appRadioSafe').disabled=!!snapshot?.running||!!snapshot?.bootloader_install;
+ if(a.available&&!a.hidden&&!running&&!a.blocked)$('#appUpdates').open=true;
+}
+async function appRequest(action,data={}){
+ // Errors belong to the desktop app panel, never the radio progress panel.
+ requesting=true;render();
+ try{const r=await fetch('/api/app-update/'+action,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);}
+ catch(e){$('#appUpdateError').textContent=e.message;}
+ finally{requesting=false;}
+}
+$('#appCheck').onclick=()=>appRequest('check');
+$('#appPreview').onchange=()=>appRequest('check',{preview:$('#appPreview').checked});
+$('#appInstall').onclick=()=>{if(!$('#appInstall').disabled)return appRequest('install',{version:snapshot.app_update.available,relocate:$('#appRelocate').checked});};
+$('#appLater').onclick=()=>appRequest('later');
+$('#appSkip').onclick=()=>appRequest('skip');
+$('#appRadioSafe').onclick=()=>appRequest('acknowledge-radio');
 $('#refresh').onclick=()=>request('/api/refresh');
+$('#readComponents').onclick=()=>{if($('#readComponents').disabled)return;const device=snapshot.device;return request('/api/components/read',{serial:device.serial,target:device.target});};
 $('#preview').onchange=()=>{const preview=$('#preview').checked;if(snapshot)snapshot.preview=preview;return request('/api/channel',{preview});};
 $('#upgrade').onclick=async()=>{if(running||requesting||!snapshot?.release||$('#upgrade').disabled)return;const s=snapshot;running=true;render();if(!await request(s.release.decision==='bootloader'?'/api/bootloader/prepare':'/api/upgrade',{serial:s.device.serial,target:s.device.target,release_id:s.release.id})){running=false;render();}};
 $('#bootloaderInstall').onclick=async()=>{if(running||requesting||!snapshot?.bootloader_install?.ready)return;const s=snapshot,p=s.bootloader_install;running=true;render();if(!await request('/api/bootloader/install',{serial:p.serial,target:p.target,release_id:s.release.id})){running=false;render();}};
@@ -364,8 +688,27 @@ $('#bootloaderCancel').onclick=()=>request('/api/bootloader/cancel');
 async function send(url,f,extra={}){if(!f||running)return;localError=null;requesting=true;running=true;render();message.className='';message.textContent=T[lang].validating;$('#transfer').hidden=false;
  try{const r=await fetch(url,{method:'POST',headers:{'X-ApexTX-Token':token,...extra},body:f});const j=await r.json();if(!r.ok)throw Error(j.error);}
  catch(e){showError(e.message);running=false;}finally{requesting=false;render();}}
+function componentError(text){const d=T[lang],m=text||'';
+ const mode=m.match(/transmitter in (update|rom|storage|maintenance) mode/);
+ if(mode)return d.wizardErrorMode.replace('{mode}',{update:'ApexTX Update',rom:'ROM DFU',storage:'USB Storage',maintenance:d.maintenanceConnected}[mode[1]]);
+ if(/not qualified|qualification/i.test(m))return d.wizardQualified;
+ if(/storage|space/i.test(m)&&/enough|full|headroom|reserve/i.test(m))return d.wizardErrorSpace;
+ if(/First installation/.test(m))return d.wizardErrorFirst;
+ if(/identity|another radio|another transmitter|another hardware|belongs to/i.test(m))return d.wizardErrorIdentity;
+ if(/Review and confirm/.test(m))return d.wizardUnapproved;
+ if(/Create or attach/.test(m))return d.wizardBackupPending;
+ if(/Resume|interrupted|original package/i.test(m))return d.wizardErrorResume;
+ return d.wizardErrorGeneric;
+}
 function operationMessage(s){const d=T[lang],m=s.message||'';
+ if(s.operation==='components'){
+  if(s.error)return componentError(m);
+  const phases=[['Preparing verified RF image','wizardPhaseStage'],['Updating RF component','wizardPhaseRf'],['Installing audio','wizardPhaseAudio'],['Installing verified resources','wizardPhaseResources'],['Restoring','wizardPhaseRestore'],['Independently','wizardPhaseVerify'],['Verifying','wizardPhaseVerify'],['Reading','wizardPhaseBackup'],['Backing up','wizardPhaseBackup'],['Loading','wizardPhaseBackup'],['Downloading','wizardPhasePreparing']];
+  return s.progress===100?d.wizardPhaseSaved:d[phases.find(([prefix])=>m.startsWith(prefix))?.[1]||'wizardPhaseWorking'];
+ }
+
  if(s.error){if(m.startsWith('The USB connection to the radio was lost.'))return m.includes('already written and verified')?d.usbLostVerified:m.includes('was writing flash memory')?d.usbLostInstalling:d.usbLostTransfer;return m;}
+ if(s.operation==='inventory'&&!s.error)return s.progress===100?d.componentsDone:d.componentsRead;
  if(s.progress===100)return ['recover','bootloader'].includes(s.operation)?(m.includes('starting automatically')?d.rautoDone:d.rdone):m.includes('still in update mode')?d.restartManually:d.done;
  if(s.operation==='prepare_bootloader')return d.dfuPreparing;
  if(['recover','bootloader'].includes(s.operation)){
@@ -376,11 +719,11 @@ function operationMessage(s){const d=T[lang],m=s.message||'';
  return stages.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
 }
 async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error();const hadGuide=!!snapshot?.bootloader_install;snapshot=await r.json();
- running=snapshot.running||requesting;
+ running=snapshot.running||snapshot.app_updating||requesting;
  if(snapshot.operation&&!localError&&!requesting){$('#transfer').hidden=false;message.textContent=operationMessage(snapshot);message.className=snapshot.error?'error':snapshot.progress===100?'good':'';bar.value=snapshot.progress;percent.textContent=`${snapshot.progress}%`;}
  render();
  if(snapshot.bootloader_install&&!hadGuide){$('#bootloaderGuideTitle').focus({preventScroll:true});$('#bootloaderGuide').scrollIntoView({block:'start',behavior:'smooth'});}
- }catch(e){showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
+ }catch(e){if(snapshot?.app_update?.state==='restarting'){$('#appUpdateStatus').textContent=T[lang].appRestarting;return;}showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
  setTimeout(poll,800);
 }
 applyLang(pick());poll();

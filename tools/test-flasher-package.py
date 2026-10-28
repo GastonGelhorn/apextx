@@ -43,6 +43,11 @@ def main():
     assert result['usb_backend'] and result['dfu_util'] and result['shared_ui']
     assert result['release_client']
     assert result['rf_catalog']
+    assert result['maintenance'] and result['audio_installer']
+    assert result['rf_transfer'] and result['backup_agent']
+    assert result['release_client'] and result['app_updates']
+    assert result['app_version'] == (ROOT / 'FLASHER_VERSION').read_text().strip()
+    assert result['app_build'] == int((ROOT / 'FLASHER_BUILD').read_text())
     for name, expected in result['sources'].items():
         assert hashlib.sha256((ROOT / 'tools' / name).read_bytes()).hexdigest() == expected, name
     print(json.dumps(result, indent=2))

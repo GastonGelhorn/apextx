@@ -329,27 +329,40 @@ class Nb4Afhds3Bind : public ::testing::Test {
     return {};
   }
   std::vector<uint8_t> moduleVersion() {
-    std::vector<uint8_t> data(22);
+    std::vector<uint8_t> data(26);
     data[18] = 4; data[19] = 3; data[20] = 2; data[21] = 1;
+    data[22] = 8; data[23] = 7; data[24] = 6; data[25] = 5;
     return data;
   }
   std::vector<uint8_t> receiverVersion() {
     std::vector<uint8_t> data(18);
     data[0] = 0x1f; data[1] = 0x70; data[2] = RXSUCCESS; data[3] = 14;
     data[4] = 0x77; data[6] = 1;
-    data[14] = 0x34; data[15] = 0x12;
+    data[8] = 0x34; data[9] = 0x12;
+    data[14] = 0x78; data[15] = 0x56;
     return data;
   }
 };
 }
 
-TEST_F(Nb4Afhds3Bind, VersionGettersArePassiveAtStartupAndTickWrap) {
+TEST_F(Nb4Afhds3Bind, VersionConnectionChecksRunWithoutUIAndGettersStayPassiveAtTickWrap) {
   connectNormal();
-  for (unsigned i = 0; i < 800; ++i) {
+  for (unsigned i = 0; i < 499; ++i) {
     getModuleVersionInfo(0); getReceiverVersionInfo(0);
     const auto frame = versionTick(false);
     EXPECT_NE(frame.command, MODULE_VERSION); EXPECT_NE(frame.command, SEND_COMMAND);
   }
+  unsigned modules = 0, receivers = 0, channels = 0;
+  for (unsigned i = 0; i < 1200; ++i) {
+    getModuleVersionInfo(0); getReceiverVersionInfo(0);
+    const auto frame = versionTick(false);
+    if (frame.command == MODULE_VERSION) ++modules;
+    if (frame.command == SEND_COMMAND) ++receivers;
+    if (frame.command == CHANNELS_FAILSAFE_DATA) ++channels;
+  }
+  EXPECT_EQ(modules, 3u);
+  EXPECT_EQ(receivers, 3u);
+  EXPECT_GT(channels, 1100u);
   g_tmr10ms = tmr10ms_t(-6);
   for (unsigned i = 0; i < 200; ++i) {
     const auto frame = versionTick(false);
@@ -392,8 +405,10 @@ TEST_F(Nb4Afhds3Bind, VersionModuleChecksSequenceLengthAndCachesTheReportedWord)
   query = versionQuery(MODULE_VERSION);
   receive(MODULE_VERSION, moduleVersion(), query.frameNumber);
   const auto info = getModuleVersionInfo(0);
-  ASSERT_TRUE(info.valid); EXPECT_EQ(info.replyLen, 22);
-  EXPECT_EQ(info.bootloaderVersion, 0x01020304u);
+  ASSERT_TRUE(info.valid); EXPECT_EQ(info.replyLen, 26);
+  EXPECT_TRUE(info.firmwareKnown);
+  EXPECT_EQ(info.firmwareVersion, 0x01020304u);
+  EXPECT_EQ(info.rfVersion, 0x05060708u);
   for (unsigned i = 0; i < 200; ++i)
     EXPECT_NE(versionTick().command, MODULE_VERSION);
 }
@@ -417,7 +432,9 @@ TEST_F(Nb4Afhds3Bind, VersionReceiverNeedsSolicitedCompleteResultNotJustUartRepl
   EXPECT_FALSE(getReceiverVersionInfo(0).valid);
   receive(COMMAND_RESULT, receiverVersion(), 95, REQUEST_SET_NO_RESP);
   const auto info = getReceiverVersionInfo(0);
-  ASSERT_TRUE(info.valid); EXPECT_EQ(info.firmwareVersion, 0x1234);
+  ASSERT_TRUE(info.valid); EXPECT_EQ(info.firmwareVersion, 0x5678);
+  EXPECT_EQ(info.identityWords[0], 0x1234);
+  EXPECT_EQ(info.identityWords[3], 0x5678);
   EXPECT_EQ(info.productNumber, 0x00010077u);
   receive(MODULE_STATE, {3}, 96, REQUEST_SET_NO_RESP);
   EXPECT_FALSE(getReceiverVersionInfo(0).valid);
@@ -444,8 +461,10 @@ TEST_F(Nb4Afhds3Bind, VersionReplyCannotReleasePendingLiveStatePoll) {
   EXPECT_TRUE(afhds3::isConnected(0));
 }
 
-TEST_F(Nb4Afhds3Bind, VersionDemandExpiresRatherThanReappearingAtTickWrap) {
-  connectNormal(); requestVersionInfo(0);
+TEST_F(Nb4Afhds3Bind, VersionDemandCannotRearmExhaustedConnectionCheckAtTickWrap) {
+  connectNormal();
+  for (unsigned i = 0; i < 1500; ++i) versionTick(false);
+  requestVersionInfo(0);
   for (unsigned i = 0; i < 700; ++i)
     EXPECT_NE(versionTick(false).command, MODULE_VERSION);
   g_tmr10ms = tmr10ms_t(-6);

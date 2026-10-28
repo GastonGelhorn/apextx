@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 from nb4_source_digest import source_digest
@@ -132,6 +133,8 @@ def create(args):
         "FLASH.md": ROOT / "docs/nb4/FLASH.md",
         "AUDIO.md": ROOT / "docs/nb4/AUDIO.md",
         "tools/nb4-install-audio.py": ROOT / "tools/nb4-install-audio.py",
+        "tools/nb4_audio_install.py": ROOT / "tools/nb4_audio_install.py",
+        "tools/nb4_storage_backup.py": ROOT / "tools/nb4_storage_backup.py",
         "VALIDATION.md": ROOT / "docs/nb4/VALIDATION.md",
         "RELEASE.md": ROOT / "docs/nb4/RELEASE.md",
         "CHANGELOG.md": ROOT / "CHANGELOG.md",
@@ -151,6 +154,43 @@ def create(args):
             log = evidence / name
             if log.is_file():
                 copies[f"validation/{name}"] = log
+    agent = build / "nb4-backup-agent.bin"
+    agent_elf = build / "radio/src/bootloader/nb4-backup-agent.elf"
+    if agent.is_file() and agent_elf.is_file():
+        subprocess.run([sys.executable, str(ROOT / "tools/nb4-verify-backup-agent.py"),
+            "--elf", str(agent_elf), "--bin", str(agent), "--nm", nm[1],
+            "--report", str(build / "backup-agent.json")], check=True, cwd=ROOT)
+        copies["recovery/nb4-backup-agent.bin"] = agent
+        copies["recovery/backup-agent.json"] = build / "backup-agent.json"
+    restore_agent=build/"nb4-nor-restore-agent.bin"
+    restore_elf=build/"radio/src/bootloader/nb4-nor-restore-agent.elf"
+    if restore_agent.is_file() and restore_elf.is_file():
+        subprocess.run([sys.executable,str(ROOT/"tools/nb4-verify-backup-agent.py"),
+            "--elf",str(restore_elf),"--bin",str(restore_agent),"--nm",nm[1],"--restore",
+            "--report",str(build/"nor-restore-agent.json")],check=True,cwd=ROOT)
+        copies["recovery/nb4-nor-restore-agent.bin"]=restore_agent
+        copies["recovery/nor-restore-agent.json"]=build/"nor-restore-agent.json"
+    copies["INTEGRATED_UPDATE.md"] = ROOT / "docs/nb4/INTEGRATED_UPDATE.md"
+    copies["RF_BENCH.md"] = ROOT / "docs/nb4/RF_BENCH.md"
+    for pattern in ("update-components-*.png", "update-connected-*.png", "rf-update-notice-*.png", "flasher-components-*.png"):
+        for image in (ROOT / "docs/nb4/images").glob(pattern):
+            copies["images/" + image.name] = image
+    rf_bundle = getattr(args, 'rf_bundle', None)
+    if rf_bundle:
+        if public_image:
+            raise ValueError("Integrated RF packages remain experimental pending hardware recovery qualification")
+        from nb4_rf_catalog import verify_bundle, MAX_BUNDLE
+        with rf_bundle.open('rb') as stream:
+            catalog, _ = verify_bundle(stream.read(MAX_BUNDLE + 1))
+        if catalog['radio'] != hardware:
+            raise ValueError("The RF catalog targets a different transmitter")
+        copies["rf/catalog.zip"] = rf_bundle
+    for name in ("apextx-full-backup.py", "apextx-rf-maintenance.py", "nb4_backup_agent.py",
+                 "apextx-restore-storage.py", "apextx-components.py", "nb4_nor_restore.py", "nb4_integrated_update.py",
+                 "nb4_resource_install.py",
+                 "nb4_rf_transfer.py", "nb4_rf_catalog.py", "nb4_maintenance.py", "nb4_rom_flash.py",
+                 "nb4_usb_update.py", "nb4_update_image.py", "nb4_releases.py", "requirements-updater.txt"):
+        copies["tools/" + name] = ROOT / "tools" / name
     if baseline:
         copies["rollback/firmware.bin"] = baseline / "firmware.bin"
     for relative, source in copies.items():
@@ -221,6 +261,7 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--baseline", type=Path, help="Directory containing the previously installed firmware.bin and verified install.json")
     parser.add_argument("--tests", type=Path)
+    parser.add_argument("--rf-bundle", type=Path, help="Verified RF catalog for an experimental offline bench package")
     parser.add_argument("--release", default=PROJECT_VERSION)
     parser.add_argument("--model", choices=sorted(TARGETS),
                         help="Radio the package is expected to be for; refused if the image says otherwise")

@@ -36,6 +36,11 @@ class UpdateError(RuntimeError):
     pass
 
 
+class IncompleteResponse(UpdateError):
+    """A short USB read; only installation-status polling may retry it."""
+    pass
+
+
 def probe():
     """Read standard USB descriptors only; never claim, configure, or reset."""
     core, util, backend = usb_modules()
@@ -54,7 +59,7 @@ def probe():
                 continue
             normal = {f'ApexTX {model} {mode}': target
                       for target, model in VARIANTS.items()
-                      for mode in ('Joystick', 'Serial Port', 'Mass Storage')}
+                      for mode in ('Joystick', 'Serial Port', 'Mass Storage', 'Maintenance')}
             target = PRODUCTS.get(product, normal.get(product))
             if target is None:
                 continue
@@ -86,6 +91,10 @@ def probe():
             # Only Update or the new descriptor establishes that model.
             identified = ready or info is not None or 'NB4+' in product
             radios.append(dict(state='ready' if ready else 'normal', serial=serial,
+                               maintenance=product.endswith(' Maintenance'),
+                               mode=('update' if ready else 'storage' if product.endswith(' Mass Storage') else
+                                     'maintenance' if product.endswith(' Maintenance') else
+                                     'serial' if product.endswith(' Serial Port') else 'joystick'),
                                target=target if identified else None,
                                model=VARIANTS[target] if identified else 'NB4 / NB4+',
                                bootloader=generation if ready else None,
@@ -226,17 +235,34 @@ class Transport:
     def status(self):
         result = self.incoming(3, 6)
         if len(result) != 6:
-            raise UpdateError('The radio returned an incomplete USB response.')
+            raise IncompleteResponse('The radio returned an incomplete USB response.')
         return result[0], int.from_bytes(result[1:4], 'little') / 1000, result[4]
 
     def idle(self):
-        error, _, state = self.status()
+        error, delay, state = self.status()
         if error or state == 10:
             self.out(4)  # CLRSTATUS
-        self.out(6)  # ABORT returns upload/download idle to DFU idle, preserves staging.
-        error, _, state = self.status()
-        if error or state != 2:
-            raise UpdateError(f'The radio is not ready: USB state {state}, error {error}.')
+            error, delay, state = self.status()
+        deadline = time.monotonic() + 10
+        while True:
+            if error:
+                raise UpdateError(f'The radio is not ready: USB state {state}, error {error}.')
+            if state == 2:
+                return
+            if state in (3, 5, 6, 9):
+                # ABORT only changes the DFU transaction state; it neither
+                # rewrites staging nor repeats APXSTART. A stalled control
+                # transaction can leave the first subsequent status at IDLE
+                # for the preceding download. Require the actual DFU idle.
+                self.out(6)
+            elif state != 4:
+                raise UpdateError(f'The radio is not ready: USB state {state}, error {error}.')
+            # ABORT is ignored in DNLOAD_BUSY. Let GETSTATUS finish the
+            # pending transaction, then abort from a state that accepts it.
+            if time.monotonic() >= deadline:
+                raise IncompleteResponse(f'The radio did not return to USB idle (state {state}).')
+            time.sleep(min(max(delay, .01), .25))
+            error, delay, state = self.status()
 
     def download(self, block, data):
         self.out(1, block, data)
@@ -264,7 +290,7 @@ class Transport:
             count = min(TRANSFER, size - offset)
             block = self.incoming(2, count, 2 + offset // TRANSFER)
             if len(block) != count:
-                raise UpdateError('The verification read returned fewer bytes than expected.')
+                raise IncompleteResponse('The verification read returned fewer bytes than expected.')
             result.extend(block)
         return bytes(result)
 
@@ -327,14 +353,15 @@ def run_update(image, progress, serial=None, wait_seconds=90, transport_factory=
             while True:
                 try:
                     status = transport.read(CONTROL, 32)
-                except OSError as error:
+                except (OSError, IncompleteResponse) as error:
                     # Internal-flash writes can briefly stall the control pipe.
                     # Only retry status reads: never restage/restart an install
                     # whose outcome is unknown, and never infer success from a
                     # disconnect. A genuine removal (ENODEV) still fails at once.
-                    if (error.errno not in (errno.EIO, errno.EPIPE, errno.ETIMEDOUT)
-                            or read_failures >= 3 or time.monotonic() >= deadline):
-                        raise
+                    if ((not isinstance(error, IncompleteResponse) and
+                         error.errno not in (errno.EIO, errno.EPIPE, errno.ETIMEDOUT)) or
+                            read_failures >= 30 or time.monotonic() >= deadline):
+                        raise connection_lost('installing', error) from error
                     read_failures += 1
                     progress('Waiting for the radio to finish writing flash...', last_progress)
                     time.sleep(1)

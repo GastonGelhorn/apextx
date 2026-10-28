@@ -176,6 +176,14 @@ void edgeTxClose(bool){assert(audioReady && storageReady);++closes;}
 void edgeTxResume(){++resumes;audioQueue.resumeFiles();}
 void serialInit(int,int){++serialStarts;} int serialGetMode(int){return 1;}
 void serialStop(int){++serialStops;}
+bool maintenance=false;
+bool rfStorageOwned=false;
+bool nb4RfUpdateStorageOwned(){return rfStorageOwned;}
+bool nb4RfNoticeStorageOwned(){return false;}
+int maintenanceStarts=0, maintenanceStops=0;
+bool nb4MaintenanceEnabled(){return maintenance;}
+void nb4MaintenanceStartUsb(){++maintenanceStarts;}
+void nb4MaintenanceStopUsb(){++maintenanceStops;maintenance=false;}
 void usbStart(){assert(selected!=USB_MASS_STORAGE_MODE || (audioReady&&storageReady));started=true;++starts;}
 void usbStop(){started=false;}
 '''
@@ -196,6 +204,10 @@ int main(){
  assert(powerOns==1 && resets==1 && resumeRequests==1 && storageSyncs==1);
  plugged=true;selected=USB_SERIAL_MODE;handleUsbConnection();assert(started && serialStarts==2);
  plugged=false;handleUsbConnection();assert(serialStops==2);
+ maintenance=true;plugged=true;selected=USB_SERIAL_MODE;handleUsbConnection();
+ assert(started && maintenanceStarts==1 && serialStarts==2);
+ plugged=false;handleUsbConnection();
+ assert(!started && maintenanceStops==1 && !maintenance && serialStops==2);
  assert(powerOns==1 && resets==1 && resumeRequests==1 && storageSyncs==1);
  for(int i=0;i<3;++i){
    plugged=true;selected=USB_JOYSTICK_MODE;handleUsbConnection();assert(started && closes==1);

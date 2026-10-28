@@ -16,6 +16,7 @@ from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
 
 
 def load(name: str, relative: str):
@@ -29,7 +30,7 @@ def load(name: str, relative: str):
 
 
 audio = load("nb4_audio_packs", "tools/nb4-audio-packs.py")
-installer = load("nb4_install_audio", "tools/nb4-install-audio.py")
+installer = load("nb4_audio_install", "tools/nb4_audio_install.py")
 
 
 class Nb4AudioPacksTest(unittest.TestCase):
@@ -65,6 +66,7 @@ class Nb4AudioPacksTest(unittest.TestCase):
         }
         manifest = {
             "formatVersion": 1,
+            "release": "test",
             "target": "NB4",
             "language": language,
             "deviceAudioBudgetBytes": audio.DEVICE_AUDIO_BUDGET,
@@ -143,7 +145,7 @@ class Nb4AudioPacksTest(unittest.TestCase):
             output.mkdir()
             with ZipFile(archive, "w") as package:
                 package.writestr("../outside", "bad")
-            with self.assertRaisesRegex(RuntimeError, "Unsafe archive path"):
+            with self.assertRaisesRegex(RuntimeError, "Unsafe .*path"):
                 installer.safe_extract(archive, output)
 
     def test_installer_dry_run_and_verified_replacement(self) -> None:
@@ -155,8 +157,7 @@ class Nb4AudioPacksTest(unittest.TestCase):
             current.mkdir(parents=True)
             (current / "old.wav").write_bytes(b"old audio")
             backups = root / "backups"
-            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES)
-
+            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES, free=1024 * 1024)
             with mock.patch.object(installer.shutil, "disk_usage",
                                    return_value=fake_usage):
                 verified = installer.install(archive, volume, backups, False)
@@ -170,9 +171,9 @@ class Nb4AudioPacksTest(unittest.TestCase):
             self.assertEqual(result.sounds, 1)
             self.assertIsNotNone(result.backup)
             assert result.backup is not None
-            self.assertEqual((result.backup / "en" / "old.wav").read_bytes(),
+            self.assertEqual((result.backup / "data/SOUNDS/en/old.wav").read_bytes(),
                              b"old audio")
-            self.assertFalse((volume / "SOUNDS" / "en").exists())
+            self.assertTrue((volume / "SOUNDS/en/old.wav").is_file())
             self.assertTrue(
                 (volume / "SOUNDS" / "es" / "SYSTEM" / "hello.wav").is_file()
             )
@@ -183,13 +184,13 @@ class Nb4AudioPacksTest(unittest.TestCase):
             archive = self.make_pack(root)
             volume = root / "volume"
             volume.mkdir()
-            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES)
+            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES, free=1024 * 1024)
             with mock.patch.object(installer.shutil, "disk_usage",
                                    return_value=fake_usage):
                 with self.assertRaisesRegex(RuntimeError, "on the computer"):
                     installer.install(archive, volume, volume / "backup", True)
 
-    def test_installer_restores_backup_if_copy_fails(self) -> None:
+    def test_installer_keeps_personal_audio_and_resumes_after_copy_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             archive = self.make_pack(root)
@@ -197,23 +198,116 @@ class Nb4AudioPacksTest(unittest.TestCase):
             old = volume / "SOUNDS" / "en" / "old.wav"
             old.parent.mkdir(parents=True)
             old.write_bytes(b"old audio")
-            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES)
-            real_copytree = installer.shutil.copytree
+            fake_usage = SimpleNamespace(total=audio.NB4_VOLUME_BYTES, free=1024 * 1024)
+            copy = installer.shutil.copyfileobj
 
-            def failing_copytree(source, destination, *args, **kwargs):
-                if Path(destination).name == "SOUNDS.NEW":
+            def fail_device_copy(source, destination, *args, **kwargs):
+                if str(getattr(destination, "name", "")).endswith(".partial"):
                     raise OSError("simulated copy failure")
-                return real_copytree(source, destination, *args, **kwargs)
+                return copy(source, destination, *args, **kwargs)
 
             with mock.patch.object(installer.shutil, "disk_usage",
                                    return_value=fake_usage), \
-                 mock.patch.object(installer.shutil, "copytree",
-                                   side_effect=failing_copytree):
+                 mock.patch.object(installer.shutil, "copyfileobj",
+                                   side_effect=fail_device_copy):
                 with self.assertRaisesRegex(OSError, "simulated"):
                     installer.install(archive, volume, root / "backups", True)
 
             self.assertEqual(old.read_bytes(), b"old audio")
-            self.assertFalse((volume / "SOUNDS.NEW").exists())
+            self.assertTrue((volume / installer.JOURNAL).is_file())
+            self.assertLess((volume / installer.JOURNAL).stat().st_size, 1024)
+            self.assertNotIn("plan", json.loads((volume / installer.JOURNAL).read_text()))
+            with mock.patch.object(installer.shutil, "disk_usage", return_value=fake_usage):
+                with self.assertRaisesRegex(RuntimeError, "--resume"):
+                    installer.install(archive, volume, root / "backups", True)
+                installed = installer.install(archive, volume, root / "backups", True, resume=True)
+            self.assertTrue(installed.installed)
+            self.assertEqual(old.read_bytes(), b"old audio")
+            self.assertFalse((volume / installer.JOURNAL).exists())
+
+    def test_bound_audio_backup_can_be_restored_without_removing_later_personal_tracks(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary); archive=self.make_pack(root); volume=root/'volume'; volume.mkdir()
+            device=dict(serial='000000000001',target='nb4',nonce='ab'*16)
+            (volume/'APEXTX-USB.json').write_text(json.dumps(dict(format='apextx-storage-session-1',**device)))
+            old=volume/'SOUNDS/en/personal.wav'; old.parent.mkdir(parents=True); old.write_bytes(b'personal audio')
+            with mock.patch.object(installer.shutil,'disk_usage',return_value=SimpleNamespace(total=audio.NB4_VOLUME_BYTES,free=1024*1024)):
+                result=installer.install(archive,volume,root/'backups',True,device=device)
+                import struct,zlib
+                identity=(volume/installer.IDENTITY).read_bytes()
+                self.assertEqual(len(identity),80)
+                self.assertEqual(identity[:8],b'APXAUD1\0')
+                self.assertEqual(zlib.crc32(identity[:-4]),struct.unpack('<I',identity[-4:])[0])
+                later=volume/'SOUNDS/en/later.wav'; later.write_bytes(b'later custom recording')
+                restored=installer.restore_backup(volume,result.backup,device,confirm=True)
+            self.assertEqual(restored['state'],'complete')
+            self.assertEqual(old.read_bytes(),b'personal audio'); self.assertEqual(later.read_bytes(),b'later custom recording')
+            self.assertFalse((volume/'APEXTX-AUDIO.json').exists())
+            self.assertFalse((volume/'APEXTX-AUDIO-RESTORE.json').exists())
+
+    def test_personal_greeting_and_omitted_assignable_track_survive(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = self.make_pack(root)
+            volume = root / "volume"
+            hello = volume / "SOUNDS/es/SYSTEM/hello.wav"
+            hello.parent.mkdir(parents=True)
+            hello.write_bytes(b"personal greeting")
+            track = volume / "SOUNDS/es/assigned.wav"
+            track.write_bytes(b"track assigned to a switch")
+            with mock.patch.object(installer.shutil, "disk_usage",
+                                   return_value=SimpleNamespace(total=audio.NB4_VOLUME_BYTES, free=1024 * 1024)):
+                result = installer.install(archive, volume, root / "backups", True)
+            self.assertEqual(result.preserved, 1)
+            self.assertEqual(hello.read_bytes(), b"personal greeting")
+            self.assertEqual(track.read_bytes(), b"track assigned to a switch")
+
+    def test_insufficient_space_changes_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = self.make_pack(root)
+            volume = root / "volume"
+            volume.mkdir()
+            with mock.patch.object(installer.shutil, "disk_usage",
+                                   return_value=SimpleNamespace(total=audio.NB4_VOLUME_BYTES, free=0)):
+                with self.assertRaisesRegex(RuntimeError, "free space"):
+                    installer.install(archive, volume, root / "backups", True)
+            self.assertEqual(list(volume.iterdir()), [])
+            self.assertFalse((root / "backups").exists())
+
+    def test_rejects_duplicate_and_symbolic_link_archives(self) -> None:
+        import stat
+        import warnings
+        from zipfile import ZipInfo
+        for kind in ("duplicate", "symlink"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                archive = root / "bad.zip"
+                with warnings.catch_warnings(), ZipFile(archive, "w") as package:
+                    warnings.simplefilter("ignore")
+                    if kind == "duplicate":
+                        package.writestr("SOUNDS/es/x.wav", b"x")
+                        package.writestr("sounds/ES/x.wav", b"y")
+                    else:
+                        info = ZipInfo("SOUNDS/es/x.wav")
+                        info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                        package.writestr(info, b"/private/file")
+                with self.assertRaises(RuntimeError):
+                    installer.safe_extract(archive, root / "output")
+
+    def test_forged_audio_sizes_cannot_bypass_storage_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = self.make_pack(root)
+            extracted = root / "extracted"
+            installer.safe_extract(archive, extracted)
+            manifest_path = extracted / "APEXTX-AUDIO.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["files"][0]["bytes"] = 1
+            manifest["installedBytes"] = 1
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(RuntimeError, "length"):
+                installer.read_and_verify_pack(extracted)
 
 
 if __name__ == "__main__":

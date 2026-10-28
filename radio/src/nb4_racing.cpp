@@ -5,6 +5,9 @@
 #include "edgetx.h"
 #include "nb4_racing.h"
 #include "hal/adc_driver.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -61,6 +64,9 @@ void nb4RaceNativeTimerReset() { if (!processingCommand.load()) queueCommand(5);
 Nb4RacePhase nb4RacePhase() { return racePhase.load(); }
 uint32_t nb4RaceElapsed() { return raceElapsed.load(); }
 bool nb4RaceStart() {
+#if defined(RADIO_NB4)
+  if (nb4RfUpdateDrivingLocked()) return false;
+#endif
   if (!nb4HistoryCanReserve() || nb4RacePhase() == Nb4RacePhase::Running) return false;
   if (queueCommand(1)) return true;
   // Starting includes a native reset, so a reset queued by a physical key can

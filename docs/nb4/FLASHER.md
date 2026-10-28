@@ -1,5 +1,9 @@
 # ApexTX Flasher — Windows and macOS
 
+For desktop app updates, signing and release setup, see
+[Flasher self-update](FLASHER_SELF_UPDATE.md). These updates are separate from
+radio firmware updates.
+
 The ApexTX Flasher packages the existing local-UI updater
 ([`tools/apextx-updater.py`](../../tools/apextx-updater.py)) as a single,
 double-clickable Windows or macOS app, and adds a full-image **install / recovery** mode
@@ -254,17 +258,22 @@ Allow **5–10 minutes** for a complete install. The NB4 screen stays black whil
 the STM32 ROM handles USB; the app shows backup, erase, write and read-back
 verification as separate stages, then starts a compatible image automatically.
 
-## Honest limitation
-ROM DFU only reaches the STM32 internal flash. The external **8 MiB SPI NOR**
-(filesystem + factory calibration) **cannot be read or written** this way, so the
-mandatory backup contains the *firmware*, not the NOR. The app intentionally
-does not accept raw stock backups for restoration: they do not carry the ApexTX
-manifest, checksum and NB4/NB4+ target marker needed for an automatic safety
-check. Restore such a private backup only with the expert procedure in
-[`FLASH.md`](FLASH.md), after verifying its JSON SHA-256 and target radio. A factory-exact backup needs
-a separate method for the external NOR (an SPI reader / programmer).
+## Complete backup and experimental component updates
+STM32 ROM DFU directly reaches only internal flash. The experimental
+**Components** workflow uses a verified read-only RAM agent to copy the
+internal **2 MiB** and external **8 MiB SPI NOR**. It pins the actual unit and
+keeps the complete backup private. A separate RAM agent restores NOR; internal
+restoration checks the MCU UID before writing. See
+[Integrated update](INTEGRATED_UPDATE.md) for the mode transitions, component
+planner and exact qualification limits.
+
+The legacy single-image Install/Recovery path does not provide a complete NOR
+backup and now refuses first installation over an unmarked previous firmware.
+First installation through Components remains gated until full rollback is
+physically demonstrated on the selected model. Ordinary ApexTX application
+updates remain available and preserve storage.
 
 ## UI
 Native window (Edge WebView2 on Windows, WKWebView on macOS, with a default-browser
-fallback), the ApexTX brand logo and colours, and English / Spanish / German,
+fallback), the ApexTX brand logo and colours, and English / Spanish / German / Simplified Chinese,
 matching the firmware's languages.

@@ -2015,7 +2015,7 @@
 #define TR_NB4_UX_HELP_TIMERS "Configure the model timers and the throttle channel used for throttle-based timing. Pit uses timer 2; race timing uses timer 1."
 #define TR_NB4_UX_HELP_LAPS "Start a run, mark laps and finish it. Assign Mark lap to a reachable physical control before driving. View result opens the finished run once storage confirms it was saved."
 #define TR_NB4_UX_HELP_INDEX "Choose a category and setting to read what it changes and open its editor."
-#define TR_NB4_UX_HELP_UPDATE "Restart into firmware update mode. Confirm only when ready to connect the radio to your computer for an update."
+#define TR_NB4_UX_HELP_UPDATE "Review the radio and receiver components before updating."
 #define TR_NB4_UX_HELP_INPUTS "Inputs shape physical-control signals using weight, response curves and conditions before the mixers use them."
 #define TR_NB4_UX_HELP_MIXES "Mixes combine inputs into output channels. Select a curve within a mix to create or reuse a custom response; its other users are listed before editing."
 #define TR_NB4_UX_HELP_OUTPUTS "Outputs set each servo channel's limits, direction and centre after the mixes. These are the same limits shown by the car's axis editors."
@@ -2207,3 +2207,36 @@
 #define TR_NB4_RF_RECEIVER_VERSION "Receiver firmware"
 #define TR_NB4_RF_RECEIVER_MODEL "Receiver model"
 #define TR_NB4_RF_VERSION_UNAVAILABLE "Unavailable"
+#define TR_NB4_UPDATE_COMPONENTS_HELP "Review the radio and receiver components before updating."
+#define TR_NB4_UPDATE_FIRMWARE "Update radio firmware"
+#define TR_NB4_UPDATE_USB_INVENTORY "Connect to ApexTX Flasher"
+#define TR_NB4_UPDATE_USB_ACTIVE "Flasher mode active"
+#define TR_NB4_UPDATE_USB_INFO "Review components and prepare updates in ApexTX Flasher. Connecting USB never installs anything automatically."
+#define TR_NB4_UPDATE_RF_UNQUALIFIED "RF installation is not enabled in this experimental build."
+#define TR_NB4_UPDATE_USB_BUSY "Disconnect USB first, then reconnect from this page."
+#define TR_NB4_UPDATE_RECEIVER_PENDING "Receiver disconnected. Version check pending."
+
+#define TR_NB4_UPDATE_BENCH_INFO "Experimental RF test. Disconnect the motor. This build is restricted to one radio; transfer and recovery still need hardware validation."
+
+#define TR_NB4_UPDATE_RF_REINSTALL "Reinstall prepared RF image"
+
+#define TR_NB4_UPDATE_RF_RECOVER "Recover RF update"
+
+#define TR_NB4_UPDATE_RF_RECOVERY "RF maintenance is incomplete. Driving is disabled. Keep the prepared files and use RF recovery."
+
+#define TR_NB4_UPDATE_RF_PROGRESS "RF update: %u%%"
+
+#define TR_NB4_RECOVERY_RESTART "Restart normally"
+
+#define TR_NB4_RECOVERY_RESTART_INFO "Clear the saved fault and restart with scripts enabled? Car settings and calibration are preserved. If the fault repeats, recovery mode will return."
+
+#define TR_NB4_UPDATE_BENCH_LABEL "Experimental RF bench test"
+
+#define TR_NB4_UPDATE_AVAILABLE "RF update"
+#define TR_NB4_UPDATE_AVAILABLE_INFO "A prepared image is newer than the connected component. Review versions and the update plan. Installation starts only after confirmation."
+#define TR_NB4_UPDATE_REVIEW "Review update"
+#define TR_NB4_UPDATE_LATER "Later"
+#define TR_NB4_UPDATE_DEFER_FAILED "Could not save the reminder choice. You can postpone it again later."
+
+#define TR_NB4_UPDATE_AUDIO "Voice"
+#define TR_NB4_UPDATE_AUDIO_PENDING "incomplete"

@@ -6,11 +6,44 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Added a shared RF transfer/recovery engine, checked external-storage staging,
+  persistent unit-bound operation journals and an explicit bench CLI. Normal
+  builds retain disabled RF writes; private bench builds require a matching
+  transmitter serial and on-radio arming. Hardware recovery remains unqualified.
+- Added an SRAM-only, read-only internal-flash/NOR backup agent and host-side
+  two-pass verification, exercised on an original NB4. Added a separate
+  sector-verified NOR restoration agent and UID-checked internal-firmware
+  restoration. Physical restoration qualification remains pending.
+- Added the experimental Components wizard and offline Linux CLI with a
+  persistent dependency plan, exact-unit recovery backups, bootloader checks,
+  reconnect verification and separate preparation/installation actions.
+  Interrupted work survives app restarts and blocks desktop self-update.
+- Added a unit-bound Maintenance-to-Storage handover, verified resource
+  installation, resumable audio rollback and voice-pack receipts. Kept
+  installed audio unless explicitly changed and preserved personal files.
+- Corrected module and receiver application-version decoding from live
+  measurements. Kept full receiver hardware identity for image selection.
+- Fixed false UI-stall recovery when waiting on a responsive startup dialog.
+  Added a confirmed Restart normally action that clears the retained health
+  fault while preserving cars and calibration.
+- Corrected telemetry timer teardown and made USB control-state recovery bounded
+  without repeating a firmware-install command.
+
 - Began integrated maintenance with a cross-platform, read-only RF package
-  preparer for reviewed NB4/NB4+ source packages and the initial FGr4 V2/FGr4S
+  preparer for reviewed NB4/NB4+ installation packages and the initial FGr4 V2/FGr4S
   V2 targets. It verifies pinned hashes and CRCs, rejects malformed bundles,
-  and cannot enter a USB update path. RF writes and automatic post-bind
-  notifications remain disabled pending protocol and hardware qualification.
+  and cannot enter a USB update path. Normal RF writes remain disabled pending
+  hardware qualification. Added post-bind notices only for a verified newer
+  compatible image, with persistent deferral and no race interruption.
+
+- Added a component page under System > Update, a separate read-only USB
+  inventory connection shared by the desktop app and Linux CLI, and bounded
+  version checks after stable receiver connections without a visible editor.
+  Inventory snapshots expire and cannot authorize RF installation.
+- Made audio installation resumable with a verified full-filesystem backup,
+  preserved personal recordings and omitted assignable tracks, per-file
+  integrity checks and settings-save headroom. Added Simplified Chinese to the
+  desktop flasher and kept audio/text languages independent.
 
 - Added on-demand RF module version, receiver firmware and receiver model
   readouts. Diagnostic queries never wait in the live-channel transaction

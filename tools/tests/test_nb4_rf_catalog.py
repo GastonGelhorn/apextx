@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""RF package/inventory tests use synthetic data only; never FlySky binaries."""
+"""RF package/inventory tests use synthetic data only."""
 import binascii
 import importlib.util
 import io
@@ -64,8 +64,8 @@ def fixture(modify=None, corrupt=None):
     struct.pack_into('<2I', exe, 152 + 96 + 16, 0x1000, len(raw))
     struct.pack_into('<4I', exe, 376 + 8, len(raw), 0x1000, len(raw), 512)
     source = bytes(exe) + raw
-    profile = dict(id='synthetic-nb4', radio='nb4', version='test',
-                   url='https://example.invalid/test-owned', sha256=rf.digest(source),
+    profile = dict(id='synthetic-nb4', radio='nb4',
+                   sha256=rf.digest(source),
                    resource_sha256=rf.digest(resource), images=tuple(images))
     return source, profile
 

@@ -4,6 +4,7 @@
 #pragma once
 #if defined(RADIO_NB4_FAMILY)
 void nb4OpenBluetooth();
+void nb4OpenUpdate();
 const char* nb4CreateCarFromTemplate(const char* path);
 const char* nb4SavePersonalTemplate(const char* name, bool overwrite = false);
 bool nb4TemplateNameValid(const char* name);

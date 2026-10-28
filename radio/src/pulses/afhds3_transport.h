@@ -267,6 +267,13 @@ class Transport
                         uint8_t size = 0);
   void cancelReadOnlyFrame() { readOnlyPending = false; }
   bool isReadOnlyReply() const { return readOnlyReply; }
+  void cancelPendingRequest() {
+    operationState = State::IDLE;
+    repeatCount = 0;
+    readOnlyPending = false;
+    trsp.clear();
+    ++frameIndex;
+  }
   bool canSendReadOnlyFrame() {
     return !waiting() && !acknowledgements.getCommand() && !responsePending;
   }

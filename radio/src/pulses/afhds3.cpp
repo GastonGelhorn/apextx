@@ -20,6 +20,9 @@
  */
 
 #include "afhds3.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_latency.h"
 #endif
@@ -317,6 +320,7 @@ class ProtoState
    }
    void resetVersions();
    Nb4ReceiverTelemetry receiverTelemetry;
+   bool nb4MaintenanceOwned = false;
 #endif
    uint16_t RFCurrentPower;
 
@@ -470,6 +474,9 @@ static const uint16_t AFHDS3_POWER[] = {56, 68, 80, 96, 108, 120, 132};
 
 //Static collection of afhds3 object instances by module
 static ProtoState protoState[MAX_MODULES];
+#if defined(RADIO_NB4)
+static uint32_t versionEpoch = 0;
+#endif
 bool containsData(FRAME_TYPE frameType);
 
 void getStatusString(uint8_t module, char* buffer)
@@ -530,9 +537,11 @@ Nb4ModuleVersion ProtoState::getModuleVersionInfo() const
     v.replyLen = nb4VersionLen;
     v.productNumber = version.productNumber;
     v.hardwareVersion = version.hardwareVersion;
-    v.bootloaderVersion = version.bootloaderVersion;
-    v.firmwareVersion = version.firmwareVersion;
-    v.rfVersion = version.rfVersion;
+    v.firmwareKnown = nb4VersionLen == 26;
+    if (v.firmwareKnown) {
+      v.firmwareVersion = version.bootloaderVersion;
+      v.rfVersion = version.firmwareVersion;
+    }
   }
   return v;
 }
@@ -548,6 +557,11 @@ void requestVersionInfo(uint8_t module)
   if (module == INTERNAL_MODULE) protoState[module].armVersionRead();
 }
 
+uint32_t getVersionEpoch(uint8_t module)
+{
+  return module == INTERNAL_MODULE ? versionEpoch : 0;
+}
+
 Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
 {
   Nb4ReceiverVersion v;
@@ -558,11 +572,10 @@ Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
       getModuleMode(module_index) != MODULE_MODE_BIND) {
     v.valid = true;
     v.productNumber = rx_version.ProductNumber;
-    v.mainboardVersion = rx_version.MainboardVersion;
-    v.rfModuleVersion = rx_version.RFModuleVersion;
-    v.bootloaderVersion = rx_version.BootloaderVersion;
-    v.firmwareVersion = rx_version.FirmwareVersion;
-    v.rfLibraryVersion = rx_version.RFLibraryVersion;
+    const auto words = reinterpret_cast<const uint8_t*>(&rx_version) + 4;
+    for (unsigned i = 0; i < 5; ++i)
+      v.identityWords[i] = words[i * 2] | (uint16_t(words[i * 2 + 1]) << 8);
+    v.firmwareVersion = v.identityWords[3];
   }
   return v;
 }
@@ -847,6 +860,8 @@ void ProtoState::setupFrame()
 #if defined(RADIO_NB4)
 void ProtoState::resetReceiverVersion()
 {
+  if (nb4HaveRxVersion || nb4RxVersionTries || nb4ConnSettling)
+    ++versionEpoch;
   nb4HaveRxVersion = false;
   nb4RxVersionTries = 0;
   nb4ConnSettling = false;
@@ -858,6 +873,7 @@ void ProtoState::resetReceiverVersion()
 
 void ProtoState::resetVersions()
 {
+  ++versionEpoch;
   nb4HaveVersion = false;
   nb4VersionTries = nb4VersionLen = 0;
   nb4VersionRead = VersionRead::None;
@@ -886,7 +902,12 @@ bool ProtoState::setupVersionRead(tmr10ms_t now)
     nb4VersionRead = VersionRead::None;
     trsp.cancelReadOnlyFrame();
   }
-  if (!nb4VersionWanted || nb4Binding ||
+  // One bounded check per module/link epoch. UI demand must not be needed:
+  // a new bind finishes before the receiver page may ever become visible.
+  const bool automatic = (!nb4HaveVersion && nb4VersionTries < 3) ||
+      (isConnected() && moduleData->afhds3.telemetry &&
+       !nb4HaveRxVersion && nb4RxVersionTries < 3);
+  if ((!nb4VersionWanted && !automatic) || nb4Binding ||
       !trsp.canSendReadOnlyFrame() ||
       nb4VersionRead != VersionRead::None ||
       (tmr10ms_t)(now - nb4ActiveSince) < SETTLE ||
@@ -931,6 +952,16 @@ void ProtoState::nb4Fail(Nb4Str message)
 
 void ProtoState::setupNb4Frame()
 {
+  if (nb4RfUpdateFrame(trsp)) { nb4MaintenanceOwned = true; return; }
+  if (nb4MaintenanceOwned) {
+    nb4MaintenanceOwned = false;
+    clearFrameData();
+    nb4Stage = Nb4Stage::Ready;
+    nb4Pending = nb4Page = nb4ReadyTries = 0;
+    nb4ReceivedConfig = false;
+    nb4Error = nullptr;
+    state = STATE_NOT_READY;
+  }
   const auto now = get_tmr10ms();
   const bool bind = getModuleMode(module_index) == MODULE_MODE_BIND;
   if (cfg.version != (Nb4RfConfig::enhanced() ? 1 : 0)) {
@@ -1073,6 +1104,7 @@ void ProtoState::setupNb4Frame()
     nb4Request(MODULE_STATE);
   } else if (nb4Config.bound && !nb4Binding) {
     if (setupVersionRead(now)) return;
+    if (nb4RfUpdateDrivingLocked()) { trsp.skipFrame(); return; }
     if (++cmdCount >= 500) {
       cmdCount = 0;
       int16_t failsafe[AFHDS3_MAX_CHANNELS + 1]{};
@@ -1087,6 +1119,9 @@ void ProtoState::setupNb4Frame()
 
 bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
 {
+  if (length >= 7)
+    nb4RfUpdateReceive(frame->frameType, frame->command, frame->frameNumber,
+                        &frame->value, length - 7);
   if (frame->frameType == REQUEST_GET_DATA && frame->command == MODULE_SET_CONFIG) {
     // The peer requests a page with one byte. Reply with page index +
     // contents, omitting the SET operation byte.

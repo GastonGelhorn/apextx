@@ -20,6 +20,9 @@
  */
 
 #include "edgetx.h"
+#if defined(RADIO_NB4)
+#include "nb4_audio_identity.h"
+#endif
 #include "storage.h"
 #include "sdcard_common.h"
 #include "sdcard_yaml.h"
@@ -27,6 +30,9 @@
 #include "model_init.h"
 #include "nb4_model_compat.h"
 #include "nb4_history.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_home.h"
 #endif
@@ -196,6 +202,9 @@ const char * createModel()
 
 const char* loadModel(const char* filename, bool alarms, const char* filePath)
 {
+#if defined(RADIO_NB4)
+  if (nb4RfUpdateDrivingLocked()) return STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO;
+#endif
   preModelLoad();
 
 #if defined(RADIO_NB4_FAMILY)
@@ -256,6 +265,9 @@ void storageReadAll()
 
   if (g_eeGeneral.uiLanguage[0] == 0)
     generalDefaultUILanguage();
+#if defined(RADIO_NB4)
+  nb4AudioIdentityLoad();
+#endif
   currentLanguagePackIdx = getLanguageId(g_eeGeneral.ttsLanguage);
   currentLanguagePack = languagePacks[currentLanguagePackIdx];
 #if defined(ALL_LANGS)

@@ -21,13 +21,13 @@ def bounded_read(path, limit):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('source', type=Path, help='A reviewed official package, or an ApexTX RF bundle with --check.')
+    parser.add_argument('source', type=Path, help='A reviewed installation package, or an ApexTX RF bundle with --check.')
     parser.add_argument('--output', type=Path, help='Create a new local RF ZIP; existing files are never overwritten.')
     parser.add_argument('--check', action='store_true', help='Verify an ApexTX RF ZIP, without extracting it.')
     parser.add_argument('--assess', type=Path, help='Read-only receiver inventory JSON to assess with --check.')
     args = parser.parse_args()
     if args.check and args.output or args.assess and not args.check:
-        parser.error('Use --output with an official source; use --assess only with --check.')
+        parser.error('Use --output with an installation package; use --assess only with --check.')
     try:
         if args.check:
             description, _ = verify_bundle(bounded_read(args.source, MAX_BUNDLE))

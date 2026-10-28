@@ -1,0 +1,273 @@
+/* Copyright (C) Gaston Gelhorn
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+#include "gtests.h"
+#include "location.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update_core.h"
+#include "nb4_sha256.h"
+#include "nb4_rf_update.h"
+#include "nb4_rf_images.h"
+#include "nb4_maintenance_protocol.h"
+#include "nb4_history.h"
+#include "bootloader/nb4_update_id.h"
+#include <filesystem>
+#include <fstream>
+#include <unistd.h>
+#include <vector>
+using namespace nb4;
+namespace {
+struct Peer {
+  uint8_t opcode = 0, sequence = 0;
+  bool response = false, disk = true, writable = true;
+  std::vector<uint8_t> payload;
+  std::vector<uint8_t> checkpoint;
+  RfUpdateIo io() {
+    return {this, [](void* ctx, uint32_t at, uint8_t* out, size_t size) {
+      for (size_t i = 0; i < size; ++i) out[i] = uint8_t(at + i);
+      return static_cast<Peer*>(ctx)->disk;
+    }, [](void* ctx, bool response, uint8_t opcode, uint8_t sequence,
+          const uint8_t* bytes, uint8_t count) {
+      auto& self = *static_cast<Peer*>(ctx);
+      if (!self.writable) return false;
+      self.response = response; self.opcode = opcode; self.sequence = sequence;
+      self.payload.assign(bytes, bytes + count);
+      return true;
+    }, [](void* ctx, const uint8_t* bytes, uint8_t count) {
+      auto& self = *static_cast<Peer*>(ctx);
+      self.checkpoint.assign(bytes, bytes + count);
+      return self.disk;
+    }};
+  }
+};
+const uint8_t hash[32]{};
+const RfUpdateIdentity identity{3, 4, 0x12340004, 7, 0x112, 0x103};
+const RfUpdateImage image{0x12340004, 0x113, 20, hash, true};
+void boot(RfUpdateCore& core, Peer& peer) {
+  const uint8_t receiver[] = {4,0,0x34,0x12,3,1,1,2,3,4,5,6,7,8};
+  const uint8_t module[] = {3,1,0,0};
+  core.receive(core.receiver() ? 3 : 2, core.receiver() ? 0x33 : 0x24, 90,
+               core.receiver() ? receiver : module, core.receiver() ? 14 : 4, 90, peer.io());
+}
+void chunk(RfUpdateCore& core, Peer& peer, uint8_t offset, uint8_t count) {
+  if (core.phase() == RfUpdatePhase::Entering) boot(core, peer);
+  const uint8_t request[] = {offset, 0, 0, 0, count};
+  core.receive(1, core.receiver() ? 0x31 : 0x26, 91, request, sizeof(request), 100, peer.io());
+}
+TEST(Nb4RfUpdate, Sha256MatchesStandardVectorsAcrossBlockAndPaddingBoundaries) {
+  const std::pair<std::string, const char*> vectors[] = {
+    {"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"},
+    {std::string(1000000, 'a'), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"},
+    {"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"}
+  };
+  for (const auto& vector : vectors) {
+    Sha256 sha;
+    for (const auto byte : vector.first) {
+      const auto input = uint8_t(byte); sha.update(&input, 1);
+    }
+    uint8_t digest[32]; sha.finish(digest);
+    char text[65];
+    for (unsigned i = 0; i < 32; ++i) snprintf(text + i * 2, 3, "%02x", digest[i]);
+    EXPECT_STREQ(text, vector.second);
+  }
+}
+}
+TEST(Nb4RfUpdate, PinsIdentityRejectsDowngradesAndOnlyCancelsBeforeEntry) {
+  RfUpdateCore core; Peer peer;
+  auto old = image; old.version = identity.version;
+  EXPECT_FALSE(core.prepare(old, identity, 1));
+  EXPECT_FALSE(core.prepare(image, identity, 0));
+  ASSERT_TRUE(core.prepare(image, identity, 1));
+  auto changed = identity; ++changed.epoch;
+  EXPECT_FALSE(core.start(changed, 0));
+  ASSERT_TRUE(core.start(identity, 0));
+  ASSERT_TRUE(core.cancel());
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Cancelled);
+  ASSERT_TRUE(core.prepare(image, identity, 2));
+  ASSERT_TRUE(core.start(identity, 0)); core.service(0, peer.io());
+  EXPECT_EQ(peer.opcode, 0x30);
+  EXPECT_EQ(peer.payload, (std::vector<uint8_t>{0,0,4,0,0x34,0x12,0,0,0,0,20,0,0,0}));
+  EXPECT_FALSE(core.cancel());
+  core.service(10001, peer.io());
+  EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  EXPECT_TRUE(core.ownsLink());
+  EXPECT_FALSE(core.prepare(image, identity, 3));
+}
+TEST(Nb4RfUpdate, DuplicateAndOutOfOrderChunksCountEachByteOnceAndVerifyFreshVersion) {
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io());
+  chunk(core, peer, 10, 10); EXPECT_EQ(core.transferred(), 10u);
+  chunk(core, peer, 10, 10); EXPECT_EQ(core.transferred(), 10u);
+  EXPECT_EQ(peer.sequence, 91); EXPECT_TRUE(peer.response);
+  EXPECT_EQ(peer.payload.size(), 15u); EXPECT_EQ(peer.payload.back(), 19);
+  chunk(core, peer, 0, 10); EXPECT_EQ(core.transferred(), 20u);
+  uint8_t result = 2;
+  core.receive(5, 0x32, 92, &result, 1, 100, peer.io());
+  EXPECT_EQ(core.phase(), RfUpdatePhase::VerifyVersion);
+  core.verifyVersion(image.product, image.version, false);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::VerifyVersion);
+  core.verifyVersion(image.product, image.version, true);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
+}
+TEST(Nb4RfUpdate, AFinalChunkOrEarlySuccessDoesNotHideMissingBytes) {
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io()); chunk(core, peer, 19, 1);
+  const uint8_t result = 2;
+  core.receive(3, 0x32, 1, &result, 1, 100, peer.io());
+  EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  EXPECT_EQ(core.error(), RfUpdateError::Protocol);
+}
+TEST(Nb4RfUpdate, BadRangesStorageFailureAndPeerRejectionKeepTheLinkLocked) {
+  for (unsigned fault = 0; fault < 4; ++fault) {
+    RfUpdateCore core; Peer peer;
+    ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+    core.service(0, peer.io());
+    if (fault == 0) chunk(core, peer, 19, 2);
+    if (fault == 1) { peer.disk = false; chunk(core, peer, 0, 10); }
+    if (fault == 2) chunk(core, peer, 0, 0);
+    if (fault == 3) { uint8_t result = 1; core.receive(5, 0x32, 2, &result, 1, 1, peer.io()); }
+    EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+    EXPECT_EQ(core.transferred(), 0u);
+  }
+}
+TEST(Nb4RfUpdate, ModuleUsesDifferentManifestAndResultThenRequestsNormalMode) {
+  auto module = image; module.receiver = false;
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(module, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io()); EXPECT_EQ(peer.opcode, 0x23); EXPECT_TRUE(peer.payload.empty());
+  boot(core, peer);
+  core.receive(1, 0x25, 8, nullptr, 0, 1, peer.io());
+  EXPECT_EQ(peer.payload, (std::vector<uint8_t>{0,0,0,0,0,0,20,0,0,0}));
+  chunk(core, peer, 0, 20);
+  const uint8_t result = 1;
+  core.receive(3, 0x27, 92, &result, 1, 100, peer.io());
+  core.verifyVersion(module.product, module.version, true);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::VerifyVersion);
+  core.service(100, peer.io());
+  EXPECT_EQ(peer.opcode, 0x27); EXPECT_EQ(peer.payload, std::vector<uint8_t>{1});
+  core.verifyVersion(module.product, module.version, true);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
+}
+TEST(Nb4RfUpdate, RecoveryRestartsTheWholeImageAndRejectsADifferentBootPeer) {
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io()); chunk(core, peer, 0, 10);
+  const auto saved = peer.checkpoint;
+  core.service(20000, peer.io()); ASSERT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  ASSERT_TRUE(core.recover(image, identity, 1, saved.data(), saved.size(), 20001));
+  EXPECT_EQ(core.transferred(), 0u);
+  core.service(20001, peer.io());
+  auto different = saved; different[6] ^= 1;
+  core.receive(3, 0x33, 90, different.data(), different.size(), 20002, peer.io());
+  EXPECT_EQ(core.error(), RfUpdateError::IdentityChanged);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  ASSERT_TRUE(core.recover(image, identity, 1, saved.data(), saved.size(), 20003));
+  core.service(20003, peer.io()); chunk(core, peer, 0, 20);
+  const uint8_t result = 2;
+  core.receive(3, 0x32, 91, &result, 1, 20004, peer.io());
+  core.verifyVersion(image.product, image.version, true);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
+}
+TEST(Nb4RfUpdate, NoImageByteIsSentBeforeBootIdentityIsDurablyPinned) {
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io());
+  const auto previous = peer.payload;
+  const uint8_t request[] = {0,0,0,0,10};
+  core.receive(1, 0x31, 91, request, sizeof(request), 1, peer.io());
+  EXPECT_EQ(core.transferred(), 0u);
+  EXPECT_EQ(core.error(), RfUpdateError::Protocol);
+  EXPECT_EQ(peer.payload, previous);
+}
+
+namespace {
+struct JournalFixture {
+  struct Record {
+    uint8_t magic[8];
+    uint32_t sequence, operation, image, phase;
+    RfUpdateIdentity identity;
+    uint8_t backup[32];
+    uint32_t peerLength;
+    uint8_t peer[16];
+    uint32_t uid[3], target, crc;
+  };
+  std::filesystem::path root = std::filesystem::temp_directory_path() /
+      ("apextx-rf-journal-" + std::to_string(getpid()));
+  JournalFixture() {
+    nb4RfUpdateTestReset();
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "FIRMWARE/RF");
+    simuFatfsSetPaths(root.c_str(), nullptr); simuFatfsSetFaults(0);
+    nb4StorageResume();
+  }
+  ~JournalFixture() {
+    nb4RfUpdateTestReset(); nb4StorageResume();
+    simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(root);
+  }
+  void write(uint32_t sequence, RfUpdatePhase phase, bool damaged = false) {
+    Record data{}; static_assert(sizeof(data) == 128);
+    memcpy(data.magic, "APXRFW3", 8);
+    data.sequence = sequence; data.operation = 17; data.image = 1; data.phase = uint32_t(phase);
+    data.identity = identity; memset(data.backup, 0x55, sizeof(data.backup));
+    data.uid[0] = 1; data.target = NB4_UPDATE_TARGET;
+    data.crc = maintenanceCrc(reinterpret_cast<const uint8_t*>(&data), sizeof(data) - 4);
+    if (damaged) data.crc ^= 1;
+    auto path = root / (sequence & 1 ? "FIRMWARE/RF/operation.alt" : "FIRMWARE/RF/operation.dat");
+    std::ofstream stream(path, std::ios::binary);
+    stream.write(reinterpret_cast<const char*>(&data), sizeof(data));
+  }
+  std::string command(uint8_t command) {
+    const uint8_t payload[]{17, 0, 0, 0, 1}; char output[512]{};
+    EXPECT_TRUE(nb4RfUpdateCommand(command, payload, command == 18 ? 5 : 4, output, sizeof(output)));
+    return output;
+  }
+};
+}
+TEST(Nb4RfJournal, ACorruptCheckpointRetainsTheEarlierEntryAndDrivingLock) {
+  JournalFixture fixture;
+  fixture.write(1, RfUpdatePhase::Entering);
+  fixture.write(2, RfUpdatePhase::Transfer, true);
+  nb4RfUpdateService();
+  EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+  EXPECT_NE(fixture.command(19).find("\"operation\":17"), std::string::npos);
+}
+TEST(Nb4RfJournal, OnlyANewerVerifiedCompletionReleasesDrivingAfterRestart) {
+  JournalFixture fixture;
+  fixture.write(1, RfUpdatePhase::Transfer);
+  fixture.write(2, RfUpdatePhase::Complete);
+  nb4RfUpdateService(); EXPECT_FALSE(nb4RfUpdateDrivingLocked());
+  nb4RfUpdateTestReset();
+  fixture.write(3, RfUpdatePhase::Entering);
+  nb4RfUpdateService(); EXPECT_TRUE(nb4RfUpdateDrivingLocked());
+}
+TEST(Nb4RfJournal, DamagedRecordsCannotAuthorizeDrivingThroughAnOlderReadyRecord) {
+  JournalFixture fixture;
+  fixture.write(1, RfUpdatePhase::Ready);
+  fixture.write(2, RfUpdatePhase::Entering, true);
+  nb4RfUpdateService(); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+  EXPECT_FALSE(nb4RfUpdatePrepared());
+}
+TEST(Nb4RfJournal, RecoveryValidationCannotBeCancelledOrStartedTwice) {
+  JournalFixture fixture; fixture.write(1, RfUpdatePhase::Entering);
+  nb4RfUpdateService(); nb4RfUpdateTestBeginValidation(true);
+  EXPECT_NE(fixture.command(20).find("cannot_cancel_after_entry"), std::string::npos);
+  EXPECT_NE(fixture.command(21).find("operation_in_progress"), std::string::npos);
+  EXPECT_NE(fixture.command(18).find("operation_in_progress"), std::string::npos);
+  EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+}
+TEST(Nb4RfJournal, ARejectedPreparationPreservesThePreviousPreparedOperation) {
+  JournalFixture fixture; fixture.write(1, RfUpdatePhase::Ready);
+  nb4RfUpdateService(); ASSERT_TRUE(nb4RfUpdatePrepared()) << fixture.command(19);
+  uint8_t payload[45]{};
+  payload[0] = 1; payload[1] = 18;
+  memset(payload + 5, 0xff, 4); memset(payload + 13, 0x55, 32);
+  char output[512]{};
+  EXPECT_TRUE(nb4RfUpdateCommand(16, payload, sizeof(payload), output, sizeof(output)));
+  EXPECT_NE(std::string(output).find("error"), std::string::npos);
+  EXPECT_TRUE(nb4RfUpdatePrepared());
+  EXPECT_NE(fixture.command(19).find("\"operation\":17"), std::string::npos);
+}
+#endif

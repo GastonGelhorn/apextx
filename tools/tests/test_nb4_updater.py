@@ -148,6 +148,37 @@ class Host(unittest.TestCase):
             self.assertIsNone(usb_update.discover())
 
 
+class UsbControlState(unittest.TestCase):
+    def idle(self, states):
+        transport = object.__new__(usb_update.Transport)
+        self.requests = []
+        sequence = iter(states)
+        transport.status = lambda: next(sequence)
+        transport.out = lambda request: self.requests.append(request)
+        ticks = iter(range(100))
+        with patch.object(usb_update.time, 'sleep'), \
+                patch.object(usb_update.time, 'monotonic', lambda: next(ticks)):
+            transport.idle()
+
+    def test_idle_waits_for_busy_and_rechecks_an_ignored_abort(self):
+        self.idle([(0, .001, 4), (0, 0, 5), (0, 0, 5), (0, 0, 2)])
+        self.assertEqual(self.requests, [6, 6])
+
+    def test_idle_does_not_treat_an_error_as_a_temporary_busy_state(self):
+        with self.assertRaisesRegex(usb_update.UpdateError, 'error 3'):
+            self.idle([(0, 0, 5), (3, 0, 10)])
+        self.assertEqual(self.requests, [6])
+        with self.assertRaisesRegex(usb_update.UpdateError, 'state 8'):
+            self.idle([(0, 0, 8)])
+        self.assertEqual(self.requests, [])
+
+    def test_idle_has_a_deadline_and_never_sends_an_application_command(self):
+        with self.assertRaises(usb_update.IncompleteResponse):
+            self.idle([(0, 0, 5)] * 30)
+        self.assertTrue(self.requests)
+        self.assertTrue(all(request == 6 for request in self.requests))
+
+
 class ImageGates(unittest.TestCase):
     """The checks that stop a wrong or damaged image reaching the radio."""
 
@@ -484,7 +515,16 @@ class Reporting(unittest.TestCase):
 
     def test_persistent_flash_status_stalls_stop_without_rewriting_or_restarting(self):
         with self.assertRaises(usb_update.UpdateError) as caught:
-            self.drive([OSError(errno.EIO, 'USB stall')] * 4)
+            self.drive([OSError(errno.EIO, 'USB stall')] * 31)
+        self.assertEqual(self.commands, [b'APXSTART'])
+        self.assertIn('do not switch it off', str(caught.exception))
+
+    def test_short_usb_status_reads_only_repeat_status_and_require_final_verification(self):
+        reports = self.drive([usb_update.IncompleteResponse('short status')] * 5 + [(3, 100)])
+        self.assertEqual(self.commands, [b'APXSTART', b'APXRESET'])
+        self.assertEqual(reports[-1][0], 100)
+        with self.assertRaises(usb_update.UpdateError) as caught:
+            self.drive([usb_update.IncompleteResponse('short status')] * 31)
         self.assertEqual(self.commands, [b'APXSTART'])
         self.assertIn('do not switch it off', str(caught.exception))
 

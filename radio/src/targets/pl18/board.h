@@ -62,6 +62,9 @@ extern uint16_t sessionTimer;
 
 // Board driver
 void boardInit();
+#if defined(RADIO_NB4)
+void nb4UsbRetryConnection();
+#endif
 void boardOff();
 
 // CPU Unique ID

@@ -9,7 +9,7 @@ const elements = new Map();
 function element() {return {dataset:{},style:{},files:[],classList:{toggle(){}},appendChild(child){child.parentElement=this;},textContent:'',hidden:false,disabled:false,checked:false};}
 for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set('#'+match[1],element());
 const translations = [...html.matchAll(/data-k="([^"]+)"/g)].map(m=>Object.assign(element(),{dataset:{k:m[1]}}));
-const langs = ['en','es','de'].map(lang=>Object.assign(element(),{dataset:{lang}}));
+const langs = ['en','es','de','cn'].map(lang=>Object.assign(element(),{dataset:{lang}}));
 const modes = ['update','recover'].map(mode=>Object.assign(element(),{dataset:{mode}}));
 const radios = ['NB4','NB4+'].map(value=>Object.assign(element(),{value}));
 const document = {documentElement:{dataset:{platform:'darwin'}},
@@ -30,6 +30,14 @@ assert.equal(document.documentElement.lang,'es','Default to the system language'
 assert.equal(run("localStorage.getItem=()=> 'de';pick()"),'de','Honor an explicitly chosen language');
 assert.equal(run("localStorage.getItem=()=>null;navigator.language='de-DE';pick()"),'de');
 assert.equal(run("navigator.language='fr-FR';pick()"),'en','Fall back to English for unsupported system languages');
+assert.equal(run("navigator.language='zh-CN';pick()"),'cn');
+for(const language of ['en','es','de','cn']) {
+ assert.deepEqual(run('Object.keys(T.'+language+').sort()'),run('Object.keys(T.en).sort()'));
+ for(const key of run('Object.keys(T.en)')) {
+  assert.deepEqual(run('T.'+language+'['+JSON.stringify(key)+'].match(/\\{\\w+\\}/g)'),
+                   run('T.en['+JSON.stringify(key)+'].match(/\\{\\w+\\}/g)'),language+': '+key);
+ }
+}
 run("navigator.language='es';applyLang(pick())");
 const offer={id:42,target:1,version:'0.1.0-alpha.4',prerelease:true,url:'https://github.com/',decision:'available'};
 const device={state:'ready',target:1,serial:'A',model:'NB4',version:'0.1.0-alpha.3'};
@@ -42,6 +50,15 @@ for(const status of ['absent','multiple','recovery','error']) {
 }
 state(device);
 assert.equal(get('upgrade').disabled,false);
+assert.equal(get('readComponents').disabled,true,'Update mode must not receive serial inventory frames');
+state({...device,state:'normal'});
+assert.equal(get('readComponents').disabled,true,'Ordinary serial/debug mode is not maintenance');
+state({...device,state:'normal',maintenance:true});
+assert.equal(get('readComponents').disabled,false);
+assert.equal(get('deviceTitle').textContent,'Mantenimiento conectado');
+assert.equal(get('deviceHelp').textContent,run('T.es.maintenanceHelp'));
+assert.equal(calls.length,0,'Selecting maintenance never installs firmware');
+state(device);
 assert.equal(get('upgrade').textContent,'Actualizar a 0.1.0-alpha.4');
 assert.equal(get('previewBadge').hidden,false);
 state({...device,development:true});
@@ -87,6 +104,23 @@ state({state:'recovery',serial:'A'},bootOffer,{bootloader_install:{...plan,ready
 assert.equal(get('bootloaderInstall').disabled,false);
 assert.equal(get('bootloaderInstall').textContent,'Respaldar e instalar en Noble NB4');
 assert.equal(calls.length,0,'Detecting DFU must never initiate an installation');
+const components={id:'a'.repeat(32),serial:'A',target:1,package_version:'0.1.0-alpha.6',directory:'/private/session',backup:'/private/backup',approved:true,outcome:'partial',rf_assets:true,bootloader:{state:'current',current:1,proposed:1},
+ selected:{application:true,module:true,receiver:true,resources:true,audio:false},steps:{application:{state:'current'},module:{state:'current',image:0,current:65569,proposed:65569,write_supported:false},receiver:{state:'pending'},resources:{state:'ready'},audio:{state:'deferred'}}};
+state({...device,state:'normal',mode:'maintenance',maintenance:true},offer,{integrated:components});
+assert.equal(get('stage_module').disabled,false,'Verified staging is a separate non-installing action');
+assert.equal(get('install_module').disabled,true,'A normal build cannot install unqualified RF');
+assert.equal(get('stage_receiver').disabled,true,'An unidentified receiver remains pending');
+assert.equal(get('componentBackup').disabled,true,'Complete backup needs ROM DFU');
+assert.equal(get('componentPackageDetails').open,false,'A prepared package is collapsed to keep the plan visible');
+state({...device,state:'normal',mode:'maintenance',maintenance:true,serial:'B'},offer,{integrated:components});
+assert.equal(get('stage_module').disabled,true,'A plan cannot be applied to another transmitter');
+assert.equal(get('componentRead').disabled,true);
+assert.equal(calls.length,0,'Rendering a plan cannot start a component operation');
+state(device,offer,{integrated:{...components,rf_assets:false,bootloader:{state:'pending',proposed:1}}});
+assert.equal(get('componentRead').disabled,false,'Update can read bootloader requirements without serial commands');
+assert.equal(get('install_application').disabled,true,'Unknown bootloader requirements must be reviewed first');
+state({...device,state:'normal',maintenance:true},offer,{integrated:{...components,rf_assets:false}});
+assert.equal(get('stage_module').disabled,true,'A package without RF assets cannot prepare RF');
 state(device);
 for(const language of ['en','es','de']) {
  run(`applyLang('${language}')`);
@@ -128,5 +162,36 @@ for(const language of ['en','es','de']) {
  state({state:'absent'},bootOffer,{bootloader_install:plan});
  await get('bootloaderCancel').onclick();
  assert.equal(calls[0].url,'/api/bootloader/cancel');
+ calls=[];
+ const appOffer={version:'1.4.0',state:'available',available:'1.5.0',notes:'<script>unsafe</script>',supported:true,compatible:true,preview:false};
+ state(device,offer,{app_update:appOffer});
+ assert.equal(calls.length,0,'App detection and rendering never download or install');
+ assert.equal(get('appInstall').disabled,false);
+ assert.equal(get('appUpdateNotes').textContent,'<script>unsafe</script>','Notes are text, not executable HTML');
+ assert.equal(get('appUpdates').open,true,'An available app update is visible');
+ for(const blocked of [{...appOffer,blocked:true},{...appOffer,supported:false},{...appOffer,compatible:false}]){
+  state(device,offer,{app_update:blocked});
+  assert.equal(get('appInstall').disabled,true);
+  await get('appInstall').onclick();
+  assert.equal(calls.length,0);
+ }
+ state(device,offer,{app_update:appOffer});
+ get('appRelocate').checked=true;
+ await get('appInstall').onclick();
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,'/api/app-update/install');
+ assert.deepEqual(JSON.parse(calls[0].options.body),{version:'1.5.0',relocate:true});
+ calls=[];
+ await get('appLater').onclick();
+ assert.equal(calls[0].url,'/api/app-update/later');
+ calls=[];
+ await get('appSkip').onclick();
+ assert.equal(calls[0].url,'/api/app-update/skip');
+ state(device,offer,{app_update:{...appOffer,state:'downloading',progress:42}});
+ assert.equal(get('appInstall').disabled,true);
+ assert.equal(get('appUpdateStatus').textContent.includes('42'),true);
+ state(device,offer,{app_update:{...appOffer,state:'error',error:'App network unavailable'}});
+ assert.equal(get('appUpdateError').textContent,'App network unavailable');
+ assert.equal(get('start').disabled,false,'An app update check failure preserves local radio updating');
  console.log('Shared flasher UI: connection states, all languages, offline/manual, version policy, busy guards, and explicit upgrade request passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

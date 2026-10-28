@@ -44,6 +44,9 @@ jobs:
       - name: Trust the container checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Install desktop signature verification
+        run: uv pip install --python "$(command -v python3)" -r tools/requirements-updater.txt
+
       - name: Validate version and the RF descriptor
         shell: bash
         run: |
@@ -71,7 +74,7 @@ jobs:
       - name: Build and verify firmware
         run: |
           cmake --build build/nb4-release --target arm-none-eabi-configure -j4
-          cmake --build build/nb4-release/arm-none-eabi --target firmware-size -j4
+          cmake --build build/nb4-release/arm-none-eabi --target firmware-size nb4-backup-agent nb4-nor-restore-agent -j4
 
       - name: Verify ROM automatic-start machine code
         run: |

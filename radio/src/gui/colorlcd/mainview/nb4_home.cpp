@@ -29,6 +29,12 @@
 #include "nb4_routes.h"
 #include "view_main.h"
 #include "view_channels.h"
+#include "hal/abnormal_reboot.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#include "nb4_rf_notice.h"
+#include "nb4_menu_pages.h"
+#endif
 
 namespace {
 int pendingOrientation = -1;
@@ -389,10 +395,24 @@ void Nb4HomeScreen::build()
              STR_NB4_RECOVERY, STR_NB4_LUA_DISABLED);
     label(this, {4, 58, (coord_t)(w - 8), 20}, banner, FONT(XS),
           COLOR_THEME_PRIMARY3_INDEX);
-    label(this, {4, 84, (coord_t)(w - 8), 32}, "ApexTX", FONT(L));
-    Nb4Ui::paragraph(this, {4, 124, (coord_t)(w - 8), 70}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
-    action(this, {4, 208, (coord_t)(w - 8), 44}, STR_NB4_SYSTEM_DIAGNOSTICS, [] { ViewMain::instance()->openMenu(); });
-    action(this, {4, 260, (coord_t)(w - 8), 44}, STR_NB4_CAR, [] { QuickMenu::openPage(QM_MODEL_SETUP); });
+    if (!landscape) label(this, {4, 84, (coord_t)(w - 8), 32}, "ApexTX", FONT(L));
+    Nb4Ui::paragraph(this, {4, (coord_t)(landscape ? 84 : 124), (coord_t)(w - 8), (coord_t)(landscape ? 48 : 70)}, STR_NB4_BUILT_IN_MINIMAL_INTERFACE_CAR_CONFIGURA);
+    action(this, {4, (coord_t)(landscape ? 142 : 208), (coord_t)(w - 8), 44}, STR_NB4_SYSTEM_DIAGNOSTICS, [] { ViewMain::instance()->openMenu(); });
+    action(this, {4, (coord_t)(landscape ? 196 : 260), (coord_t)(w - 8), 44}, STR_NB4_CAR, [] { QuickMenu::openPage(QM_MODEL_SETUP); });
+    action(this, {4, (coord_t)(landscape ? 250 : 312), (coord_t)(w - 8), 44}, STR_NB4_RECOVERY_RESTART, [] {
+#if defined(RADIO_NB4)
+      if (nb4RfUpdateStorageOwned() && !nb4RfUpdateNeedsRecovery()) return;
+#endif
+      new ConfirmDialog(STR_NB4_RECOVERY_RESTART, STR_NB4_RECOVERY_RESTART_INFO, [] {
+        storageCheck(true);
+        nb4HealthClearPrevious();
+        pwrOn();
+        abnormalRebootRequestResume();
+#if !defined(SIMU)
+        NVIC_SystemReset();
+#endif
+      });
+    });
     name->setText(state.model);
     return;
   }
@@ -477,11 +497,43 @@ void Nb4HomeScreen::refresh(const Nb4CarState& state)
 
 }
 
+
+#if defined(RADIO_NB4)
+void nb4OpenRfUpdateNotice() {
+    class UpdateNotice : public BaseDialog {
+     public:
+      UpdateNotice() : BaseDialog(STR_NB4_UPDATE_AVAILABLE,false) {
+        useSectionHeader(); setRouteIcon(ICON_NB4_UPDATE);
+        auto text=new StaticText(form,{0,0,LV_PCT(100),0},STR_NB4_UPDATE_AVAILABLE_INFO,COLOR_THEME_PRIMARY1_INDEX);
+        lv_label_set_long_mode(text->getLvObj(),LV_LABEL_LONG_WRAP);
+        new TextButton(form,{0,0,LV_PCT(100),44},STR_NB4_UPDATE_REVIEW,[this] {
+          deleteLater(); nb4OpenUpdate(); return 0;
+        });
+        new TextButton(form,{0,0,LV_PCT(100),44},STR_NB4_UPDATE_LATER,[this] { onCancel(); return 0; });
+      }
+      void onCancel() override {
+        const bool saved=nb4RfNoticePostpone(); deleteLater();
+        if (!saved) new MessageDialog(STR_NB4_UPDATE,STR_NB4_UPDATE_DEFER_FAILED);
+      }
+    };
+    new UpdateNotice();
+}
+#endif
+
 void Nb4HomeScreen::checkEvents()
 {
   WidgetsContainer::checkEvents();
   if (deleted()) return;
   const auto& state = nb4UiCarState();
+#if defined(RADIO_NB4)
+  static tmr10ms_t throttleIdleSince=0;
+  const auto now=get_tmr10ms();
+  if (state.throttleInput.validity!=Nb4Validity::Valid || abs(state.throttleInput.value)>=5) throttleIdleSince=now;
+  if (!nb4ModelBlocked() && tmr10ms_t(now-throttleIdleSince)>=200 &&
+      Layer::back()==ViewMain::instance() && nb4RfNoticeTake()>=0) {
+    nb4OpenRfUpdateNotice();
+  }
+#endif
   const uint8_t panel = state.homeShowsRace ? 1 : state.homeTimerVisible ? 2 + state.homeTimerIndex : 0;
   if (builtWidth != width() || builtHeight != height() || blockedModel != nb4ModelBlocked() ||
       memcmp(builtLanguage, g_eeGeneral.uiLanguage, sizeof(builtLanguage)) ||
