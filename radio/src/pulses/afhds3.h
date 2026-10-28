@@ -92,6 +92,7 @@ void resetReceiverTelemetry();
 // false until the module has answered the version request at least once.
 struct Nb4ModuleVersion {
   bool valid = false;
+  bool unavailable = false;
   uint8_t replyLen = 0;
   uint32_t productNumber = 0;
   uint32_t hardwareVersion = 0;
@@ -100,10 +101,13 @@ struct Nb4ModuleVersion {
   uint32_t rfVersion = 0;
 };
 Nb4ModuleVersion getModuleVersionInfo(uint8_t module);
+// Refresh demand only while the receiver page is visible. Getters are passive.
+void requestVersionInfo(uint8_t module);
 // Read-only version information reported by a connected AFHDS3 receiver.
 // `valid` is false until a bound receiver has answered the version request.
 struct Nb4ReceiverVersion {
   bool valid = false;
+  bool unavailable = false;
   uint32_t productNumber = 0;
   uint16_t mainboardVersion = 0;
   uint16_t rfModuleVersion = 0;

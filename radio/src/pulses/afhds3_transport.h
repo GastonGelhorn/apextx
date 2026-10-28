@@ -229,6 +229,11 @@ class Transport
   COMMAND responseCommand;
   uint8_t responseIndex, responseLength;
   volatile bool responsePending = false;
+  // Diagnostic replies have their own sequence and never gate live channels.
+  bool readOnlyPending = false;
+  bool readOnlyReply = false;
+  COMMAND readOnlyCommand;
+  uint8_t readOnlyIndex = 0;
 #endif
 #if defined(RADIO_NB4) && defined(SIMU)
   Nb4TransportDiagnostics diagnostics;
@@ -258,6 +263,13 @@ class Transport
 #endif
 #if defined(RADIO_NB4)
   bool queueResponse(COMMAND command, uint8_t index, const uint8_t* payload, uint8_t size);
+  void putReadOnlyFrame(COMMAND command, FRAME_TYPE type, uint8_t* data = nullptr,
+                        uint8_t size = 0);
+  void cancelReadOnlyFrame() { readOnlyPending = false; }
+  bool isReadOnlyReply() const { return readOnlyReply; }
+  bool canSendReadOnlyFrame() {
+    return !waiting() && !acknowledgements.getCommand() && !responsePending;
+  }
 #endif
 
   /**

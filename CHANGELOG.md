@@ -6,6 +6,12 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Added on-demand RF module version, receiver firmware and receiver model
+  readouts. Diagnostic queries never wait in the live-channel transaction
+  queue, have bounded retries, discard stale or malformed results, and are
+  translated into all four NB4 interface languages. This does not enable RF
+  module or receiver firmware updates.
+
 ## [0.1.0-alpha.6] - 2026-10-27
 
 - Added complete Simplified Chinese interface coverage, compact CJK fonts and

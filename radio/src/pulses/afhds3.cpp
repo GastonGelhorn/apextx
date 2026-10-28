@@ -311,7 +311,11 @@ class ProtoState
    BindPhase getBindPhase();
    Nb4ModuleVersion getModuleVersionInfo() const;
    Nb4ReceiverVersion getReceiverVersionInfo() const;
-   void armVersionRead() { nb4VersionWantedAt = get_tmr10ms(); }
+   void armVersionRead() {
+     nb4VersionWantedAt = get_tmr10ms();
+     nb4VersionWanted = true;
+   }
+   void resetVersions();
    Nb4ReceiverTelemetry receiverTelemetry;
 #endif
    uint16_t RFCurrentPower;
@@ -364,9 +368,8 @@ class ProtoState
     tmr10ms_t nb4BindStarted = 0;
     tmr10ms_t nb4FailedAt = 0;
     Nb4Str nb4Error = nullptr;
-    // Read-only module version, requested once per module boot. A timed-out
-    // request is tolerated (the module may still be booting) and retried a few
-    // times, so a missing version never fails the RF link.
+    // Optional diagnostics: one outstanding read, three attempts spaced by a
+    // second. Neither a missing UART reply nor a receiver result blocks channels.
     bool nb4HaveVersion = false;
     uint8_t nb4VersionTries = 0;
     uint8_t nb4VersionLen = 0;
@@ -379,11 +382,15 @@ class ProtoState
     // telemetry status). 0 means "not settled yet".
     tmr10ms_t nb4ActiveSince = 0;
     tmr10ms_t nb4ConnSince = 0;
-    // A version read briefly perturbs the live link, so it is only done on
-    // demand: when the receiver page is open it polls the getters, which stamp
-    // this; the RF task reads only while that stamp is fresh. At startup nothing
-    // polls, so no read happens and the telemetry status is never disturbed.
+    bool nb4ActiveSettling = false, nb4ConnSettling = false;
+    bool nb4VersionWanted = false;
     tmr10ms_t nb4VersionWantedAt = 0;
+    enum class VersionRead : uint8_t { None, Module, Receiver };
+    VersionRead nb4VersionRead = VersionRead::None;
+    bool nb4ReadAttempted = false;
+    tmr10ms_t nb4ReadSentAt = 0;
+    void resetReceiverVersion();
+    bool setupVersionRead(tmr10ms_t now);
     void setupNb4Frame();
     bool parseNb4Data(const AfhdsFrame* frame, uint8_t length);
     void parseNb4Telemetry(const uint8_t* data, unsigned size);
@@ -516,6 +523,8 @@ void resetReceiverTelemetry()
 Nb4ModuleVersion ProtoState::getModuleVersionInfo() const
 {
   Nb4ModuleVersion v;
+  v.unavailable = !nb4HaveVersion && nb4VersionTries >= 3 &&
+                  nb4VersionRead != VersionRead::Module;
   if (nb4HaveVersion) {
     v.valid = true;
     v.replyLen = nb4VersionLen;
@@ -530,16 +539,23 @@ Nb4ModuleVersion ProtoState::getModuleVersionInfo() const
 
 Nb4ModuleVersion getModuleVersionInfo(uint8_t module)
 {
-  if (module >= MAX_MODULES) return Nb4ModuleVersion{};
-  // A reader (the receiver page) is asking: arm the on-demand read.
-  protoState[module].armVersionRead();
+  if (module != INTERNAL_MODULE) return Nb4ModuleVersion{};
   return protoState[module].getModuleVersionInfo();
+}
+
+void requestVersionInfo(uint8_t module)
+{
+  if (module == INTERNAL_MODULE) protoState[module].armVersionRead();
 }
 
 Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
 {
   Nb4ReceiverVersion v;
-  if (nb4HaveRxVersion) {
+  v.unavailable = !nb4HaveRxVersion && nb4RxVersionTries >= 3 &&
+                  nb4VersionRead != VersionRead::Receiver;
+  if (nb4HaveRxVersion && state == STATE_SYNC_DONE && moduleData &&
+      moduleData->afhds3.telemetry && !nb4Binding && !nb4BindMode &&
+      getModuleMode(module_index) != MODULE_MODE_BIND) {
     v.valid = true;
     v.productNumber = rx_version.ProductNumber;
     v.mainboardVersion = rx_version.MainboardVersion;
@@ -553,9 +569,7 @@ Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
 
 Nb4ReceiverVersion getReceiverVersionInfo(uint8_t module)
 {
-  if (module >= MAX_MODULES) return Nb4ReceiverVersion{};
-  // A reader (the receiver page) is asking: arm the on-demand read.
-  protoState[module].armVersionRead();
+  if (module != INTERNAL_MODULE) return Nb4ReceiverVersion{};
   return protoState[module].getReceiverVersionInfo();
 }
 
@@ -831,6 +845,71 @@ void ProtoState::setupFrame()
 }
 
 #if defined(RADIO_NB4)
+void ProtoState::resetReceiverVersion()
+{
+  nb4HaveRxVersion = false;
+  nb4RxVersionTries = 0;
+  nb4ConnSettling = false;
+  if (nb4VersionRead == VersionRead::Receiver) {
+    nb4VersionRead = VersionRead::None;
+    trsp.cancelReadOnlyFrame();
+  }
+}
+
+void ProtoState::resetVersions()
+{
+  nb4HaveVersion = false;
+  nb4VersionTries = nb4VersionLen = 0;
+  nb4VersionRead = VersionRead::None;
+  nb4ReadAttempted = nb4ActiveSettling = nb4VersionWanted = false;
+  nb4VersionWantedAt = 0;
+  resetReceiverVersion();
+  trsp.cancelReadOnlyFrame();
+}
+
+bool ProtoState::setupVersionRead(tmr10ms_t now)
+{
+  constexpr tmr10ms_t SETTLE = 500, RETRY = 100, TIMEOUT = 30;
+  if (!nb4ActiveSettling) {
+    nb4ActiveSince = now;
+    nb4ActiveSettling = true;
+  }
+  if (!isConnected() || !moduleData->afhds3.telemetry) resetReceiverVersion();
+  else if (!nb4ConnSettling) {
+    nb4ConnSince = now;
+    nb4ConnSettling = true;
+  }
+  if (nb4VersionWanted && (tmr10ms_t)(now - nb4VersionWantedAt) >= 100)
+    nb4VersionWanted = false; // Expire demand; it must not reappear at tick wrap.
+  if (nb4VersionRead != VersionRead::None &&
+      (tmr10ms_t)(now - nb4ReadSentAt) >= TIMEOUT) {
+    nb4VersionRead = VersionRead::None;
+    trsp.cancelReadOnlyFrame();
+  }
+  if (!nb4VersionWanted || nb4Binding ||
+      !trsp.canSendReadOnlyFrame() ||
+      nb4VersionRead != VersionRead::None ||
+      (tmr10ms_t)(now - nb4ActiveSince) < SETTLE ||
+      (nb4ReadAttempted && (tmr10ms_t)(now - nb4ReadSentAt) < RETRY))
+    return false;
+  if (!nb4HaveVersion && nb4VersionTries < 3) {
+    ++nb4VersionTries;
+    nb4VersionRead = VersionRead::Module;
+    trsp.putReadOnlyFrame(MODULE_VERSION, REQUEST_GET_DATA);
+  } else if (isConnected() && moduleData->afhds3.telemetry &&
+             !nb4HaveRxVersion && nb4RxVersionTries < 3 && nb4ConnSettling &&
+             (tmr10ms_t)(now - nb4ConnSince) >= SETTLE) {
+    uint8_t data[] = {uint8_t(RX_CMD_GET_VERSION & 0xff),
+                      uint8_t(RX_CMD_GET_VERSION >> 8), 0};
+    ++nb4RxVersionTries;
+    nb4VersionRead = VersionRead::Receiver;
+    trsp.putReadOnlyFrame(SEND_COMMAND, REQUEST_SET_EXPECT_DATA, data, sizeof(data));
+  } else return false;
+  nb4ReadSentAt = now;
+  nb4ReadAttempted = true;
+  return true;
+}
+
 void ProtoState::nb4Request(COMMAND command, uint8_t* payload, uint8_t size,
                             FRAME_TYPE type)
 {
@@ -840,6 +919,7 @@ void ProtoState::nb4Request(COMMAND command, uint8_t* payload, uint8_t size,
 
 void ProtoState::nb4Fail(Nb4Str message)
 {
+  resetVersions();
   nb4Error = message;
   nb4Stage = Nb4Stage::Failed;
   nb4Pending = 0xff; // Send standby on the mixer task, not from the RX task.
@@ -927,17 +1007,11 @@ void ProtoState::setupNb4Frame()
     // A state poll timing out while driving must not stop channel streaming.
     // Configuration failures, however, must never be reported as a bind.
     else if (nb4Stage == Nb4Stage::Active &&
-             (nb4Pending == MODULE_STATE || nb4Pending == SEND_COMMAND ||
-              nb4Pending == MODULE_VERSION)) {
-      const bool wasVersion = nb4Pending == MODULE_VERSION;
+             (nb4Pending == MODULE_STATE || nb4Pending == SEND_COMMAND)) {
       trsp.clear();
       nb4Pending = 0;
-      // A version read that times out is only diagnostic and must not look like
-      // a lost link; leave the running state and connection flag untouched.
-      if (!wasVersion) {
-        state = STATE_SYNC_RUNNING;
-        cfg.others.isConnected = false;
-      }
+      state = STATE_SYNC_RUNNING;
+      cfg.others.isConnected = false;
     } else {
       nb4Fail(NB4_STR(RF_MODULE_NOT_RESPONDING));
       return;
@@ -974,6 +1048,7 @@ void ProtoState::setupNb4Frame()
   constexpr uint32_t outputOptions = (1u << DC_RX_CMD_GET_VERSION) - 1;
   if (!nb4Binding && ((cfg.others.dirtyFlag & outputOptions) ||
                      nb4AppliedModelKey != Nb4RfConfig::modelKey())) {
+    resetVersions();
     // Persist actual output options and apply the official update pages.
     applyConfigFromModel();
     nb4AppliedModelKey = Nb4RfConfig::modelKey();
@@ -988,56 +1063,16 @@ void ProtoState::setupNb4Frame()
     }
   }
 
-  // Reaching here means the module is running (Active). Remember since when so
-  // the version reads below can wait for it to settle.
-  if (nb4ActiveSince == 0) nb4ActiveSince = now;
-  constexpr tmr10ms_t NB4_READ_SETTLE = 500;  // 5 s in 10 ms ticks
-
   if (isConnected() && sensorCalibration()) {
     nb4Pending = SEND_COMMAND;
     return;
-  }
-
-  // Only read while the receiver page is actively polling the getters (fresh
-  // request stamp). At startup nothing polls, so no read disturbs the link.
-  // nb4VersionWantedAt stays 0 until a getter runs; the != 0 test is essential
-  // because right after boot `now` is near 0, so `now - 0` would spuriously
-  // look "recent" for the first second and fire a read during startup.
-  const bool wanted = nb4VersionWantedAt != 0 &&
-                      (tmr10ms_t)(now - nb4VersionWantedAt) < 100;
-
-  // Read the module version once, but only after it has been running a moment,
-  // so the query never collides with the initial sync. Timeouts are tolerated.
-  if (wanted && !nb4Binding && !nb4HaveVersion && nb4VersionTries < 10 &&
-      (tmr10ms_t)(now - nb4ActiveSince) >= NB4_READ_SETTLE) {
-    nb4VersionTries++;
-    nb4Request(MODULE_VERSION, nullptr, 0, REQUEST_GET_DATA);
-    return;
-  }
-
-  // With a receiver connected, read the receiver version once, but only after
-  // the link has been stable for a moment. Sending it during the first connect
-  // briefly flapped the telemetry status, so it waits here. Re-armed on drop.
-  if (!isConnected()) {
-    nb4HaveRxVersion = false;
-    nb4RxVersionTries = 0;
-    nb4ConnSince = 0;
-  } else {
-    if (nb4ConnSince == 0) nb4ConnSince = now;
-    if (wanted && !nb4Binding && !nb4HaveRxVersion && nb4RxVersionTries < 10 &&
-        (tmr10ms_t)(now - nb4ConnSince) >= NB4_READ_SETTLE) {
-      uint8_t data[] = { (uint8_t)(RX_CMD_GET_VERSION & 0xFF),
-                         (uint8_t)((RX_CMD_GET_VERSION >> 8) & 0xFF), 0x00 };
-      nb4RxVersionTries++;
-      nb4Request(SEND_COMMAND, data, sizeof(data), REQUEST_SET_EXPECT_DATA);
-      return;
-    }
   }
 
   if ((tmr10ms_t)(now - nb4LastPoll) >= 20) {
     nb4LastPoll = now;
     nb4Request(MODULE_STATE);
   } else if (nb4Config.bound && !nb4Binding) {
+    if (setupVersionRead(now)) return;
     if (++cmdCount >= 500) {
       cmdCount = 0;
       int16_t failsafe[AFHDS3_MAX_CHANNELS + 1]{};
@@ -1046,7 +1081,8 @@ void ProtoState::setupNb4Frame()
       trsp.putFrame(CHANNELS_FAILSAFE_DATA, REQUEST_SET_NO_RESP,
                     (uint8_t*)failsafe, 2 + channels * 2);
     } else sendChannelsData();
-  } else trsp.skipFrame();
+  } else if (!nb4Binding && setupVersionRead(now)) return;
+  else trsp.skipFrame();
 }
 
 bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
@@ -1072,7 +1108,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
                             frame->frameType == REQUEST_SET_NO_RESP;
 
   if (frame->command == SEND_COMMAND && reply) {
-    nb4Pending = 0;
+    if (!trsp.isReadOnlyReply()) nb4Pending = 0;
     return true; // Application result follows separately as command 0x0d.
   }
   if (frame->command == COMMAND_RESULT && notification) {
@@ -1082,10 +1118,16 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
       const uint16_t cmd = data[0] | (data[1] << 8);
       const uint8_t result = data[2], len = data[3];
       if (cmd == RX_CMD_GET_VERSION && result == RXSUCCESS &&
-          len == sizeof(rx_version) && (unsigned)(4 + len) <= size) {
+          nb4VersionRead == VersionRead::Receiver && isConnected() &&
+          moduleData->afhds3.telemetry && !nb4Binding &&
+          (tmr10ms_t)(get_tmr10ms() - nb4ReadSentAt) < 30 &&
+          len == sizeof(rx_version) && (unsigned)(4 + len) == size) {
         std::memcpy((void*)&rx_version, &data[4], sizeof(rx_version));
         nb4HaveRxVersion = true;
+        nb4VersionRead = VersionRead::None;
+        trsp.cancelReadOnlyFrame();
       }
+      if (cmd == RX_CMD_GET_VERSION) return true; // Never reach the legacy parser.
     }
     return size < 4 || data[3] > size - 4;
   }
@@ -1111,23 +1153,29 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
     if (data[0] <= STATE_READY) state = (ModuleState)data[0];
     if (reply) nb4Pending = 0;
     cfg.others.isConnected = isConnected();
+    if (!cfg.others.isConnected) resetReceiverVersion();
     cfg.others.lastUpdated = get_tmr10ms();
     return true;
   }
 
   // Read-only module version reply (command 0x20): multi-byte payload, so it is
   // handled before the single-byte status block below.
-  if (reply && frame->command == MODULE_VERSION && nb4Pending == MODULE_VERSION) {
-    nb4Pending = 0;
+  if (frame->command == MODULE_VERSION) {
     // The NB4 internal module reports fewer bytes than the full ModuleVersion
-    // struct (company + 6x u32), so copy what arrived and zero the rest rather
+    // struct, so copy what arrived and zero the rest rather
     // than requiring the full size. The received length is kept for display.
-    if (size >= 6) {
+    // The NB4 readout uses the complete 32-bit word at offset 18. A shorter
+    // reply cannot contain it; never turn a truncated response into version 0.
+    if (reply && trsp.isReadOnlyReply() && nb4VersionRead == VersionRead::Module &&
+        size >= 22 && size <= sizeof(version) &&
+        (tmr10ms_t)(get_tmr10ms() - nb4ReadSentAt) < 30) {
       std::memset((void*)&version, 0, sizeof(version));
       std::memcpy((void*)&version, data, size < sizeof(version) ? size : sizeof(version));
       nb4VersionLen = (uint8_t)(size > 255 ? 255 : size);
       nb4HaveVersion = true;
     }
+    if (reply && trsp.isReadOnlyReply()) nb4VersionRead = VersionRead::None;
+    // Unsolicited/short notifications must never reach the legacy memcpy.
     return true;
   }
 
@@ -1146,12 +1194,7 @@ bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
           state = STATE_READY;
           nb4Stage = Nb4Stage::Standby;
           // The module (re)booted: read its version again on the next run.
-          nb4HaveVersion = false;
-          nb4VersionTries = 0;
-          nb4HaveRxVersion = false;
-          nb4RxVersionTries = 0;
-          nb4ActiveSince = 0;
-          nb4ConnSince = 0;
+          resetVersions();
           applyConfigFromModel();
         }
         break;
@@ -1291,12 +1334,7 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
 #if defined(RADIO_NB4)
   hardFaulted = false;
   receiverTelemetry = {};
-  nb4HaveVersion = false;
-  nb4VersionTries = 0;
-  nb4HaveRxVersion = false;
-  nb4RxVersionTries = 0;
-  nb4ActiveSince = 0;
-  nb4ConnSince = 0;
+  resetVersions();
   nb4Stage = Nb4Stage::Ready;
   nb4Pending = nb4Page = nb4ReadyTries = 0;
   nb4AppliedModelKey = Nb4RfConfig::modelKey();
@@ -1321,6 +1359,9 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
 void ProtoState::clearFrameData()
 {
   trsp.clear();
+#if defined(RADIO_NB4)
+  resetVersions();
+#endif
 
   cmdCount = 0;
   cmdIndex = 0;
@@ -1870,7 +1911,7 @@ const char* receiverModelName(uint32_t productNumber)
   switch (productNumber) {
     case PN_FTR10:    return "FTr10";
     case PN_FGR4:     return "FGr4";
-    case PN_FTR4:     return "FTr4";   // shared id with FGr4S / FGr4P
+    case PN_FTR4:     return "FTr4/FGr4S/FGr4P"; // The ID cannot distinguish these.
     case PN_FTR16S:   return "FTr16S";
     case PN_FTR8B:    return "FTr8B";
     case PN_FTR12B:   return "FTr12B";
@@ -2040,7 +2081,10 @@ static void deinitModule(void* ctx)
 {
   auto mod_st = (etx_module_state_t*)ctx;
 #if defined(RADIO_NB4)
-  if (auto p_state = (ProtoState*)mod_st->user_data) p_state->receiverTelemetry = {};
+  if (auto p_state = (ProtoState*)mod_st->user_data) {
+    p_state->receiverTelemetry = {};
+    p_state->resetVersions();
+  }
   nb4::Nb4RfController::stopTransport(mod_st);
 #else
   modulePortDeInit(mod_st);

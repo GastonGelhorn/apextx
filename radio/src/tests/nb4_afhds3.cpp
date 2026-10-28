@@ -304,7 +304,212 @@ class Nb4Afhds3Bind : public ::testing::Test {
     ProtoDriver.deinit(context);
     context = ProtoDriver.init(0); rxCount = 0;
   }
+  void connectNormal() {
+    bindCommit(); learned(0x44, REQUEST_SET_NO_RESP);
+    setModuleMode(0, MODULE_MODE_NORMAL);
+    restart(); start(false); pages(false);
+    auto run = next(); ASSERT_EQ(run.command, MODULE_MODE); ack(run, 2);
+    receive(MODULE_STATE, {4}, 90, REQUEST_SET_NO_RESP);
+    ASSERT_TRUE(afhds3::isConnected(0));
+    ASSERT_EQ(next().command, CHANNELS_FAILSAFE_DATA);
+  }
+  AfhdsFrame versionTick(bool demand = true) {
+    if (demand) requestVersionInfo(0);
+    ++g_tmr10ms;
+    auto frame = next();
+    if (frame.command == MODULE_STATE) ack(frame, 4);
+    return frame;
+  }
+  AfhdsFrame versionQuery(COMMAND command) {
+    for (unsigned i = 0; i < 700; ++i) {
+      const auto frame = versionTick();
+      if (frame.command == command) return frame;
+    }
+    ADD_FAILURE() << "Missing version query " << unsigned(command);
+    return {};
+  }
+  std::vector<uint8_t> moduleVersion() {
+    std::vector<uint8_t> data(22);
+    data[18] = 4; data[19] = 3; data[20] = 2; data[21] = 1;
+    return data;
+  }
+  std::vector<uint8_t> receiverVersion() {
+    std::vector<uint8_t> data(18);
+    data[0] = 0x1f; data[1] = 0x70; data[2] = RXSUCCESS; data[3] = 14;
+    data[4] = 0x77; data[6] = 1;
+    data[14] = 0x34; data[15] = 0x12;
+    return data;
+  }
 };
+}
+
+TEST_F(Nb4Afhds3Bind, VersionGettersArePassiveAtStartupAndTickWrap) {
+  connectNormal();
+  for (unsigned i = 0; i < 800; ++i) {
+    getModuleVersionInfo(0); getReceiverVersionInfo(0);
+    const auto frame = versionTick(false);
+    EXPECT_NE(frame.command, MODULE_VERSION); EXPECT_NE(frame.command, SEND_COMMAND);
+  }
+  g_tmr10ms = tmr10ms_t(-6);
+  for (unsigned i = 0; i < 200; ++i) {
+    const auto frame = versionTick(false);
+    EXPECT_NE(frame.command, MODULE_VERSION); EXPECT_NE(frame.command, SEND_COMMAND);
+  }
+  EXPECT_FALSE(getModuleVersionInfo(MAX_MODULES).valid);
+  EXPECT_FALSE(getReceiverVersionInfo(EXTERNAL_MODULE).valid);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionTimeoutsAreBoundedAndKeepLiveChannelsAndLink) {
+  connectNormal();
+  const auto saved = g_model;
+  unsigned modules = 0, receivers = 0, channels = 0;
+  for (unsigned i = 0; i < 1500; ++i) {
+    const auto frame = versionTick();
+    if (frame.command == MODULE_VERSION) ++modules;
+    else if (frame.command == SEND_COMMAND) {
+      ++receivers;
+      ASSERT_EQ(last.size(), 10u);
+      EXPECT_EQ(last[5], 0x1f); EXPECT_EQ(last[6], 0x70); EXPECT_EQ(last[7], 0);
+    } else if (frame.command == CHANNELS_FAILSAFE_DATA) ++channels;
+    else EXPECT_EQ(frame.command, MODULE_STATE);
+    EXPECT_TRUE(afhds3::isConnected(0));
+  }
+  EXPECT_EQ(modules, 3u); EXPECT_EQ(receivers, 3u); EXPECT_GT(channels, 1400u);
+  EXPECT_TRUE(getModuleVersionInfo(0).unavailable);
+  EXPECT_TRUE(getReceiverVersionInfo(0).unavailable);
+  EXPECT_EQ(memcmp(saved.nb4RfSettings, g_model.nb4RfSettings, sizeof(saved.nb4RfSettings)), 0);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionModuleChecksSequenceLengthAndCachesTheReportedWord) {
+  connectNormal();
+  receive(MODULE_VERSION, {1}, 90, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  auto query = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), query.frameNumber + 1);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  receive(MODULE_VERSION, std::vector<uint8_t>(6), query.frameNumber);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  query = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), query.frameNumber);
+  const auto info = getModuleVersionInfo(0);
+  ASSERT_TRUE(info.valid); EXPECT_EQ(info.replyLen, 22);
+  EXPECT_EQ(info.bootloaderVersion, 0x01020304u);
+  for (unsigned i = 0; i < 200; ++i)
+    EXPECT_NE(versionTick().command, MODULE_VERSION);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionReceiverNeedsSolicitedCompleteResultNotJustUartReply) {
+  connectNormal();
+  receive(COMMAND_RESULT, receiverVersion(), 92, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  const auto module = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), module.frameNumber);
+  const auto receiver = versionQuery(SEND_COMMAND);
+  ack(receiver, 2);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  for (unsigned i = 0; i < 5; ++i)
+    EXPECT_NE(versionTick().command, SEND_COMMAND); // Wait for the RF result.
+  auto invalid = receiverVersion(); invalid.pop_back();
+  receive(COMMAND_RESULT, invalid, 93, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  invalid = receiverVersion(); invalid[2] = 0xff;
+  receive(COMMAND_RESULT, invalid, 94, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  receive(COMMAND_RESULT, receiverVersion(), 95, REQUEST_SET_NO_RESP);
+  const auto info = getReceiverVersionInfo(0);
+  ASSERT_TRUE(info.valid); EXPECT_EQ(info.firmwareVersion, 0x1234);
+  EXPECT_EQ(info.productNumber, 0x00010077u);
+  receive(MODULE_STATE, {3}, 96, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  receive(COMMAND_RESULT, receiverVersion(), 97, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  receive(MODULE_STATE, {4}, 98, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  restart();
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionReplyCannotReleasePendingLiveStatePoll) {
+  connectNormal();
+  const auto query = versionQuery(MODULE_VERSION);
+  g_tmr10ms += 21;
+  const auto poll = next(); ASSERT_EQ(poll.command, MODULE_STATE);
+  receive(MODULE_VERSION, moduleVersion(), query.frameNumber);
+  ASSERT_TRUE(getModuleVersionInfo(0).valid);
+  const auto repeated = next();
+  EXPECT_EQ(repeated.command, MODULE_STATE);
+  EXPECT_EQ(repeated.frameNumber, poll.frameNumber);
+  ack(poll, 4);
+  EXPECT_TRUE(afhds3::isConnected(0));
+}
+
+TEST_F(Nb4Afhds3Bind, VersionDemandExpiresRatherThanReappearingAtTickWrap) {
+  connectNormal(); requestVersionInfo(0);
+  for (unsigned i = 0; i < 700; ++i)
+    EXPECT_NE(versionTick(false).command, MODULE_VERSION);
+  g_tmr10ms = tmr10ms_t(-6);
+  for (unsigned i = 0; i < 200; ++i)
+    EXPECT_NE(versionTick(false).command, MODULE_VERSION);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionOneWayLinkNeverQueriesReceiverAndSharedNamesStayHonest) {
+  g_model.moduleData[0].afhds3.telemetry = false;
+  connectNormal();
+  for (unsigned i = 0; i < 1200; ++i)
+    EXPECT_NE(versionTick().command, SEND_COMMAND);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  EXPECT_STREQ(receiverModelName(0x12340006), "FTr4/FGr4S/FGr4P");
+  EXPECT_EQ(receiverModelName(0xffffffff), nullptr);
+}
+
+TEST_F(Nb4Afhds3Bind, VersionLateResultsAndBindingCannotReuseCachedInformation) {
+  connectNormal();
+  auto query = versionQuery(MODULE_VERSION);
+  g_tmr10ms += 31;
+  receive(MODULE_VERSION, moduleVersion(), query.frameNumber);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  query = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), query.frameNumber);
+  ASSERT_TRUE(getModuleVersionInfo(0).valid);
+  const auto receiver = versionQuery(SEND_COMMAND);
+  ack(receiver, 2);
+  g_tmr10ms += 31;
+  receive(COMMAND_RESULT, receiverVersion(), 91, REQUEST_SET_NO_RESP);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+  setModuleMode(0, MODULE_MODE_BIND);
+  EXPECT_EQ(next().command, MODULE_READY);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid);
+  EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+}
+
+TEST(Nb4Afhds3, DiagnosticReplyCannotCompleteAnotherCommandWithTheSameOpcode) {
+  uint8_t buffer[MODULE_BUFFER_SIZE]{};
+  Transport transport; transport.init(buffer, nullptr, ADDR);
+  uint8_t version[] = {0x1f, 0x70, 0};
+  transport.putReadOnlyFrame(SEND_COMMAND, REQUEST_SET_EXPECT_DATA, version, 3);
+  const uint8_t diagnosticIndex = buffer[1];
+  uint8_t parameter[] = {0x70, 0x70, 0};
+  transport.putFrame(SEND_COMMAND, REQUEST_SET_EXPECT_DATA, parameter, 3);
+  const uint8_t parameterIndex = buffer[1];
+  ASSERT_NE(diagnosticIndex, parameterIndex);
+  auto inject = [&](uint8_t index) {
+    uint8_t wire[64]{}, decoded[64]{}, count = 0;
+    FrameTransport sender; sender.init(wire, ADDR, true);
+    uint8_t value = 2;
+    sender.putFrame(SEND_COMMAND, RESPONSE_DATA, &value, 1, index);
+    bool complete = false;
+    for (unsigned i = 0; i < sender.getFrameSize(); ++i)
+      complete |= transport.processTelemetryData(wire[i], decoded, count, sizeof(decoded));
+    return complete;
+  };
+  ASSERT_TRUE(inject(diagnosticIndex));
+  EXPECT_TRUE(transport.isReadOnlyReply());
+  EXPECT_TRUE(transport.waiting());
+  bool error = false;
+  EXPECT_TRUE(transport.handleRetransmissions(error)); EXPECT_FALSE(error);
+  ASSERT_TRUE(inject(parameterIndex));
+  EXPECT_FALSE(transport.isReadOnlyReply()); EXPECT_FALSE(transport.waiting());
 }
 
 TEST_F(Nb4Afhds3Bind, ReceiverHomeUsesBuiltInSensorInstancesWithoutDiscovery) {

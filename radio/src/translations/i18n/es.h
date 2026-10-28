@@ -2189,3 +2189,7 @@
 #define TR_NB4_CURVES_REPAIRED "Datos de curva no válidos reparados"
 #define TR_NB4_CURVES_REPAIRED_CHECK "Revisa tus curvas e interruptores lógicos"
 #define TR_NB4_LUA_WIDGET_ERROR "Error en %s: %s"
+#define TR_NB4_RF_MODULE_VERSION "Versión módulo RF"
+#define TR_NB4_RF_RECEIVER_VERSION "Firmware receptor"
+#define TR_NB4_RF_RECEIVER_MODEL "Modelo receptor"
+#define TR_NB4_RF_VERSION_UNAVAILABLE "No disponible"

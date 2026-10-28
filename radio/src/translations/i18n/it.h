@@ -2193,3 +2193,7 @@
 #define TR_NB4_CURVES_REPAIRED "Invalid curve data repaired"
 #define TR_NB4_CURVES_REPAIRED_CHECK "Check your curves and logical switches"
 #define TR_NB4_LUA_WIDGET_ERROR "Error in %s: %s"
+#define TR_NB4_RF_MODULE_VERSION "RF module version"
+#define TR_NB4_RF_RECEIVER_VERSION "Receiver firmware"
+#define TR_NB4_RF_RECEIVER_MODEL "Receiver model"
+#define TR_NB4_RF_VERSION_UNAVAILABLE "Unavailable"

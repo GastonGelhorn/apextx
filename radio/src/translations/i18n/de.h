@@ -2181,3 +2181,7 @@
 #define TR_NB4_CURVES_REPAIRED "Ungültige Kurvendaten repariert"
 #define TR_NB4_CURVES_REPAIRED_CHECK "Prüfe Kurven und Logikschalter"
 #define TR_NB4_LUA_WIDGET_ERROR "Fehler in %s: %s"
+#define TR_NB4_RF_MODULE_VERSION "HF-Modul-Version"
+#define TR_NB4_RF_RECEIVER_VERSION "Empfänger-Firmware"
+#define TR_NB4_RF_RECEIVER_MODEL "Empfängermodell"
+#define TR_NB4_RF_VERSION_UNAVAILABLE "Nicht verfügbar"

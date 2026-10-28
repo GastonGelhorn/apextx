@@ -1880,6 +1880,52 @@ TEST(Nb4Ux, VoiceAssignmentsAreRadioWideAndAudioOnly)
 }  // namespace
 
 #if defined(RADIO_NB4) && defined(AFHDS3) && (defined(NB4_RF_PROFILE_RECOVERED_LAB))
+TEST(Nb4Ux, ReceiverVersionReadoutsFitAllLanguagesAndBothOrientations)
+{
+  Scene scene;
+  ViewMain::instance();
+  for (bool landscape : {false, true}) for (const char* language : NB4_UI_LANGUAGES) {
+    SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
+    scene.orient(landscape);
+    memcpy(g_eeGeneral.uiLanguage, language, 2);
+    nb4TestApplyUiLanguage();
+    g_model.moduleData[0].type = MODULE_TYPE_FLYSKY_AFHDS3;
+    auto page = new ModulePage(0);
+    for (unsigned i = 0; i < 3; ++i) render(scene.root);
+    unsigned found = 0;
+    lv_obj_t* lastVersion = nullptr;
+    std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+      if (lv_obj_check_type(obj, &lv_label_class)) {
+        const std::string text = lv_label_get_text(obj);
+        if (text == STR_NB4_RF_MODULE_VERSION || text == STR_NB4_RF_RECEIVER_VERSION ||
+            text == STR_NB4_RF_RECEIVER_MODEL) {
+          ++found;
+          lv_point_t size;
+          lv_txt_get_size(&size, text.c_str(), lv_obj_get_style_text_font(obj, 0),
+              lv_obj_get_style_text_letter_space(obj, 0),
+              lv_obj_get_style_text_line_space(obj, 0),
+              lv_obj_get_content_width(obj), LV_TEXT_FLAG_NONE);
+          EXPECT_LE(size.y, lv_obj_get_content_height(obj));
+          expectGlyphsOf(text.c_str(), lv_obj_get_style_text_font(obj, 0), language);
+          lastVersion = obj;
+        }
+      }
+      for (uint32_t c = 0; c < lv_obj_get_child_cnt(obj); ++c)
+        inspect(lv_obj_get_child(obj, c));
+    };
+    inspect(page->getLvObj());
+    ASSERT_EQ(found, 3u);
+    ASSERT_NE(lastVersion, nullptr);
+    lv_obj_scroll_to_view_recursive(lastVersion, LV_ANIM_OFF);
+    for (unsigned i = 0; i < 3; ++i) render(scene.root);
+    char name[80]; snprintf(name, sizeof(name), "receiver-version-%s-%s",
+                            language, landscape ? "landscape" : "portrait");
+    saveFrame(name, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr));
+    expectEveryGlyphRenderable(page->getLvObj(), name);
+    page->deleteLater(); render(scene.root);
+  }
+}
+
 TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
 {
   using namespace afhds3;
