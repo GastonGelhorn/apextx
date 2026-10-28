@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -67,7 +68,7 @@ class Nb4QualificationTest(unittest.TestCase):
         manifest = self.directory / "qualification.json"
         manifest.write_text(json.dumps(data), encoding="utf-8")
         return subprocess.run(
-            [str(GENERATOR), "--check", str(manifest)],
+            [sys.executable, str(GENERATOR), "--check", str(manifest)],
             text=True, capture_output=True, check=False,
         )
 
@@ -77,7 +78,7 @@ class Nb4QualificationTest(unittest.TestCase):
         header = self.directory / "generated.h"
         cmake = self.directory / "generated.cmake"
         result = subprocess.run(
-            [str(GENERATOR), str(manifest), "--header-output", str(header),
+            [sys.executable, str(GENERATOR), str(manifest), "--header-output", str(header),
              "--cmake-output", str(cmake)],
             text=True, capture_output=True, check=False,
         )
@@ -86,9 +87,9 @@ class Nb4QualificationTest(unittest.TestCase):
         profile = ROOT / "radio/src/targets/pl18/nb4_rf_profile.h"
         probe.write_text(
             '#define kNb4QualifiedHardwareProfile kPlaceholderProfile\n'
-            f'#include "{profile}"\n'
+            f'#include "{profile.as_posix()}"\n'
             '#undef kNb4QualifiedHardwareProfile\n'
-            f'#include "{header}"\n'
+            f'#include "{header.as_posix()}"\n'
             'static_assert(nb4::kNb4QualifiedHardwareProfile.qualified);\n',
             encoding="utf-8",
         )
@@ -116,7 +117,7 @@ class Nb4QualificationTest(unittest.TestCase):
     def test_checked_in_recovered_profile_is_valid(self) -> None:
         manifest = ROOT / "docs/nb4/rf/qualification.json"
         result = subprocess.run(
-            [str(GENERATOR), "--check", str(manifest)],
+            [sys.executable, str(GENERATOR), "--check", str(manifest)],
             text=True, capture_output=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -162,20 +163,25 @@ class Nb4FirmwareVerifierTest(unittest.TestCase):
         self.elf.write_bytes(b"ELF fixture")
         self.binary.write_bytes(b"firmware fixture")
         self.size_tool = self._tool(
-            "size-tool", "#!/bin/sh\nprintf '.text 1262680 0\\n.data 3608 0\\n'\n"
+            "size-tool", ".text 1262680 0\n.data 3608 0\n"
         )
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def _tool(self, name: str, body: str) -> Path:
-        path = self.directory / name
+    def _tool(self, name: str, output: str) -> Path:
+        if sys.platform == 'win32':
+            path = self.directory / (name + '.cmd')
+            body = '@echo off\n' + ''.join('echo ' + line + '\n' for line in output.splitlines())
+        else:
+            path = self.directory / name
+            body = "#!/bin/sh\nprintf '%s' " + shlex.quote(output) + '\n'
         path.write_text(body, encoding="utf-8")
         path.chmod(0o755)
         return path
 
     def _run(self, symbols: str, *extra: str) -> subprocess.CompletedProcess[str]:
-        nm = self._tool("nm-tool", f"#!/bin/sh\nprintf '%s' '{symbols}'\n")
+        nm = self._tool("nm-tool", symbols.replace('\\n', '\n'))
         return subprocess.run(
             [sys.executable, str(VERIFIER), "--elf", str(self.elf),
              "--bin", str(self.binary), "--nm", str(nm),

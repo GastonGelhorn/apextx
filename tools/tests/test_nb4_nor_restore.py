@@ -95,10 +95,10 @@ class NorRestoreTests(unittest.TestCase):
         def answer(command,**_):
             Path(command[-1]).write_bytes(struct.pack('<3I',1,0x12340000,2))
             return SimpleNamespace(returncode=0,stdout='')
-        with patch.object(rom,'discover_rom_dfu',return_value='000000031234'),patch.object(rom,'_run',side_effect=answer),patch.object(rom,'_write_verified_image') as write:
+        with patch.object(rom,'dfu_util_path',return_value='dfu-util'),patch.object(rom,'discover_rom_dfu',return_value='000000031234'),patch.object(rom,'_run',side_effect=answer),patch.object(rom,'_write_verified_image') as write:
             rom.restore_internal_backup(self.backup,lambda *_:None,'000000031234',confirmed=True)
             write.assert_called_once()
-        with patch.object(rom,'discover_rom_dfu',return_value='000000031234'),patch.object(rom,'_run',return_value=SimpleNamespace(returncode=1,stdout='failed')),patch.object(rom,'_write_verified_image') as write:
+        with patch.object(rom,'dfu_util_path',return_value='dfu-util'),patch.object(rom,'discover_rom_dfu',return_value='000000031234'),patch.object(rom,'_run',return_value=SimpleNamespace(returncode=1,stdout='failed')),patch.object(rom,'_write_verified_image') as write:
             with self.assertRaisesRegex(RuntimeError,'ROM hardware identity'):
                 rom.restore_internal_backup(self.backup,lambda *_:None,'000000031234',confirmed=True)
             write.assert_not_called()
