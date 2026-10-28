@@ -45,7 +45,11 @@ def package_self_test():
     from nb4_releases import Version
     if not Version('0.1.0-alpha.9') < Version('0.1.0-alpha.10'):
         raise RuntimeError('The shared release client could not be loaded.')
-    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True)
+    from nb4_rf_catalog import PROFILES, manifest
+    if not PROFILES or any(manifest(profile)['rf_write_supported'] for profile in PROFILES):
+        raise RuntimeError('The read-only RF package preparer is missing or unsafe.')
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
+                release_client=True, rf_catalog=True)
 
 
 def _enable_bundled_libusb():
@@ -339,7 +343,38 @@ def main():
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--self-test', type=Path, metavar='REPORT.json',
                         help='Check the packaged app without accessing a radio and write a report.')
+    rf = parser.add_mutually_exclusive_group()
+    rf.add_argument('--rf-source', type=Path, help='Inspect a reviewed official source package; never accesses USB.')
+    rf.add_argument('--rf-bundle', type=Path, help='Verify a prepared RF catalog ZIP; never accesses USB.')
+    parser.add_argument('--rf-output', type=Path, help='With --rf-source, create a new local RF ZIP without overwriting files.')
+    parser.add_argument('--rf-inventory', type=Path, help='With --rf-bundle, assess a read-only receiver inventory JSON.')
     args = parser.parse_args()
+    if ((args.rf_source or args.rf_bundle) and (args.firmware or args.check or args.self_test) or
+            args.rf_output and not args.rf_source or args.rf_inventory and not args.rf_bundle):
+        parser.error('RF preparation cannot be combined with radio update/recovery or self-test.')
+    if args.rf_source or args.rf_bundle:
+        # Return before USB runtime setup/discovery: package preparation must
+        # remain safe even with a radio already connected in Update/ROM DFU.
+        from nb4_rf_catalog import (MAX_BUNDLE, assess_receiver, inspect_source_file,
+                                    prepare, verify_bundle)
+        try:
+            if args.rf_source:
+                description = (prepare(args.rf_source, args.rf_output) if args.rf_output
+                               else inspect_source_file(args.rf_source)[0])
+            else:
+                with args.rf_bundle.open('rb') as stream:
+                    description, _ = verify_bundle(stream.read(MAX_BUNDLE + 1))
+            result = dict(catalog=description, status='verified-catalog-only', device_writes=False)
+            if args.rf_inventory:
+                with args.rf_inventory.open('rb') as stream:
+                    raw = stream.read(16385)
+                if len(raw) > 16384:
+                    raise ValueError('Receiver inventory exceeds the permitted size.')
+                result['receiver_assessment'] = assess_receiver(description, json.loads(raw))
+            print(json.dumps(result, indent=2))
+        except (OSError, ValueError) as error:
+            parser.exit(1, f'Error: {error}\n')
+        return
     _enable_bundled_libusb()
     try:
         if args.self_test:

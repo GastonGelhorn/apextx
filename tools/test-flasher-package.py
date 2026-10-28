@@ -42,6 +42,7 @@ def main():
         ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     assert result['usb_backend'] and result['dfu_util'] and result['shared_ui']
     assert result['release_client']
+    assert result['rf_catalog']
     for name, expected in result['sources'].items():
         assert hashlib.sha256((ROOT / 'tools' / name).read_bytes()).hexdigest() == expected, name
     print(json.dumps(result, indent=2))

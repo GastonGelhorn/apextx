@@ -51,7 +51,7 @@ def main():
 
     sources = ['apextx-updater.py', 'apextx-updater.html', 'nb4_usb_update.py',
                'nb4_update_image.py', 'nb4_rom_flash.py', 'nb4_releases.py',
-               'nb4_flasher_session.py']
+               'nb4_flasher_session.py', 'nb4_rf_catalog.py']
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = work / 'apextx-flasher-build.json'
     metadata.write_text(json.dumps({

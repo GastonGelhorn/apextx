@@ -1,5 +1,9 @@
 # ApexTX Updater for the original Noble NB4
 
+For the separate RF catalog preparer and the remaining integrated-update work,
+see [Integrated update status](INTEGRATED_UPDATE.md). RF/receiver firmware
+writing is not yet supported; a catalog ZIP is never a transmitter image.
+
 Normal updates follow this flow:
 
 1. On the radio, open **Settings > System > Update** and confirm.

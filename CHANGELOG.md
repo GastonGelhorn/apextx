@@ -6,6 +6,12 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- Began integrated maintenance with a cross-platform, read-only RF package
+  preparer for reviewed NB4/NB4+ source packages and the initial FGr4 V2/FGr4S
+  V2 targets. It verifies pinned hashes and CRCs, rejects malformed bundles,
+  and cannot enter a USB update path. RF writes and automatic post-bind
+  notifications remain disabled pending protocol and hardware qualification.
+
 - Added on-demand RF module version, receiver firmware and receiver model
   readouts. Diagnostic queries never wait in the live-channel transaction
   queue, have bounded retries, discard stale or malformed results, and are
