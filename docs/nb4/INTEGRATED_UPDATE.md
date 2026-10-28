@@ -236,6 +236,8 @@ RF notice: [Spanish portrait](images/rf-update-notice-es-portrait.png),
 [German landscape](images/rf-update-notice-de-landscape.png).
 The [desktop component plan](images/flasher-components-es.png) uses a synthetic
 radio and private paths for UI verification; it is not a completed hardware run.
+The [voice-pack selector](images/flasher-voice-es.png) prepares one explicitly
+chosen language and retains the installed pack until installation is confirmed.
 
 ## Remaining release gates
 

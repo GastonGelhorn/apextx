@@ -172,7 +172,7 @@ def create(args):
         copies["recovery/nor-restore-agent.json"]=build/"nor-restore-agent.json"
     copies["INTEGRATED_UPDATE.md"] = ROOT / "docs/nb4/INTEGRATED_UPDATE.md"
     copies["RF_BENCH.md"] = ROOT / "docs/nb4/RF_BENCH.md"
-    for pattern in ("update-components-*.png", "update-connected-*.png", "rf-update-notice-*.png", "flasher-components-*.png"):
+    for pattern in ("update-components-*.png", "update-connected-*.png", "rf-update-notice-*.png", "flasher-*.png"):
         for image in (ROOT / "docs/nb4/images").glob(pattern):
             copies["images/" + image.name] = image
     rf_bundle = getattr(args, 'rf_bundle', None)
