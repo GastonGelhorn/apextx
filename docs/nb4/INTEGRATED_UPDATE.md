@@ -70,6 +70,10 @@ does not establish RF recovery or complete raw-NOR restoration.
 4. Review the selected components and confirm the plan. Audio is initially
    unselected: keep the installed voice pack unless a new pack is explicitly
    chosen. Changing a component, image or live identity invalidates approval.
+   When the same release has published voice packs, choose one language and
+   **Download and prepare voice pack** directly in the app. A local audio ZIP
+   also works. Downloads verify the release checksum, pack language and version;
+   they prepare files only and still require plan approval before installation.
 5. Install the application in Update. ROM DFU is used only for a required
    bootloader change or recovery. After restarting, reconnect Maintenance and
    read versions to verify the exact application size/CRC. A completed USB

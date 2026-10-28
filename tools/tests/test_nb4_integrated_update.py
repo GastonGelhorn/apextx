@@ -105,6 +105,29 @@ class IntegratedTests(unittest.TestCase):
         (self.plan.package.root/'firmware.bin').write_bytes(b'changed')
         with self.assertRaises(RuntimeError): integrated.IntegratedUpdate.load(self.plan.root)
 
+    def test_release_voice_download_prepares_one_pack_without_usb_and_rejects_wrong_language(self):
+        from nb4_flasher_session import FlasherSession
+        from test_nb4_audio_packs import Nb4AudioPacksTest
+        archive=Nb4AudioPacksTest().make_pack(self.root/'voice')
+        with zipfile.ZipFile(archive) as source:
+            files={name:source.read(name) for name in source.namelist()}
+        manifest=json.loads(files['APEXTX-AUDIO.json']); manifest['release']=self.plan.package.manifest['release']
+        files['APEXTX-AUDIO.json']=json.dumps(manifest).encode(); output=io.BytesIO()
+        with zipfile.ZipFile(output,'w') as target:
+            for name,data in files.items(): target.writestr(name,data)
+        client=Mock(); client.download_asset.return_value=output.getvalue()
+        session=FlasherSession(client); session.integrated=self.plan
+        offer=dict(version=manifest['release'],audio_assets=dict(es={'name':'es'},en={'name':'en'}))
+        session.begin('components'); session.download_component_audio(self.device,offer,self.plan.record['id'],'es')
+        self.assertFalse(session.status['error']); self.assertTrue(self.plan.record['selected']['audio'])
+        self.assertEqual(self.plan.record['steps']['audio']['language'],'es')
+        previous=self.plan.record['steps']['audio']['sha256']
+        session.begin('components'); session.download_component_audio(self.device,offer,self.plan.record['id'],'en')
+        self.assertTrue(session.status['error']); self.assertEqual(previous,self.plan.record['steps']['audio']['sha256'])
+        client.download_asset.reset_mock()
+        session.begin('components'); session.download_component_audio(self.device,offer,'changed-plan','es')
+        client.download_asset.assert_not_called()
+
     def test_bootloader_is_read_in_update_mode_and_incomplete_session_blocks_app_restart(self):
         from nb4_flasher_session import FlasherSession
         with patch.object(integrated,'probe',return_value=dict(self.device,state='ready',bootloader=1)),patch.object(integrated,'read_inventory') as serial:

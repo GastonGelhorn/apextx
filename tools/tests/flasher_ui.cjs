@@ -121,6 +121,12 @@ assert.equal(get('componentRead').disabled,false,'Update can read bootloader req
 assert.equal(get('install_application').disabled,true,'Unknown bootloader requirements must be reviewed first');
 state({...device,state:'normal',maintenance:true},offer,{integrated:{...components,rf_assets:false}});
 assert.equal(get('stage_module').disabled,true,'A package without RF assets cannot prepare RF');
+get('componentOnlineAudio').value='es';
+state({...device,state:'normal',maintenance:true},{...offer,version:components.package_version,audio_languages:['es']},{integrated:components});
+assert.equal(get('componentDownloadAudio').disabled,false,'One explicitly selected release voice pack can be prepared');
+assert.equal(get('audioLanguage_en').disabled,true,'Only packs published for this release are offered');
+state(device,offer,{integrated:components});
+assert.equal(get('componentOnlineAudioBox').hidden,true,'Another release cannot replace the reviewed voice pack');
 state(device);
 for(const language of ['en','es','de']) {
  run(`applyLang('${language}')`);

@@ -192,7 +192,11 @@ class ReleaseClient:
                         continue
                     metadata = by_name.get(f'apextx-{hardware}-{version.text}.update.json')
                     package_asset=by_name.get(f'apextx-{hardware}-{version.text}.zip')
-                    for item in (asset, sums, *([metadata] if metadata else []), *([package_asset] if package_asset else [])):
+                    audio_assets={language:by_name[f'apextx-audio-{language}-{version.text}.zip'] for language in ('en','es','de','cn')
+                                  if f'apextx-audio-{language}-{version.text}.zip' in by_name}
+                    for item in audio_assets.values():
+                        if not 0<item.get('size',0)<=12*1024*1024: raise ReleaseError('Invalid voice-pack download size.')
+                    for item in (asset, sums, *([metadata] if metadata else []), *([package_asset] if package_asset else []), *audio_assets.values()):
                         expected = ('https://github.com/' + REPOSITORY + '/releases/download/' +
                                     urllib.parse.quote(tag, safe='') + '/' + urllib.parse.quote(item['name'], safe=''))
                         if item.get('browser_download_url') != expected:
@@ -205,6 +209,7 @@ class ReleaseClient:
                         prerelease=prerelease, target=target, asset=asset, checksums=sums,
                         metadata=metadata,
                         package_asset=package_asset,
+                        audio_assets=audio_assets,
                         url=f'https://github.com/{REPOSITORY}/releases/tag/{urllib.parse.quote(tag, safe="")}')))
                 if len(rows) < 100:
                     break

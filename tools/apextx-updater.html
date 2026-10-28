@@ -89,7 +89,7 @@ footer a:hover{text-decoration:underline}
 button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--blue2);outline-offset:4px}
 [hidden]{display:none!important}
 @media(max-width:640px){.device-meta{gap:12px}.device-meta strong{font-size:15px}.device-head strong{font-size:16px}}
-.component-row{padding:16px 0;border-bottom:1px solid var(--line)}.component-row label{display:flex;gap:10px;align-items:center}.component-row p{color:var(--muted);margin:8px 0;overflow-wrap:anywhere}#componentPanel input[type=text]{display:block;width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}#componentDirectory{overflow-wrap:anywhere}#componentPanel h3{margin-top:28px}
+.component-row{padding:16px 0;border-bottom:1px solid var(--line)}.component-row label{display:flex;gap:10px;align-items:center}.component-row p{color:var(--muted);margin:8px 0;overflow-wrap:anywhere}#componentPanel input[type=text]{display:block;width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}#componentDirectory{overflow-wrap:anywhere}#componentPanel h3{margin-top:28px}#componentOnlineAudio{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);color:var(--text);font:inherit}
 .wizard-step{margin:14px 0;border-bottom:1px solid var(--line);padding-bottom:14px}.wizard-step summary{font-size:17px;font-weight:700;cursor:pointer;padding:8px 0}.file input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.file:focus-within{outline:2px solid var(--blue)}
 #appUpdates{margin-top:24px}#appUpdates summary{cursor:pointer;font-weight:700;min-height:44px;padding:8px 0}#appUpdates .actions{display:flex;flex-wrap:wrap;gap:6px}#appUpdateStatus,#appUpdateNotes{font-size:14px;overflow-wrap:anywhere}#appUpdates>p:last-child{font-size:12px;color:var(--muted)}
 </style>
@@ -185,6 +185,10 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
       <div class="component-row"><label><input id="select_audio" type="checkbox"><strong data-k="wizardAudio"></strong></label><p id="state_audio"></p><button class="quiet" id="install_audio" data-k="wizardInstall"></button></div>
     </div>
     <button class="quiet" id="componentRead" data-k="componentsRead"></button>
+    <div id="componentOnlineAudioBox" hidden><label for="componentOnlineAudio" data-k="wizardAudioOnline"></label>
+      <select id="componentOnlineAudio"><option value="" data-k="wizardAudioPick"></option><option id="audioLanguage_en" value="en">English</option><option id="audioLanguage_es" value="es">Español</option><option id="audioLanguage_de" value="de">Deutsch</option><option id="audioLanguage_cn" value="cn">简体中文</option></select>
+      <button class="quiet" id="componentDownloadAudio" data-k="wizardAudioDownload"></button>
+    </div>
     <label class="file"><strong data-k="wizardAudioChoose"></strong><input id="componentAudio" type="file" accept=".zip"><span id="componentAudioName"></span></label>
     <label class="channel"><input id="componentReinstall" type="checkbox"><span data-k="wizardReinstall"></span></label>
     <label class="channel"><input id="componentConfirm" type="checkbox"><span data-k="wizardConfirm"></span></label>
@@ -545,6 +549,10 @@ Object.assign(T.en,{"wizardBootloader": "Bootloader", "wizardBootRead": "Connect
 Object.assign(T.es,{"wizardBootloader": "Bootloader", "wizardBootRead": "Conecta Update y lee versiones para comprobar los requisitos.", "wizardBootRom": "Esta actualización requiere ROM DFU y la copia de recuperación verificada.", "wizardState_available": "Actualización disponible"});
 Object.assign(T.de,{"wizardBootloader": "Bootloader", "wizardBootRead": "Update-Modus verbinden und Versionen lesen, um die Anforderungen zu prüfen.", "wizardBootRom": "Dieses Update benötigt ROM DFU und die geprüfte Wiederherstellungskopie.", "wizardState_available": "Update verfügbar"});
 Object.assign(T.cn,{"wizardBootloader": "引导程序", "wizardBootRead": "连接 Update 模式并读取版本以检查要求。", "wizardBootRom": "本次更新需要 ROM DFU 和已验证的恢复备份。", "wizardState_available": "有可用更新"});
+Object.assign(T.en,{"wizardAudioOnline": "Optional voice pack from this release", "wizardAudioPick": "Choose one language…", "wizardAudioDownload": "Download and prepare voice pack"});
+Object.assign(T.es,{"wizardAudioOnline": "Paquete de voz opcional de este release", "wizardAudioPick": "Elige un idioma…", "wizardAudioDownload": "Descargar y preparar paquete de voz"});
+Object.assign(T.de,{"wizardAudioOnline": "Optionales Sprachpaket dieser Version", "wizardAudioPick": "Eine Sprache auswählen…", "wizardAudioDownload": "Sprachpaket laden und vorbereiten"});
+Object.assign(T.cn,{"wizardAudioOnline": "此版本的可选语音包", "wizardAudioPick": "选择一种语言…", "wizardAudioDownload": "下载并准备语音包"});
 function renderComponents(){
  const p=snapshot?.integrated,device=snapshot?.device||{},busy=running||requesting,d=T[lang],maintenance=device.state==='normal'&&device.maintenance===true,rom=device.state==='recovery',storage=device.mode==='storage';
  $('#componentPlan').hidden=!p;
@@ -559,6 +567,11 @@ function renderComponents(){
  if(snapshot?.operation==='components'&&!localError){$('#componentErrorDetails').hidden=!snapshot.error;$('#componentErrorTechnical').textContent=snapshot.error?snapshot.message||'':'';}
  if(!p)return;
  $('#componentUnit').textContent=`Noble ${p.target===1?'NB4':'NB4+'} · ${p.serial} · ${p.package_version}`;
+ const voiceLanguages=snapshot?.release?.version===p.package_version?snapshot.release.audio_languages||[]:[];
+ $('#componentOnlineAudioBox').hidden=!voiceLanguages.length;
+ $('#componentOnlineAudio').disabled=busy;
+ for(const language of ['en','es','de','cn'])$('#audioLanguage_'+language).disabled=!voiceLanguages.includes(language);
+ $('#componentDownloadAudio').disabled=busy||!voiceLanguages.includes($('#componentOnlineAudio').value||'');
  $('#componentDirectory').textContent=p.directory;
  $('#componentOutcome').textContent=d['wizardOutcome_'+p.outcome]+' '+d[p.approved?'wizardApproved':'wizardUnapproved'];
  const mode=device.state==='recovery'?'recovery':device.mode;
@@ -614,6 +627,8 @@ for(const id of ['componentSessionPath','componentBackupPath'])$('#'+id).oninput
 $('#componentConfirm').onchange=$('#componentReinstall').onchange=render;
 $('#componentOpen').onclick=()=>request('/api/components/open',{path:$('#componentSessionPath').value});
 $('#componentPackage').onchange=()=>{const f=$('#componentPackage').files[0];$('#componentPackageName').textContent=f?.name||'';return send('/api/components/package',f,{'X-ApexTX-Serial':snapshot?.device?.serial});};
+$('#componentOnlineAudio').onchange=renderComponents;
+$('#componentDownloadAudio').onclick=()=>{const p=snapshot?.integrated,o=snapshot?.release;if(!p||!o||$('#componentDownloadAudio').disabled)return;return request('/api/components/download-audio',{id:p.id,language:$('#componentOnlineAudio').value,serial:p.serial,target:p.target,release_id:o.id});};
 $('#componentAudio').onchange=()=>{const f=$('#componentAudio').files[0];$('#componentAudioName').textContent=f?.name||'';return send('/api/components/audio',f,{'X-ApexTX-Serial':snapshot?.device?.serial,'X-ApexTX-Plan':snapshot?.integrated?.id});};
 $('#componentDownload').onclick=()=>request('/api/components/download',{serial:snapshot?.device?.serial,target:snapshot?.device?.target,release_id:snapshot?.release?.id});
 $('#componentBackup').onclick=()=>componentAction('backup');

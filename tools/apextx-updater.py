@@ -320,7 +320,7 @@ def serve(port=0, open_browser=True, startup_health=None):
             if request_path in ('/api/refresh', '/api/channel', '/api/upgrade',
                                 '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel',
                                 '/api/components/read','/api/components/action','/api/components/open',
-                                '/api/components/pick','/api/components/download'):
+                                '/api/components/pick','/api/components/download','/api/components/download-audio'):
                 try:
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 <= size <= 2048:
@@ -338,7 +338,7 @@ def serve(port=0, open_browser=True, startup_health=None):
                         finally: session.finish()
                         self.reply(200,{'path':paths[0] if paths else None}); return
                     with lock:
-                        if request_path in ('/api/components/action','/api/components/open','/api/components/download'):
+                        if request_path in ('/api/components/action','/api/components/open','/api/components/download','/api/components/download-audio'):
                             if session.bootloader_install: raise ValueError('Finish or cancel the pending bootloader installation first.')
                             if request_path=='/api/components/action':
                                 action=data.get('action')
@@ -354,7 +354,13 @@ def serve(port=0, open_browser=True, startup_health=None):
                                 if (not offer or data.get('release_id')!=offer['id'] or
                                         data.get('serial')!=device.get('serial') or data.get('target')!=device.get('target')):
                                     raise ValueError('The selected radio or release changed.')
-                                worker=session.download_components; args=(device,dict(offer))
+                                if request_path.endswith('/download-audio'):
+                                    language=data.get('language'); plan=session.integrated
+                                    if (language not in offer.get('audio_assets',{}) or not plan or plan.record['id']!=data.get('id') or
+                                            plan.package.manifest['release']!=offer['version']):
+                                        raise ValueError('Select a voice pack from the same release as this component plan.')
+                                    worker=session.download_component_audio; args=(device,dict(offer),data['id'],language)
+                                else: worker=session.download_components; args=(device,dict(offer))
                             session.begin('components')
                             threading.Thread(target=worker,args=args,daemon=False).start()
                         elif request_path == '/api/components/read':

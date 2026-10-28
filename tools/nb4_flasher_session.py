@@ -40,6 +40,7 @@ class FlasherSession:
             if selected:
                 offer = {k: selected[k] for k in ('id', 'version', 'prerelease', 'url', 'target')}
                 offer['bootloader'] = selected.get('bootloader', 0)
+                offer['audio_languages'] = list(selected.get('audio_assets',{}))
                 offer['decision'] = update_decision(self.device, selected)
             plan = None
             if self.bootloader_install:
@@ -237,6 +238,28 @@ class FlasherSession:
                 if (current.get('serial'),current.get('target'))!=(device['serial'],device['target']):
                     raise UpdateError('The selected transmitter changed while downloading.')
                 self.prepare_components(data,device['serial'])
+        except Exception as error: self.finish(error)
+
+    def download_component_audio(self,device,offer,identifier,language):
+        from pathlib import Path
+        import tempfile
+        from nb4_audio_install import safe_extract,read_and_verify_pack
+        try:
+            with self.lock:
+                plan=self.integrated
+                if (not plan or plan.record['id']!=identifier or plan.record['serial']!=device['serial'] or
+                        plan.record['target']!=device['target'] or plan.package.manifest['release']!=offer['version']):
+                    raise UpdateError('The selected radio, package or release changed. Review the component plan.')
+            asset=offer.get('audio_assets',{}).get(language)
+            if not asset: raise UpdateError('This release has no selected voice pack. Choose a local audio ZIP.')
+            data=self.client.download_asset(offer,asset,self.progress)
+            with tempfile.TemporaryDirectory(prefix='apextx-voice-download-') as folder:
+                archive=Path(folder)/'audio.zip'; archive.write_bytes(data)
+                safe_extract(archive,Path(folder)/'pack')
+                manifest,_=read_and_verify_pack(Path(folder)/'pack')
+                if (manifest['language'],manifest['release'])!=(language,offer['version']):
+                    raise UpdateError('The downloaded voice pack does not match the selected language/release.')
+            self.component_audio(data,identifier)
         except Exception as error: self.finish(error)
 
     def component_action(self,identifier,action,component=None,path=None,selected=None,reinstall=False):
