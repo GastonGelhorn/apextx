@@ -191,6 +191,7 @@ class HelperTransaction(unittest.TestCase):
             version='1.5.0',revision='a'*40,platform='win32',old_digest=file_digest(current),new_digest=file_digest(payload))
         path = folder/'transaction.json'
         atomic_json(path,journal)
+        atomic_json(folder/'shutdown-authorized.json',dict(nonce='0'*64))
         keys = {'fixture':base64.b64encode(key.public_key().public_bytes_raw()).decode()}
         return path, current, keys
 
@@ -236,5 +237,19 @@ class HelperTransaction(unittest.TestCase):
                     patch.object(app,'trusted_keys',return_value=keys),patch.object(installer.subprocess,'Popen') as launch:
                 with self.assertRaises(AppUpdateError): installer.apply_update(path,'0'*64)
             self.assertFalse((path.parent/'helper-ready.json').exists())
+            self.assertEqual(current.read_bytes(),b'old-app')
+            launch.assert_not_called()
+
+    def test_late_helper_cannot_replace_app_after_a_startup_timeout(self):
+        import flasher_app_update as app
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory).resolve()
+            path,current,keys=self.transaction(root)
+            (path.parent/'shutdown-authorized.json').unlink()
+            with patch.object(installer.sys,'platform','win32'),patch.object(installer,'data_directory',return_value=root), \
+                    patch.object(app,'trusted_keys',return_value=keys),patch.object(installer,'parent_alive',return_value=False), \
+                    patch.object(installer.subprocess,'Popen') as launch:
+                with self.assertRaisesRegex(AppUpdateError,'did not authorize shutdown'):
+                    installer.apply_update(path,'0'*64)
             self.assertEqual(current.read_bytes(),b'old-app')
             launch.assert_not_called()

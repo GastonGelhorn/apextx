@@ -201,10 +201,13 @@ def start_helper(transaction):
     while time.monotonic() < deadline:
         ready = transaction.parent / 'helper-ready.json'
         if ready.exists() and json_object(ready.read_bytes()).get('nonce') == doc['nonce']:
+            atomic_json(transaction.parent / 'shutdown-authorized.json', dict(nonce=doc['nonce']))
             return
         if process.poll() is not None:
             break
         time.sleep(.1)
+    doc['phase'] = 'cancelled'
+    atomic_json(transaction, doc)
     raise AppUpdateError('The update helper could not start. The installed app was preserved.')
 
 
@@ -255,6 +258,12 @@ def apply_update(transaction, nonce):
         if time.monotonic() > deadline:
             raise AppUpdateError('The flasher is still running. No files were replaced.')
         time.sleep(.2)
+    try:
+        authorized = json_object((transaction.parent / 'shutdown-authorized.json').read_bytes())
+    except (OSError, ValueError) as error:
+        raise AppUpdateError('The original app did not authorize shutdown. No files were replaced.') from error
+    if authorized.get('nonce') != nonce:
+        raise AppUpdateError('The original app shutdown authorization does not match.')
     lease = InstanceLease(update_nonce=nonce)
     current, destination, payload = (Path(doc[key]) for key in ('current', 'destination', 'payload'))
     try:
