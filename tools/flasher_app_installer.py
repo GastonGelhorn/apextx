@@ -160,7 +160,7 @@ def prepare(folder, offer, relocate=False):
     if sys.platform == 'win32' and destination == current:
         shutil.copy2(current, backup)
     transaction = dict(schema=1, phase='prepared', nonce=secrets.token_hex(32),
-        parent=os.getpid(), current=str(current), destination=str(destination),
+        parent=os.getpid(), parent_identity=process_token(os.getpid()), current=str(current), destination=str(destination),
         payload=str(payload), backup=str(backup), runner=str(runner), version=doc['version'],
         revision=doc['revision'], platform=sys.platform, old_digest=file_digest(executable(current)),
         new_digest=file_digest(executable(payload)))
@@ -211,7 +211,43 @@ def start_helper(transaction):
     raise AppUpdateError('The update helper could not start. The installed app was preserved.')
 
 
-def parent_alive(pid):
+def process_token(pid):
+    """Bind a PID to its creation time, so reboot/PID reuse cannot block recovery."""
+    try:
+        if sys.platform == 'win32':
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+            kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+            handle = kernel.OpenProcess(0x1000, False, pid)
+            if not handle:
+                return None
+            try:
+                values = [wintypes.FILETIME() for _ in range(4)]
+                if not kernel.GetProcessTimes(handle, *(ctypes.byref(value) for value in values)):
+                    return None
+                return str(values[0].dwHighDateTime << 32 | values[0].dwLowDateTime)
+            finally:
+                kernel.CloseHandle(handle)
+        if sys.platform.startswith('linux'):
+            boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+            fields = Path(f'/proc/{pid}/stat').read_text().rpartition(') ')[2].split()
+            return boot + ':' + fields[19]
+        result = subprocess.run(['/bin/ps', '-p', str(pid), '-o', 'lstart='],
+            capture_output=True, text=True, timeout=5,
+            env=dict(clean_environment(), LC_ALL='C', TZ='UTC'))
+        return result.stdout.strip() or None
+    except (OSError, ValueError, IndexError, subprocess.TimeoutExpired):
+        return None
+
+
+def parent_alive(pid, identity=None):
+    if identity is not None:
+        token = process_token(pid)
+        if token is not None and token != identity:
+            return False
     if sys.platform == 'win32':
         from ctypes import wintypes
         kernel = ctypes.WinDLL('kernel32', use_last_error=True)
@@ -250,11 +286,12 @@ def apply_update(transaction, nonce):
     if sys.platform == 'darwin':
         subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(staged)], check=True, capture_output=True, timeout=60)
     doc['helper'] = os.getpid()
+    doc['helper_identity'] = process_token(os.getpid())
     atomic_json(transaction, doc)
-    atomic_json(data_directory() / 'active-update.json', dict(helper=os.getpid(), nonce=nonce))
+    atomic_json(data_directory() / 'active-update.json', dict(helper=os.getpid(), identity=doc['helper_identity'], nonce=nonce))
     atomic_json(transaction.parent / 'helper-ready.json', dict(nonce=nonce))
     deadline = time.monotonic() + 120
-    while parent_alive(doc['parent']):
+    while parent_alive(doc['parent'], doc.get('parent_identity')):
         if time.monotonic() > deadline:
             raise AppUpdateError('The flasher is still running. No files were replaced.')
         time.sleep(.2)
@@ -368,7 +405,7 @@ def recover_interrupted():
         return False
     for path in root.glob('update-*/transaction.json'):
         doc = read_transaction(path)
-        if doc['phase'] in ('replacing', 'starting', 'unconfirmed') and not parent_alive(doc.get('helper', doc['parent'])):
+        if doc['phase'] in ('replacing', 'starting', 'unconfirmed') and not parent_alive(doc.get('helper', doc['parent']), doc.get('helper_identity')):
             if Path(doc['destination']) == installed_app():
                 rollback(path, doc, 'The previous app update was interrupted before startup confirmation.', relaunch=False)
                 return True
@@ -386,13 +423,13 @@ def run_helper(transaction, nonce):
         active = data_directory() / 'active-update.json'
         if active.exists() and json_object(active.read_bytes()).get('nonce') == nonce:
             active.unlink()
-        if not parent_alive(doc['parent']) and file_digest(executable(current)) == doc['old_digest']:
+        if not parent_alive(doc['parent'], doc.get('parent_identity')) and file_digest(executable(current)) == doc['old_digest']:
             lease = InstanceLease()
             lease.close()
             subprocess.Popen([str(executable(current))], env=clean_environment(), cwd=str(Path.home()))
         # The original app's panel displays the recorded failure after relaunch.
         # If it cannot relaunch, retain the journal and show a native message.
-        elif not parent_alive(doc['parent']):
+        elif not parent_alive(doc['parent'], doc.get('parent_identity')):
             message = 'ApexTX Flasher could not finish its app update. Reopen it to recover. ' + str(error)
             if sys.platform == 'win32':
                 ctypes.windll.user32.MessageBoxW(None, message, 'ApexTX Flasher', 0x10)

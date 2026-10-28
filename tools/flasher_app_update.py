@@ -178,7 +178,7 @@ class InstanceLease:
         try:
             active = json_object((folder / 'active-update.json').read_bytes())
             from flasher_app_installer import parent_alive
-            if parent_alive(active['helper']) and active.get('nonce') != update_nonce:
+            if parent_alive(active['helper'], active.get('identity')) and active.get('nonce') != update_nonce:
                 self.close()
                 raise AppUpdateError('An ApexTX Flasher replacement is in progress. Wait for it to finish.')
         except FileNotFoundError:

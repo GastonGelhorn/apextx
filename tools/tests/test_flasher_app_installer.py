@@ -210,7 +210,7 @@ class HelperTransaction(unittest.TestCase):
                     return process
                 def replace(old,new):
                     new.replace(old)
-                with patch.object(installer.sys,'platform','win32'), \
+                with patch.object(installer.sys,'platform','win32'), patch.object(installer,'process_token',return_value='test-start-time'), \
                         patch.object(installer,'data_directory',return_value=root), \
                         patch.object(installer,'target_platform',return_value='windows-x86_64'), \
                         patch.object(installer,'InstanceLease'), \
@@ -233,7 +233,7 @@ class HelperTransaction(unittest.TestCase):
             path,current,keys=self.transaction(root)
             doc=json.loads(path.read_bytes())
             pathlib.Path(doc['payload']).write_bytes(b'modified')
-            with patch.object(installer.sys,'platform','win32'),patch.object(installer,'data_directory',return_value=root), \
+            with patch.object(installer.sys,'platform','win32'), patch.object(installer,'process_token',return_value='test-start-time'),patch.object(installer,'data_directory',return_value=root), \
                     patch.object(app,'trusted_keys',return_value=keys),patch.object(installer.subprocess,'Popen') as launch:
                 with self.assertRaises(AppUpdateError): installer.apply_update(path,'0'*64)
             self.assertFalse((path.parent/'helper-ready.json').exists())
@@ -246,10 +246,23 @@ class HelperTransaction(unittest.TestCase):
             root=pathlib.Path(directory).resolve()
             path,current,keys=self.transaction(root)
             (path.parent/'shutdown-authorized.json').unlink()
-            with patch.object(installer.sys,'platform','win32'),patch.object(installer,'data_directory',return_value=root), \
+            with patch.object(installer.sys,'platform','win32'), patch.object(installer,'process_token',return_value='test-start-time'),patch.object(installer,'data_directory',return_value=root), \
                     patch.object(app,'trusted_keys',return_value=keys),patch.object(installer,'parent_alive',return_value=False), \
                     patch.object(installer.subprocess,'Popen') as launch:
                 with self.assertRaisesRegex(AppUpdateError,'did not authorize shutdown'):
                     installer.apply_update(path,'0'*64)
             self.assertEqual(current.read_bytes(),b'old-app')
             launch.assert_not_called()
+
+
+class ProcessIdentity(unittest.TestCase):
+    def test_live_pid_reuse_does_not_impersonate_old_helper(self):
+        with patch.object(installer,'process_token',return_value='new-process'):
+            self.assertFalse(installer.parent_alive(12345,'old-process'))
+
+    def test_current_process_has_a_stable_identity(self):
+        import os
+        token=installer.process_token(os.getpid())
+        self.assertTrue(token)
+        self.assertEqual(installer.process_token(os.getpid()),token)
+        self.assertTrue(installer.parent_alive(os.getpid(),token))
