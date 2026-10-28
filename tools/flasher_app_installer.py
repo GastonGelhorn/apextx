@@ -46,6 +46,10 @@ def extract_bundle(archive, directory):
             raise AppUpdateError('App archive exceeds extraction limits.')
         seen, links = set(), []
         for entry in entries:
+            # ZipInfo normalizes Windows separators and truncates NULs in
+            # filename; inspect the original decoded name before using it.
+            if '\\' in entry.orig_filename or '\x00' in entry.orig_filename:
+                raise AppUpdateError('Unsafe original path in app archive.')
             path = PurePosixPath(entry.filename)
             # ditto adds resource metadata; it is not executable bundle content.
             if path.parts and path.parts[0] == '__MACOSX':

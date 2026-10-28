@@ -45,7 +45,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install desktop signature verification
-        run: python3 -m pip install --break-system-packages -r tools/requirements-updater.txt
+        run: uv pip install --python "$(command -v python3)" -r tools/requirements-updater.txt
 
       - name: Validate version and the RF descriptor
         shell: bash

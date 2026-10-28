@@ -20,6 +20,12 @@ class ArchiveValidation(unittest.TestCase):
         archive = folder / 'app.zip'
         with zipfile.ZipFile(archive,'w') as output:
             for name, content in entries:
+                if isinstance(name, str):
+                    # Preserve malicious raw ZIP names even when the host's
+                    # ZipInfo constructor would normalize Windows separators.
+                    entry = zipfile.ZipInfo(name)
+                    entry.filename = name
+                    name = entry
                 output.writestr(name, content)
         return archive
 
