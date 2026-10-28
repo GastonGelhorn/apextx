@@ -338,6 +338,55 @@ class ModuleWindow : public Window
     new StaticText(fsLine, rect_t{}, STR_FAILSAFE);
     fsChoice = new FailsafeChoice(fsLine, moduleIdx);
 
+#if defined(RADIO_NB4_FAMILY) && defined(AFHDS3)
+    // Read-only firmware version of the RF module and the connected receiver
+    // (NB4 internal module). Labels follow the UI language.
+    if (moduleIdx == INTERNAL_MODULE && isModuleAFHDS3(moduleIdx)) {
+      auto mvLine = newLine(grid);
+      new StaticText(mvLine, rect_t{},
+                     STR_NB4_RF_MODULE_VERSION);
+      new DynamicText(mvLine, rect_t{}, [this]() {
+        // LVGL may keep hidden editors alive. Merely reading cached values
+        // must not trigger RF traffic from those parked screens.
+        if (lv_obj_is_visible(lvobj)) afhds3::requestVersionInfo(INTERNAL_MODULE);
+        const auto v = afhds3::getModuleVersionInfo(INTERNAL_MODULE);
+        if (!v.valid)
+          return std::string(v.unavailable ? STR_NB4_RF_VERSION_UNAVAILABLE : STR_NB4_LOADING);
+        // Keep the NB4 module's reported word in hexadecimal, as on stock.
+        // Its short reply does not follow every field of the legacy struct;
+        // this readout is informational, not an image-compatibility decision.
+        char b[16];
+        snprintf(b, sizeof(b), "0x%lX", (unsigned long)v.bootloaderVersion);
+        return std::string(b);
+      });
+      auto modelLine = newLine(grid);
+      new StaticText(modelLine, rect_t{}, STR_NB4_RF_RECEIVER_MODEL);
+      new DynamicText(modelLine, rect_t{}, []() {
+        const auto v = afhds3::getReceiverVersionInfo(INTERNAL_MODULE);
+        if (!v.valid) return std::string(STR_NB4_RF_VERSION_UNAVAILABLE);
+        if (const auto name = afhds3::receiverModelName(v.productNumber))
+          return std::string(name);
+        char b[16];
+        snprintf(b, sizeof(b), "0x%lX", (unsigned long)v.productNumber);
+        return std::string(b);
+      });
+      auto rvLine = newLine(grid);
+      new StaticText(rvLine, rect_t{},
+                     STR_NB4_RF_RECEIVER_VERSION);
+      new DynamicText(rvLine, rect_t{}, []() {
+        const auto v = afhds3::getReceiverVersionInfo(INTERNAL_MODULE);
+        if (!v.valid)
+          return std::string(!afhds3::isConnected(INTERNAL_MODULE)
+              ? STR_NB4_RF_STATE_DISCONNECTED
+              : v.unavailable || !g_model.moduleData[INTERNAL_MODULE].afhds3.telemetry
+                  ? STR_NB4_RF_VERSION_UNAVAILABLE : STR_NB4_LOADING);
+        char b[16];
+        snprintf(b, sizeof(b), "0x%X", unsigned(v.firmwareVersion));
+        return std::string(b);
+      });
+    }
+#endif
+
     // PPM modules
     if (isModulePPM(moduleIdx)) {
       // PPM frame

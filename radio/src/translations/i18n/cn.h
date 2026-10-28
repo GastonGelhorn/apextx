@@ -2185,3 +2185,7 @@
 #define TR_NB4_CURVES_REPAIRED "已修复无效曲线数据"
 #define TR_NB4_CURVES_REPAIRED_CHECK "请检查曲线和逻辑开关"
 #define TR_NB4_LUA_WIDGET_ERROR "%s 出错：%s"
+#define TR_NB4_RF_MODULE_VERSION "射频版本"
+#define TR_NB4_RF_RECEIVER_VERSION "接收机固件"
+#define TR_NB4_RF_RECEIVER_MODEL "接收机型号"
+#define TR_NB4_RF_VERSION_UNAVAILABLE "不可用"

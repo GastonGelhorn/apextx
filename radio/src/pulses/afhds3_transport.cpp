@@ -285,6 +285,8 @@ void Transport::clear()
   acknowledgements.clearCommandFifo();
 #if defined(RADIO_NB4)
   responsePending = false;
+  readOnlyPending = false;
+  readOnlyReply = false;
 #endif
 
   ++frameIndex; // Do not reuse the previous request number after a timeout.
@@ -377,6 +379,18 @@ void Transport::sendBuffer()
 }
 
 #if defined(RADIO_NB4)
+void Transport::putReadOnlyFrame(COMMAND command, FRAME_TYPE type,
+                                 uint8_t* data, uint8_t size)
+{
+  // Called only between normal transactions. Retain correlation separately,
+  // but do not wait or retransmit: the next mixer tick must send live channels.
+  putFrame(command, type, data, size);
+  readOnlyCommand = command;
+  readOnlyIndex = pendingIndex;
+  readOnlyPending = true;
+  operationState = State::IDLE;
+}
+
 bool Transport::queueResponse(COMMAND command, uint8_t index,
                               const uint8_t* payload, uint8_t size)
 {
@@ -440,6 +454,9 @@ bool Transport::handleRetransmissions(bool& error)
 
 bool Transport::handleReply(uint8_t* buffer, uint8_t len)
 {
+#if defined(RADIO_NB4)
+  readOnlyReply = false;
+#endif
   if (len < 7) return true;
 
   AfhdsFrame* responseFrame = reinterpret_cast<AfhdsFrame*>(buffer);
@@ -484,6 +501,15 @@ bool Transport::handleReply(uint8_t* buffer, uint8_t len)
                                  responseFrame->frameNumber);
   } else if (responseFrame->frameType == FRAME_TYPE::RESPONSE_DATA ||
              responseFrame->frameType == FRAME_TYPE::RESPONSE_ACK) {
+#if defined(RADIO_NB4)
+    if (readOnlyPending && responseFrame->frameType == RESPONSE_DATA &&
+        responseFrame->frameNumber == readOnlyIndex &&
+        responseFrame->command == readOnlyCommand) {
+      readOnlyPending = false;
+      readOnlyReply = true;
+      return false; // Do not complete or replace another pending transaction.
+    }
+#endif
     if (operationState != State::AWAITING_RESPONSE ||
         responseFrame->frameNumber != pendingIndex ||
         responseFrame->command != pendingCommand) {
