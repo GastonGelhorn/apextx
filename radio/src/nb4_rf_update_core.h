@@ -44,6 +44,8 @@ class RfUpdateCore {
   bool start(const RfUpdateIdentity&, uint32_t now);
   bool cancel();
   bool cancelUntouchedApplication(const RfUpdateIdentity& running, uint32_t probeEpoch);
+  bool restoreResult(const RfUpdateImage&, const RfUpdateIdentity&, uint32_t operation,
+                     RfUpdatePhase phase);
   bool recover(const RfUpdateImage&, const RfUpdateIdentity&, uint32_t operation,
                 const uint8_t* peer, uint8_t peerLength, uint32_t now);
   void service(uint32_t now, const RfUpdateIo&);

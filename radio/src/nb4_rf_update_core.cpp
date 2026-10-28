@@ -57,6 +57,14 @@ bool RfUpdateCore::cancelUntouchedApplication(const RfUpdateIdentity& running, u
   phase_ = RfUpdatePhase::Cancelled; error_ = RfUpdateError::None; sent_ = false;
   return true;
 }
+bool RfUpdateCore::restoreResult(const RfUpdateImage& image, const RfUpdateIdentity& identity,
+                                uint32_t operation, RfUpdatePhase phase) {
+  if ((phase != RfUpdatePhase::Complete && phase != RfUpdatePhase::Cancelled) ||
+      !prepare(image, identity, operation, true)) return false;
+  phase_ = phase;
+  covered_ = phase == RfUpdatePhase::Complete ? image.size : 0;
+  return true;
+}
 bool RfUpdateCore::recover(const RfUpdateImage& image, const RfUpdateIdentity& identity,
                            uint32_t operation, const uint8_t* peer, uint8_t length, uint32_t now) {
   if (phase_ != RfUpdatePhase::RecoveryRequired ||
@@ -105,6 +113,12 @@ void RfUpdateCore::receive(uint8_t type, uint8_t opcode, uint8_t sequence,
                            const uint8_t* data, size_t length, uint32_t now,
                            const RfUpdateIo& io) {
   if (!sent_ || (phase_ != RfUpdatePhase::Entering && phase_ != RfUpdatePhase::Transfer)) return;
+  if (!image_.receiver && opcode == 0x22 && type == 2 && !length &&
+      phase_ == RfUpdatePhase::Entering && !manifest_) {
+    const uint8_t ready = 1;
+    if (io.send(io.context, true, opcode, sequence, &ready, 1)) last_ = now;
+    return;
+  }
   if ((image_.receiver && opcode == 0x33 && type == 3 && length == 14) ||
       (!image_.receiver && opcode == 0x24 && type == 2 && length == 4)) {
     if ((image_.receiver && (u32(data) != image_.product ||

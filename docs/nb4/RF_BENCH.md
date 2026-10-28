@@ -156,6 +156,13 @@ peer response. It repeats the complete image; it does not guess a resume offset.
 The opaque boot-response fields and actual recovery behavior still require
 bench qualification. ROM DFU of the transmitter is not RF-component recovery.
 
+The initial recovery acknowledgement can still report the previous recovery
+phase while the radio verifies the prepared image. The host keeps the
+connection open and polls for that bounded transition; it never repeats the
+recovery command automatically. The radio answers the module boot-ready
+handshake before accepting its identity checkpoint or serving image data.
+Completed and cancelled operation results remain queryable after a restart.
+
 There is one automatic check for an entry that received no boot-peer
 checkpoint and could not have transferred image data. Driving remains locked
 while the radio requests a fresh normal-application identity. Only an exact

@@ -246,5 +246,50 @@ class RfTransferTests(unittest.TestCase):
             with self.assertRaises(wire.MaintenanceError): self.transfer.start(confirmed=True)
         self.assertNotIn(wire.START,self.peer.commands)
 
+    def test_recovery_waits_for_image_validation_without_repeating_the_command(self):
+        with patch.object(rf,'verify_backup',return_value={}):
+            self.transfer.stage(1,self.data,self.backup)
+        pending=dict(self.peer.status,phase=7,driving_locked=True,cancellable=False)
+        running=dict(pending,phase=2)
+        complete=dict(pending,phase=5,driving_locked=False,transferred=len(self.data))
+        statuses=iter((pending,pending,pending,running,complete))
+        commands=[]
+        def request(command,payload=b''):
+            commands.append(command)
+            if command==wire.CAPABILITIES:return {'rf_recover':True}
+            if command==wire.RECOVER:return pending
+            if command==wire.STATUS:return next(statuses)
+            raise AssertionError(command)
+        after=copy.deepcopy(self.peer.inventory)
+        after['receiver'].update(firmware=0x113,identity_words=[0x104,0x104,0x103,0x113,0x301])
+        with patch.object(self.transfer.client,'request',request), \
+             patch.object(self.transfer,'inventory',side_effect=(self.peer.inventory,after)), \
+             patch.object(rf,'verify_backup',return_value={}), \
+             patch.object(rf.time,'sleep',lambda _:None):
+            self.assertEqual(self.transfer.recover(confirmed=True)['phase'],5)
+        self.assertEqual(commands.count(wire.RECOVER),1)
+        self.assertNotIn(wire.START,commands)
+        self.assertEqual(self.transfer.load()['state'],'complete')
+
+    def test_recovery_that_never_starts_stays_unresolved_without_a_retry(self):
+        with patch.object(rf,'verify_backup',return_value={}):
+            self.transfer.stage(1,self.data,self.backup)
+        pending=dict(self.peer.status,phase=7,driving_locked=True,cancellable=False)
+        commands=[]
+        def request(command,payload=b''):
+            commands.append(command)
+            return {'rf_recover':True} if command==wire.CAPABILITIES else pending
+        ticks=iter(range(100))
+        with patch.object(self.transfer.client,'request',request), \
+             patch.object(self.transfer,'inventory',return_value=self.peer.inventory), \
+             patch.object(rf,'verify_backup',return_value={}), \
+             patch.object(rf.time,'sleep',lambda _:None):
+            with self.assertRaisesRegex(wire.MaintenanceError,'needs recovery'):
+                self.transfer.recover(confirmed=True,clock=lambda:next(ticks))
+        self.assertEqual(commands.count(wire.RECOVER),1)
+        self.assertNotIn(wire.START,commands)
+        self.assertLess(commands.count(wire.STATUS),10)
+        self.assertEqual(self.transfer.load()['state'],'recovery_required')
+
 
 if __name__ == '__main__': unittest.main()

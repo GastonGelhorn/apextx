@@ -159,6 +159,9 @@ TEST(Nb4RfUpdate, ModuleUsesDifferentManifestAndResultThenRequestsNormalMode) {
   RfUpdateCore core; Peer peer;
   ASSERT_TRUE(core.prepare(module, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
   core.service(0, peer.io()); EXPECT_EQ(peer.opcode, 0x23); EXPECT_TRUE(peer.payload.empty());
+  core.receive(2, 0x22, 7, nullptr, 0, 1, peer.io());
+  EXPECT_EQ(peer.opcode, 0x22); EXPECT_EQ(peer.sequence, 7); EXPECT_TRUE(peer.response);
+  EXPECT_EQ(peer.payload, (std::vector<uint8_t>{1}));
   boot(core, peer);
   core.receive(1, 0x25, 8, nullptr, 0, 1, peer.io());
   EXPECT_EQ(peer.payload, (std::vector<uint8_t>{0,0,0,0,0,0,20,0,0,0}));
@@ -171,6 +174,28 @@ TEST(Nb4RfUpdate, ModuleUsesDifferentManifestAndResultThenRequestsNormalMode) {
   EXPECT_EQ(peer.opcode, 0x27); EXPECT_EQ(peer.payload, std::vector<uint8_t>{1});
   core.verifyVersion(module.product, module.version, true);
   EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
+}
+TEST(Nb4RfUpdate, BootReadyRepliesDoNotAuthorizeImageDataWithoutThePeerCheckpoint) {
+  auto module = image; module.receiver = false;
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(module, identity, 1));
+  core.receive(2, 0x22, 1, nullptr, 0, 1, peer.io());
+  EXPECT_EQ(peer.opcode, 0);
+  ASSERT_TRUE(core.start(identity, 0)); core.service(0, peer.io());
+  peer.writable = false;
+  core.receive(2, 0x22, 2, nullptr, 0, 1, peer.io());
+  EXPECT_EQ(peer.opcode, 0x23);
+  peer.writable = true;
+  for (uint8_t sequence : {3, 3, 4}) {
+    core.receive(2, 0x22, sequence, nullptr, 0, 2, peer.io());
+    EXPECT_EQ(peer.opcode, 0x22); EXPECT_EQ(peer.sequence, sequence);
+    EXPECT_EQ(peer.payload, (std::vector<uint8_t>{1}));
+    EXPECT_TRUE(peer.checkpoint.empty()); EXPECT_EQ(core.transferred(), 0u);
+  }
+  core.receive(1, 0x25, 5, nullptr, 0, 3, peer.io());
+  EXPECT_EQ(core.error(), RfUpdateError::Protocol);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  EXPECT_EQ(core.transferred(), 0u);
 }
 TEST(Nb4RfUpdate, RecoveryRestartsTheWholeImageAndRejectsADifferentBootPeer) {
   RfUpdateCore core; Peer peer;
@@ -269,9 +294,24 @@ TEST(Nb4RfJournal, OnlyANewerVerifiedCompletionReleasesDrivingAfterRestart) {
   fixture.write(1, RfUpdatePhase::Transfer);
   fixture.write(2, RfUpdatePhase::Complete);
   nb4RfUpdateService(); EXPECT_FALSE(nb4RfUpdateDrivingLocked());
+  const auto completed = fixture.command(19);
+  EXPECT_NE(completed.find("\"operation\":17"), std::string::npos);
+  EXPECT_NE(completed.find("\"phase\":5"), std::string::npos);
+  EXPECT_NE(completed.find("\"transferred\":" + std::to_string(rfImages[1].size)), std::string::npos);
   nb4RfUpdateTestReset();
   fixture.write(3, RfUpdatePhase::Entering);
   nb4RfUpdateService(); EXPECT_TRUE(nb4RfUpdateDrivingLocked());
+}
+TEST(Nb4RfJournal, ACancelledResultRetainsItsOperationAcrossRestartWithoutLockingDriving) {
+  JournalFixture fixture;
+  fixture.write(1, RfUpdatePhase::Entering);
+  fixture.write(2, RfUpdatePhase::Cancelled);
+  nb4RfUpdateService();
+  const auto cancelled = fixture.command(19);
+  EXPECT_NE(cancelled.find("\"operation\":17"), std::string::npos);
+  EXPECT_NE(cancelled.find("\"phase\":6"), std::string::npos);
+  EXPECT_NE(cancelled.find("\"transferred\":0"), std::string::npos);
+  EXPECT_FALSE(nb4RfUpdateDrivingLocked()); EXPECT_FALSE(nb4RfUpdateNeedsRecovery());
 }
 TEST(Nb4RfJournal, DamagedRecordsCannotAuthorizeDrivingThroughAnOlderReadyRecord) {
   JournalFixture fixture;
@@ -287,6 +327,23 @@ TEST(Nb4RfJournal, RecoveryValidationCannotBeCancelledOrStartedTwice) {
   EXPECT_NE(fixture.command(21).find("operation_in_progress"), std::string::npos);
   EXPECT_NE(fixture.command(18).find("operation_in_progress"), std::string::npos);
   EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+}
+TEST(Nb4RfJournal, RecoveryKeepsVerifyingTheImageBeforeFinalizingThePreviousRecoveryPhase) {
+  JournalFixture fixture; fixture.write(1, RfUpdatePhase::Entering);
+  {
+    std::ofstream file(fixture.root / "FIRMWARE/RF/12340004.bin", std::ios::binary);
+    const std::vector<uint8_t> imageBytes(rfImages[1].size, 0);
+    file.write(reinterpret_cast<const char*>(imageBytes.data()), imageBytes.size());
+  }
+  nb4RfUpdateService(); nb4RfUpdateTestBeginValidation(true);
+  for (unsigned i = 0; i < 3; ++i) {
+    nb4RfUpdateService();
+    EXPECT_NE(fixture.command(21).find("operation_in_progress"), std::string::npos);
+    EXPECT_TRUE(nb4RfUpdateDrivingLocked());
+  }
+  for (unsigned i = 0; i < rfImages[1].size / 512 + 2; ++i) nb4RfUpdateService();
+  EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+  EXPECT_NE(fixture.command(19).find("\"transferred\":0"), std::string::npos);
 }
 TEST(Nb4RfJournal, ARejectedPreparationPreservesThePreviousPreparedOperation) {
   JournalFixture fixture; fixture.write(1, RfUpdatePhase::Ready);

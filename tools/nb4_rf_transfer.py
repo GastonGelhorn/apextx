@@ -239,17 +239,26 @@ class RfTransfer:
             raise MaintenanceError('The radio does not require this recovery operation. Do not repeat START.')
         self.record.update(state='recovering'); self.save()
         value = validate_status(self.client.request(RECOVER, struct.pack('<I', operation)), operation, size)
-        return self._monitor(value, plan(self.record['inventory'], self.record['image']), progress, clock)
+        return self._monitor(value, plan(self.record['inventory'], self.record['image']), progress, clock,
+                             recovery_entry=True)
 
-    def _monitor(self, value, decision, progress, clock):
+    def _monitor(self, value, decision, progress, clock, *, recovery_entry=False):
         operation, size = self.record['operation'], self.record['bytes']
         try:
-            deadline = clock() + 360
-            while value['phase'] not in (5, 6, 7):
+            began = clock()
+            deadline = began + 360
+            # RECOVER acknowledges the request before the radio finishes its
+            # bounded image hash check. Keep the connection open and only poll;
+            # never repeat RECOVER while waiting for the phase to advance.
+            entry_deadline = began + 10
+            while value['phase'] not in (5, 6, 7) or (
+                    recovery_entry and value['phase'] == 7 and clock() < entry_deadline):
                 if clock() >= deadline:
                     raise MaintenanceError('RF operation timed out; inspect System > Update before recovery.')
                 value = validate_status(self.client.request(STATUS, struct.pack('<I', operation)), operation, size)
-                self.record.update(state='running', status=value); self.save()
+                if value['phase'] != 7:
+                    recovery_entry = False
+                self.record.update(state='recovering' if recovery_entry else 'running', status=value); self.save()
                 progress('Updating RF component', min(99, value['transferred'] * 99 // size))
                 time.sleep(.2)
             if value['phase'] == 6:

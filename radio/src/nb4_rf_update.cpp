@@ -312,13 +312,13 @@ void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
   ++rxFrames;
   const uint32_t meta = type | uint32_t(opcode) << 8 | uint32_t(sequence) << 16 | uint32_t(length & 255) << 24;
   lastRxMeta = meta;
-  if (opcode >= 0x23 && opcode <= 0x33) {
+  if (opcode >= 0x22 && opcode <= 0x33) {
     lastRfRxMeta = meta; uint32_t value = 0;
     for (unsigned i=0;i<std::min<size_t>(length,4);++i) value |= uint32_t(data[i]) << (i*8);
     lastRfValue = value;
   }
 #endif
-  if (opcode < 0x23 || opcode > 0x33) return;
+  if (opcode < 0x22 || opcode > 0x33) return;
   if (type == 0x20 || type == 0x10) requestPending = false;
   if (length > 14 || received.isFull()) { overflow.store(true); return; }
   Packet packet{type, opcode, sequence, uint8_t(length), {}};
@@ -472,9 +472,11 @@ void nb4RfUpdateService() {
     journalDamaged = damaged;
     if (journalValid) {
       journalSequence = data.sequence;
+      operation = data.operation; imageIndex = data.image; identity = data.identity;
+      memcpy(backupHash, data.backup, 32);
+      pinnedPeerLength = data.peerLength; memcpy(pinnedPeer, data.peer, sizeof(pinnedPeer));
       if (!damaged && data.phase == uint32_t(RfUpdatePhase::Ready)) {
-        operation = data.operation; imageIndex = data.image; identity = data.identity;
-        memcpy(backupHash, data.backup, 32); validated = true;
+        validated = true;
         uploaded = rfImages[imageIndex].size;
         if (!engine.prepare(rfImages[imageIndex], identity, operation, true)) {
           validated = false; drivingLocked = linkOwned = true;
@@ -483,11 +485,13 @@ void nb4RfUpdateService() {
       } else if (damaged || (data.phase != uint32_t(RfUpdatePhase::Complete) &&
                             data.phase != uint32_t(RfUpdatePhase::Cancelled))) {
         drivingLocked = linkOwned = true;
-        operation = data.operation; imageIndex = data.image; identity = data.identity;
-        memcpy(backupHash, data.backup, 32);
-        pinnedPeerLength = data.peerLength; memcpy(pinnedPeer, data.peer, sizeof(pinnedPeer));
         engine.prepare(rfImages[imageIndex], identity, operation, true);
         engine.requireRecovery(RfUpdateError::Storage);
+      } else if (!engine.restoreResult(rfImages[imageIndex], identity, operation, RfUpdatePhase(data.phase))) {
+        drivingLocked = linkOwned = true;
+        engine.requireRecovery(RfUpdateError::Storage);
+      } else if (data.phase == uint32_t(RfUpdatePhase::Complete)) {
+        uploaded = rfImages[imageIndex].size;
       }
     } else if (present) {
       drivingLocked = linkOwned = true;
@@ -560,7 +564,7 @@ void nb4RfUpdateService() {
     else engine.verifyVersion(current.product, current.version,
           current.epoch != verifyBaseline && current.product);
   }
-  if (startRequested && (engine.phase() == RfUpdatePhase::Complete ||
+  if (startRequested && !validating && (engine.phase() == RfUpdatePhase::Complete ||
       engine.phase() == RfUpdatePhase::Cancelled || engine.phase() == RfUpdatePhase::RecoveryRequired)) {
     const bool ok = journal(engine.phase());
     if (!ok) {
@@ -597,6 +601,9 @@ void nb4RfUpdateTestReset() {
 }
 void nb4RfUpdateTestBeginValidation(bool recovery) {
   recovering = recovery; startRequested = validating = true;
+  char path[48]; assetPath(path, sizeof(path));
+  open = f_open(&imageFile, path, FA_READ) == FR_OK;
+  validationOffset = 0; new (&imageHash) Sha256();
 }
 #endif
 #endif
