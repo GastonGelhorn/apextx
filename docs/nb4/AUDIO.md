@@ -12,6 +12,7 @@ ApexTX therefore publishes separate, size-bounded packages, one per language:
 - `apextx-audio-en-VERSION.zip` (English)
 - `apextx-audio-es-VERSION.zip` (Spanish)
 - `apextx-audio-de-VERSION.zip` (German)
+- `apextx-audio-cn-VERSION.zip` (Simplified Chinese / Mandarin)
 
 Each package contains every upstream `SYSTEM` prompt for that language, the
 ApexTX welcome prompt, and as many assignable tracks as fit in the 7 MiB audio
@@ -23,7 +24,9 @@ With the currently pinned upstream source, the English package contains 548
 prompts (212 required system prompts and 336 assignable tracks), the Spanish
 package contains 522 (250 required and 272 assignable tracks), and the German
 package contains the complete upstream German set of 240 (211 required and 29
-assignable tracks). "Assignable" means that the track can be chosen for a switch or condition; it does not mean
+assignable tracks). The Chinese package includes the complete upstream set of
+337 prompts (208 required system prompts and 129 assignable tracks), using
+3,587,584 allocated bytes. "Assignable" means that the track can be chosen for a switch or condition; it does not mean
 that another download is required. The manifest in each ZIP records the exact
 file count and how many lower-priority assignable tracks did not fit.
 
@@ -75,6 +78,12 @@ written.
 After restarting the radio, open **Menu > System > General > Voice language**
 and select the language of the installed package. Changing **Text language**
 does not change or install voice files.
+
+For Simplified Chinese, choose **Chinese** / **简体中文** as the text language.
+Install the `cn` audio ZIP and choose the same voice language to hear Mandarin.
+The internal code and storage directory are `cn` (`SOUNDS/cn`), matching EdgeTX;
+the interface locale is Simplified Chinese (`zh-CN`). English text with Mandarin
+audio, or Chinese text with an English voice pack, also works.
 
 ## Change to another voice language
 

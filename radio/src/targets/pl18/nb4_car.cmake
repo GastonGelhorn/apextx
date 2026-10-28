@@ -15,7 +15,7 @@ set(AFHDS3 ON CACHE BOOL "Original AFHDS3 module" FORCE)
 # The interface languages compiled into both Noble targets, all selectable at
 # run time. A fresh install starts in TRANSLATIONS, which is English unless the
 # build says otherwise.
-set(RADIO_LANG_SET EN ES DE)
+set(RADIO_LANG_SET EN ES DE CN)
 
 if(PCBREV STREQUAL NB4)
   # RECOVERED_USART6 is the route this firmware ships and is the default.

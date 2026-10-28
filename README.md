@@ -12,7 +12,7 @@ It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-ApexTX **0.1.0-alpha.5** is based on EdgeTX **2.12.5**.
+ApexTX **0.1.0-alpha.6** is based on EdgeTX **2.12.5**.
 
 ## Features
 
@@ -28,7 +28,7 @@ The Noble NB4 builds include:
 - Detect-and-assign configuration for the wheel, trigger, grip buttons,
   switches, trims, interface navigation, and racing actions.
 - Integrated lap timing, history, pit tools, spoken alerts, USB modes, and
-  English, Spanish or German sound packs.
+  English, Spanish, German or Mandarin Chinese sound packs.
 - A maintained, testable firmware base that can absorb selected upstream
   improvements while keeping the NB4-specific interface and AFHDS3 support.
 
@@ -59,7 +59,8 @@ PCBREV=NB4
 The NB4+ has a separate **experimental alpha** package. Its full-image recovery,
 wrong-model refusal, normal update and boot have been tested on real hardware;
 charging, RF/failsafe under load and the complete peripheral checklist are not
-yet qualified. The first NB4+ status LED can still flicker red (issue #19).
+yet qualified. NB4+ status LEDs can still flicker or show incorrect colours
+(issues #19 and #20).
 NB4 Pro and NB4 Pro+ require separate board ports and are not supported. See
 the [Noble compatibility and feature matrix](docs/nb4/COMPATIBILITY.md).
 
@@ -107,7 +108,8 @@ Read this before flashing anything:
 The firmware is under active development and is tested on an original Noble
 NB4. The maintained configuration uses the USART6 AFHDS3 route and
 English firmware strings. The interface can be switched between English,
-Spanish and German, independently of the single English, Spanish or German
+Spanish, German and Simplified Chinese, independently of the single English,
+Spanish, German or Mandarin Chinese
 voice pack installed on the expanded storage volume.
 
 Device-specific factory images, calibration data, OTP contents, and local build
@@ -135,7 +137,7 @@ details, and validation:
 - [Build instructions](docs/nb4/BUILD.md)
 - [Install from the FlySky firmware](docs/nb4/FLASH.md)
 - [Update an existing ApexTX installation](docs/nb4/UPDATE.md)
-- [Install English, Spanish or German audio](docs/nb4/AUDIO.md)
+- [Install English, Spanish, German or Mandarin Chinese audio](docs/nb4/AUDIO.md)
 - [Hardware notes](docs/nb4/HARDWARE.md)
 - [Validation checklist](docs/nb4/VALIDATION.md)
 - [Control latency](docs/nb4/LATENCY.md)

@@ -7,4 +7,16 @@
 // layout, glyph and fit checks iterate this list, so a new language is held to
 // the same rules as the others. Nb4Languages checks it against the compiled
 // registry, so adding a language without adding it here fails a test.
-constexpr const char* NB4_UI_LANGUAGES[] = {"en", "es", "de"};
+constexpr const char* NB4_UI_LANGUAGES[] = {"en", "es", "de", "cn"};
+
+// Mirror the real language picker: both strings and fonts change, while the
+// independently selected voice pack stays untouched.
+#if defined(RADIO_NB4_FAMILY) && defined(COLORLCD)
+inline void nb4TestApplyUiLanguage()
+{
+  const auto index = getLanguageId(g_eeGeneral.uiLanguage);
+  currentLangStrings = langStrings[index];
+  extern void setLanguageFont(int index);
+  setLanguageFont(index);
+}
+#endif

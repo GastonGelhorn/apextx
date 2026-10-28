@@ -30,7 +30,7 @@ $tar = Join-Path $work 'dfu-util.tar.xz'
 $dfuUrl = 'https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz'
 $dfuSha256 = '6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25'
 if (-not (Test-Path $tar)) {
-    Invoke-WebRequest $dfuUrl -OutFile $tar
+    Invoke-WebRequest $dfuUrl -OutFile $tar -MaximumRetryCount 3 -RetryIntervalSec 5
 }
 $actualSha256 = (Get-FileHash $tar -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualSha256 -ne $dfuSha256) {

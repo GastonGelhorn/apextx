@@ -239,6 +239,7 @@ etxLvglFont* etxFonts[] = {
   en_fontTable,            // EN
   en_fontTable,            // ES (shared Latin alphabet)
   en_fontTable,            // DE (shared Latin alphabet)
+  cn_fontTable,            // CN (Simplified Chinese, with Latin fallback)
 #else
 #if defined(HAS_LANG_CN) || !defined(RADIO_LANG_SUBSET)
   cn_fontTable,   // CN

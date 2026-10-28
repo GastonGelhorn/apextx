@@ -20,11 +20,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_RATE = 16_000
-PEAK = 23_197          # -3 dBFS, so the three languages play equally loud.
+PEAK = 23_197          # -3 dBFS, so all languages play equally loud.
 TAIL_SECONDS = 0.1     # Silence kept after the last word.
 
 # One voice per language, all installed with macOS.
-VOICES = {"en": "Samantha", "es": "Mónica", "de": "Anna"}
+VOICES = {"en": "Samantha", "es": "Mónica", "de": "Anna", "cn": "Tingting"}
 
 
 def phrase(language: str) -> str:

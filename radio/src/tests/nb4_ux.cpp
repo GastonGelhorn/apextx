@@ -182,12 +182,16 @@ void expectGlyphsOf(const char* txt, const lv_font_t* font, const char* where)
     uint32_t letter = _lv_txt_encoded_next(txt, &i);
     if (letter < 0x20) continue;
     lv_font_glyph_dsc_t dsc;
-    EXPECT_TRUE(lv_font_get_glyph_dsc(font, &dsc, letter, 0));
+    EXPECT_TRUE(lv_font_get_glyph_dsc(font, &dsc, letter, 0))
+        << where << ": U+" << std::hex << letter << " in " << txt;
   }
 }
 
 void expectEveryGlyphRenderable(lv_obj_t* obj, const char* where)
 {
+  // Parked grids retain their old text until reopened with the new language.
+  // They are hidden and are not part of the frame being checked.
+  if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
   if (lv_obj_check_type(obj, &lv_label_class)) {
     expectGlyphsOf(lv_label_get_text(obj),
                    lv_obj_get_style_text_font(obj, LV_PART_MAIN), where);
@@ -281,6 +285,7 @@ struct Scene {
     setTrimValue(0, 1, -6);
     memcpy(originalLanguage, g_eeGeneral.uiLanguage, sizeof(originalLanguage));
     originalStrings = currentLangStrings;
+    nb4TestApplyUiLanguage();
     root = MainWindow::instance();
     originalScreen = lv_scr_act();
     originalRect = root->getRect();
@@ -296,7 +301,7 @@ struct Scene {
     // Keep every test independent of the grids an earlier one left parked.
     nb4DropGridCache();
     memcpy(g_eeGeneral.uiLanguage, originalLanguage, sizeof(originalLanguage));
-    currentLangStrings = originalStrings;
+    nb4TestApplyUiLanguage();
     nb4RacingReset();
     lcdSetOrientation(false);
     root->setRect(originalRect);
@@ -575,7 +580,7 @@ TEST(Nb4Ux, HomeSettingsMenuFitsWhenTheRadioIsTurnedOrRelabelled)
 
   scene.orient(false);
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance()->openMenu();
   render(scene.root);
   const auto spanish = frame;
@@ -583,7 +588,7 @@ TEST(Nb4Ux, HomeSettingsMenuFitsWhenTheRadioIsTurnedOrRelabelled)
   render(scene.root);
 
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance()->openMenu();
   render(scene.root);
   bool changed = false;
@@ -928,7 +933,7 @@ TEST(Nb4Ux, RacingHomeRendersAllPalettesInBothOrientationsWithoutLeaking)
                             "ApexTX Green", "ApexTX Orange", "ApexTX Mono"};
   const char* slugs[] = {"dark", "light", "sun", "red", "green", "orange", "mono"};
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   g_eeGeneral.nb4Home = NB4_HOME_INSTRUMENTS;
   auto home = new Nb4HomeScreen(scene.root, {0, 0, LCD_W, LCD_H});
 
@@ -976,7 +981,7 @@ TEST(Nb4Ux, RacingHomeRendersAllPalettesInBothOrientationsWithoutLeaking)
     }
 
     memcpy(g_eeGeneral.uiLanguage, "en", 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     scene.applyPalette("ApexTX Dark");
     home->checkEvents();
     render(scene.root);
@@ -984,7 +989,7 @@ TEST(Nb4Ux, RacingHomeRendersAllPalettesInBothOrientationsWithoutLeaking)
                           : "ux-portrait-racing-dark-en",
               w, h);
     memcpy(g_eeGeneral.uiLanguage, "es", 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
   }
 
   scene.orient(false);
@@ -1156,7 +1161,7 @@ TEST(Nb4Ux, EveryStringTheFirmwareWritesHasAGlyphInTheCompiledFont)
 {
   Scene scene;
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
 
   const LcdFlags sizes[] = {FONT(XXS), FONT(XS), FONT(STD), FONT(BOLD)};
 
@@ -1360,7 +1365,7 @@ TEST(Nb4Ux, AxisTabsFillTheRowWithSymmetricPaddingAndUncutLabels)
     scene.orient(orientation);
     for (const char* language : NB4_UI_LANGUAGES) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
-      currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+      nb4TestApplyUiLanguage();
       for (const QMPage page : {QM_MODEL_NB4_STEERING, QM_MODEL_NB4_THROTTLE}) {
         QuickMenu::openPage(page);
         unsigned count;
@@ -1504,7 +1509,7 @@ TEST(Nb4Ux, TheExpoEditorWritesAnEncodedNumberAndNotARawNegative)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   {
@@ -1546,7 +1551,7 @@ TEST(Nb4Ux, NothingSticksOutOfThePortraitScreenAndMicrosecondsReadTheSame)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   {
@@ -1629,7 +1634,7 @@ TEST(Nb4Ux, NitroRowsFollowTheVehicleTypeAndTheTypeIsNotAPreset)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto has = [](const std::vector<std::string>& v, const char* what) {
@@ -1769,7 +1774,7 @@ TEST(Nb4Ux, AudioPageSelectsPlaybackModeAndOffersAPreview)
     scene.orient(landscape);
     for (const char* language : NB4_UI_LANGUAGES) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
-      currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+      nb4TestApplyUiLanguage();
       openRadioSetupSoundPage(STR_NB4_SOUND);
       for (unsigned f = 0; f < 3; ++f) render(scene.root);
       std::vector<Choice*> choices;
@@ -1806,7 +1811,7 @@ TEST(Nb4Ux, VoiceAssignmentsAreRadioWideAndAudioOnly)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   memset(g_eeGeneral.customFn, 0, sizeof(g_eeGeneral.customFn));
   memset(g_model.customFn, 0, sizeof(g_model.customFn));
   g_eeGeneral.radioGFDisabled = 0;
@@ -1883,7 +1888,7 @@ TEST(Nb4Ux, BindDialogShowsRealStagesAndFitsBothLanguagesAndOrientations)
   for (bool landscape : {false, true}) for (const char* language : NB4_UI_LANGUAGES) {
     scene.orient(landscape);
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     scene.applyPalette("ApexTX Dark");
     nb4::Nb4RfController::shutdown(); modulePortInit();
     g_model.moduleData[0].type = MODULE_TYPE_FLYSKY_AFHDS3;
@@ -1988,7 +1993,7 @@ TEST(Nb4Ux, ManualBackupHasNoResetAndResetButtonsKeepToTheirScope)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   nb4OpenSection(Nb4Section::Backup);
@@ -2051,7 +2056,7 @@ TEST(Nb4Ux, TheSteeringChartAndTheHomeAgreeOnWhichSideIsLeft)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   calibratedAnalogs[ADC_MAIN_ST] = RESX / 2;
@@ -2093,7 +2098,7 @@ TEST(Nb4Ux, ADisabledTileSaysWhyInsteadOfDoingNothing)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   unsigned count = 0;
@@ -2168,7 +2173,7 @@ TEST(Nb4Ux, NoTabEverComesUpBlankWithoutSayingWhy)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   const ModelData saved = g_model;
@@ -2215,7 +2220,7 @@ TEST(Nb4Ux, TheSettingsGridFitsWithoutScrolling)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   nb4OpenSettingsModal();
@@ -2262,7 +2267,7 @@ TEST(Nb4Ux, TheAbsShortcutOpensTheBrakeTab)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto labelsAfterOpening = [&](const char* path) {
@@ -2296,7 +2301,7 @@ TEST(Nb4Ux, HoldingAStepButtonAcceleratesInsteadOfCrawling)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   // Leave room for increases: the physical left editor now correctly uses max.
@@ -2375,7 +2380,7 @@ TEST(Nb4Ux, TheTopIconBarFitsOnScreen)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto base = Layer::back();
@@ -2416,7 +2421,7 @@ TEST(Nb4Ux, AFactoryFreshCarShowsNoWarnings)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   const ModelData saved = g_model;
@@ -2453,7 +2458,7 @@ TEST(Nb4Ux, GoingBackReturnsToThePreviousViewNotHome)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   for (unsigned d = 0; d < 24; ++d) {
@@ -2525,7 +2530,7 @@ TEST(Nb4Ux, VariablesStayOutOfSightAndExplainThemselvesWhenTheyAppear)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   ASSERT_FALSE(modelGVEnabled());
@@ -2599,7 +2604,7 @@ TEST(Nb4Ux, TheChartSurvivesEveryTabChange)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto has = [](const std::vector<std::string>& v, const char* what) {
@@ -2643,7 +2648,7 @@ static void checkResponseChartCost(bool throttle)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   {
     ExpoData* a = expoAddress(1);
@@ -2789,7 +2794,7 @@ TEST(Nb4Ux, TheResponseChartFollowsTheNumbersAndIncludesTheRacingStage)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   {
@@ -2855,7 +2860,7 @@ TEST(Nb4Ux, SteeringEditsBothLinesWhenThereAreTwoAndOneWhenThereIsOne)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto has = [](const std::vector<std::string>& v, const char* what) {
@@ -2916,7 +2921,7 @@ TEST(Nb4Ux, TheAxisTrimIsEditableAndWritesWhereTheButtonsWrite)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto has = [](const std::vector<std::string>& v, const char* what) {
@@ -2977,7 +2982,7 @@ TEST(Nb4Ux, ReversingTheTriggerPreservesTheGasCurveOnItsNewPhysicalSide)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   {
@@ -3047,7 +3052,7 @@ TEST(Nb4Ux, SharingOneCurveBetweenBothSidesIsSaidOnScreen)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   auto has = [](const std::vector<std::string>& v, const char* what) {
@@ -3160,7 +3165,7 @@ TEST(Nb4Ux, EveryDrivingParameterIsShownInExactlyOnePlace)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   setDefaultInputs();
@@ -3341,7 +3346,7 @@ TEST(Nb4Ux, PhysicalAxisEditorsChangeOnlyTheirLabelledSide)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   for (bool throttle : {false, true}) for (int bits = 0; bits < 16; ++bits) {
     SCOPED_TRACE(::testing::Message() << "throttle=" << throttle << " wiring=" << bits);
@@ -3417,7 +3422,7 @@ TEST(Nb4Ux, TravelFieldsShowTheRealPercentageNotTheStoredOffset)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
 
   setDefaultInputs();
@@ -3583,7 +3588,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   CFN_ACTIVE(&g_eeGeneral.customFn[0]) = 1;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   auto base = Layer::back();
   ASSERT_NE(base, nullptr);
@@ -3602,7 +3607,7 @@ TEST(Nb4Ux, EveryAvailableRouteActuallyOpensSomethingAndComesBack)
   // As nb4ProcessOrientation does on the radio, so home is built for it.
   LayoutFactory::loadCustomScreens();
   memcpy(g_eeGeneral.uiLanguage, language, 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   {
     // Home and the two navigation grids are held to the same rules.
     const std::string where = std::string(language) + (pass >= DIM(NB4_UI_LANGUAGES) ? "-landscape-" : "-portrait-");
@@ -3731,12 +3736,19 @@ TEST(Nb4RacingUi, AllDestinationsAndEditorsInBothLanguagesAndOrientations)
   ViewMain::instance();
   auto originalLayer = Layer::back();
   for (unsigned orientation = 0; orientation < 2; ++orientation) {
+    g_eeGeneral.nb4Orientation = orientation;
     scene.orient(orientation);
     for (const char* language : NB4_UI_LANGUAGES) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
-      currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+      nb4TestApplyUiLanguage();
       scene.applyPalette("ApexTX Dark");
+      // Rebuild the backing dashboard before covering it with the modal.
+      // Normal home events do this when returning from the language picker;
+      // this capture loop opens the next modal without that intervening frame.
+      LayoutFactory::loadCustomScreens();
       auto capture = [&](const char* name) {
+        ASSERT_EQ(lv_disp_get_hor_res(nullptr), orientation ? 480 : 320);
+        ASSERT_EQ(lv_disp_get_ver_res(nullptr), orientation ? 320 : 480);
         nb4StorageProcess();
         for (unsigned frame = 0; frame < 3; ++frame) render(scene.root);
         char file[100]; snprintf(file, sizeof(file), "racing-%s-%s-%s", orientation ? "landscape" : "portrait", language, name);
@@ -3957,7 +3969,7 @@ TEST(Nb4Ux, AssignmentsAreReadableAndSaveOnlyWhenRequested)
     home->checkEvents();
     for (const char* language : NB4_UI_LANGUAGES) {
       memcpy(g_eeGeneral.uiLanguage, language, 2);
-      currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+      nb4TestApplyUiLanguage();
       nb4ControlSetBinding(2, NB4_CONTROL_RUN_PAUSE);
       nb4ControlSetBinding(3, NB4_CONTROL_LAP);
       nb4ControlSetBinding(8, NB4_CONTROL_PREVIOUS);
@@ -3994,7 +4006,7 @@ TEST(Nb4Ux, AssignmentsAreReadableAndSaveOnlyWhenRequested)
   }
   scene.orient(false);
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   nb4ControlSetBinding(2, NB4_CONTROL_DEFAULT);
   auto chooseGroup = [&]() {
     std::vector<Choice*> choices;
@@ -4109,7 +4121,7 @@ TEST(Nb4Performance, ClosedGridsReopenWithoutRebuilding)
 {
   Scene scene;
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   auto base = Layer::back();
   ASSERT_NE(base, nullptr);
@@ -4161,7 +4173,7 @@ TEST(Nb4Performance, ClosedGridsReopenWithoutRebuilding)
 
   // Anything the tiles are built from rebuilds the grid on the next open.
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   nb4OpenSettingsModal();
   EXPECT_NE(Layer::back(), settings);
   settings = Layer::back();
@@ -4183,7 +4195,7 @@ TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
 {
   Scene scene;
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   auto base = Layer::back();
   ASSERT_NE(base, nullptr);
@@ -4218,7 +4230,7 @@ TEST(Nb4Performance, IdleWarmUpBuildsEveryGridAheadOfTheFirstTap)
 
   // A language change makes them stale; the warm-up rebuilds them.
   memcpy(g_eeGeneral.uiLanguage, "es", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   EXPECT_TRUE(nb4WarmNextGrid());
   while (nb4WarmNextGrid()) {}
   nb4OpenSettingsSection("display");
@@ -4234,7 +4246,7 @@ TEST(Nb4Ux, AppearancePickersKeepTouchRowsAndApplyWithoutReopeningThePage)
   auto main = ViewMain::instance();
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (bool landscape : {false, true}) {
       SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
       g_eeGeneral.nb4Orientation = landscape;
@@ -4339,7 +4351,7 @@ TEST(Nb4Ux, SettingsPagesFillTheViewportAndBackRestoresTheCachedMenu)
   auto main = ViewMain::instance();
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (bool landscape : {false, true}) {
       scene.orient(landscape);
       main->resizeToDisplay();
@@ -4488,7 +4500,7 @@ TEST(Nb4Performance, EveryViewOpenCost)
   nb4AcceptNewCarModel();
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   auto base = Layer::back();
   ASSERT_NE(base, nullptr);
@@ -4681,7 +4693,7 @@ TEST(Nb4Performance, EveryViewScrollCost)
   Scene scene;
   scene.applyPalette("ApexTX Dark");
   memcpy(g_eeGeneral.uiLanguage, "en", 2);
-  currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+  nb4TestApplyUiLanguage();
   ViewMain::instance();
   auto base = Layer::back();
   ASSERT_NE(base, nullptr);
@@ -5155,7 +5167,7 @@ TEST(Nb4Ux, RacingHomeIsARealFourZoneLayoutWithIndependentScreenEditors)
     const bool wide = pass >= DIM(NB4_UI_LANGUAGES);
     const char* lang = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
     memcpy(g_eeGeneral.uiLanguage, lang, 2);
-    currentLangStrings = langStrings[getLanguageId(lang)];
+    nb4TestApplyUiLanguage();
     g_eeGeneral.nb4Orientation = wide;
     scene.orient(wide); main->resizeToDisplay();
     scene.applyPalette("ApexTX Dark");
@@ -5339,7 +5351,7 @@ TEST(Nb4Ux, HeaderHelpReturnsToItsOwnerAndDoesNotCreateDuplicateEditors)
     const bool wide = pass >= DIM(NB4_UI_LANGUAGES);
     const char* lang = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
     memcpy(g_eeGeneral.uiLanguage, lang, 2);
-    currentLangStrings = langStrings[getLanguageId(lang)];
+    nb4TestApplyUiLanguage();
     scene.orient(wide); main->resizeToDisplay();
     const std::string prefix = std::string("polish-") + lang + (wide ? "-landscape-" : "-portrait-");
     for (const char* path : {"settings/car/general", "settings/car/safety",
@@ -5398,7 +5410,7 @@ TEST(Nb4Ux, SafetyLabelsFitAboveTheirDescriptionsInBothLanguagesAndOrientations)
   for (unsigned pass = 0; pass < 2 * DIM(NB4_UI_LANGUAGES); ++pass) {
     const char* lang = NB4_UI_LANGUAGES[pass % DIM(NB4_UI_LANGUAGES)];
     memcpy(g_eeGeneral.uiLanguage, lang, 2);
-    currentLangStrings = langStrings[getLanguageId(lang)];
+    nb4TestApplyUiLanguage();
     scene.orient(pass >= DIM(NB4_UI_LANGUAGES));
     ASSERT_TRUE(nb4OpenRoute("settings/car/safety"));
     for (unsigned i = 0; i < 3; ++i) render(scene.root);
@@ -5516,7 +5528,7 @@ TEST(Nb4Ux, RouteScopesAndNavigationOnlyEditorInBothLanguagesAndOrientations)
     g_eeGeneral.nb4Orientation = landscape;
     main->resizeToDisplay();
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     for (const char* name : {"Touring", "Buggy"}) {
       memset(g_model.header.name, 0, LEN_MODEL_NAME);
       strncpy(g_model.header.name, name, LEN_MODEL_NAME);
@@ -5576,7 +5588,7 @@ TEST(Nb4Ux, MenuTilesHaveLegibleFirstFrameFocusAndFitLongNames)
     scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
     main->resizeToDisplay();
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
     nb4QuickAccessReset();
     for (const char* section : {"menu", "quick", "car", "controls", "race",
                                 "telemetry", "display", "sound_alerts",
@@ -5754,7 +5766,7 @@ TEST(Nb4Ux, OutputEditorKeepsLiveBarsClearOfHeaderActions)
   auto main = ViewMain::instance();
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (bool landscape : {false, true}) {
       SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
       scene.orient(landscape);
@@ -5797,7 +5809,7 @@ TEST(Nb4Ux, AboutKeepsTheWholeQrCodeAndVersionButtonsVisible)
   auto main = ViewMain::instance();
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (bool landscape : {false, true}) {
       SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
       scene.orient(landscape);
@@ -5850,7 +5862,7 @@ TEST(Nb4Ux, PortraitChronoCaptionsFitInEveryLanguage)
   scene.orient(false);
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (unsigned mode = 0; mode < 3; ++mode) {
       SCOPED_TRACE(std::string(language) + " mode " + std::to_string(mode));
       Nb4CarState state;
@@ -5872,7 +5884,7 @@ TEST(Nb4Ux, PowerSettingsAppearOnceInBothOrientationsAndEveryLanguage)
   auto main = ViewMain::instance();
   for (const char* language : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(language)];
+    nb4TestApplyUiLanguage();
     for (bool landscape : {false, true}) {
       SCOPED_TRACE(std::string(language) + (landscape ? " landscape" : " portrait"));
       scene.orient(landscape);
@@ -5899,7 +5911,7 @@ TEST(Nb4Ux, CarsIsOneMenuEntryWithCurrentCarReceiverTemplatesAndCreation)
     scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
     main->resizeToDisplay();
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
 
     nb4OpenSettingsModal(); render(scene.root);
     std::vector<std::string> labels;
@@ -5937,7 +5949,7 @@ TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
     scene.orient(landscape); g_eeGeneral.nb4Orientation = landscape;
     main->resizeToDisplay();
     memcpy(g_eeGeneral.uiLanguage, language, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
 
     struct RouteHeader { const char* path; EdgeTxIcon icon; };
     const RouteHeader routeHeaders[] = {
@@ -5985,7 +5997,7 @@ TEST(Nb4Ux, RoutedTitlesUseRouteIconsAndModalsKeepApexBranding)
       };
       inspect(owner->getLvObj());
       EXPECT_TRUE(titleInTopBar);
-      EXPECT_TRUE(titleUsesFixedBoldFont);
+      EXPECT_TRUE(titleUsesFixedBoldFont) << language << " landscape=" << landscape;
       EXPECT_TRUE(matchingIconInTopBar);
       if (!strcmp(item.path, "settings/controls/monitor"))
         saveFrame((std::string("header-monitor-") +
@@ -6105,7 +6117,7 @@ TEST(Nb4Ux, ContextualCurveEditorListsSharedInputsAndMixes)
   auto main = ViewMain::instance();
   for (const char* lang : NB4_UI_LANGUAGES) {
     memcpy(g_eeGeneral.uiLanguage, lang, 2);
-    currentLangStrings = langStrings[getLanguageId(lang)];
+    nb4TestApplyUiLanguage();
     // Refresh the underlying Home before covering it with a modal.
     for (unsigned i = 0; i < 3; ++i) render(scene.root);
     expoAddress(0)->curve.type = CURVE_REF_CUSTOM;

@@ -56,7 +56,7 @@ struct Bench {
   ~Bench()
   {
     memcpy(g_eeGeneral.uiLanguage, originalLanguage, sizeof(originalLanguage));
-    currentLangStrings = originalStrings;
+    nb4TestApplyUiLanguage();
     lcdSetOrientation(false);
     root->setRect(originalRect);
     lv_scr_load(originalScreen);
@@ -68,7 +68,7 @@ struct Bench {
   void language(const char* tag)
   {
     memcpy(g_eeGeneral.uiLanguage, tag, 2);
-    currentLangStrings = langStrings[getLanguageId(g_eeGeneral.uiLanguage)];
+    nb4TestApplyUiLanguage();
   }
 
   void orient(bool landscape)

@@ -1,6 +1,6 @@
 # Third-party notices
 
-ApexTX is derived from EdgeTX 2.12.4. EdgeTX is licensed under GNU GPL
+ApexTX is derived from EdgeTX 2.12.5. EdgeTX is licensed under GNU GPL
 version 2, so the inherited source and the project's own changes are
 distributed under GNU GPL version 2 as described in `LICENSE` and in the
 notices retained in individual files.
@@ -11,6 +11,10 @@ Open Font License 1.1. Their license texts and source metadata are in
 
 The embedded Roboto font is distributed under the Apache License 2.0. Its
 license text is in `radio/src/fonts/Roboto/LICENSE.txt`.
+
+The embedded Simplified Chinese font is derived from Noto Sans CJK SC,
+distributed under the SIL Open Font License 1.1. Its license text is in
+`radio/src/fonts/Noto/LICENSE_OFL.txt` and accompanies the firmware packages.
 
 Small generated interface-font sources can combine Roboto, Barlow, EdgeTX icon
 glyphs, and Font Awesome glyphs. Their SPDX expressions record every applicable
@@ -31,9 +35,10 @@ Release downloads use certifi's CA bundle (Mozilla Public License 2.0),
 from https://github.com/certifi/python-certifi; its license and CA data are
 included in the desktop package.
 
-The separately published English and Spanish ApexTX audio packages are derived
+The separately published English, Spanish, German and Mandarin Chinese ApexTX
+audio packages are derived
 from `EdgeTX/edgetx-sdcard-sounds`, licensed under GNU GPL version 2. The exact
 upstream URL, tag, commit, checksums, and conversion format are recorded in each
 package's `APEXTX-AUDIO.json`; the upstream license text is included alongside
 the sounds. ApexTX replaces only the welcome prompt in each package with its
-project-branded English or Spanish prompt.
+project-branded prompt in the corresponding language.

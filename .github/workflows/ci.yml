@@ -72,6 +72,50 @@ jobs:
           cmake --build build/nb4-ci --target native-configure -j4
           cmake --build build/nb4-ci/native --target tests-radio -j4
 
+  audio:
+    name: Build and verify the four audio packs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Prepare the pinned audio source
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          git clone --depth 1 --branch v2.12.3 --filter=blob:none --sparse \
+            https://github.com/EdgeTX/edgetx-sdcard-sounds.git \
+            build/edgetx-sdcard-sounds
+          git -C build/edgetx-sdcard-sounds sparse-checkout set \
+            SOUNDS/en SOUNDS/es SOUNDS/de SOUNDS/cn voices
+
+      - name: Build and verify the audio packs
+        run: |
+          python3 tools/nb4-audio-packs.py \
+            --source build/edgetx-sdcard-sounds --output dist \
+            --release "$(cat APEXTX_VERSION)"
+          python3 - <<'PY'
+          import importlib.util, pathlib, tempfile
+          spec = importlib.util.spec_from_file_location('installer', 'tools/nb4-install-audio.py')
+          import sys
+          installer = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = installer
+          spec.loader.exec_module(installer)
+          for archive in sorted(pathlib.Path('dist').glob('apextx-audio-*.zip')):
+              with tempfile.TemporaryDirectory() as directory:
+                  root = pathlib.Path(directory)
+                  installer.safe_extract(archive, root)
+                  manifest, _ = installer.read_and_verify_pack(root)
+                  print(archive.name, manifest['installedFiles'], 'verified files')
+          PY
+
+      - name: Upload the audio packs
+        uses: actions/upload-artifact@v7
+        with:
+          name: apextx-audio-${{ github.event.pull_request.head.sha || github.sha }}
+          path: dist/apextx-audio-*.zip
+          if-no-files-found: error
+
   flashers:
     name: Build the desktop flashers
     uses: ./.github/workflows/flasher.yml

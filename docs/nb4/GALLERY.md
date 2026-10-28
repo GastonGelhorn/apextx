@@ -19,6 +19,25 @@ at runtime without changing the model.
 These Home captures intentionally have no receiver connected. Missing RF and
 receiver-battery readings are shown explicitly rather than filled with defaults.
 
+## Simplified Chinese
+
+Text language and voice language are independent. Simplified Chinese (`zh-CN`,
+stored as `cn`) includes the car menus, field labels, contextual help and status
+messages. Its separately installed Mandarin pack includes all 337 upstream
+recordings and the ApexTX welcome prompt; see [AUDIO.md](AUDIO.md).
+
+| Chinese home, portrait | Chinese home, landscape |
+| --- | --- |
+| ![Simplified Chinese racing home in portrait](images/home-cn-portrait.png) | ![Simplified Chinese racing home in landscape](images/home-cn-landscape.png) |
+
+| Chinese menu, portrait | Chinese menu, landscape |
+| --- | --- |
+| ![Simplified Chinese menu in portrait](images/menu-cn-portrait.png) | ![Simplified Chinese menu in landscape](images/menu-cn-landscape.png) |
+
+These are native renderer captures. The maintained glyph tests check compiled
+Chinese text at all six interface font sizes, and navigation/layout
+checks cover both orientations and all four languages.
+
 ## Home editing and display
 
 | Screens list | Home editor |

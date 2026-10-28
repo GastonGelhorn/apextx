@@ -31,7 +31,7 @@ Every tagged release includes these direct downloads, built from that same tag:
 | `ApexTX-Flasher-macOS-x86_64.zip` | Intel `.app` |
 | `SHA256SUMS` | Checksums for firmware, apps and resource archives |
 
-The existing complete firmware/resource packages and EN/ES/DE audio packs remain
+The existing complete firmware/resource packages and EN/ES/DE/CN audio packs remain
 available alongside these files. Publication waits for both radio builds, all
 three app packages and the audio packs to succeed; a missing download fails
 publication. Downloaded binaries and application archives carry GitHub build

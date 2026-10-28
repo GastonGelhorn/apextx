@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -26,6 +27,30 @@ def nb4_names(path: Path) -> list[str]:
 
 
 class Nb4I18nTest(unittest.TestCase):
+    def test_chinese_has_no_english_placeholders_and_keeps_format_arguments(self) -> None:
+        def values(language):
+            return {name: value for name, value in re.findall(
+                r'^#define (TR_NB4_\w+)\s+(.+)$',
+                (I18N / f'{language}.h').read_text(encoding='utf-8'),
+                re.MULTILINE)}
+
+        english, chinese = values('en'), values('cn')
+        technical = {'TR_NB4_ABS', 'TR_NB4_US', 'TR_NB4_PERCENT_UNIT',
+                     'TR_NB4_USB', 'TR_NB4_TILE_USB', 'TR_NB4_EN'}
+        conversion = re.compile(
+            r'%(?:\d+\$)?[-+#0]*(?:\d+|\*)?(?:\.(?:\d+|\*))?'
+            r'(?:hh|h|ll|l|z|t|j|L)?([diuoxXfFeEgGaAcsp%])')
+        for name, text in chinese.items():
+            with self.subTest(name=name):
+                if name not in technical:
+                    self.assertRegex(text, r'[\u3400-\u9fff]')
+                # Preserve the order and type of all snprintf arguments,
+                # including strings that do not use English plural suffixes.
+                self.assertEqual(conversion.findall(text),
+                                 conversion.findall(english[name]))
+                if name != 'TR_NB4_MODES':
+                    json.loads(text)  # also reject broken C/UTF-8 string escapes
+
     def test_code_never_chooses_text_by_language_code(self) -> None:
         offenders = []
         for path in sorted(SRC.rglob("*")):

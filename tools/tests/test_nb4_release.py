@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import ast
 import unittest
 import wave
 from pathlib import Path
@@ -59,6 +60,35 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
             "\n".join(path.read_text(encoding="utf-8").splitlines()[:25])
         ]
         self.assertEqual(missing, [])
+
+    def test_publication_requires_both_radios_and_all_four_audio_packs(self) -> None:
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        required = workflow.split(
+            "- name: Verify all radio, desktop and audio downloads are present", 1
+        )[1].split("- name: Publish release", 1)[0]
+        for model in ("nb4", "nb4plus"):
+            for extension in ("bin", "zip", "tar.gz", "update.json"):
+                self.assertIn(f'"apextx-{model}-$version.{extension}"', required)
+        for language in ("en", "es", "de", "cn"):
+            self.assertIn(f'"apextx-audio-{language}-$version.zip"', required)
+        self.assertIn('test -s "dist/$file"', required)
+
+    def test_package_metadata_includes_chinese_and_its_font_license(self) -> None:
+        source = (ROOT / "tools/nb4-package.py").read_text(encoding="utf-8")
+        found = {}
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value in (
+                        "languages", "audioLanguages", "fonts"
+                    ):
+                        found[key.value] = ast.literal_eval(value)
+        self.assertEqual(found["languages"], ["en", "es", "de", "cn"])
+        self.assertEqual(found["audioLanguages"], found["languages"])
+        self.assertIn("Noto Sans CJK SC", found["fonts"])
+        self.assertIn('"licenses/NotoSansCJK-OFL.txt": ROOT / '
+                      '"radio/src/fonts/Noto/LICENSE_OFL.txt"', source)
+        self.assertTrue((ROOT / "radio/src/fonts/Noto/LICENSE_OFL.txt").is_file())
 
     def test_apextx_brand_assets_and_names_are_consistent(self) -> None:
         for relative in (

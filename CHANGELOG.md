@@ -6,6 +6,21 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.6] - 2026-10-27
+
+- Added complete Simplified Chinese interface coverage, compact CJK fonts and
+  verified portrait/landscape captures for both display geometries.
+- Published four independently selectable audio packs: English, Spanish,
+  German and Mandarin Chinese, including the ApexTX welcome prompt. Interface
+  and voice languages remain independent; install only one audio pack.
+- Added guided bootloader upgrades through ROM DFU when a normal update needs
+  a newer bootloader, retaining mandatory backup and image verification.
+- Corrected battery indicators and live charging-status LED updates.
+- Added per-model update metadata for compatible-release selection and made
+  publication require both radio packages and all four audio packs.
+- Retained experimental NB4+ status: LED flicker or incorrect colours remain
+  under investigation in issues #19 and #20.
+
 ## [0.1.0-alpha.5] - 2026-10-24
 
 - Updated the maintained EdgeTX base from 2.12.4 to 2.12.5, retaining the
@@ -75,7 +90,8 @@ First public build for the original FlySky Noble NB4.
 - English and Spanish interface, switchable on the radio.
 - Build, validation, packaging, compatibility and installation documentation.
 
-[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.5...HEAD
+[Unreleased]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.6...HEAD
+[0.1.0-alpha.6]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [0.1.0-alpha.5]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/GastonGelhorn/apextx/compare/v0.1.0-alpha.1...v0.1.0-alpha.3

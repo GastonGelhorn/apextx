@@ -27,7 +27,7 @@ git push origin "v$version"
 
 The release workflow rebuilds and verifies the image, creates a package with
 firmware, storage resources, validation metadata, licenses, a manifest, and
-separate size-bounded English, Spanish and German audio ZIPs, then records
+separate size-bounded English, Spanish, German and Mandarin Chinese audio ZIPs, then records
 SHA-256 checksums and uploads the artifacts to a GitHub Release. Do not create
 or publish a tag merely to test the workflow; use its manual artifact-only run
 for that purpose.
@@ -48,8 +48,8 @@ NB4+ packages remain experimental alpha builds. Full ROM DFU recovery,
 wrong-model refusal, normal update and boot have run successfully on real
 hardware, but charging, RF/failsafe under load and the complete peripheral
 checklist remain open. Release notes must retain that distinction and list any
-known hardware issue; currently the first NB4+ status LED can flicker red
-(issue #19).
+known hardware issue; currently NB4+ status LEDs can flicker or show incorrect
+colours (issues #19 and #20).
 
 After GitHub finishes, download the release archive, verify `SHA256SUMS`, and
 flash that exact `firmware.bin` to a radio for the checklist. If a result
