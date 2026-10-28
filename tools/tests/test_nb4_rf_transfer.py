@@ -202,6 +202,37 @@ class RfTransferTests(unittest.TestCase):
         with self.assertRaises(wire.MaintenanceError):self.transfer.start(confirmed=True)
         self.assertEqual(self.peer.commands.count(wire.START),1)
 
+    def test_completion_waits_for_restarted_receiver_inventory_without_rewriting(self):
+        self.peer.can_write=True; self.peer.inventory['receiver']['write_supported']=True
+        with patch.object(rf,'verify_backup',return_value={}):
+            self.transfer.stage(1,self.data,self.backup)
+        before=copy.deepcopy(self.peer.inventory)
+        pending=copy.deepcopy(before); pending['connected']=False; pending['receiver']['valid']=False
+        after=copy.deepcopy(before)
+        after['receiver'].update(firmware=0x113,identity_words=[0x104,0x104,0x103,0x113,0x301])
+        with patch.object(self.transfer,'inventory',side_effect=(before,pending,after)), \
+             patch.object(rf,'verify_backup',return_value={}), \
+             patch.object(rf.time,'sleep',lambda _:None):
+            self.assertEqual(self.transfer.start(confirmed=True)['phase'],5)
+        self.assertEqual(self.transfer.load()['state'],'complete')
+        self.assertEqual(self.peer.commands.count(wire.START),1)
+        self.assertNotIn(wire.RECOVER,self.peer.commands)
+
+    def test_completion_rejects_matching_version_on_a_different_hardware_revision(self):
+        self.peer.can_write=True; self.peer.inventory['receiver']['write_supported']=True
+        with patch.object(rf,'verify_backup',return_value={}):
+            self.transfer.stage(1,self.data,self.backup)
+        before=copy.deepcopy(self.peer.inventory); wrong=copy.deepcopy(before)
+        wrong['receiver'].update(firmware=0x113,identity_words=[0x104,0x104,0x107,0x113,0x301])
+        with patch.object(self.transfer,'inventory',side_effect=(before,wrong)), \
+             patch.object(rf,'verify_backup',return_value={}), \
+             patch.object(rf.time,'sleep',lambda _:None):
+            with self.assertRaisesRegex(wire.MaintenanceError,'could not be verified'):
+                self.transfer.start(confirmed=True)
+        self.assertNotEqual(self.transfer.load()['state'],'complete')
+        self.assertEqual(self.peer.commands.count(wire.START),1)
+        self.assertNotIn(wire.RECOVER,self.peer.commands)
+
     def test_changed_connection_and_tampered_journal_do_not_send_start(self):
         self.peer.can_write=True;self.peer.inventory['receiver']['write_supported']=True
         with patch.object(rf,'verify_backup',return_value={}):self.transfer.stage(1,self.data,self.backup)

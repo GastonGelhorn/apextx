@@ -870,6 +870,10 @@ class Nb4GridModal : public BaseDialog
                 title.c_str(),
                 reason && *reason
                     ? reason
+#if defined(RADIO_NB4)
+                    : nb4RfUpdateNeedsRecovery()
+                    ? STR_NB4_UPDATE_RF_RECOVERY
+#endif
                     : STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
           }
           return 0;

@@ -5,6 +5,13 @@ updater or a claim that interrupted RF writes have been recovered on hardware.
 Normal builds cannot write RF firmware. Do not perform a deliberate power cut
 until the component's independent recovery has been demonstrated.
 
+On the original NB4 bench, the module has received its complete 38,954-byte
+image through both normal installation and recovery from an interrupted
+entry. A later live inventory confirmed the module version and receiver
+reconnection. The normal test exposed a cached-version verification race;
+the corrected fresh-inventory check still requires its hardware rerun.
+Receiver writes, power-cut recovery and NB4+ qualification remain pending.
+
 ## Identity and versions
 
 The initial original-NB4 measurements are:
@@ -162,6 +169,10 @@ connection open and polls for that bounded transition; it never repeats the
 recovery command automatically. The radio answers the module boot-ready
 handshake before accepting its identity checkpoint or serving image data.
 Completed and cancelled operation results remain queryable after a restart.
+Maintenance ownership invalidates both version caches before the component can
+restart. Completion requires a new version reply, and the host waits for a
+matching full hardware inventory rather than treating a temporarily missing
+reply as a reason to repeat the write.
 
 There is one automatic check for an entry that received no boot-peer
 checkpoint and could not have transferred image data. Driving remains locked

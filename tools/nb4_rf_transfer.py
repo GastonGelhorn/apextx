@@ -266,10 +266,18 @@ class RfTransfer:
                 raise MaintenanceError('RF preparation failed or was cancelled before writing.')
             if value['phase'] != 5:
                 raise MaintenanceError('RF update needs recovery. Keep the radio powered and retain this backup.')
-            after = self.inventory()
-            component = after[decision['component']]
-            if not component['valid'] or component['product'] != decision['product'] or component['firmware'] != decision['proposed']:
-                raise MaintenanceError('The installed RF version could not be verified.')
+            verify_deadline = clock() + 15
+            while True:
+                after = self.inventory()
+                if after['car_key'] != self.record['inventory']['car_key']:
+                    raise MaintenanceError('The bound receiver configuration changed before final verification.')
+                verified = plan(after, self.record['image'])
+                if verified['state'] == 'current':
+                    break
+                if verified['state'] != 'unknown' or clock() >= verify_deadline:
+                    raise MaintenanceError('The installed RF version could not be verified.')
+                progress('Checking the installed RF version', 99)
+                time.sleep(.2)
             self.record.update(state='complete', status=value, verified_inventory=after); self.save()
             progress('RF component verified', 100)
             return value

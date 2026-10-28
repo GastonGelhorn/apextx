@@ -952,7 +952,13 @@ void ProtoState::nb4Fail(Nb4Str message)
 
 void ProtoState::setupNb4Frame()
 {
-  if (nb4RfUpdateFrame(trsp)) { nb4MaintenanceOwned = true; return; }
+  if (nb4RfUpdateFrame(trsp)) {
+    if (!nb4MaintenanceOwned) {
+      nb4MaintenanceOwned = true;
+      resetVersions();
+    }
+    return;
+  }
   if (nb4MaintenanceOwned) {
     nb4MaintenanceOwned = false;
     clearFrameData();
@@ -1365,6 +1371,7 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
   trsp.init(buffer, mod_st, fAddr);
 #if defined(RADIO_NB4)
   hardFaulted = false;
+  nb4MaintenanceOwned = false;
   receiverTelemetry = {};
   resetVersions();
   nb4Stage = Nb4Stage::Ready;

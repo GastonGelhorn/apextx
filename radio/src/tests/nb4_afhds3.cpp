@@ -209,6 +209,7 @@ TEST(Nb4Afhds3, WithoutAddressTheReceiverFillsTheGapAfterChecking)
 #include "storage/yaml/yaml_parser.h"
 #include "storage/yaml/yaml_tree_walker.h"
 #include "nb4_car_state.h"
+#include "nb4_rf_update.h"
 #include "nb4_ui_languages.h"
 #include <vector>
 
@@ -500,6 +501,20 @@ TEST_F(Nb4Afhds3Bind, VersionLateResultsAndBindingCannotReuseCachedInformation) 
   EXPECT_EQ(next().command, MODULE_READY);
   EXPECT_FALSE(getModuleVersionInfo(0).valid);
   EXPECT_FALSE(getReceiverVersionInfo(0).valid);
+}
+
+TEST_F(Nb4Afhds3Bind, MaintenanceOwnershipInvalidatesBothVersionCachesBeforeFirmwareCanRestart) {
+  connectNormal();
+  const auto module = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), module.frameNumber);
+  const auto receiver = versionQuery(SEND_COMMAND);
+  ack(receiver, 2); receive(COMMAND_RESULT, receiverVersion(), 91, REQUEST_SET_NO_RESP);
+  ASSERT_TRUE(getModuleVersionInfo(0).valid); ASSERT_TRUE(getReceiverVersionInfo(0).valid);
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  nb4RfUpdateTestStartModule();
+  EXPECT_EQ(next().command, 0x23);
+  EXPECT_FALSE(getModuleVersionInfo(0).valid); EXPECT_FALSE(getReceiverVersionInfo(0).valid);
 }
 
 TEST(Nb4Afhds3, DiagnosticReplyCannotCompleteAnotherCommandWithTheSameOpcode) {
