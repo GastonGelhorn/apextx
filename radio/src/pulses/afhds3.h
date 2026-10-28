@@ -88,6 +88,9 @@ struct Nb4ReceiverTelemetry {
 };
 Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module);
 void resetReceiverTelemetry();
+#if defined(NB4_RF_UPDATE_BENCH)
+uint32_t getMaintenanceDiagnostics(uint8_t module);
+#endif
 // Read-only version information reported by the internal RF module. `valid` is
 // false until the module has answered the version request at least once.
 struct Nb4ModuleVersion {

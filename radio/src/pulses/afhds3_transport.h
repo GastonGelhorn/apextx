@@ -245,7 +245,7 @@ class Transport
  public:
   void init(void* buffer, etx_module_state_t* mod_st, uint8_t fAddr);
 
-  void clear();
+  void clear(bool preserveAcknowledgements = false);
 
   void putFrame(COMMAND command, FRAME_TYPE frameType, uint8_t* data = nullptr,
                  uint8_t dataLength = 0);

@@ -516,6 +516,27 @@ TEST_F(Nb4Afhds3Bind, MaintenanceOwnershipInvalidatesBothVersionCachesBeforeFirm
   EXPECT_EQ(next().command, 0x23);
   EXPECT_FALSE(getModuleVersionInfo(0).valid); EXPECT_FALSE(getReceiverVersionInfo(0).valid);
 }
+TEST_F(Nb4Afhds3Bind, MaintenanceHandoverPreservesTheFinalReceiverAckBeforeTheNormalHandshake) {
+  connectNormal();
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  nb4RfUpdateTestStartModule();
+  ASSERT_EQ(next().command,0x23);
+  receive((COMMAND)0x32,{2},90,REQUEST_SET_EXPECT_ACK);
+  nb4RfUpdateTestReset();
+  const auto pending=next(); ASSERT_EQ(pending.command,MODULE_MODE);
+  ASSERT_EQ(pending.value,1);
+  Nb4TransportDiagnostics sent; getDiagnostics(0,sent);
+  ASSERT_EQ(sent.lastTxSize,6u);
+  EXPECT_EQ(sent.lastTx[1],90); EXPECT_EQ(sent.lastTx[2],RESPONSE_ACK);
+  EXPECT_EQ(sent.lastTx[3],0x32);
+  const auto standby=next();
+  EXPECT_EQ(standby.frameNumber,pending.frameNumber); ack(standby,2);
+  pages(false);
+  const auto run=next(); ASSERT_EQ(run.command,MODULE_MODE); ack(run,2);
+  receive(MODULE_STATE,{4},91,REQUEST_SET_NO_RESP);
+  EXPECT_TRUE(afhds3::isConnected(0));
+}
 
 TEST(Nb4Afhds3, DiagnosticReplyCannotCompleteAnotherCommandWithTheSameOpcode) {
   uint8_t buffer[MODULE_BUFFER_SIZE]{};

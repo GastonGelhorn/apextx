@@ -38,6 +38,7 @@ std::atomic<uint32_t> rxWireBytes{0}, rxFrames{0}, lastRxMeta{0}, lastRfRxMeta{0
 std::atomic<uint32_t> faultFlags{0}, txResponses{0};
 std::atomic<uint32_t> checkpointMs{0};
 std::atomic<uint32_t> bootReplyWords[4]{};
+std::atomic<uint32_t> lastRxValue{0};
 #endif
 bool benchArmed = false;
 unsigned imageIndex = 0;
@@ -214,14 +215,16 @@ void status(char* output, size_t capacity) {
     snprintf(output + size - 1, capacity - size + 1,
         ",\"entry_probe\":%s,\"boot_peer_bytes\":%lu,\"rx_wire_bytes\":%lu,\"rx_frames\":%lu,"
         "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu,"
-        "\"fault_flags\":%lu,\"tx_responses\":%lu,\"checkpoint_ms\":%lu,\"boot_reply\":[%lu,%lu,%lu,%lu]}",
+        "\"fault_flags\":%lu,\"tx_responses\":%lu,\"checkpoint_ms\":%lu,\"boot_reply\":[%lu,%lu,%lu,%lu],"
+        "\"last_rx_value\":%lu,\"protocol\":%lu}",
         entryProbeStarted && !entryProbeFinished ? "true" : "false", (unsigned long)pinnedPeerLength,
         (unsigned long)rxWireBytes.load(), (unsigned long)rxFrames.load(), (unsigned long)lastRxMeta.load(),
         (unsigned long)lastRfRxMeta.load(), (unsigned long)lastRfValue.load(), (unsigned long)txRequests.load(),
         (unsigned long)lastTxOpcode.load(), (unsigned long)faultFlags.load(), (unsigned long)txResponses.load(),
         (unsigned long)checkpointMs.load(), (unsigned long)bootReplyWords[0].load(),
         (unsigned long)bootReplyWords[1].load(), (unsigned long)bootReplyWords[2].load(),
-        (unsigned long)bootReplyWords[3].load());
+        (unsigned long)bootReplyWords[3].load(), (unsigned long)lastRxValue.load(),
+        (unsigned long)afhds3::getMaintenanceDiagnostics(0));
 #endif
 }
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
@@ -354,18 +357,19 @@ void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
     for (unsigned i = 0; i < 3; ++i) bootReplyWords[i] = get32(data + i * 4);
     bootReplyWords[3] = data[12] | uint32_t(data[13]) << 8;
   }
-#endif
-  if (!linkOwned.load()) return;
-#if defined(NB4_RF_UPDATE_BENCH)
-  ++rxFrames;
-  const uint32_t meta = type | uint32_t(opcode) << 8 | uint32_t(sequence) << 16 | uint32_t(length & 255) << 24;
-  lastRxMeta = meta;
-  if (opcode >= 0x22 && opcode <= 0x33) {
-    lastRfRxMeta = meta; uint32_t value = 0;
-    for (unsigned i=0;i<std::min<size_t>(length,4);++i) value |= uint32_t(data[i]) << (i*8);
-    lastRfValue = value;
+  if (linkOwned.load() || drivingLocked.load()) {
+    ++rxFrames;
+    const uint32_t meta = type | uint32_t(opcode) << 8 | uint32_t(sequence) << 16 | uint32_t(length & 255) << 24;
+    lastRxMeta = meta;
+    uint32_t rxValue = 0;
+    for (unsigned i=0;i<std::min<size_t>(length,4);++i) rxValue |= uint32_t(data[i]) << (i*8);
+    lastRxValue = rxValue;
+    if (opcode >= 0x22 && opcode <= 0x33) {
+      lastRfRxMeta = meta; lastRfValue = rxValue;
+    }
   }
 #endif
+  if (!linkOwned.load()) return;
   if (opcode < 0x22 || opcode > 0x33) return;
   // The bootloader may already be running and never acknowledge the entry
   // command. Stop its retries before a durable checkpoint can block the UI.
@@ -402,7 +406,7 @@ void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
   receivedGeneration.store(packet.generation, std::memory_order_release);
 }
 #if defined(NB4_RF_UPDATE_BENCH)
-void nb4RfUpdateRxByte() { if (linkOwned.load()) ++rxWireBytes; }
+void nb4RfUpdateRxByte() { if (linkOwned.load() || drivingLocked.load()) ++rxWireBytes; }
 #endif
 bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
                          char* output, size_t capacity) {
@@ -575,12 +579,12 @@ void nb4RfUpdateService() {
     }
     startupReady = true; initializing = false;
   }
-  // No boot peer checkpoint means the controller could not have sent an
-  // image byte. Still keep driving locked: the entry command may have erased
-  // the peer. Only a fresh, complete original application identity permits
-  // abandoning this attempt. Damaged journals cannot supply this proof.
+  // Allow the normal handshake to identify an application that returned after
+  // an interrupted operation. Driving stays locked. Abandonment still requires
+  // no boot checkpoint, no image bytes and a fresh original identity; a peer
+  // checkpoint never becomes permission to unlock on a cached version.
   if (journalValid && !journalDamaged &&
-      engine.phase() == RfUpdatePhase::RecoveryRequired && !pinnedPeerLength && !startRequested) {
+      engine.phase() == RfUpdatePhase::RecoveryRequired && !startRequested) {
     if (!entryProbeStarted) {
       entryProbeStarted = true; entryProbeFinished = false;
       entryProbeEpoch = afhds3::getVersionEpoch(0);
@@ -619,7 +623,7 @@ void nb4RfUpdateService() {
 #if defined(NB4_RF_UPDATE_BENCH)
       rxWireBytes = rxFrames = lastRxMeta = lastRfRxMeta = lastRfValue = txRequests = lastTxOpcode = 0;
       faultFlags = txResponses = 0;
-      checkpointMs = 0;
+      checkpointMs = lastRxValue = 0;
 #endif
       verifyBaseline = afhds3::getVersionEpoch(0);
       drivingLocked = linkOwned = true;

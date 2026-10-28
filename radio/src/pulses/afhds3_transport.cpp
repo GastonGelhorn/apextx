@@ -276,14 +276,14 @@ void Transport::init(void* buffer, etx_module_state_t* mod_st, uint8_t fAddr)
   clear();
 }
 
-void Transport::clear()
+void Transport::clear(bool preserveAcknowledgements)
 {
   // reset frame
   trsp.clear();
 
   // reset command layer
   fifo.clearCommandFifo();
-  acknowledgements.clearCommandFifo();
+  if (!preserveAcknowledgements) acknowledgements.clearCommandFifo();
 #if defined(RADIO_NB4)
   responsePending = false;
   readOnlyPending = false;

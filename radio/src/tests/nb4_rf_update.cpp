@@ -409,12 +409,17 @@ struct JournalFixture {
     nb4RfUpdateTestReset(); nb4StorageResume();
     simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(root);
   }
-  void write(uint32_t sequence, RfUpdatePhase phase, bool damaged = false, bool module = false) {
+  void write(uint32_t sequence, RfUpdatePhase phase, bool damaged = false, bool module = false,
+             bool checkpoint = false) {
     Record data{}; static_assert(sizeof(data) == 128);
     memcpy(data.magic, "APXRFW3", 8);
     data.sequence = sequence; data.operation = 17; data.image = 1; data.phase = uint32_t(phase);
     data.identity = identity; memset(data.backup, 0x55, sizeof(data.backup));
     if (module) { data.image=0; data.identity={5,7,0x10003,0x10003,0x10021,0,0,0x30000}; }
+    if (checkpoint) {
+      const uint8_t peer[]{4,0,0x34,0x12,0x12,1,16,0,0,0,0x78,0x56,0x34,0x12};
+      data.peerLength=sizeof(peer); memcpy(data.peer,peer,sizeof(peer));
+    }
     data.uid[0] = 1; data.target = NB4_UPDATE_TARGET;
     data.crc = maintenanceCrc(reinterpret_cast<const uint8_t*>(&data), sizeof(data) - 4);
     if (damaged) data.crc ^= 1;
@@ -444,6 +449,19 @@ TEST(Nb4RfJournal, AnIntactModuleEntryCanProbeButAChangedJournalCannotAuthorizeT
   nb4RfUpdateTestReset(); fixture.write(2,RfUpdatePhase::Transfer,true,true);
   nb4RfUpdateService(); EXPECT_FALSE(nb4RfUpdateTestEntryProbeActive());
   EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+}
+TEST(Nb4RfJournal, AnInterruptedReceiverCanReturnToInventoryWithoutUnlockingOrRepeatingEntry) {
+  JournalFixture fixture; fixture.write(1,RfUpdatePhase::RecoveryRequired,false,false,true);
+  nb4RfUpdateService();
+  EXPECT_TRUE(nb4RfUpdateTestEntryProbeActive()); EXPECT_TRUE(nb4RfUpdateDrivingLocked());
+  uint8_t buffer[MODULE_BUFFER_SIZE]{}; afhds3::Transport transport;
+  transport.init(buffer,nullptr,0x14);
+  EXPECT_TRUE(nb4RfUpdateFrame(transport)); // Clear the previous transaction.
+  EXPECT_FALSE(nb4RfUpdateFrame(transport)); // Inventory can use the normal handshake.
+  EXPECT_FALSE(transport.waiting());
+  for (unsigned i=0;i<5;++i) nb4RfUpdateService();
+  EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+  EXPECT_NE(fixture.command(19).find("\"phase\":7"),std::string::npos);
 }
 TEST(Nb4RfJournal, OnlyANewerVerifiedCompletionReleasesDrivingAfterRestart) {
   JournalFixture fixture;

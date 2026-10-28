@@ -150,6 +150,13 @@ slots, preserving the previous verified phase if a write is interrupted.
 A damaged record cannot silently release the driving lock.
 Keep the private backup and operation directory.
 
+Returning from exclusive maintenance first requests standby, which ends a
+receiver-update mode before reapplying the saved car configuration. Pending
+peer acknowledgements survive that handover. An intact recovery record can
+also permit this handshake and inventory queries while driving remains
+locked; reading the inventory does not authorize another firmware transfer
+or declare an interrupted operation complete.
+
 ## Status and recovery
 
     python3 tools/apextx-rf-maintenance.py --status \

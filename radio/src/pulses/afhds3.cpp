@@ -321,6 +321,12 @@ class ProtoState
    void resetVersions();
    Nb4ReceiverTelemetry receiverTelemetry;
    bool nb4MaintenanceOwned = false;
+#if defined(NB4_RF_UPDATE_BENCH)
+   uint32_t maintenanceDiagnostics() const {
+     return uint32_t(nb4Stage) | uint32_t(nb4Pending) << 8 | uint32_t(state) << 16 |
+         uint32_t(hardFaulted) << 24 | uint32_t(nb4::Nb4RfController::getFault()) << 25;
+   }
+#endif
 #endif
    uint16_t RFCurrentPower;
 
@@ -350,7 +356,7 @@ class ProtoState
 
     void sendChannelsData();
 
-    void clearFrameData();
+    void clearFrameData(bool preserveAcknowledgements = false);
 
     bool hasTelemetry();
 
@@ -521,6 +527,12 @@ Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module)
 {
   return module < MAX_MODULES ? protoState[module].receiverTelemetry : Nb4ReceiverTelemetry{};
 }
+#if defined(NB4_RF_UPDATE_BENCH)
+uint32_t getMaintenanceDiagnostics(uint8_t module)
+{
+  return module < MAX_MODULES ? protoState[module].maintenanceDiagnostics() : 0;
+}
+#endif
 
 void resetReceiverTelemetry()
 {
@@ -961,8 +973,13 @@ void ProtoState::setupNb4Frame()
   }
   if (nb4MaintenanceOwned) {
     nb4MaintenanceOwned = false;
-    clearFrameData();
-    nb4Stage = Nb4Stage::Ready;
+    // The final update notification can still need its peer-sequence ACK.
+    // Reset our requests without discarding that pending confirmation.
+    clearFrameData(true);
+    // A receiver update leaves the already-running module in update mode.
+    // Explicit standby ends that mode before applying the saved car settings;
+    // waiting for MODULE_READY first can wait on that very transition.
+    nb4Stage = Nb4Stage::Standby;
     nb4Pending = nb4Page = nb4ReadyTries = 0;
     nb4ReceivedConfig = false;
     nb4Error = nullptr;
@@ -1395,9 +1412,9 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
   clearFrameData();
 }
 
-void ProtoState::clearFrameData()
+void ProtoState::clearFrameData(bool preserveAcknowledgements)
 {
-  trsp.clear();
+  trsp.clear(preserveAcknowledgements);
 #if defined(RADIO_NB4)
   resetVersions();
 #endif
