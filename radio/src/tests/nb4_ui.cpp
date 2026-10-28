@@ -17,6 +17,7 @@
 #include "nb4_home.h"
 #include "nb4_health.h"
 #include "nb4_maintenance.h"
+#include "nb4_rf_update.h"
 #include "hal/usb_driver.h"
 #include "nb4_model_compat.h"
 #include "nb4_routes.h"
@@ -259,6 +260,15 @@ TEST(Nb4Ui, UpdateComponentsRenderInEveryLanguageAndReturnToTheirCaller)
       snprintf(name, sizeof(name), "update-connected-%s-%s", locale, orientation ? "landscape" : "portrait");
       saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"), name, w, h);
       nb4MaintenanceStopUsb();
+#if defined(NB4_RF_UPDATE_BENCH)
+      nb4RfUpdateTestRequireRecovery();
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      lv_obj_update_layout(root->getLvObj());
+      firmwareButtons = connectButtons = activeButtons = 0;
+      checkButton(Layer::back()->getLvObj());
+      EXPECT_EQ(firmwareButtons, 1u) << "Radio firmware Update must remain a separate action during RF recovery";
+      nb4RfUpdateTestReset();
+#endif
 #endif
       Layer::back()->onCancel(); root->run();
       EXPECT_EQ(Layer::back(), caller);

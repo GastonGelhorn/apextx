@@ -11,6 +11,9 @@ void nb4RfUpdateService();
 void nb4RfUpdateUsbDisconnected();
 void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
                         const uint8_t*, size_t);
+#if defined(NB4_RF_UPDATE_BENCH)
+void nb4RfUpdateRxByte();
+#endif
 // Called on the mixer task before live traffic. Never opens a storage file.
 bool nb4RfUpdateFrame(afhds3::Transport& transport);
 bool nb4RfUpdateStorageOwned();
@@ -27,4 +30,6 @@ const char* nb4RfUpdateBuildKind();
 #if defined(SIMU)
 void nb4RfUpdateTestReset();
 void nb4RfUpdateTestBeginValidation(bool recovery);
+bool nb4RfUpdateTestEntryProbeActive();
+void nb4RfUpdateTestRequireRecovery();
 #endif

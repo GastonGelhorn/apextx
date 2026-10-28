@@ -31,6 +31,11 @@ FIL imageFile{};
 bool open = false, uploading = false, validated = false, initializing = true;
 bool validating = false, startRequested = false, storagePaused = false, reinstall = false;
 bool recovering = false, journalValid = false;
+bool journalDamaged = false, entryProbeStarted = false, entryProbeFinished = false;
+uint32_t entryProbeEpoch = 0;
+#if defined(NB4_RF_UPDATE_BENCH)
+std::atomic<uint32_t> rxWireBytes{0}, rxFrames{0}, lastRxMeta{0}, lastRfRxMeta{0}, lastRfValue{0}, txRequests{0}, lastTxOpcode{0};
+#endif
 bool benchArmed = false;
 unsigned imageIndex = 0;
 uint32_t operation = 0, uploaded = 0, validationOffset = 0;
@@ -86,8 +91,10 @@ RfUpdateIdentity snapshot(bool receiver) {
   uint32_t car = 2166136261u;
   for (auto byte : g_model.nb4RfSettings) car = (car ^ byte) * 16777619u;
   for (auto byte : g_eeGeneral.currModelFilename) car = (car ^ uint8_t(byte)) * 16777619u;
+  const bool liveReceiver = afhds3::isConnected(0) && getModuleMode(0) != MODULE_MODE_BIND &&
+      g_model.moduleData[0].afhds3.telemetry;
   return {afhds3::getVersionEpoch(0), car,
-          receiver ? (rx.valid ? rx.productNumber : 0) : (module.valid ? module.productNumber : 0),
+          receiver ? (rx.valid && liveReceiver ? rx.productNumber : 0) : (module.valid ? module.productNumber : 0),
           receiver ? uint32_t(rx.identityWords[0]) : module.hardwareVersion,
           receiver ? rx.firmwareVersion : (module.firmwareKnown ? module.firmwareVersion : 0),
           receiver ? uint32_t(rx.identityWords[2]) : 0,
@@ -183,6 +190,17 @@ void status(char* output, size_t capacity) {
       (unsigned long)operation, unsigned(engine.phase()), unsigned(engine.error()),
       (unsigned long)uploaded, validated ? "true" : "false", (unsigned long)engine.transferred(),
       engine.cancellable() || uploading || (validated && !startRequested) ? "true" : "false", drivingLocked ? "true" : "false");
+#if defined(NB4_RF_UPDATE_BENCH)
+  const auto size = strlen(output);
+  if (size && size < capacity)
+    snprintf(output + size - 1, capacity - size + 1,
+        ",\"entry_probe\":%s,\"boot_peer_bytes\":%lu,\"rx_wire_bytes\":%lu,\"rx_frames\":%lu,"
+        "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu}",
+        entryProbeStarted && !entryProbeFinished ? "true" : "false", (unsigned long)pinnedPeerLength,
+        (unsigned long)rxWireBytes.load(), (unsigned long)rxFrames.load(), (unsigned long)lastRxMeta.load(),
+        (unsigned long)lastRfRxMeta.load(), (unsigned long)lastRfValue.load(), (unsigned long)txRequests.load(),
+        (unsigned long)lastTxOpcode.load());
+#endif
 }
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
   for (const auto& rule : rfUpdateHardware) {
@@ -271,6 +289,9 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
       if (error) overflow.store(true);
       transport.putFrame(afhds3::COMMAND(outgoing.opcode), afhds3::REQUEST_SET_EXPECT_ACK,
                           outgoing.data, outgoing.size);
+#if defined(NB4_RF_UPDATE_BENCH)
+      ++txRequests; lastTxOpcode = outgoing.opcode;
+#endif
       requestPending = true;
     }
     transmit.store(false, std::memory_order_release);
@@ -286,13 +307,27 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
 }
 void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
                         const uint8_t* data, size_t length) {
-  if (!linkOwned.load() || opcode < 0x23 || opcode > 0x33) return;
+  if (!linkOwned.load()) return;
+#if defined(NB4_RF_UPDATE_BENCH)
+  ++rxFrames;
+  const uint32_t meta = type | uint32_t(opcode) << 8 | uint32_t(sequence) << 16 | uint32_t(length & 255) << 24;
+  lastRxMeta = meta;
+  if (opcode >= 0x23 && opcode <= 0x33) {
+    lastRfRxMeta = meta; uint32_t value = 0;
+    for (unsigned i=0;i<std::min<size_t>(length,4);++i) value |= uint32_t(data[i]) << (i*8);
+    lastRfValue = value;
+  }
+#endif
+  if (opcode < 0x23 || opcode > 0x33) return;
   if (type == 0x20 || type == 0x10) requestPending = false;
   if (length > 14 || received.isFull()) { overflow.store(true); return; }
   Packet packet{type, opcode, sequence, uint8_t(length), {}};
   if (length) memcpy(packet.data, data, length);
   received.push(packet);
 }
+#if defined(NB4_RF_UPDATE_BENCH)
+void nb4RfUpdateRxByte() { if (linkOwned.load()) ++rxWireBytes; }
+#endif
 bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
                          char* output, size_t capacity) {
   if (command < 16 || command > 21) return false;
@@ -338,6 +373,7 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
       closeImage(); error(output, capacity, "image_version_not_allowed"); return true;
     }
     imageIndex = candidateIndex; operation = get32(payload + 1); identity = candidate;
+    entryProbeStarted = entryProbeFinished = false;
     uploading = true; validated = startRequested = recovering = false; uploaded = 0;
     pinnedPeerLength = 0; memset(pinnedPeer, 0, sizeof(pinnedPeer));
     memcpy(backupHash, payload + 13, 32); new (&imageHash) Sha256();
@@ -410,6 +446,7 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
       closeImage(); error(output, capacity, "recovery_asset_missing"); return true;
     }
     recovering = validating = startRequested = true;
+    entryProbeStarted = entryProbeFinished = false;
     validationOffset = 0; new (&imageHash) Sha256();
   } else if (command == 20) {
     const bool safe = !recovering && (uploading || validating || engine.cancellable() ||
@@ -432,6 +469,7 @@ void nb4RfUpdateService() {
   if (initializing && sdMounted() && !usbPluggedInStorageMode()) {
     Journal data{}; bool present = false, damaged = false;
     journalValid = readJournal(data, present, damaged);
+    journalDamaged = damaged;
     if (journalValid) {
       journalSequence = data.sequence;
       if (!damaged && data.phase == uint32_t(RfUpdatePhase::Ready)) {
@@ -445,16 +483,35 @@ void nb4RfUpdateService() {
       } else if (damaged || (data.phase != uint32_t(RfUpdatePhase::Complete) &&
                             data.phase != uint32_t(RfUpdatePhase::Cancelled))) {
         drivingLocked = linkOwned = true;
-        engine.requireRecovery(RfUpdateError::Storage);
         operation = data.operation; imageIndex = data.image; identity = data.identity;
         memcpy(backupHash, data.backup, 32);
         pinnedPeerLength = data.peerLength; memcpy(pinnedPeer, data.peer, sizeof(pinnedPeer));
+        engine.prepare(rfImages[imageIndex], identity, operation, true);
+        engine.requireRecovery(RfUpdateError::Storage);
       }
     } else if (present) {
       drivingLocked = linkOwned = true;
       engine.requireRecovery(RfUpdateError::Storage);
     }
     startupReady = true; initializing = false;
+  }
+  // No boot peer checkpoint means the controller could not have sent an
+  // image byte. Still keep driving locked: the entry command may have erased
+  // the peer. Only a fresh, complete original application identity permits
+  // abandoning this attempt. Damaged journals cannot supply this proof.
+  if (journalValid && !journalDamaged &&
+      engine.phase() == RfUpdatePhase::RecoveryRequired && !pinnedPeerLength && !startRequested) {
+    if (!entryProbeStarted) {
+      entryProbeStarted = true; entryProbeFinished = false;
+      entryProbeEpoch = afhds3::getVersionEpoch(0);
+      transmit = requestPending = overflow = false; abortTransport = true;
+      linkOwned = false;
+    } else if (!entryProbeFinished && engine.cancelUntouchedApplication(snapshot(rfImages[imageIndex].receiver), entryProbeEpoch)) {
+      entryProbeFinished = true;
+      if (journal(RfUpdatePhase::Cancelled)) {
+        validated = false; drivingLocked = linkOwned = false;
+      } else engine.requireRecovery(RfUpdateError::Storage);
+    }
   }
   const auto now = uint32_t(get_tmr10ms()) * 10;
   if (validating) {
@@ -476,6 +533,10 @@ void nb4RfUpdateService() {
         startRequested = validated = false; closeImage(); return;
       }
       received.clear(); transmit = overflow = requestPending = false;
+      abortTransport = true;
+#if defined(NB4_RF_UPDATE_BENCH)
+      rxWireBytes = rxFrames = lastRxMeta = lastRfRxMeta = lastRfValue = txRequests = lastTxOpcode = 0;
+#endif
       verifyBaseline = afhds3::getVersionEpoch(0);
       drivingLocked = linkOwned = true;
       const bool started = recovering ?
@@ -516,6 +577,11 @@ void nb4RfUpdateService() {
 }
 void nb4RfUpdateUsbDisconnected() { disconnected = true; }
 #if defined(SIMU)
+bool nb4RfUpdateTestEntryProbeActive() { return entryProbeStarted && !entryProbeFinished; }
+void nb4RfUpdateTestRequireRecovery() {
+  initializing = false; journalValid = false;
+  engine.requireRecovery(RfUpdateError::Timeout); drivingLocked = linkOwned = true;
+}
 void nb4RfUpdateTestReset() {
   closeImage();
   engine = RfUpdateCore{};
@@ -524,6 +590,7 @@ void nb4RfUpdateTestReset() {
   identity = {};
   memset(backupHash, 0, sizeof(backupHash)); memset(pinnedPeer, 0, sizeof(pinnedPeer));
   validated = startRequested = recovering = journalValid = benchArmed = false;
+  journalDamaged = entryProbeStarted = entryProbeFinished = false;
   linkOwned = drivingLocked = false; startupReady = true;
   transmit = overflow = requestPending = abortTransport = disconnected = releaseEntryRequest = false;
   initializing = true; received.clear();

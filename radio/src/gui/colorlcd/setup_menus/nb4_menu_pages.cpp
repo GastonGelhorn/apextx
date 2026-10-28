@@ -133,17 +133,7 @@ class UpdatePage : public MenuPage {
       connect->enable(!selected);
     });
     auto action = button(STR_NB4_UPDATE_FIRMWARE, [] {
-#if defined(NB4_RF_UPDATE_BENCH)
-      if (nb4RfUpdateNeedsRecovery() || nb4RfUpdatePrepared()) {
-        const bool recovery = nb4RfUpdateNeedsRecovery();
-        new ConfirmDialog(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_REINSTALL,
-                          STR_NB4_UPDATE_BENCH_INFO, [recovery] {
-          if (!nb4RfUpdateLocalStart(recovery))
-            new MessageDialog(STR_NB4_UPDATE, STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
-        });
-        return;
-      }
-#endif
+
       if (nb4RfUpdateStorageOwned() && !nb4RfUpdateNeedsRecovery()) {
         new MessageDialog(STR_NB4_UPDATE, STR_NB4_UPDATE_RF_RECOVERY); return;
       }
@@ -158,13 +148,22 @@ class UpdatePage : public MenuPage {
       });
     });
 #if defined(NB4_RF_UPDATE_BENCH)
-    action->setCheckHandler([action] {
-      action->setText(nb4RfUpdateNeedsRecovery() ? STR_NB4_UPDATE_RF_RECOVER :
-                      nb4RfUpdatePrepared() ? STR_NB4_UPDATE_RF_REINSTALL : STR_NB4_UPDATE_FIRMWARE);
-      action->enable(nb4RfUpdateNeedsRecovery() ? nb4RfUpdateRecoverySupported() :
-        nb4RfUpdatePrepared() ? (nb4RfUpdateWriteSupported(false) || nb4RfUpdateWriteSupported(true)) :
-        !nb4RfUpdateStorageOwned());
+    auto rfAction = button(STR_NB4_UPDATE_RF_REINSTALL, [] {
+      const bool recovery = nb4RfUpdateNeedsRecovery();
+      new ConfirmDialog(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_REINSTALL,
+                        STR_NB4_UPDATE_BENCH_INFO, [recovery] {
+        if (!nb4RfUpdateLocalStart(recovery))
+          new MessageDialog(STR_NB4_UPDATE, STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
+      });
     });
+    rfAction->setCheckHandler([rfAction] {
+      const bool recovery = nb4RfUpdateNeedsRecovery(), prepared = nb4RfUpdatePrepared();
+      rfAction->setText(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_REINSTALL);
+      if (recovery || prepared) lv_obj_clear_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
+      else lv_obj_add_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
+      rfAction->enable(recovery ? nb4RfUpdateRecoverySupported() : prepared);
+    });
+    (void)action;
 #else
     (void)action;
 #endif

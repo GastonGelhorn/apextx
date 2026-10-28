@@ -1119,9 +1119,6 @@ void ProtoState::setupNb4Frame()
 
 bool ProtoState::parseNb4Data(const AfhdsFrame* frame, uint8_t length)
 {
-  if (length >= 7)
-    nb4RfUpdateReceive(frame->frameType, frame->command, frame->frameNumber,
-                        &frame->value, length - 7);
   if (frame->frameType == REQUEST_GET_DATA && frame->command == MODULE_SET_CONFIG) {
     // The peer requests a page with one byte. Reply with page index +
     // contents, omitting the SET operation byte.

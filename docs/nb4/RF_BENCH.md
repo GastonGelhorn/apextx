@@ -107,6 +107,12 @@ The choices are module, fgr4-v2 and fgr4s-v2. Staging checks the backup's unit,
 the pinned image, the live component identity, storage space and the independent
 radio-side hash. It does not enter the RF bootloader.
 
+Before preparing or starting a receiver update, bind it to the current car and
+wait for a live two-way connection and a fresh matching identity. A saved bind
+or cached version alone is insufficient. If the receiver disconnects after
+staging, START is rejected; reconnect it and review a fresh plan. Updating the
+internal RF module does not require a connected receiver.
+
 Review the printed current/proposed versions. Keep only the intended bound
 receiver powered, disconnect the motor, secure the car on the bench, and use
 a transmitter battery of at least 3.8 V with stable receiver power. Explicitly start:
@@ -149,6 +155,18 @@ Recovery revalidates the unit, car/RF configuration, image hash and saved boot
 peer response. It repeats the complete image; it does not guess a resume offset.
 The opaque boot-response fields and actual recovery behavior still require
 bench qualification. ROM DFU of the transmitter is not RF-component recovery.
+
+There is one automatic check for an entry that received no boot-peer
+checkpoint and could not have transferred image data. Driving remains locked
+while the radio requests a fresh normal-application identity. Only an exact
+match with the original hardware and software, followed by a verified
+cancellation journal write, releases that lock. Damaged journals or any saved
+boot-peer checkpoint prevent this exit. This does not mark the RF image as
+installed.
+
+**Update radio firmware** always updates the transmitter application. The
+private bench **Reinstall RF / Recover RF** action is separate, so a failed RF
+operation does not replace the route needed to install an application repair.
 
 Completion requires every image byte to have been requested and a fresh
 matching component version after restart. A peer's success byte alone is not

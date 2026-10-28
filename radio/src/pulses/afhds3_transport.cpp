@@ -23,6 +23,7 @@
 
 #if defined(RADIO_NB4)
 #include "targets/pl18/nb4_rf_profile.h"
+#include "nb4_rf_update.h"
 #endif
 #include "edgetx_helpers.h"
 #include "debug.h"
@@ -528,6 +529,9 @@ bool Transport::handleReply(uint8_t* buffer, uint8_t len)
 bool Transport::processTelemetryData(uint8_t byte, uint8_t* rxBuffer,
                                      uint8_t& rxBufferCount, uint8_t maxSize)
 {
+#if defined(NB4_RF_UPDATE_BENCH)
+  nb4RfUpdateRxByte();
+#endif
 #if defined(RADIO_NB4) && defined(SIMU)
   ++diagnostics.rxBytes;
   if (diagnostics.lastRxSize < sizeof(diagnostics.lastRx)) {
@@ -555,6 +559,13 @@ bool Transport::processTelemetryData(uint8_t byte, uint8_t* rxBuffer,
       diagnostics.bindRequestSize = rxBufferCount - 7;
       diagnostics.bindRequestSequence = frame->frameNumber;
     }
+  }
+#endif
+#if defined(RADIO_NB4)
+  if (has_frame && rxBufferCount >= 7) {
+    const auto* frame = reinterpret_cast<const AfhdsFrame*>(rxBuffer);
+    nb4RfUpdateReceive(frame->frameType, frame->command, frame->frameNumber,
+                       &frame->value, rxBufferCount - 7);
   }
 #endif
   if (has_frame && handleReply(rxBuffer, rxBufferCount)) {

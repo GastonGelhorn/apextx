@@ -46,6 +46,17 @@ bool RfUpdateCore::cancel() {
   phase_ = RfUpdatePhase::Cancelled;
   return true;
 }
+bool RfUpdateCore::cancelUntouchedApplication(const RfUpdateIdentity& running, uint32_t probeEpoch) {
+  if (phase_ != RfUpdatePhase::RecoveryRequired || !operation_ ||
+      peerLength_ || covered_ || !running.product || running.epoch == probeEpoch) return false;
+  auto checked = running; checked.epoch = identity_.epoch;
+  // The internal module belongs to the transmitter. Receiver proof also
+  // requires the original car/binding key.
+  if (!image_.receiver) checked.car = identity_.car;
+  if (!(checked == identity_)) return false;
+  phase_ = RfUpdatePhase::Cancelled; error_ = RfUpdateError::None; sent_ = false;
+  return true;
+}
 bool RfUpdateCore::recover(const RfUpdateImage& image, const RfUpdateIdentity& identity,
                            uint32_t operation, const uint8_t* peer, uint8_t length, uint32_t now) {
   if (phase_ != RfUpdatePhase::RecoveryRequired ||

@@ -38,7 +38,9 @@ def plan(inventory, index):
     current = inventory[image['kind']]
     state = 'unknown'
     reason = 'A fresh component identity is required.'
-    if (current['valid'] and current['product'] == image.get('reported_product', image['product']) and
+    if image['kind']=='receiver' and (not inventory['connected'] or not inventory['two_way']):
+        reason = 'Bind and connect the receiver with two-way telemetry before preparing an update.'
+    elif (current['valid'] and current['product'] == image.get('reported_product', image['product']) and
             (image['kind'] == 'receiver' or current.get('firmware_known'))):
         if image['kind'] == 'receiver':
             words = current['identity_words']
@@ -134,7 +136,7 @@ class RfTransfer:
             raise MaintenanceError('RF image verification failed before transfer.')
         current = plan(inventory, index)
         if current['state'] not in ('available', 'current'):
-            raise MaintenanceError('This RF image does not match an identified compatible component.')
+            raise MaintenanceError(current['reason'] or 'This RF image does not match an identified compatible component.')
         backup_hash = self.backup_hash(backup)
         operation = secrets.randbelow(0xffffffff) + 1
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)

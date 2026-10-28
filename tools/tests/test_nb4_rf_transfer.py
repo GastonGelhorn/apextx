@@ -137,6 +137,35 @@ class RfTransferTests(unittest.TestCase):
         receiver['identity_words'][2] = 0x107
         self.assertEqual(rf.plan(self.peer.inventory,2)['state'],'current')
 
+    def test_receiver_update_requires_a_live_two_way_link_before_preparation(self):
+        for connected, two_way in ((False, True), (True, False), (False, False)):
+            with self.subTest(connected=connected, two_way=two_way):
+                self.peer.inventory.update(connected=connected, two_way=two_way)
+                self.peer.inventory['receiver']['valid']=False
+                result=rf.plan(self.peer.inventory,1)
+                self.assertEqual(result['state'],'unknown'); self.assertFalse(result['write_supported'])
+                self.assertIn('Bind and connect',result['reason'])
+                with self.assertRaisesRegex(wire.MaintenanceError, 'Bind and connect'):
+                    self.transfer.stage(1,self.data,self.backup)
+                self.assertNotIn(wire.PREPARE,self.peer.commands)
+
+    def test_stale_receiver_identity_cannot_bypass_the_live_link_check(self):
+        self.peer.inventory['connected']=False
+        self.assertTrue(self.peer.inventory['receiver']['valid'])
+        with self.assertRaises(wire.MaintenanceError):
+            self.transfer.stage(1,self.data,self.backup)
+        self.assertNotIn(wire.PREPARE,self.peer.commands)
+
+    def test_receiver_disconnect_after_staging_cannot_start_a_write(self):
+        self.peer.can_write=True; self.peer.inventory['receiver']['write_supported']=True
+        with patch.object(rf,'verify_backup',return_value={}):
+            self.transfer.stage(1,self.data,self.backup)
+        self.peer.inventory['connected']=False; self.peer.inventory['receiver']['valid']=False
+        with self.assertRaisesRegex(wire.MaintenanceError, 'changed'):
+            self.transfer.start(confirmed=True)
+        self.assertNotIn(wire.START,self.peer.commands)
+        self.assertFalse(self.transfer.load()['write_started'])
+
     def test_status_rejects_late_foreign_and_coerced_values(self):
         value = dict(self.peer.status, operation=3)
         self.assertEqual(rf.validate_status(value,3,100),value)

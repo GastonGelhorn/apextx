@@ -72,6 +72,27 @@ TEST(Nb4RfUpdate, Sha256MatchesStandardVectorsAcrossBlockAndPaddingBoundaries) {
     EXPECT_STREQ(text, vector.second);
   }
 }
+TEST(Nb4RfUpdate, FailedModuleEntryNeedsFreshOriginalApplicationAndNoBootCheckpointBeforeUnlocking) {
+  const RfUpdateIdentity original{5,7,0x10003,0x10003,0x10021,0,0,0x30000};
+  const RfUpdateImage module{0x12340003,0x10021,20,hash,false,0x10003};
+  Peer peer; RfUpdateCore core;
+  ASSERT_TRUE(core.prepare(module,original,1,true)); ASSERT_TRUE(core.start(original,0)); core.service(0,peer.io());
+  core.fail(RfUpdateError::Timeout);
+  EXPECT_FALSE(core.cancelUntouchedApplication(original,5));
+  auto fresh=original; fresh.epoch=6;
+  auto wrong=fresh; wrong.version=0x10020; EXPECT_FALSE(core.cancelUntouchedApplication(wrong,5));
+  wrong=fresh; wrong.rfLibrary=0x30001; EXPECT_FALSE(core.cancelUntouchedApplication(wrong,5));
+  EXPECT_TRUE(core.cancelUntouchedApplication(fresh,5)); EXPECT_EQ(core.phase(),RfUpdatePhase::Cancelled);
+  RfUpdateCore entered;
+  ASSERT_TRUE(entered.prepare(module,original,2,true)); ASSERT_TRUE(entered.start(original,0)); entered.service(0,peer.io());
+  boot(entered,peer); entered.fail(RfUpdateError::Timeout);
+  EXPECT_FALSE(entered.cancelUntouchedApplication(fresh,5)); EXPECT_EQ(entered.phase(),RfUpdatePhase::RecoveryRequired);
+  RfUpdateCore receiver; ASSERT_TRUE(receiver.prepare(image,identity,3));
+  ASSERT_TRUE(receiver.start(identity,0)); receiver.service(0,peer.io()); receiver.fail(RfUpdateError::Timeout);
+  auto freshReceiver=identity; ++freshReceiver.epoch;
+  auto otherCar=freshReceiver; ++otherCar.car; EXPECT_FALSE(receiver.cancelUntouchedApplication(otherCar,identity.epoch));
+  EXPECT_TRUE(receiver.cancelUntouchedApplication(freshReceiver,identity.epoch));
+}
 }
 TEST(Nb4RfUpdate, PinsIdentityRejectsDowngradesAndOnlyCancelsBeforeEntry) {
   RfUpdateCore core; Peer peer;
@@ -207,11 +228,12 @@ struct JournalFixture {
     nb4RfUpdateTestReset(); nb4StorageResume();
     simuFatfsSetPaths(TESTS_PATH, nullptr); std::filesystem::remove_all(root);
   }
-  void write(uint32_t sequence, RfUpdatePhase phase, bool damaged = false) {
+  void write(uint32_t sequence, RfUpdatePhase phase, bool damaged = false, bool module = false) {
     Record data{}; static_assert(sizeof(data) == 128);
     memcpy(data.magic, "APXRFW3", 8);
     data.sequence = sequence; data.operation = 17; data.image = 1; data.phase = uint32_t(phase);
     data.identity = identity; memset(data.backup, 0x55, sizeof(data.backup));
+    if (module) { data.image=0; data.identity={5,7,0x10003,0x10003,0x10021,0,0,0x30000}; }
     data.uid[0] = 1; data.target = NB4_UPDATE_TARGET;
     data.crc = maintenanceCrc(reinterpret_cast<const uint8_t*>(&data), sizeof(data) - 4);
     if (damaged) data.crc ^= 1;
@@ -233,6 +255,14 @@ TEST(Nb4RfJournal, ACorruptCheckpointRetainsTheEarlierEntryAndDrivingLock) {
   nb4RfUpdateService();
   EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
   EXPECT_NE(fixture.command(19).find("\"operation\":17"), std::string::npos);
+}
+TEST(Nb4RfJournal, AnIntactModuleEntryCanProbeButAChangedJournalCannotAuthorizeTheProbe) {
+  JournalFixture fixture; fixture.write(1,RfUpdatePhase::Entering,false,true);
+  nb4RfUpdateService(); EXPECT_TRUE(nb4RfUpdateTestEntryProbeActive());
+  EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
+  nb4RfUpdateTestReset(); fixture.write(2,RfUpdatePhase::Transfer,true,true);
+  nb4RfUpdateService(); EXPECT_FALSE(nb4RfUpdateTestEntryProbeActive());
+  EXPECT_TRUE(nb4RfUpdateDrivingLocked()); EXPECT_TRUE(nb4RfUpdateNeedsRecovery());
 }
 TEST(Nb4RfJournal, OnlyANewerVerifiedCompletionReleasesDrivingAfterRestart) {
   JournalFixture fixture;
