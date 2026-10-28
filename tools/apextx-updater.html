@@ -89,6 +89,7 @@ footer a:hover{text-decoration:underline}
 button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--blue2);outline-offset:4px}
 [hidden]{display:none!important}
 @media(max-width:640px){.device-meta{gap:12px}.device-meta strong{font-size:15px}.device-head strong{font-size:16px}}
+#appUpdates{margin-top:24px}#appUpdates summary{cursor:pointer;font-weight:700;min-height:44px;padding:8px 0}#appUpdates .actions{display:flex;flex-wrap:wrap;gap:6px}#appUpdateStatus,#appUpdateNotes{font-size:14px;overflow-wrap:anywhere}#appUpdates>p:last-child{font-size:12px;color:var(--muted)}
 </style>
 <main>
 <header>
@@ -174,6 +175,21 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div></div>
 
 <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.</span></p>
+<details class="panel" id="appUpdates">
+<summary data-k="appTitle">ApexTX Flasher updates</summary>
+<p id="appUpdateStatus" role="status" aria-live="polite"></p>
+<pre id="appUpdateNotes" style="white-space:pre-wrap;font:inherit"></pre>
+<p id="appInstallLocation" class="device-help"></p>
+<p id="appUpdateError" class="error" role="alert"></p>
+<label class="channel"><input type="checkbox" id="appPreview"><span data-k="appPreview">Include preview versions of the desktop app</span></label>
+<label class="channel"><input type="checkbox" id="appRelocate"><span data-k="appRelocate">Install in my user folder</span></label>
+<div class="actions"><button class="quiet" id="appCheck" data-k="appCheck">Check app updates</button>
+<button class="cta" id="appInstall" data-k="appInstall">Update and restart</button>
+<button class="quiet" id="appLater" data-k="appLater">Remind me tomorrow</button>
+<button class="quiet" id="appSkip" data-k="appSkip">Skip this version</button></div>
+<button class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe">I checked the radio; recovery is finished</button>
+<p data-k="appSigning">Updates are authenticated with ApexTX's own signature. Windows or macOS may require permission to open an app without an official publisher certificate.</p>
+</details>
 <footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
@@ -289,6 +305,9 @@ Object.assign(T.de,{
  dfuCancel:"Installation abbrechen",
  dfuPreparing:"Vollständige Firmware wird heruntergeladen und geprüft…"
 });
+Object.assign(T.en,{"appTitle": "ApexTX Flasher updates", "appPreview": "Include preview versions of the desktop app", "appRelocate": "Install in my user folder", "appCheck": "Check app updates", "appInstall": "Update and restart", "appLater": "Remind me tomorrow", "appSkip": "Skip this version", "appRadioSafe": "I checked the radio; recovery is finished", "appSigning": "Updates are authenticated with ApexTX’s own signature. Windows or macOS may require permission to open an app without an official publisher certificate.", "appInstalled": "Installed app: {version}", "appAvailable": "ApexTX Flasher {version} is available.", "appCurrent": "ApexTX Flasher is up to date.", "appChecking": "Checking ApexTX Flasher updates…", "appDownloading": "Downloading ApexTX Flasher… {progress}%", "appVerifying": "Verifying the ApexTX Flasher update…", "appRestarting": "Restarting ApexTX Flasher…", "appBlocked": "Finish the radio operation or recovery before updating the app.", "appUnsupported": "Automatic installation requires an official Windows or macOS desktop package.", "appIncompatible": "This app update requires a newer operating system.", "appLastCheck": "Last successful check: {date}", "appOffline": "Could not check app updates. Local radio operations are still available.", "appUpdated": "ApexTX Flasher was updated successfully."});
+Object.assign(T.es,{"appTitle": "Actualizaciones de ApexTX Flasher", "appPreview": "Incluir versiones preliminares de la app de escritorio", "appRelocate": "Instalar en mi carpeta de usuario", "appCheck": "Buscar actualizaciones de la app", "appInstall": "Actualizar y reiniciar", "appLater": "Recordármelo mañana", "appSkip": "Omitir esta versión", "appRadioSafe": "He comprobado la emisora; la recuperación ha terminado", "appSigning": "Las actualizaciones se autentican con firma propia de ApexTX. Windows o macOS pueden pedir autorización para abrir una app sin certificado oficial de editor.", "appInstalled": "App instalada: {version}", "appAvailable": "ApexTX Flasher {version} está disponible.", "appCurrent": "ApexTX Flasher está actualizado.", "appChecking": "Buscando actualizaciones de ApexTX Flasher…", "appDownloading": "Descargando ApexTX Flasher… {progress}%", "appVerifying": "Verificando la actualización de ApexTX Flasher…", "appRestarting": "Reiniciando ApexTX Flasher…", "appBlocked": "Termina la operación o recuperación de la emisora antes de actualizar la app.", "appUnsupported": "La instalación automática requiere un paquete oficial de escritorio para Windows o macOS.", "appIncompatible": "Esta actualización de la app requiere un sistema operativo más reciente.", "appLastCheck": "Última comprobación correcta: {date}", "appOffline": "No se ha podido comprobar la actualización de la app. Las operaciones locales de la emisora siguen disponibles.", "appUpdated": "ApexTX Flasher se ha actualizado correctamente."});
+Object.assign(T.de,{"appTitle": "ApexTX Flasher aktualisieren", "appPreview": "Vorabversionen der Desktop-App einbeziehen", "appRelocate": "In meinem Benutzerordner installieren", "appCheck": "Nach App-Updates suchen", "appInstall": "Aktualisieren und neu starten", "appLater": "Morgen erinnern", "appSkip": "Diese Version überspringen", "appRadioSafe": "Fernbedienung geprüft; Wiederherstellung abgeschlossen", "appSigning": "Updates werden mit der eigenen ApexTX-Signatur geprüft. Windows oder macOS können eine Freigabe für Apps ohne offizielles Herausgeberzertifikat verlangen.", "appInstalled": "Installierte App: {version}", "appAvailable": "ApexTX Flasher {version} ist verfügbar.", "appCurrent": "ApexTX Flasher ist aktuell.", "appChecking": "ApexTX-Flasher-Updates werden gesucht…", "appDownloading": "ApexTX Flasher wird heruntergeladen… {progress}%", "appVerifying": "ApexTX-Flasher-Update wird geprüft…", "appRestarting": "ApexTX Flasher wird neu gestartet…", "appBlocked": "Vorgang oder Wiederherstellung der Fernbedienung vor dem App-Update abschließen.", "appUnsupported": "Automatische Installation erfordert ein offizielles Windows- oder macOS-App-Paket.", "appIncompatible": "Dieses App-Update erfordert ein neueres Betriebssystem.", "appLastCheck": "Letzte erfolgreiche Prüfung: {date}", "appOffline": "App-Updates konnten nicht geprüft werden. Lokale Funkgerätefunktionen bleiben verfügbar.", "appUpdated": "ApexTX Flasher wurde erfolgreich aktualisiert."});
 const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
@@ -315,6 +334,7 @@ function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'search
  $('#installedVersion').title=device.revision||'';
  $('#latestVersion').textContent=offer?offer.version:s.checking?'…':'—';$('#previewBadge').hidden=!offer||!offer.prerelease;
  $('#deviceHelp').textContent=plan?'':state==='ready'?d.readyHelp:state==='normal'?d.normalHelp:state==='recovery'?d.recoveryHelp:state==='multiple'?d.multipleHelp:state==='error'?device.message:d.connectHelp;
+ renderAppUpdate();
  const slot=$('#'+(s.operation==='recover'?'recover':s.operation==='manual'?'manual':'update')+'TransferSlot');if($('#transfer').parentElement!==slot)slot.appendChild($('#transfer'));
  const decision=offer?.decision;
  $('#releaseHelp').textContent=plan?'':s.checking?d.checking:s.release_error?d.offline:offer?(decision==='unknown'||decision==='bootloader'?'':d[decision+'Help']||'')+(offer.prerelease?' '+d.previewHelp:''):device.target?d.noRelease:'';
@@ -356,6 +376,42 @@ rstart.onclick=()=>send('/api/recover',rfile.files[0],{'X-ApexTX-Radio-Variant':
 function clearError(){localError=null;if(!snapshot?.operation){$('#transfer').hidden=true;message.textContent='';message.className='';}}
 function showError(text){localError=text;message.textContent=text;message.className='error';$('#transfer').hidden=false;}
 async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
+function renderAppUpdate(){
+ const a=snapshot?.app_update||{},d=T[lang],busy=['downloading','verifying','restarting'].includes(a.state);
+ let text=(d.appInstalled||'').replace('{version}',a.version||'__APP_VERSION__');
+ const key={checking:'appChecking',current:'appCurrent',downloading:'appDownloading',verifying:'appVerifying',restarting:'appRestarting',error:'appOffline'}[a.state];
+ if(key)text+=' · '+d[key].replace('{progress}',a.progress||0);
+ else if(a.available&&!a.hidden)text+=' · '+d.appAvailable.replace('{version}',a.available);
+ if(a.blocked)text+=' '+d.appBlocked;
+ if(!a.supported)text+=' '+d.appUnsupported;
+ if(a.available&&!a.compatible)text+=' '+d.appIncompatible;
+ if(a.last_check)text+=' '+d.appLastCheck.replace('{date}',new Date(a.last_check*1000).toLocaleString());
+ if(a.last_result?.result==='updated'&&a.last_result.version===a.version)text+=' '+d.appUpdated;
+ $('#appUpdateStatus').textContent=text;
+ $('#appInstallLocation').textContent=a.last_result?.location||'';
+ $('#appUpdateError').textContent=a.error||a.last_result?.error||'';
+ $('#appUpdateNotes').textContent=a.hidden?'':a.notes||'';
+ $('#appInstall').disabled=busy||requesting||a.blocked||!a.supported||!a.compatible||!a.available||a.state==='checking';
+ $('#appCheck').disabled=busy||requesting||a.state==='checking';
+ $('#appPreview').checked=!!a.preview;$('#appPreview').disabled=busy||requesting||a.state==='checking';
+ $('#appRelocate').disabled=busy||requesting;
+ $('#appLater').hidden=$('#appSkip').hidden=!a.available||a.hidden||busy;
+ $('#appRadioSafe').hidden=!snapshot?.radio_unconfirmed;$('#appRadioSafe').disabled=!!snapshot?.running||!!snapshot?.bootloader_install;
+ if(a.available&&!a.hidden&&!running&&!a.blocked)$('#appUpdates').open=true;
+}
+async function appRequest(action,data={}){
+ // Errors belong to the desktop app panel, never the radio progress panel.
+ requesting=true;render();
+ try{const r=await fetch('/api/app-update/'+action,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);}
+ catch(e){$('#appUpdateError').textContent=e.message;}
+ finally{requesting=false;}
+}
+$('#appCheck').onclick=()=>appRequest('check');
+$('#appPreview').onchange=()=>appRequest('check',{preview:$('#appPreview').checked});
+$('#appInstall').onclick=()=>{if(!$('#appInstall').disabled)return appRequest('install',{version:snapshot.app_update.available,relocate:$('#appRelocate').checked});};
+$('#appLater').onclick=()=>appRequest('later');
+$('#appSkip').onclick=()=>appRequest('skip');
+$('#appRadioSafe').onclick=()=>appRequest('acknowledge-radio');
 $('#refresh').onclick=()=>request('/api/refresh');
 $('#preview').onchange=()=>{const preview=$('#preview').checked;if(snapshot)snapshot.preview=preview;return request('/api/channel',{preview});};
 $('#upgrade').onclick=async()=>{if(running||requesting||!snapshot?.release||$('#upgrade').disabled)return;const s=snapshot;running=true;render();if(!await request(s.release.decision==='bootloader'?'/api/bootloader/prepare':'/api/upgrade',{serial:s.device.serial,target:s.device.target,release_id:s.release.id})){running=false;render();}};
@@ -376,11 +432,11 @@ function operationMessage(s){const d=T[lang],m=s.message||'';
  return stages.find(([prefix])=>m.startsWith(prefix))?.[1]||m;
 }
 async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-Token':token}});if(!r.ok)throw Error();const hadGuide=!!snapshot?.bootloader_install;snapshot=await r.json();
- running=snapshot.running||requesting;
+ running=snapshot.running||snapshot.app_updating||requesting;
  if(snapshot.operation&&!localError&&!requesting){$('#transfer').hidden=false;message.textContent=operationMessage(snapshot);message.className=snapshot.error?'error':snapshot.progress===100?'good':'';bar.value=snapshot.progress;percent.textContent=`${snapshot.progress}%`;}
  render();
  if(snapshot.bootloader_install&&!hadGuide){$('#bootloaderGuideTitle').focus({preventScroll:true});$('#bootloaderGuide').scrollIntoView({block:'start',behavior:'smooth'});}
- }catch(e){showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
+ }catch(e){if(snapshot?.app_update?.state==='restarting'){$('#appUpdateStatus').textContent=T[lang].appRestarting;return;}showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
  setTimeout(poll,800);
 }
 applyLang(pick());poll();

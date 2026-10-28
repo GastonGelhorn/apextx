@@ -266,7 +266,15 @@ class GuidedBootloaderWindow(unittest.TestCase):
                         else:
                             self.assertEqual(session.snapshot()['progress'],100)
                             self.assertIsNone(session.snapshot()['bootloader_install'])
-                        self.assertTrue(window.events.closing.callback())
+                        self.assertEqual(window.events.closing.callback(), failure is None)
+                        if failure:
+                            # A pending guide and uncertain outcome both block
+                            # desktop replacement and normal window closure.
+                            with self.assertRaises(RuntimeError): session.reserve_app_update()
+                            with call('/api/bootloader/cancel', {}) as response: self.assertEqual(response.status, 202)
+                            self.assertFalse(window.events.closing.callback())
+                            with call('/api/app-update/acknowledge-radio', {}) as response: self.assertEqual(response.status, 202)
+                            self.assertTrue(window.events.closing.callback())
                     except Exception as error:
                         errors.append(error)
                     finally: finish.set()
@@ -278,6 +286,38 @@ class GuidedBootloaderWindow(unittest.TestCase):
                         patch.object(flasher.nb4_rom_flash,'run_install',side_effect=install) as writer,patch('builtins.print'):
                     flasher.serve()
                 self.assertEqual(errors,[])
+
+
+class UpdatedAppStartup(unittest.TestCase):
+    def test_failed_health_handshake_keeps_usb_blocked_but_allows_safe_window_close(self):
+        session=flasher.FlasherSession(client=Mock())
+        session.monitor=Mock()
+        errors=[]
+        class Closing:
+            def __iadd__(self, callback):
+                self.callback=callback
+                return self
+        window=types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+        def start():
+            try:
+                url=webview.create_window.call_args.args[1]
+                parsed=urllib.parse.urlparse(url)
+                token=urllib.parse.parse_qs(parsed.query)['token'][0]
+                request=urllib.request.Request(f'http://{parsed.netloc}/api/status',headers={'X-ApexTX-Token':token})
+                with urllib.request.urlopen(request,timeout=3) as response:
+                    state=json.load(response)
+                self.assertTrue(state['app_updating'])
+                self.assertEqual(state['app_update']['state'],'error')
+                session.monitor.assert_not_called()
+                with self.assertRaises(RuntimeError): session.begin('upgrade')
+                self.assertTrue(window.events.closing.callback(),'No radio was started; let the user close and recover')
+            except Exception as error:
+                errors.append(error)
+        webview=types.SimpleNamespace(create_window=Mock(return_value=window),start=start)
+        with patch.dict(sys.modules,{'webview':webview}),patch.dict('os.environ',{'APEXTX_UPDATER_WINDOW':'1'}), \
+                patch.object(flasher,'FlasherSession',return_value=session),patch('builtins.print'):
+            flasher.serve(startup_health=Mock(side_effect=RuntimeError('Helper confirmation failed')))
+        self.assertEqual(errors,[])
 
 
 if __name__ == '__main__':

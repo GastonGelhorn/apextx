@@ -128,5 +128,36 @@ for(const language of ['en','es','de']) {
  state({state:'absent'},bootOffer,{bootloader_install:plan});
  await get('bootloaderCancel').onclick();
  assert.equal(calls[0].url,'/api/bootloader/cancel');
+ calls=[];
+ const appOffer={version:'1.4.0',state:'available',available:'1.5.0',notes:'<script>unsafe</script>',supported:true,compatible:true,preview:false};
+ state(device,offer,{app_update:appOffer});
+ assert.equal(calls.length,0,'App detection and rendering never download or install');
+ assert.equal(get('appInstall').disabled,false);
+ assert.equal(get('appUpdateNotes').textContent,'<script>unsafe</script>','Notes are text, not executable HTML');
+ assert.equal(get('appUpdates').open,true,'An available app update is visible');
+ for(const blocked of [{...appOffer,blocked:true},{...appOffer,supported:false},{...appOffer,compatible:false}]){
+  state(device,offer,{app_update:blocked});
+  assert.equal(get('appInstall').disabled,true);
+  await get('appInstall').onclick();
+  assert.equal(calls.length,0);
+ }
+ state(device,offer,{app_update:appOffer});
+ get('appRelocate').checked=true;
+ await get('appInstall').onclick();
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,'/api/app-update/install');
+ assert.deepEqual(JSON.parse(calls[0].options.body),{version:'1.5.0',relocate:true});
+ calls=[];
+ await get('appLater').onclick();
+ assert.equal(calls[0].url,'/api/app-update/later');
+ calls=[];
+ await get('appSkip').onclick();
+ assert.equal(calls[0].url,'/api/app-update/skip');
+ state(device,offer,{app_update:{...appOffer,state:'downloading',progress:42}});
+ assert.equal(get('appInstall').disabled,true);
+ assert.equal(get('appUpdateStatus').textContent.includes('42'),true);
+ state(device,offer,{app_update:{...appOffer,state:'error',error:'App network unavailable'}});
+ assert.equal(get('appUpdateError').textContent,'App network unavailable');
+ assert.equal(get('start').disabled,false,'An app update check failure preserves local radio updating');
  console.log('Shared flasher UI: connection states, all languages, offline/manual, version policy, busy guards, and explicit upgrade request passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

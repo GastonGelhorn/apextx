@@ -1,5 +1,9 @@
 # ApexTX Flasher — Windows and macOS
 
+For desktop app updates, signing and release setup, see
+[Flasher self-update](FLASHER_SELF_UPDATE.md). These updates are separate from
+radio firmware updates.
+
 The ApexTX Flasher packages the existing local-UI updater
 ([`tools/apextx-updater.py`](../../tools/apextx-updater.py)) as a single,
 double-clickable Windows or macOS app, and adds a full-image **install / recovery** mode
