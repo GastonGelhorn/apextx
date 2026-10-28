@@ -105,6 +105,14 @@ class IntegratedTests(unittest.TestCase):
         (self.plan.package.root/'firmware.bin').write_bytes(b'changed')
         with self.assertRaises(RuntimeError): integrated.IntegratedUpdate.load(self.plan.root)
 
+    def test_other_transmitter_catalog_is_rejected_even_with_a_valid_firmware_image(self):
+        manifest=json.loads((self.source/'manifest.json').read_text()); data=b'synthetic catalog'
+        catalog=self.source/'rf/catalog.zip'; catalog.parent.mkdir(); catalog.write_bytes(data)
+        manifest['files']['rf/catalog.zip']=dict(bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
+        (self.source/'manifest.json').write_text(json.dumps(manifest))
+        with patch.object(integrated,'verify_bundle',return_value=(dict(radio='nb4plus'),{})):
+            with self.assertRaisesRegex(RuntimeError,'different hardware'): integrated.Package(self.source)
+
     def test_release_voice_download_prepares_one_pack_without_usb_and_rejects_wrong_language(self):
         from nb4_flasher_session import FlasherSession
         from test_nb4_audio_packs import Nb4AudioPacksTest

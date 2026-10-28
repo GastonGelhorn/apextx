@@ -111,6 +111,8 @@ class Package:
         if 'rf/catalog.zip' in entries:
             data=(self.root/'rf/catalog.zip').read_bytes()
             self.catalog,self.images=verify_bundle(data)
+            if self.catalog['radio']!=self.hardware:
+                raise UpdateError('The RF catalog and transmitter image target different hardware.')
         for name,kind in (('backup','apextx-backup-agent-1'),('nor-restore','apextx-nor-restore-agent-1')):
             report=f'recovery/{name}-agent.json'; binary=f'recovery/nb4-{name}-agent.bin'
             if report not in entries or binary not in entries:
