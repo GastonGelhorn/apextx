@@ -18,6 +18,8 @@ class FlasherSession:
         self.device = dict(state='searching')
         self.offer = None
         self.bootloader_install = None
+        self.app_updating = False
+        self.radio_unconfirmed = False
         self.preview = True  # ApexTX is currently an alpha; clearly labelled in the UI.
         self.release_error = None
         self.checking = False
@@ -42,11 +44,12 @@ class FlasherSession:
                                  self.device.get('serial') == original['serial'])
             return copy.deepcopy(dict(self.status, device=self.device, release=offer,
                 bootloader_install=plan,
-                preview=self.preview, checking=self.checking, release_error=self.release_error))
+                preview=self.preview, checking=self.checking, release_error=self.release_error,
+                app_updating=self.app_updating))
 
     def refresh(self, preview=None):
         with self.lock:
-            if self.status['running']:
+            if self.status['running'] or self.app_updating:
                 raise UpdateError('An operation is already in progress.')
             if preview is not None and self.bootloader_install:
                 raise UpdateError('Finish or cancel the bootloader installation before changing release channels.')
@@ -61,7 +64,7 @@ class FlasherSession:
     def scan(self):
         with self.usb_lock:
             with self.lock:
-                if self.status['running']:
+                if self.status['running'] or self.app_updating:
                     return
             try:
                 device = probe()
@@ -121,9 +124,26 @@ class FlasherSession:
         with self.lock:
             self.status.update(message=message, progress=percent)
 
+    def app_restart_blocked(self):
+        # Keep uncertainty independent of the status display, which discovery
+        # may clear when a different radio appears.
+        return bool(self.status['running'] or self.bootloader_install or self.radio_unconfirmed)
+
+    def reserve_app_update(self):
+        with self.lock:
+            if self.app_updating or self.app_restart_blocked():
+                raise UpdateError('Finish the radio operation or recovery before updating ApexTX Flasher.')
+            self.app_updating = True
+
+    def acknowledge_radio(self):
+        with self.lock:
+            if self.status['running'] or self.bootloader_install or self.app_updating:
+                raise UpdateError('Finish or cancel the radio operation first.')
+            self.radio_unconfirmed = False
+
     def begin(self, operation):
         with self.lock:
-            if self.status['running']:
+            if self.status['running'] or self.app_updating:
                 raise UpdateError('An operation is already in progress.')
             self.status.update(running=True, error=False, progress=0, message='',
                                operation=operation, serial=self.device.get('serial'),
@@ -133,6 +153,8 @@ class FlasherSession:
         with self.lock:
             if error:
                 self.status.update(error=True, message=str(error))
+                if self.status['operation'] in ('upgrade', 'manual', 'recover', 'bootloader'):
+                    self.radio_unconfirmed = True
             self.status['running'] = False
         self.wake.set()
 
@@ -171,7 +193,7 @@ class FlasherSession:
 
     def cancel_bootloader(self):
         with self.lock:
-            if self.status['running']:
+            if self.status['running'] or self.app_updating:
                 raise UpdateError('An operation is already in progress.')
             self.bootloader_install = None
             self.status.update(operation=None, progress=0, message='', error=False, serial=None, target=None)

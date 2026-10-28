@@ -38,6 +38,9 @@ jobs:
       - name: Trust the container checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Install desktop signature verification
+        run: uv pip install --python "$(command -v python3)" -r tools/requirements-updater.txt
+
       - name: Validate NB4 tools and RF profile
         run: |
           python3 -m unittest discover -s tools/tests -p 'test_*.py'

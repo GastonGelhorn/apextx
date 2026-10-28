@@ -21,7 +21,9 @@ import functools
 import os
 import sys
 
-APP_VERSION = '1.2'
+from flasher_app_update import app_version, AppUpdateController, InstanceLease
+
+APP_VERSION = app_version()
 
 
 def package_self_test():
@@ -45,7 +47,11 @@ def package_self_test():
     from nb4_releases import Version
     if not Version('0.1.0-alpha.9') < Version('0.1.0-alpha.10'):
         raise RuntimeError('The shared release client could not be loaded.')
-    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True)
+    from flasher_app_update import trusted_keys
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    for value in trusted_keys().values():
+        Ed25519PublicKey.from_public_bytes(base64.b64decode(value, validate=True))
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True, app_updates=True)
 
 
 def _enable_bundled_libusb():
@@ -79,12 +85,34 @@ def _logo_data_uri():
         return ''
 
 
-def serve(port=0, open_browser=True):
+def serve(port=0, open_browser=True, startup_health=None):
     token = secrets.token_urlsafe(32)
     session = FlasherSession()
     lock, status = session.lock, session.status
-    monitor = threading.Thread(target=session.monitor, daemon=True)
+    window = None
+    restarting = threading.Event()
+    health_ready = threading.Event()
+    startup_failed = threading.Event()
+    if not startup_health:
+        health_ready.set()
+    else:
+        session.app_updating = True
+
+    def restart_app():
+        restarting.set()
+        if window is not None:
+            window.destroy()
+        server.shutdown()
+
+    app_updates = AppUpdateController(session, restart_app)
+
+    def monitor_radio():
+        health_ready.wait()
+        session.monitor()
+
+    monitor = threading.Thread(target=monitor_radio, daemon=True)
     monitor.start()
+    threading.Thread(target=app_updates.monitor, daemon=True).start()
 
     def progress(message, percent):
         with lock:
@@ -105,6 +133,7 @@ def serve(port=0, open_browser=True):
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
+                session.radio_unconfirmed = True
         finally:
             with lock:
                 status['running'] = False
@@ -156,6 +185,7 @@ def serve(port=0, open_browser=True):
         except Exception as error:
             with lock:
                 status.update(message=str(error), error=True)
+                session.radio_unconfirmed = True
         finally:
             with lock:
                 status['running'] = False
@@ -197,7 +227,20 @@ def serve(port=0, open_browser=True):
                             .replace('__HOST_PLATFORM__', sys.platform))
                 self.reply(200, page.encode(), 'text/html; charset=utf-8')
             elif self.path == '/api/status':
-                self.reply(200, session.snapshot())
+                if startup_health and not health_ready.is_set() and not startup_failed.is_set():
+                    try:
+                        startup_health()
+                    except Exception as error:
+                        startup_failed.set()
+                        app_updates.state.update(state='error', error=str(error))
+                    else:
+                        with lock:
+                            session.app_updating = False
+                        health_ready.set()
+                result = session.snapshot()
+                result['app_update'] = app_updates.snapshot()
+                result['radio_unconfirmed'] = session.radio_unconfirmed
+                self.reply(200, result)
             else:
                 self.reply(404, {'error': 'Not found.'})
 
@@ -206,7 +249,34 @@ def serve(port=0, open_browser=True):
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
             request_path = urlparse(self.path).path
-            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade',
+            if request_path.startswith('/api/app-update/'):
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    if not 0 <= size <= 2048:
+                        raise ValueError('Invalid request size.')
+                    self.connection.settimeout(15)
+                    data = json.loads(self.rfile.read(size) or b'{}')
+                    if not isinstance(data, dict):
+                        raise ValueError('Invalid request.')
+                    if request_path.endswith('/check'):
+                        app_updates.check(data.get('preview'), manual=True)
+                    elif request_path.endswith('/install'):
+                        if type(data.get('relocate', False)) is not bool:
+                            raise ValueError('Invalid installation location.')
+                        app_updates.install(data.get('version'), data.get('relocate', False))
+                    elif request_path.endswith('/later'):
+                        app_updates.defer()
+                    elif request_path.endswith('/skip'):
+                        app_updates.defer(skip=True)
+                    elif request_path.endswith('/acknowledge-radio'):
+                        session.acknowledge_radio()
+                    else:
+                        raise ValueError('Unknown app update action.')
+                    self.reply(202, {'ok': True})
+                except (OSError, ValueError, RuntimeError) as error:
+                    self.reply(409, {'error': str(error)})
+                return
+            if request_path in ('/api/refresh' , '/api/channel', '/api/upgrade',
                                 '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel'):
                 try:
                     size = int(self.headers.get('Content-Length', '0'))
@@ -267,7 +337,7 @@ def serve(port=0, open_browser=True):
                 self.reply(400, {'error': str(error)})
                 return
             with lock:
-                if status['running']:
+                if status['running'] or session.app_updating:
                     self.reply(409, {'error': 'An operation is already in progress.'})
                     return
                 if session.bootloader_install:
@@ -305,7 +375,9 @@ def serve(port=0, open_browser=True):
                                            width=860, height=940, min_size=(560, 680))
             def can_close():
                 with lock:
-                    return not status['running']
+                    return (restarting.is_set() or
+                            startup_failed.is_set() and not status['running'] or
+                            not (session.app_updating or session.app_restart_blocked()))
             window.events.closing += can_close
             webview.start()
         except Exception:
@@ -316,6 +388,7 @@ def serve(port=0, open_browser=True):
                 pass
         finally:
             session.stop.set()
+            app_updates.stopped.set()
             server.shutdown()
             server.server_close()
         return
@@ -327,6 +400,7 @@ def serve(port=0, open_browser=True):
         pass
     finally:
         session.stop.set()
+        app_updates.stopped.set()
         server.server_close()
 
 
@@ -339,7 +413,28 @@ def main():
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--self-test', type=Path, metavar='REPORT.json',
                         help='Check the packaged app without accessing a radio and write a report.')
+    parser.add_argument('--apply-app-update', type=Path, nargs=2, metavar=('TRANSACTION', 'NONCE'), help=argparse.SUPPRESS)
+    parser.add_argument('--app-update-start', type=Path, nargs=2, metavar=('TRANSACTION', 'NONCE'), help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.apply_app_update:
+        from flasher_app_installer import run_helper
+        run_helper(args.apply_app_update[0], str(args.apply_app_update[1]))
+        return
+    lease = None
+    startup_health = None
+    if not args.self_test and not args.check:
+        lease = InstanceLease(update_nonce=str(args.app_update_start[1]) if args.app_update_start else None)
+        if args.app_update_start:
+            from flasher_app_installer import startup_handshake
+            startup_health = startup_handshake(args.app_update_start[0], str(args.app_update_start[1]), APP_VERSION)
+        elif getattr(sys, 'frozen', False):
+            from flasher_app_installer import recover_interrupted
+            if recover_interrupted():
+                lease.close()
+                import subprocess
+                from flasher_app_installer import clean_environment
+                subprocess.Popen([sys.executable], env=clean_environment())
+                return
     _enable_bundled_libusb()
     try:
         if args.self_test:
@@ -366,9 +461,12 @@ def main():
             # A packaged build opens the UI in a native window by default.
             if getattr(sys, 'frozen', False):
                 os.environ.setdefault('APEXTX_UPDATER_WINDOW', '1')
-            serve(args.port, not args.no_browser)
+            serve(args.port, not args.no_browser, startup_health)
     except Exception as error:
         parser.exit(1, f'Error: {error}\n')
+    finally:
+        if lease:
+            lease.close()
 
 
 if __name__ == '__main__':
