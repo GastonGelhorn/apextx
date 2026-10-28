@@ -32,4 +32,5 @@ void nb4RfUpdateTestReset();
 void nb4RfUpdateTestBeginValidation(bool recovery);
 bool nb4RfUpdateTestEntryProbeActive();
 void nb4RfUpdateTestRequireRecovery();
+void nb4RfUpdateTestStartModule();
 #endif

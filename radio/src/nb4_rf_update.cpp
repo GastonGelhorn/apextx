@@ -35,6 +35,7 @@ bool journalDamaged = false, entryProbeStarted = false, entryProbeFinished = fal
 uint32_t entryProbeEpoch = 0;
 #if defined(NB4_RF_UPDATE_BENCH)
 std::atomic<uint32_t> rxWireBytes{0}, rxFrames{0}, lastRxMeta{0}, lastRfRxMeta{0}, lastRfValue{0}, txRequests{0}, lastTxOpcode{0};
+std::atomic<uint32_t> faultFlags{0}, txResponses{0};
 #endif
 bool benchArmed = false;
 unsigned imageIndex = 0;
@@ -59,7 +60,14 @@ struct Packet {
 Packet outgoing{};
 std::atomic<bool> transmit{false}, overflow{false}, requestPending{false}, abortTransport{false}, disconnected{false};
 std::atomic<bool> releaseEntryRequest{false};
-Fifo<Packet, 8> received;
+struct ReceivedPacket {
+  uint8_t type, opcode, sequence, size;
+  uint8_t data[14];
+  uint32_t generation;
+};
+Fifo<ReceivedPacket, 8> received;
+ReceivedPacket lastReceived{}; // Only the RX producer writes this cache.
+std::atomic<uint32_t> receivedGeneration{0}, consumedGeneration{0};
 struct Journal {
   uint8_t magic[8];
   uint32_t sequence;
@@ -171,6 +179,7 @@ bool send(void*, bool response, uint8_t opcode, uint8_t sequence,
   if (transmit.load(std::memory_order_acquire) || count > sizeof(outgoing.data)) return false;
   outgoing = {uint8_t(response ? 0x10 : 3), opcode, sequence, count, {}};
   if (count) memcpy(outgoing.data, data, count);
+  if (response && opcode == 0x22) releaseEntryRequest = true;
   transmit.store(true, std::memory_order_release);
   return true;
 }
@@ -195,11 +204,12 @@ void status(char* output, size_t capacity) {
   if (size && size < capacity)
     snprintf(output + size - 1, capacity - size + 1,
         ",\"entry_probe\":%s,\"boot_peer_bytes\":%lu,\"rx_wire_bytes\":%lu,\"rx_frames\":%lu,"
-        "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu}",
+        "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu,"
+        "\"fault_flags\":%lu,\"tx_responses\":%lu}",
         entryProbeStarted && !entryProbeFinished ? "true" : "false", (unsigned long)pinnedPeerLength,
         (unsigned long)rxWireBytes.load(), (unsigned long)rxFrames.load(), (unsigned long)lastRxMeta.load(),
         (unsigned long)lastRfRxMeta.load(), (unsigned long)lastRfValue.load(), (unsigned long)txRequests.load(),
-        (unsigned long)lastTxOpcode.load());
+        (unsigned long)lastTxOpcode.load(), (unsigned long)faultFlags.load(), (unsigned long)txResponses.load());
 #endif
 }
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
@@ -283,10 +293,18 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
     if (outgoing.type == 0x10) {
       if (!transport.queueResponse(afhds3::COMMAND(outgoing.opcode), outgoing.sequence,
                                    outgoing.data, outgoing.size)) { transport.skipFrame(); return true; }
+#if defined(NB4_RF_UPDATE_BENCH)
+      ++txResponses;
+#endif
       transport.skipFrame();
     } else {
       if (transport.waiting() && transport.handleRetransmissions(error)) return true;
-      if (error) overflow.store(true);
+      if (error) {
+        overflow.store(true);
+#if defined(NB4_RF_UPDATE_BENCH)
+        faultFlags.fetch_or(4);
+#endif
+      }
       transport.putFrame(afhds3::COMMAND(outgoing.opcode), afhds3::REQUEST_SET_EXPECT_ACK,
                           outgoing.data, outgoing.size);
 #if defined(NB4_RF_UPDATE_BENCH)
@@ -300,7 +318,12 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
   if (linkOwned.load()) {
     bool error = false;
     if (transport.waiting() && transport.handleRetransmissions(error)) return true;
-    if (error) overflow.store(true);
+    if (error) {
+      overflow.store(true);
+#if defined(NB4_RF_UPDATE_BENCH)
+      faultFlags.fetch_or(4);
+#endif
+    }
     transport.skipFrame(); return true;
   }
   return false;
@@ -320,10 +343,33 @@ void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
 #endif
   if (opcode < 0x22 || opcode > 0x33) return;
   if (type == 0x20 || type == 0x10) requestPending = false;
-  if (length > 14 || received.isFull()) { overflow.store(true); return; }
-  Packet packet{type, opcode, sequence, uint8_t(length), {}};
+  if (type == 0x20) return;
+  if (length > sizeof(ReceivedPacket::data)) {
+    overflow.store(true);
+#if defined(NB4_RF_UPDATE_BENCH)
+    faultFlags.fetch_or(1);
+#endif
+    return;
+  }
+  const auto previous = receivedGeneration.load(std::memory_order_acquire);
+  // Coalesce only a retry still waiting in the queue. Once consumed, another
+  // retry must be accepted in case its response was delayed or lost.
+  if (previous != consumedGeneration.load(std::memory_order_acquire) &&
+      type == lastReceived.type && opcode == lastReceived.opcode &&
+      sequence == lastReceived.sequence && length == lastReceived.size &&
+      (!length || !memcmp(data, lastReceived.data, length))) return;
+  if (received.isFull()) {
+    overflow.store(true);
+#if defined(NB4_RF_UPDATE_BENCH)
+    faultFlags.fetch_or(2);
+#endif
+    return;
+  }
+  ReceivedPacket packet{type, opcode, sequence, uint8_t(length), {}, previous + 1};
   if (length) memcpy(packet.data, data, length);
+  lastReceived = packet;
   received.push(packet);
+  receivedGeneration.store(packet.generation, std::memory_order_release);
 }
 #if defined(NB4_RF_UPDATE_BENCH)
 void nb4RfUpdateRxByte() { if (linkOwned.load()) ++rxWireBytes; }
@@ -536,10 +582,13 @@ void nb4RfUpdateService() {
         if (!recovering) engine.fail(RfUpdateError::Storage);
         startRequested = validated = false; closeImage(); return;
       }
-      received.clear(); transmit = overflow = requestPending = false;
+      linkOwned = false;
+      received.clear(); consumedGeneration = receivedGeneration.load();
+      transmit = overflow = requestPending = false;
       abortTransport = true;
 #if defined(NB4_RF_UPDATE_BENCH)
       rxWireBytes = rxFrames = lastRxMeta = lastRfRxMeta = lastRfValue = txRequests = lastTxOpcode = 0;
+      faultFlags = txResponses = 0;
 #endif
       verifyBaseline = afhds3::getVersionEpoch(0);
       drivingLocked = linkOwned = true;
@@ -550,9 +599,11 @@ void nb4RfUpdateService() {
     }
   }
   if (overflow.exchange(false)) engine.fail(RfUpdateError::Protocol);
-  Packet packet;
-  for (unsigned i = 0; i < 4 && received.pop(packet); ++i)
+  ReceivedPacket packet;
+  for (unsigned i = 0; i < 4 && received.pop(packet); ++i) {
+    consumedGeneration.store(packet.generation, std::memory_order_release);
     engine.receive(packet.type, packet.opcode, packet.sequence, packet.data, packet.size, now, io);
+  }
   engine.service(now, io);
   if (startRequested && engine.phase() == RfUpdatePhase::VerifyVersion &&
       !transmit.load() && !requestPending.load()) {
@@ -598,6 +649,15 @@ void nb4RfUpdateTestReset() {
   linkOwned = drivingLocked = false; startupReady = true;
   transmit = overflow = requestPending = abortTransport = disconnected = releaseEntryRequest = false;
   initializing = true; received.clear();
+  receivedGeneration = consumedGeneration = 0; lastReceived = {};
+}
+void nb4RfUpdateTestStartModule() {
+  initializing = false; startupReady = true; imageIndex = 0; operation = 17;
+  identity = {1, 1, rfImages[0].reportedProduct, 0x10003, rfImages[0].version, 0, 0, 0x30000};
+  engine.prepare(rfImages[0], identity, operation, true);
+  const auto now = uint32_t(get_tmr10ms()) * 10;
+  engine.start(identity, now); drivingLocked = linkOwned = true;
+  engine.service(now, io);
 }
 void nb4RfUpdateTestBeginValidation(bool recovery) {
   recovering = recovery; startRequested = validating = true;

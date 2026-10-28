@@ -8,6 +8,7 @@
 #include "nb4_sha256.h"
 #include "nb4_rf_update.h"
 #include "nb4_rf_images.h"
+#include "pulses/afhds3_transport.h"
 #include "nb4_maintenance_protocol.h"
 #include "nb4_history.h"
 #include "bootloader/nb4_update_id.h"
@@ -227,6 +228,39 @@ TEST(Nb4RfUpdate, NoImageByteIsSentBeforeBootIdentityIsDurablyPinned) {
   EXPECT_EQ(core.transferred(), 0u);
   EXPECT_EQ(core.error(), RfUpdateError::Protocol);
   EXPECT_EQ(peer.payload, previous);
+}
+
+TEST(Nb4RfUpdate, BootReadyStopsEntryRetriesAndCoalescesOnlyUnconsumedRetransmissions) {
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  uint8_t buffer[MODULE_BUFFER_SIZE]{}; afhds3::Transport transport;
+  transport.init(buffer, nullptr, 0x14);
+  nb4RfUpdateTestStartModule();
+  ASSERT_TRUE(nb4RfUpdateFrame(transport)); ASSERT_TRUE(transport.waiting());
+  transport.sendBuffer();
+  for (unsigned i = 0; i < 32; ++i) nb4RfUpdateReceive(2, 0x22, 90, nullptr, 0);
+  nb4RfUpdateService();
+  ASSERT_FALSE(nb4RfUpdateNeedsRecovery());
+  ASSERT_TRUE(nb4RfUpdateFrame(transport)); EXPECT_FALSE(transport.waiting());
+  transport.sendBuffer();
+  const auto& sent = transport.getDiagnostics();
+  ASSERT_EQ(sent.txFrames, 2u);
+  ASSERT_GE(sent.lastTxSize, 7u);
+  EXPECT_EQ(sent.lastTx[1], 90); EXPECT_EQ(sent.lastTx[2], 0x10);
+  EXPECT_EQ(sent.lastTx[3], 0x22); EXPECT_EQ(sent.lastTx[4], 1);
+  for (unsigned i = 0; i < 100; ++i) nb4RfUpdateFrame(transport);
+  nb4RfUpdateService(); EXPECT_FALSE(nb4RfUpdateNeedsRecovery());
+  nb4RfUpdateReceive(2, 0x22, 90, nullptr, 0);
+  nb4RfUpdateService(); nb4RfUpdateFrame(transport); transport.sendBuffer();
+  EXPECT_EQ(sent.txFrames, 3u); EXPECT_EQ(sent.lastTx[1], 90);
+}
+TEST(Nb4RfUpdate, DistinctRequestsStillRespectTheBoundedReceiveQueue) {
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  nb4RfUpdateTestStartModule();
+  for (unsigned i = 0; i < 8; ++i) nb4RfUpdateReceive(2, 0x22, i, nullptr, 0);
+  nb4RfUpdateService();
+  EXPECT_TRUE(nb4RfUpdateNeedsRecovery()); EXPECT_TRUE(nb4RfUpdateDrivingLocked());
 }
 
 namespace {
