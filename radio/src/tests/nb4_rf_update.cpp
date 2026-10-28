@@ -218,6 +218,33 @@ TEST(Nb4RfUpdate, RecoveryRestartsTheWholeImageAndRejectsADifferentBootPeer) {
   core.verifyVersion(image.product, image.version, true);
   EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
 }
+TEST(Nb4RfUpdate, PinnedModuleRecoveryCanRepeatMetadataAfterAWarmRadioRestart) {
+  auto module = image; module.receiver = false;
+  RfUpdateCore core; Peer peer;
+  ASSERT_TRUE(core.prepare(module, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io()); boot(core, peer);
+  const auto saved = peer.checkpoint;
+  core.fail(RfUpdateError::Timeout);
+  ASSERT_TRUE(core.recover(module, identity, 1, saved.data(), saved.size(), 20));
+  core.service(20, peer.io());
+  core.receive(1, 0x25, 91, nullptr, 0, 21, peer.io());
+  ASSERT_EQ(core.error(), RfUpdateError::None);
+  ASSERT_EQ(peer.opcode, 0x25); ASSERT_EQ(peer.payload.size(), 10u);
+  EXPECT_EQ(peer.payload[6], module.size);
+  chunk(core, peer, 0, module.size);
+  const uint8_t success = 1;
+  core.receive(3, 0x27, 92, &success, 1, 22, peer.io()); core.service(22, peer.io());
+  core.verifyVersion(module.product, module.version, true);
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
+  RfUpdateCore changed;
+  changed.requireRecovery(RfUpdateError::Timeout);
+  ASSERT_TRUE(changed.recover(module, identity, 1, saved.data(), saved.size(), 20));
+  changed.service(20, peer.io());
+  auto different = saved; different[0] ^= 1;
+  changed.receive(2, 0x24, 93, different.data(), different.size(), 21, peer.io());
+  EXPECT_EQ(changed.error(), RfUpdateError::IdentityChanged);
+  EXPECT_EQ(changed.transferred(), 0u);
+}
 TEST(Nb4RfUpdate, NoImageByteIsSentBeforeBootIdentityIsDurablyPinned) {
   RfUpdateCore core; Peer peer;
   ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
@@ -258,9 +285,20 @@ TEST(Nb4RfUpdate, DistinctRequestsStillRespectTheBoundedReceiveQueue) {
   nb4RfUpdateTestReset();
   struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
   nb4RfUpdateTestStartModule();
-  for (unsigned i = 0; i < 8; ++i) nb4RfUpdateReceive(2, 0x22, i, nullptr, 0);
+  for (unsigned i = 0; i < 32; ++i) nb4RfUpdateReceive(2, 0x22, i, nullptr, 0);
   nb4RfUpdateService();
   EXPECT_TRUE(nb4RfUpdateNeedsRecovery()); EXPECT_TRUE(nb4RfUpdateDrivingLocked());
+}
+TEST(Nb4RfUpdate, BootIdentityStopsEntryRetriesBeforeTheMaintenanceTaskCanCheckpoint) {
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  uint8_t buffer[MODULE_BUFFER_SIZE]{}; afhds3::Transport transport;
+  transport.init(buffer, nullptr, 0x14); nb4RfUpdateTestStartModule();
+  ASSERT_TRUE(nb4RfUpdateFrame(transport)); ASSERT_TRUE(transport.waiting());
+  const uint8_t bootIdentity[]{0x21, 0, 1, 0};
+  nb4RfUpdateReceive(2, 0x24, 90, bootIdentity, sizeof(bootIdentity));
+  ASSERT_TRUE(nb4RfUpdateFrame(transport));
+  EXPECT_FALSE(transport.waiting()); EXPECT_FALSE(nb4RfUpdateNeedsRecovery());
 }
 
 namespace {

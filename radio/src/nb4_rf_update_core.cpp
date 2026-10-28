@@ -75,6 +75,10 @@ bool RfUpdateCore::recover(const RfUpdateImage& image, const RfUpdateIdentity& i
   }
   if (length) memcpy(peer_, peer, length);
   peerLength_ = length;
+  // An internal module can retain its metadata request across a warm radio
+  // restart. Its unit-bound durable checkpoint remains usable; an external
+  // receiver must still provide its boot identity again.
+  peerPinned_ = length && !image.receiver;
   return start(identity, now);
 }
 bool RfUpdateCore::ownsLink() const {

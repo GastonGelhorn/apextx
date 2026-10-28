@@ -36,6 +36,7 @@ uint32_t entryProbeEpoch = 0;
 #if defined(NB4_RF_UPDATE_BENCH)
 std::atomic<uint32_t> rxWireBytes{0}, rxFrames{0}, lastRxMeta{0}, lastRfRxMeta{0}, lastRfValue{0}, txRequests{0}, lastTxOpcode{0};
 std::atomic<uint32_t> faultFlags{0}, txResponses{0};
+std::atomic<uint32_t> checkpointMs{0};
 #endif
 bool benchArmed = false;
 unsigned imageIndex = 0;
@@ -60,12 +61,13 @@ struct Packet {
 Packet outgoing{};
 std::atomic<bool> transmit{false}, overflow{false}, requestPending{false}, abortTransport{false}, disconnected{false};
 std::atomic<bool> releaseEntryRequest{false};
+std::atomic<bool> awaitingModuleEntryAck{false};
 struct ReceivedPacket {
   uint8_t type, opcode, sequence, size;
   uint8_t data[14];
   uint32_t generation;
 };
-Fifo<ReceivedPacket, 8> received;
+Fifo<ReceivedPacket, 32> received;
 ReceivedPacket lastReceived{}; // Only the RX producer writes this cache.
 std::atomic<uint32_t> receivedGeneration{0}, consumedGeneration{0};
 struct Journal {
@@ -165,7 +167,13 @@ bool checkpoint(void*, const uint8_t* peer, uint8_t length) {
   if (length > sizeof(pinnedPeer) || (pinnedPeerLength &&
       (length != pinnedPeerLength || memcmp(pinnedPeer, peer, length)))) return false;
   memcpy(pinnedPeer, peer, length); pinnedPeerLength = length;
+#if defined(NB4_RF_UPDATE_BENCH)
+  const auto began = get_tmr10ms();
+#endif
   journalValid = journal(RfUpdatePhase::Transfer);
+#if defined(NB4_RF_UPDATE_BENCH)
+  checkpointMs = uint32_t(tmr10ms_t(get_tmr10ms() - began)) * 10;
+#endif
   if (journalValid) releaseEntryRequest = true;
   return journalValid;
 }
@@ -205,11 +213,12 @@ void status(char* output, size_t capacity) {
     snprintf(output + size - 1, capacity - size + 1,
         ",\"entry_probe\":%s,\"boot_peer_bytes\":%lu,\"rx_wire_bytes\":%lu,\"rx_frames\":%lu,"
         "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu,"
-        "\"fault_flags\":%lu,\"tx_responses\":%lu}",
+        "\"fault_flags\":%lu,\"tx_responses\":%lu,\"checkpoint_ms\":%lu}",
         entryProbeStarted && !entryProbeFinished ? "true" : "false", (unsigned long)pinnedPeerLength,
         (unsigned long)rxWireBytes.load(), (unsigned long)rxFrames.load(), (unsigned long)lastRxMeta.load(),
         (unsigned long)lastRfRxMeta.load(), (unsigned long)lastRfValue.load(), (unsigned long)txRequests.load(),
-        (unsigned long)lastTxOpcode.load(), (unsigned long)faultFlags.load(), (unsigned long)txResponses.load());
+        (unsigned long)lastTxOpcode.load(), (unsigned long)faultFlags.load(), (unsigned long)txResponses.load(),
+        (unsigned long)checkpointMs.load());
 #endif
 }
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
@@ -285,8 +294,14 @@ bool nb4RfUpdateLocalStart(bool recovery) {
 }
 bool nb4RfUpdateDrivingLocked() { return drivingLocked.load(); }
 bool nb4RfUpdateFrame(afhds3::Transport& transport) {
-  if (abortTransport.exchange(false)) { transport.clear(); transport.skipFrame(); return true; }
-  if (releaseEntryRequest.exchange(false)) { transport.cancelPendingRequest(); requestPending = false; }
+  if (abortTransport.exchange(false)) {
+    awaitingModuleEntryAck = false;
+    transport.clear(); transport.skipFrame(); return true;
+  }
+  if (releaseEntryRequest.exchange(false)) {
+    awaitingModuleEntryAck = false;
+    transport.cancelPendingRequest(); requestPending = false;
+  }
   if (!startupReady.load()) { transport.skipFrame(); return true; }
   if (transmit.load(std::memory_order_acquire)) {
     bool error = false;
@@ -307,6 +322,7 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
       }
       transport.putFrame(afhds3::COMMAND(outgoing.opcode), afhds3::REQUEST_SET_EXPECT_ACK,
                           outgoing.data, outgoing.size);
+      awaitingModuleEntryAck = outgoing.opcode == 0x23;
 #if defined(NB4_RF_UPDATE_BENCH)
       ++txRequests; lastTxOpcode = outgoing.opcode;
 #endif
@@ -342,6 +358,11 @@ void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
   }
 #endif
   if (opcode < 0x22 || opcode > 0x33) return;
+  // The bootloader may already be running and never acknowledge the entry
+  // command. Stop its retries before a durable checkpoint can block the UI.
+  if (((type == 2 && ((opcode == 0x22 && !length) || (opcode == 0x24 && length == 4))) ||
+       (type == 1 && opcode == 0x25 && !length)) &&
+      awaitingModuleEntryAck.exchange(false)) releaseEntryRequest = true;
   if (type == 0x20 || type == 0x10) requestPending = false;
   if (type == 0x20) return;
   if (length > sizeof(ReceivedPacket::data)) {
@@ -589,6 +610,7 @@ void nb4RfUpdateService() {
 #if defined(NB4_RF_UPDATE_BENCH)
       rxWireBytes = rxFrames = lastRxMeta = lastRfRxMeta = lastRfValue = txRequests = lastTxOpcode = 0;
       faultFlags = txResponses = 0;
+      checkpointMs = 0;
 #endif
       verifyBaseline = afhds3::getVersionEpoch(0);
       drivingLocked = linkOwned = true;
@@ -648,6 +670,7 @@ void nb4RfUpdateTestReset() {
   journalDamaged = entryProbeStarted = entryProbeFinished = false;
   linkOwned = drivingLocked = false; startupReady = true;
   transmit = overflow = requestPending = abortTransport = disconnected = releaseEntryRequest = false;
+  awaitingModuleEntryAck = false;
   initializing = true; received.clear();
   receivedGeneration = consumedGeneration = 0; lastReceived = {};
 }
