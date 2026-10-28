@@ -125,8 +125,10 @@ void RfUpdateCore::receive(uint8_t type, uint8_t opcode, uint8_t sequence,
   }
   if ((image_.receiver && opcode == 0x33 && type == 3 && length == 14) ||
       (!image_.receiver && opcode == 0x24 && type == 2 && length == 4)) {
+    // Receiver entry reports the installed application version, followed by
+    // its payload length and CRC. These are not bootloader or hardware IDs.
     if ((image_.receiver && (u32(data) != image_.product ||
-          (data[4] | (uint32_t(data[5]) << 8)) != identity_.bootloader)) ||
+          (data[4] | (uint32_t(data[5]) << 8)) != identity_.version)) ||
         (!image_.receiver && !u32(data)) ||
         (peerLength_ && (length != peerLength_ || memcmp(peer_, data, length)))) {
       fail(RfUpdateError::IdentityChanged); return;
@@ -155,14 +157,22 @@ void RfUpdateCore::receive(uint8_t type, uint8_t opcode, uint8_t sequence,
   if (opcode == (image_.receiver ? 0x31 : 0x26) && type == 1) {
     if (!manifest_ || !peerPinned_ || length != 5) { fail(RfUpdateError::Protocol); return; }
     const uint32_t offset = u32(data); const unsigned count = data[4];
-    if (!count || count > maxChunk || offset > image_.size || count > image_.size - offset) {
+    // Receiver transport fetches four aligned 64-byte blocks per window,
+    // including the final partial window. Padding never reads past the image
+    // and cannot satisfy coverage of a missing firmware byte.
+    const uint32_t limit = image_.receiver && count == 64 && !(offset & 63) ?
+        (image_.size + 255u) & ~255u : image_.size;
+    if (!count || count > maxChunk || offset > limit || count > limit - offset) {
       fail(RfUpdateError::Bounds); return;
     }
+    const auto available = offset < image_.size ? image_.size - offset : 0;
+    const auto readSize = available < count ? available : count;
     uint8_t response[5 + maxChunk];
     memcpy(response, data, 5);
-    if (!io.read(io.context, offset, response + 5, count)) { fail(RfUpdateError::Storage); return; }
+    memset(response + 5, 0xff, count);
+    if (readSize && !io.read(io.context, offset, response + 5, readSize)) { fail(RfUpdateError::Storage); return; }
     if (!io.send(io.context, true, opcode, sequence, response, 5 + count)) return;
-    for (uint32_t i = offset; i < offset + count; ++i) {
+    for (uint32_t i = offset; i < offset + readSize; ++i) {
       const uint8_t bit = 1u << (i & 7);
       if (!(coverage_[i / 8] & bit)) { coverage_[i / 8] |= bit; ++covered_; }
     }

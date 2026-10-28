@@ -27,6 +27,20 @@ its name or product ID. NB4+ readings still require independent confirmation.
 These versions already match the prepared images, so a normal upgrade performs
 no RF write. Bench reinstallation must be selected explicitly.
 
+The 14-byte receiver entry response contains product, installed application
+version, payload length and CRC. Its version must match the application's
+live reading, not the bootloader word. The complete response is checkpointed
+before image data. It describes the installed image; it is not a receiver
+serial number. Recovery retains the bound car configuration and currently
+requires that same response. Recovery after an interruption that changes this
+manifest remains unqualified and must not be advertised as supported.
+
+Receiver transport requests aligned 64-byte blocks in 256-byte windows. The
+last window is padded with `0xff` in memory, without reading beyond the staged
+file. Only actual image bytes contribute to transfer coverage. Unaligned
+out-of-image requests, requests beyond that final window and padding for the
+internal module remain rejected.
+
 ## Build for exactly one transmitter
 
 Use the qualified compiler and normal target flags described in the repository

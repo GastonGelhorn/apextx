@@ -37,6 +37,7 @@ uint32_t entryProbeEpoch = 0;
 std::atomic<uint32_t> rxWireBytes{0}, rxFrames{0}, lastRxMeta{0}, lastRfRxMeta{0}, lastRfValue{0}, txRequests{0}, lastTxOpcode{0};
 std::atomic<uint32_t> faultFlags{0}, txResponses{0};
 std::atomic<uint32_t> checkpointMs{0};
+std::atomic<uint32_t> bootReplyWords[4]{};
 #endif
 bool benchArmed = false;
 unsigned imageIndex = 0;
@@ -213,12 +214,14 @@ void status(char* output, size_t capacity) {
     snprintf(output + size - 1, capacity - size + 1,
         ",\"entry_probe\":%s,\"boot_peer_bytes\":%lu,\"rx_wire_bytes\":%lu,\"rx_frames\":%lu,"
         "\"last_rx_meta\":%lu,\"last_rf_rx_meta\":%lu,\"last_rf_value\":%lu,\"tx_requests\":%lu,\"last_tx_opcode\":%lu,"
-        "\"fault_flags\":%lu,\"tx_responses\":%lu,\"checkpoint_ms\":%lu}",
+        "\"fault_flags\":%lu,\"tx_responses\":%lu,\"checkpoint_ms\":%lu,\"boot_reply\":[%lu,%lu,%lu,%lu]}",
         entryProbeStarted && !entryProbeFinished ? "true" : "false", (unsigned long)pinnedPeerLength,
         (unsigned long)rxWireBytes.load(), (unsigned long)rxFrames.load(), (unsigned long)lastRxMeta.load(),
         (unsigned long)lastRfRxMeta.load(), (unsigned long)lastRfValue.load(), (unsigned long)txRequests.load(),
         (unsigned long)lastTxOpcode.load(), (unsigned long)faultFlags.load(), (unsigned long)txResponses.load(),
-        (unsigned long)checkpointMs.load());
+        (unsigned long)checkpointMs.load(), (unsigned long)bootReplyWords[0].load(),
+        (unsigned long)bootReplyWords[1].load(), (unsigned long)bootReplyWords[2].load(),
+        (unsigned long)bootReplyWords[3].load());
 #endif
 }
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
@@ -346,6 +349,12 @@ bool nb4RfUpdateFrame(afhds3::Transport& transport) {
 }
 void nb4RfUpdateReceive(uint8_t type, uint8_t opcode, uint8_t sequence,
                         const uint8_t* data, size_t length) {
+#if defined(NB4_RF_UPDATE_BENCH)
+  if (type == 3 && opcode == 0x33 && length == 14) {
+    for (unsigned i = 0; i < 3; ++i) bootReplyWords[i] = get32(data + i * 4);
+    bootReplyWords[3] = data[12] | uint32_t(data[13]) << 8;
+  }
+#endif
   if (!linkOwned.load()) return;
 #if defined(NB4_RF_UPDATE_BENCH)
   ++rxFrames;
@@ -673,6 +682,9 @@ void nb4RfUpdateTestReset() {
   awaitingModuleEntryAck = false;
   initializing = true; received.clear();
   receivedGeneration = consumedGeneration = 0; lastReceived = {};
+#if defined(NB4_RF_UPDATE_BENCH)
+  for (auto& word : bootReplyWords) word = 0;
+#endif
 }
 void nb4RfUpdateTestStartModule() {
   initializing = false; startupReady = true; imageIndex = 0; operation = 17;

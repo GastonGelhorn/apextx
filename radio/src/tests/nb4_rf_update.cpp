@@ -23,8 +23,10 @@ struct Peer {
   bool response = false, disk = true, writable = true;
   std::vector<uint8_t> payload;
   std::vector<uint8_t> checkpoint;
+  std::vector<std::pair<uint32_t, size_t>> reads;
   RfUpdateIo io() {
     return {this, [](void* ctx, uint32_t at, uint8_t* out, size_t size) {
+      static_cast<Peer*>(ctx)->reads.emplace_back(at, size);
       for (size_t i = 0; i < size; ++i) out[i] = uint8_t(at + i);
       return static_cast<Peer*>(ctx)->disk;
     }, [](void* ctx, bool response, uint8_t opcode, uint8_t sequence,
@@ -45,7 +47,7 @@ const uint8_t hash[32]{};
 const RfUpdateIdentity identity{3, 4, 0x12340004, 7, 0x112, 0x103};
 const RfUpdateImage image{0x12340004, 0x113, 20, hash, true};
 void boot(RfUpdateCore& core, Peer& peer) {
-  const uint8_t receiver[] = {4,0,0x34,0x12,3,1,1,2,3,4,5,6,7,8};
+  const uint8_t receiver[] = {4,0,0x34,0x12,0x12,1,1,2,3,4,5,6,7,8};
   const uint8_t module[] = {3,1,0,0};
   core.receive(core.receiver() ? 3 : 2, core.receiver() ? 0x33 : 0x24, 90,
                core.receiver() ? receiver : module, core.receiver() ? 14 : 4, 90, peer.io());
@@ -133,6 +135,30 @@ TEST(Nb4RfUpdate, DuplicateAndOutOfOrderChunksCountEachByteOnceAndVerifyFreshVer
   core.verifyVersion(image.product, image.version, true);
   EXPECT_EQ(core.phase(), RfUpdatePhase::Complete);
 }
+TEST(Nb4RfUpdate, ReceiverEntryChecksTheCurrentApplicationVersionInsteadOfTheBootloader) {
+  const RfUpdateIdentity current{3,4,0x12340006,0x104,0x111,0x107,0x104,0x301};
+  const RfUpdateImage candidate{0x12340006,0x111,50596,image.sha256,true};
+  const uint8_t manifest[]{6,0,0x34,0x12,0x11,1,0xa0,0xc5,0,0,0x75,0xf7,0x72,0xbf};
+  Peer peer; RfUpdateCore core;
+  ASSERT_TRUE(core.prepare(candidate,current,1,true)); ASSERT_TRUE(core.start(current,0));
+  core.service(0,peer.io());
+  core.receive(3,0x33,90,manifest,sizeof(manifest),1,peer.io());
+  ASSERT_EQ(core.error(),RfUpdateError::None);
+  EXPECT_EQ(peer.checkpoint,(std::vector<uint8_t>(manifest,manifest+sizeof(manifest))));
+  const uint8_t request[]{0,0,0,0,64};
+  core.receive(1,0x31,91,request,sizeof(request),2,peer.io());
+  EXPECT_EQ(core.transferred(),64u);
+  for (const uint16_t changed : {0x107,0x110,0x112}) {
+    Peer rejected; RfUpdateCore other;
+    ASSERT_TRUE(other.prepare(candidate,current,2,true)); ASSERT_TRUE(other.start(current,0));
+    other.service(0,rejected.io());
+    auto wrong=std::vector<uint8_t>(manifest,manifest+sizeof(manifest));
+    wrong[4]=uint8_t(changed); wrong[5]=uint8_t(changed>>8);
+    other.receive(3,0x33,90,wrong.data(),wrong.size(),1,rejected.io());
+    EXPECT_EQ(other.error(),RfUpdateError::IdentityChanged);
+    EXPECT_EQ(other.transferred(),0u); EXPECT_TRUE(rejected.checkpoint.empty());
+  }
+}
 TEST(Nb4RfUpdate, AFinalChunkOrEarlySuccessDoesNotHideMissingBytes) {
   RfUpdateCore core; Peer peer;
   ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));
@@ -141,6 +167,52 @@ TEST(Nb4RfUpdate, AFinalChunkOrEarlySuccessDoesNotHideMissingBytes) {
   core.receive(3, 0x32, 1, &result, 1, 100, peer.io());
   EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
   EXPECT_EQ(core.error(), RfUpdateError::Protocol);
+}
+TEST(Nb4RfUpdate, ReceiverFinalWindowPadsWithoutReadingOrCountingBytesOutsideTheImage) {
+  for (const uint32_t size : {50596u,51432u}) {
+    auto candidate=image; candidate.size=size;
+    RfUpdateCore core; Peer peer;
+    ASSERT_TRUE(core.prepare(candidate,identity,1)); ASSERT_TRUE(core.start(identity,0));
+    core.service(0,peer.io()); boot(core,peer);
+    const uint32_t wireSize=(size+255u)&~255u;
+    for (uint32_t offset=0; offset<wireSize; offset+=64) {
+      const uint8_t request[]{uint8_t(offset),uint8_t(offset>>8),uint8_t(offset>>16),0,64};
+      const auto previousReads=peer.reads.size();
+      core.receive(1,0x31,91,request,sizeof(request),100,peer.io());
+      ASSERT_EQ(core.error(),RfUpdateError::None); ASSERT_EQ(peer.payload.size(),69u);
+      if (offset>=size) EXPECT_EQ(peer.reads.size(),previousReads);
+      for (unsigned i=0;i<64;++i)
+        EXPECT_EQ(peer.payload[5+i],offset+i<size ? uint8_t(offset+i) : 0xff);
+    }
+    for (const auto& read : peer.reads) EXPECT_LE(read.first+read.second,size);
+    EXPECT_EQ(core.transferred(),size);
+    const uint8_t result=2; core.receive(3,0x32,92,&result,1,101,peer.io());
+    EXPECT_EQ(core.phase(),RfUpdatePhase::VerifyVersion);
+  }
+}
+TEST(Nb4RfUpdate, ReceiverPaddingHasStrictAlignmentAndWindowBoundsAndCannotHideMissingFirmware) {
+  auto candidate=image; candidate.size=100;
+  for (const auto range : {std::pair<uint32_t,uint8_t>{128,64},{256,64},{128,63},{100,64},{0xffffffc0,64}}) {
+    RfUpdateCore core; Peer peer;
+    ASSERT_TRUE(core.prepare(candidate,identity,1)); ASSERT_TRUE(core.start(identity,0));
+    core.service(0,peer.io()); boot(core,peer);
+    const auto offset=range.first;
+    const uint8_t request[]{uint8_t(offset),uint8_t(offset>>8),uint8_t(offset>>16),uint8_t(offset>>24),range.second};
+    core.receive(1,0x31,91,request,sizeof(request),1,peer.io());
+    EXPECT_EQ(core.transferred(),0u); EXPECT_TRUE(peer.reads.empty());
+    if (offset==128 && range.second==64) {
+      ASSERT_EQ(core.error(),RfUpdateError::None);
+      const uint8_t result=2; core.receive(3,0x32,92,&result,1,2,peer.io());
+      EXPECT_EQ(core.error(),RfUpdateError::Protocol);
+    } else EXPECT_EQ(core.error(),RfUpdateError::Bounds);
+  }
+  candidate.receiver=false; RfUpdateCore module; Peer peer;
+  ASSERT_TRUE(module.prepare(candidate,identity,1)); ASSERT_TRUE(module.start(identity,0));
+  module.service(0,peer.io()); boot(module,peer);
+  module.receive(1,0x25,90,nullptr,0,1,peer.io());
+  const uint8_t request[]{64,0,0,0,64};
+  module.receive(1,0x26,91,request,sizeof(request),2,peer.io());
+  EXPECT_EQ(module.error(),RfUpdateError::Bounds); EXPECT_TRUE(peer.reads.empty());
 }
 TEST(Nb4RfUpdate, BadRangesStorageFailureAndPeerRejectionKeepTheLinkLocked) {
   for (unsigned fault = 0; fault < 4; ++fault) {
@@ -300,6 +372,18 @@ TEST(Nb4RfUpdate, BootIdentityStopsEntryRetriesBeforeTheMaintenanceTaskCanCheckp
   ASSERT_TRUE(nb4RfUpdateFrame(transport));
   EXPECT_FALSE(transport.waiting()); EXPECT_FALSE(nb4RfUpdateNeedsRecovery());
 }
+#if defined(NB4_RF_UPDATE_BENCH)
+TEST(Nb4RfUpdate, BenchCapturesTheWholeReceiverBootIdentityEvenWhenTheWriterIsNotActive) {
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  const uint8_t peer[]{6,0,0x34,0x12, 4,1,2,3, 4,5,6,7, 8,9};
+  nb4RfUpdateReceive(3, 0x33, 90, peer, sizeof(peer));
+  const uint8_t operation[4]{}; char result[1024]{};
+  ASSERT_TRUE(nb4RfUpdateCommand(19, operation, sizeof(operation), result, sizeof(result)));
+  EXPECT_NE(std::string(result).find("\"boot_reply\":[305397766,50462980,117835012,2312]"), std::string::npos);
+  EXPECT_FALSE(nb4RfUpdateDrivingLocked());
+}
+#endif
 
 namespace {
 struct JournalFixture {
