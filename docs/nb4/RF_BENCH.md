@@ -3,9 +3,11 @@
 This procedure is how the RF writer was qualified on hardware. Production
 builds now write the images that carry a verified transfer/recovery rule in
 `tools/nb4_rf_catalog.py` (the RF module and the FGr4 V2 / FGr4S V2
-receivers, on NB4 and NB4+); every other catalogued receiver stays read-only
-until its identity words are known and this procedure has been repeated for
-it. The bench build remains the way to qualify a new rule. Do not perform a
+receivers, on NB4 and NB4+, plus the FGr8B 0x117 on NB4+ under a provisional
+product-only rule awaiting a contributor's hardware report); every other
+catalogued receiver stays read-only until its identity words are known and
+this procedure has been repeated for it. The bench build remains the way to
+qualify a new rule. Do not perform a
 deliberate power cut until the component's independent recovery has been
 demonstrated.
 

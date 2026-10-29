@@ -162,6 +162,24 @@ class RfTransferTests(unittest.TestCase):
         receiver['identity_words'][2] = 0x107
         self.assertEqual(rf.plan(self.peer.inventory,2)['state'],'current')
 
+    def test_provisional_fgr8b_rule_matches_the_product_on_nb4plus_only(self):
+        self.catalog.stop(); self.addCleanup(self.catalog.start)  # the full catalog, index 8 included
+        receiver = self.peer.inventory['receiver']
+        receiver.update(product=0x10107, firmware=0x114, identity_words=[0x205, 0x206, 0x109, 0x114, 0x302])
+        self.peer.inventory['target'] = 'nb4plus'
+        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'available')
+        receiver['firmware'] = receiver['identity_words'][3] = 0x117
+        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'current')
+        receiver['product'] = 0x10108
+        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'incompatible')
+        receiver['product'] = 0x10107
+        self.peer.inventory['target'] = 'nb4'
+        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'incompatible')
+        self.assertEqual(rf.plan(self.peer.inventory, 3)['state'], 'incompatible')
+        # The wildcard never widens the pinned FGr4 rules.
+        receiver.update(product=0x12340004, firmware=0x112, identity_words=[0x205, 0x104, 0x103, 0x112, 0x301])
+        self.assertEqual(rf.plan(self.peer.inventory, 1)['state'], 'incompatible')
+
     def test_receiver_update_requires_a_live_two_way_link_before_preparation(self):
         for connected, two_way in ((False, True), (True, False), (False, False)):
             with self.subTest(connected=connected, two_way=two_way):
@@ -414,7 +432,7 @@ class AssetTests(unittest.TestCase):
 
     def test_installable_images_follow_the_production_rules_of_both_targets(self):
         self.assertEqual(rf.installable_images('nb4'), [0, 1, 2])
-        self.assertEqual(rf.installable_images('nb4plus'), [0, 1, 2])
+        self.assertEqual(rf.installable_images('nb4plus'), [0, 1, 2, 8])
         with self.assertRaises(wire.MaintenanceError): rf.installable_images('nb4pro')
         self.assertLessEqual(rf.ASSET_CHUNK + 5, wire.MAX_PAYLOAD)
 

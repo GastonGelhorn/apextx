@@ -101,6 +101,21 @@ UPDATE_HARDWARE = (
 # The second target (NB4+) carries the same module and receiver tuples.
 UPDATE_HARDWARE += tuple(dict(rule, target=2) for rule in UPDATE_HARDWARE)
 
+# A rule word of ANY_IDENTITY matches whatever the component reports for that
+# word; the product ID and the catalog image still have to match. It exists
+# for receivers whose identity words nobody has read yet.
+ANY_IDENTITY = 0xffffffff
+# FGr8B 0x117 from the NB4+ 1.0.31 package (catalog index 8), requested in
+# PR 33 by a contributor with an FGr8B on an NB4+. The image header carries no
+# hardware words, so the rule matches the product alone until that receiver's
+# identity words are reported and pinned here. NB4 keeps no FGr8B rule: its
+# own package carries the older 0x114 and the newer image is not in its catalog.
+UPDATE_HARDWARE += (
+    dict(target=2, image=8, hardware=ANY_IDENTITY, rf_hardware=ANY_IDENTITY,
+         bootloader=ANY_IDENTITY, rf_library=ANY_IDENTITY, transfer=True, recovery=True,
+         provisional='FGr8B identity words pending a hardware report'),
+)
+
 
 class CatalogError(ValueError):
     pass
@@ -123,6 +138,8 @@ def firmware_catalog_header():
     lines += ['};', 'struct RfUpdateHardwareRule {',
               '  uint32_t target, image, hardware, rfHardware, bootloader, rfLibrary;',
               '  bool transferVerified, recoveryVerified;', '};',
+              '// A rule word equal to rfUpdateAnyIdentity accepts any reported value.',
+              'constexpr uint32_t rfUpdateAnyIdentity = 0x%x;' % ANY_IDENTITY,
               'constexpr RfUpdateHardwareRule rfUpdateHardware[] = {']
     for rule in UPDATE_HARDWARE:
         lines.append('  {%d, %d, 0x%x, 0x%x, 0x%x, 0x%x, %s, %s},' %

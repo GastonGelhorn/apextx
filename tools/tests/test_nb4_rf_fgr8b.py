@@ -32,10 +32,18 @@ class Fgr8bPins(unittest.TestCase):
         self.assertNotEqual(rf.FGR8B_NB4['sha256'], rf.FGR8B_NB4PLUS['sha256'])
         self.assertEqual(rf.IMAGES[:3], rf.COMMON_IMAGES, 'Existing engine indices must remain stable')
 
-    def test_candidates_do_not_qualify_any_hardware_for_writing(self):
+    def test_only_the_nb4plus_image_carries_a_provisional_product_only_rule(self):
         candidates = {index for index, image in enumerate(rf.IMAGES) if image['product'] == 0x10107}
         self.assertEqual(candidates, {3, 8})
-        self.assertFalse(any(rule['image'] >= 3 for rule in getattr(rf, 'UPDATE_HARDWARE', ())))
+        rules = [rule for rule in rf.UPDATE_HARDWARE if rule['image'] >= 3]
+        self.assertEqual([(rule['target'], rule['image']) for rule in rules], [(2, 8)])
+        self.assertTrue(rules[0]['provisional'])
+        self.assertEqual({rules[0][key] for key in ('hardware', 'rf_hardware', 'bootloader', 'rf_library')},
+                         {rf.ANY_IDENTITY})
+        self.assertFalse(any(rf.ANY_IDENTITY in (rule['hardware'], rule['rf_hardware'], rule['bootloader'],
+                                                  rule['rf_library']) for rule in rf.UPDATE_HARDWARE if rule['image'] < 3))
+        self.assertIn('rfUpdateAnyIdentity = 0xffffffff', rf.firmware_catalog_header())
+        self.assertIn('{2, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true}', rf.firmware_catalog_header())
         self.assertEqual(len({(entry['kind'], entry['product'], entry['version']) for entry in rf.IMAGES}), len(rf.IMAGES))
 
     def test_current_ahead_available_unknown_and_disconnected_never_authorize_writes(self):

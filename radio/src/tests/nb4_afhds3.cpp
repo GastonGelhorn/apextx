@@ -210,6 +210,7 @@ TEST(Nb4Afhds3, WithoutAddressTheReceiverFillsTheGapAfterChecking)
 #include "storage/yaml/yaml_tree_walker.h"
 #include "nb4_car_state.h"
 #include "nb4_rf_update.h"
+#include "bootloader/nb4_update_id.h"
 #include "nb4_ui_languages.h"
 #include <vector>
 
@@ -344,6 +345,27 @@ class Nb4Afhds3Bind : public ::testing::Test {
     return data;
   }
 };
+}
+
+TEST_F(Nb4Afhds3Bind, Fgr8bProvisionalRuleMatchesTheProductAloneOnNb4PlusOnly) {
+  connectNormal();
+  auto version = receiverVersion();
+  version[4] = 0x07; version[5] = 0x01; version[6] = 0x01; version[7] = 0;  // product 0x10107
+  const uint16_t words[5] = {0x205, 0x206, 0x109, 0x114, 0x302};  // never read from an FGr8B
+  for (unsigned i = 0; i < 5; ++i) { version[8 + i * 2] = words[i]; version[9 + i * 2] = words[i] >> 8; }
+  const auto module = versionQuery(MODULE_VERSION);
+  receive(MODULE_VERSION, moduleVersion(), module.frameNumber);
+  const auto receiver = versionQuery(SEND_COMMAND);
+  ack(receiver, 2);
+  receive(COMMAND_RESULT, version, 95, REQUEST_SET_NO_RESP);
+  ASSERT_TRUE(getReceiverVersionInfo(0).valid);
+  EXPECT_EQ(getReceiverVersionInfo(0).productNumber, 0x10107u);
+#if NB4_UPDATE_TARGET == NB4_UPDATE_TARGET_NB4PLUS
+  EXPECT_EQ(nb4RfUpdateCandidate(true), 8);  // FGr8B 0x117 from the NB4+ package
+#else
+  EXPECT_EQ(nb4RfUpdateCandidate(true), -1);  // NB4 keeps no FGr8B rule
+#endif
+  EXPECT_FALSE(nb4RfUpdateWriteSupported(false)) << "a wildcard rule never reaches the module";
 }
 
 TEST_F(Nb4Afhds3Bind, VersionConnectionChecksRunWithoutUIAndGettersStayPassiveAtTickWrap) {

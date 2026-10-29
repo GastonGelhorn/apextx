@@ -11,7 +11,7 @@ import time
 from nb4_maintenance import (Client, MaintenanceError, CAPABILITIES, INVENTORY,
                              PREPARE, UPLOAD, START, STATUS, CANCEL, RECOVER, STORAGE_SESSION,
                              ASSET_BEGIN, ASSET_DATA, REBOOT_UPDATE, MAX_PAYLOAD, validate_inventory)
-from nb4_rf_catalog import IMAGES, UPDATE_HARDWARE, image_name
+from nb4_rf_catalog import ANY_IDENTITY, IMAGES, UPDATE_HARDWARE, image_name
 from nb4_storage_backup import verify_backup, sync_directory
 
 ASSET_CHUNK = 512
@@ -128,8 +128,10 @@ def plan(inventory, index):
         if target is None:
             raise MaintenanceError('The inventory does not identify a supported transmitter.')
         compatible = any(rule['target'] == target and rule['image'] == index and
-                         (rule['hardware'],rule['rf_hardware'],rule['bootloader'],rule['rf_library']) ==
-                         (hardware,rf_hardware,bootloader,library) for rule in UPDATE_HARDWARE)
+                         all(expected in (ANY_IDENTITY, reported) for expected, reported in
+                             zip((rule['hardware'],rule['rf_hardware'],rule['bootloader'],rule['rf_library']),
+                                 (hardware,rf_hardware,bootloader,library)))
+                         for rule in UPDATE_HARDWARE)
         if compatible:
             state = ('current' if current['firmware'] == image['version'] else
                      'ahead' if current['firmware'] > image['version'] else 'available')

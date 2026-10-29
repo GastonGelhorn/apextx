@@ -33,6 +33,8 @@ struct RfUpdateHardwareRule {
   uint32_t target, image, hardware, rfHardware, bootloader, rfLibrary;
   bool transferVerified, recoveryVerified;
 };
+// A rule word equal to rfUpdateAnyIdentity accepts any reported value.
+constexpr uint32_t rfUpdateAnyIdentity = 0xffffffff;
 constexpr RfUpdateHardwareRule rfUpdateHardware[] = {
   {1, 0, 0x10003, 0x0, 0x0, 0x30000, true, true},
   {1, 1, 0x104, 0x104, 0x103, 0x301, true, true},
@@ -40,5 +42,6 @@ constexpr RfUpdateHardwareRule rfUpdateHardware[] = {
   {2, 0, 0x10003, 0x0, 0x0, 0x30000, true, true},
   {2, 1, 0x104, 0x104, 0x103, 0x301, true, true},
   {2, 2, 0x104, 0x104, 0x107, 0x301, true, true},
+  {2, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
 };
 }

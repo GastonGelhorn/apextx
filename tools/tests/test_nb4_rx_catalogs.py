@@ -37,7 +37,7 @@ class ReceiverCatalogs(unittest.TestCase):
     def test_all_existing_module_and_receiver_indices_remain_stable(self):
         self.assertEqual(rf.IMAGES[:3],rf.COMMON_IMAGES)
         self.assertEqual([i['product'] for i in rf.COMMON_IMAGES],[0x12340003,0x12340004,0x12340006])
-        self.assertFalse(any(rule['image'] >= 3 for rule in getattr(rf,'UPDATE_HARDWARE',())))
+        self.assertEqual([(rule['target'],rule['image']) for rule in rf.UPDATE_HARDWARE if rule['image'] >= 3],[(2,8)])
 
     def test_each_profile_has_one_payload_per_product_and_only_verified_images(self):
         accepted={(i['product'],i['version'],i['sha256']) for i in rf.IMAGES}

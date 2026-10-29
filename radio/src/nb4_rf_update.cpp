@@ -266,11 +266,14 @@ void status(char* output, size_t capacity) {
         (unsigned long)afhds3::getMaintenanceDiagnostics(0));
 #endif
 }
+bool ruleWordFits(uint32_t expected, uint32_t reported) {
+  return expected == rfUpdateAnyIdentity || expected == reported;
+}
 const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
   for (const auto& rule : rfUpdateHardware) {
     if (rule.target == NB4_UPDATE_TARGET && rule.image == index &&
-        rule.hardware == current.hardware && rule.rfHardware == current.rfHardware &&
-        rule.bootloader == current.bootloader && rule.rfLibrary == current.rfLibrary &&
+        ruleWordFits(rule.hardware, current.hardware) && ruleWordFits(rule.rfHardware, current.rfHardware) &&
+        ruleWordFits(rule.bootloader, current.bootloader) && ruleWordFits(rule.rfLibrary, current.rfLibrary) &&
         current.product == rfImages[index].reportedProduct) return &rule;
   }
   return nullptr;
