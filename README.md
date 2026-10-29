@@ -12,7 +12,7 @@ It adds a car-focused interface, responsive steering and
 throttle controls, configurable hardware assignments, AFHDS3 receiver support,
 race timing, telemetry, audio, and an expanded on-device filesystem.
 
-ApexTX **0.1.0-alpha.7** is based on EdgeTX **2.12.5**.
+ApexTX **0.1.0-alpha.8** is based on EdgeTX **2.12.5**.
 
 ## Features
 

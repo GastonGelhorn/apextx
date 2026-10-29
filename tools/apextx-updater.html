@@ -2,134 +2,206 @@
 <html lang="en" data-platform="__HOST_PLATFORM__">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>ApexTX Flasher</title>
 <style>
 :root{
-  --bg:#0c0d0f; --bg2:#101113; --panel:#141619; --panel2:#181b1f;
-  --line:#23262b; --line2:#333840; --text:#f0f0f0; --muted:#9aa3ad; --muted2:#6b7480;
-  --blue:#20a0f0; --blue2:#54b7f6; --ink:#061320;
-  --orange:#f07020; --orange2:#ffb070; --good:#5fd39a; --bad:#ff8f8f;
+  color-scheme:light dark;
+  --bg:#f3f4f6; --surface:#ffffff; --surface2:#f7f8fa; --line:#e4e7eb; --line2:#cdd3da;
+  --text:#17191d; --text2:#4a5059; --muted:#717983;
+  --accent:#1b7fd0; --accent-hover:#166cb2; --accent-ink:#ffffff; --accent-soft:rgba(27,127,208,.09);
+  --warn:#8a4b00; --warn-bg:#fff7ea; --warn-line:#f1d2a0;
+  --good:#1e8a4f; --bad:#c23b3b;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 2px 8px rgba(16,24,40,.04);
 }
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121417; --surface:#1a1d22; --surface2:#20242a; --line:#2a2f37; --line2:#3b424c;
+  --text:#e9ebee; --text2:#b9bfc8; --muted:#8c949f;
+  --accent:#3b9cf0; --accent-hover:#5cacf4; --accent-ink:#06131f; --accent-soft:rgba(59,156,240,.14);
+  --warn:#f2b96a; --warn-bg:rgba(242,170,80,.10); --warn-line:rgba(242,170,80,.32);
+  --good:#4fc78a; --bad:#ff8080;
+  --shadow:0 1px 2px rgba(0,0,0,.45);
+}}
 [hidden]{display:none!important}
-*{box-sizing:border-box}html,body{margin:0}
-body{background:radial-gradient(1150px 540px at 82% -10%,rgba(32,160,240,.16),transparent 60%),radial-gradient(760px 420px at 4% 112%,rgba(240,112,32,.06),transparent 55%),var(--bg);color:var(--text);min-height:100vh;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-main{max-width:800px;margin:0 auto;padding:34px 24px 54px}
-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:34px}
-.brand img{height:96px;width:auto;display:block;filter:drop-shadow(0 6px 22px rgba(32,160,240,.22))}
-.hgroup{display:flex;align-items:center;gap:12px}
-.tag{font-size:11px;font-weight:700;letter-spacing:.09em;background:rgba(32,160,240,.12);border:1px solid rgba(32,160,240,.34);border-radius:999px;padding:7px 12px;color:var(--blue2);white-space:nowrap}
-.lang{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
-.lang button{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:5px 10px;border-radius:999px;line-height:1}
-.lang button.on{background:var(--blue);color:#05121d}
-h1{font-size:36px;letter-spacing:-1.2px;line-height:1.08;margin:0 0 12px;font-weight:800}
-.intro{color:var(--muted);max-width:620px;margin:0 0 22px;font-size:16px}
-.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin:0 0 20px;max-width:100%}
-.tabs button{all:unset;flex:1;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);padding:10px;border-radius:9px}
-.tabs button.on{background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink)}
-.panel{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel2),var(--panel));padding:24px;border-radius:18px;box-shadow:0 26px 64px -34px rgba(0,0,0,.85)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);min-height:100vh;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+main{max-width:760px;margin:0 auto;padding:22px 28px 40px}
+a{color:var(--accent)}
+button{font:inherit}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{width:40px;height:40px;display:block;border-radius:9px}
+.brand strong{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.brand span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.lang{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:2px}
+.lang button{all:unset;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);padding:5px 9px;border-radius:6px;line-height:1}
+.lang button:hover{color:var(--text)}
+.lang button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+
+h1{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.2;margin:0 0 8px}
+.intro{color:var(--text2);max-width:60ch;margin:0 0 20px;font-size:14px}
+
+/* Tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--line);margin:0 0 18px}
+.tabs button{all:unset;cursor:pointer;font-weight:500;font-size:14px;color:var(--muted);padding:9px 14px 10px;margin-bottom:-1px;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
+.tabs button:disabled{cursor:default;opacity:.6}
+
+/* Panels */
+.panel{border:1px solid var(--line);background:var(--surface);padding:24px;border-radius:12px;box-shadow:var(--shadow)}
 .panel.hide{display:none}
-.panel::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,var(--blue),var(--orange))}
-.warn{display:flex;gap:11px;align-items:flex-start;background:rgba(240,112,32,.09);border:1px solid rgba(240,112,32,.34);border-radius:12px;padding:13px 15px;margin:0 0 18px;font-size:13.5px;color:var(--orange2)}
-.warn svg{width:19px;height:19px;flex:none;margin-top:1px;color:var(--orange)}
-.file{display:block;border:1.5px dashed var(--line2);border-radius:13px;padding:19px;cursor:pointer;background:rgba(255,255,255,.012);transition:border-color .15s,background .15s}
-.file:hover{border-color:var(--blue);background:rgba(32,160,240,.05)}
-.file strong{display:flex;align-items:center;gap:9px;font-size:16px}
-.file strong svg{width:19px;height:19px;color:var(--blue);flex:none}
-.file span{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere;margin-top:6px;padding-left:28px}
-input[type=file]{display:block;margin-top:15px;max-width:100%;color:var(--muted);font-size:13px}
-input[type=file]::file-selector-button{border:1px solid var(--line2);border-radius:8px;padding:9px 12px;background:#20242a;color:#fff;margin-right:11px;cursor:pointer;font:inherit;font-size:13px}
-.model{display:none;margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(32,160,240,.06);font-size:14px}
-.model b{color:var(--blue2)}
-.radio-choice{margin:16px 0 0;padding:12px 15px;border:1px solid var(--line2);border-radius:11px;background:rgba(255,255,255,.018);font-size:14px}
-.radio-choice strong{display:block;margin-bottom:8px}
-.radio-options{display:flex;gap:20px;flex-wrap:wrap;color:var(--muted)}
-.radio-options label{display:flex;align-items:center;gap:7px;cursor:pointer}
-.radio-options input{width:17px;height:17px;accent-color:var(--blue)}
-.confirm{display:none;margin:14px 2px 0;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted)}
-.confirm input{margin-top:3px;width:17px;height:17px;accent-color:var(--blue);flex:none}
-button.cta{width:100%;background:linear-gradient(180deg,var(--blue2),var(--blue));color:var(--ink);border:0;border-radius:12px;padding:16px;font:800 16px system-ui,sans-serif;cursor:pointer;margin-top:18px;transition:filter .15s;box-shadow:0 12px 28px -12px rgba(32,160,240,.7)}
-button.cta:hover:not(:disabled){filter:brightness(1.07)}
-button.cta:disabled{background:#23272d;color:#6b7480;cursor:default;box-shadow:none}
-progress{appearance:none;-webkit-appearance:none;width:100%;height:10px;margin:22px 0 11px;display:block;border:0;background:transparent}
-progress::-webkit-progress-bar{background:#23272d;border-radius:999px}
-progress::-webkit-progress-value{background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px;transition:width .3s}
-progress::-moz-progress-bar{background:var(--blue);border-radius:999px}
-.status-row{display:flex;gap:20px;font-size:14px;color:var(--muted);align-items:baseline}
-.status-row #message{flex:1}
-.status-row #percent{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
-.error{color:var(--bad)!important}.good{color:var(--good)!important}
-.note{color:var(--muted);font-size:13px;margin:24px 2px 0;display:flex;gap:9px;align-items:flex-start}
-.note svg{width:17px;height:17px;color:var(--blue2);flex:none;margin-top:1px}
-footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:18px}
-footer .meta{display:inline-block;margin-top:7px;color:var(--muted2)}
-footer a{color:var(--blue2);text-decoration:none}
-footer a:hover{text-decoration:underline}
-@media(max-width:640px){main{padding:24px 16px 42px}h1{font-size:28px}.brand img{height:64px}.panel{padding:18px}header{flex-wrap:wrap;margin-bottom:26px}}
-.device-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-.device-dot{width:11px;height:11px;border-radius:50%;background:var(--muted2);flex:none}
-.device-dot.connected{background:var(--good);box-shadow:0 0 0 5px rgba(62,205,143,.09)}
-.device-head strong{font-size:18px;flex:1}.quiet{background:transparent;color:var(--blue2);border:0;font:600 13px system-ui;cursor:pointer;min-height:44px;padding:8px}
-.quiet:disabled{color:var(--muted2);cursor:default}
-.bootloader-notice{margin:18px 0 0;display:block}.bootloader-notice strong{display:block;margin-bottom:4px;color:var(--text)}
-.bootloader-guide{margin-top:22px;border-top:1px solid var(--line2);padding-top:20px;scroll-margin-top:20px}
-.bootloader-guide h2{font-size:21px;line-height:1.3;margin:0 0 8px;letter-spacing:-.3px}
-.bootloader-guide .selected-release{margin:0 0 18px;color:var(--blue2);font-weight:600;font-size:14px}
-.dfu-steps{padding-left:23px;margin:16px 0;font-size:14px}.dfu-steps li{padding-left:5px;margin-bottom:12px}
-.dfu-state{border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:14px;margin:18px 0 0;background:rgba(32,160,240,.05)}
-.guide-actions{display:flex;flex-direction:column;align-items:center;gap:7px}.guide-actions .cta{margin-top:14px}
+.panel h2{font-size:18px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px}
+.panel h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+
+/* Device status */
+.device-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.device-dot{width:10px;height:10px;border-radius:50%;background:var(--line2);flex:none}
+.device-dot.connected{background:var(--good);box-shadow:0 0 0 4px rgba(30,138,79,.14)}
+.device-head strong{font-size:16px;font-weight:600;flex:1;min-width:0}
 .device-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.device-meta span{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}.device-meta strong{font-size:17px;overflow-wrap:anywhere}
-.device-help,.release-help{font-size:13px;line-height:1.55;color:var(--muted);margin:15px 0 0;overflow-wrap:anywhere}
-.channel{display:flex;gap:9px;align-items:center;font-size:13px;color:var(--muted);margin:17px 0 0;min-height:36px;cursor:pointer}
-.channel input{accent-color:var(--blue);width:17px;height:17px;flex:none}
-.preview-badge{display:inline-block;color:#ffce7a;border:1px solid #614820;border-radius:5px;font-size:10px;letter-spacing:.04em;padding:2px 5px;vertical-align:middle;margin-left:5px}
-.release-link{color:var(--blue2);font-size:13px;text-decoration:none;display:inline-block;margin-top:12px;min-height:30px}
-.manual{border-top:1px solid var(--line);margin-top:22px;padding-top:5px}.manual summary{cursor:pointer;color:var(--muted);font-size:14px;padding:17px 0;min-height:44px}
-.manual .file{margin-top:0}.manual .cta{font-size:14px;padding:14px;box-shadow:none;background:#26333e;color:var(--text);border:1px solid var(--line2)}
-button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--blue2);outline-offset:4px}
-[hidden]{display:none!important}
-@media(max-width:640px){.device-meta{gap:12px}.device-meta strong{font-size:15px}.device-head strong{font-size:16px}}
-.component-row{padding:16px 0;border-bottom:1px solid var(--line)}.component-row label{display:flex;gap:10px;align-items:center}.component-row p{color:var(--muted);margin:8px 0;overflow-wrap:anywhere}#componentPanel input[type=text]{display:block;width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}#componentDirectory{overflow-wrap:anywhere}#componentPanel h3{margin-top:28px}#componentOnlineAudio{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);color:var(--text);font:inherit}
-.wizard-step{margin:14px 0;border-bottom:1px solid var(--line);padding-bottom:14px}.wizard-step summary{font-size:17px;font-weight:700;cursor:pointer;padding:8px 0}.file input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.file:focus-within{outline:2px solid var(--blue)}
-#appUpdates{margin-top:24px}#appUpdates summary{cursor:pointer;font-weight:700;min-height:44px;padding:8px 0}#appUpdates .actions{display:flex;flex-wrap:wrap;gap:6px}#appUpdateStatus,#appUpdateNotes{font-size:14px;overflow-wrap:anywhere}#appUpdates>p:last-child{font-size:12px;color:var(--muted)}
+.device-meta span{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
+.device-meta strong{font-size:18px;font-weight:600;letter-spacing:-.01em;overflow-wrap:anywhere}
+.device-help,.release-help{font-size:13.5px;line-height:1.55;color:var(--text2);margin:14px 0 0;overflow-wrap:anywhere}
+.device-help:empty,.release-help:empty{display:none}
+.preview-badge{display:inline-block;color:var(--warn);border:1px solid var(--warn-line);background:var(--warn-bg);border-radius:5px;font-size:10px;font-weight:600;letter-spacing:.05em;padding:2px 6px;vertical-align:middle;margin-left:6px}
+.release-link{font-size:13px;text-decoration:none;display:inline-block;margin-top:12px}
+.release-link:hover{text-decoration:underline}
+
+/* Buttons */
+button.cta{display:block;width:100%;background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;min-height:44px;padding:11px 18px;font-size:15px;font-weight:600;cursor:pointer;margin-top:18px;transition:background .12s}
+button.cta:hover:not(:disabled){background:var(--accent-hover)}
+button.cta:disabled{background:var(--surface2);color:var(--muted);border:1px solid var(--line);cursor:default}
+.quiet{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 12px;border:1px solid var(--line2);border-radius:7px;background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:background .12s,border-color .12s}
+.quiet:hover:not(:disabled){background:var(--surface2);border-color:var(--muted)}
+.quiet:disabled{color:var(--muted);border-color:var(--line);background:transparent;cursor:default}
+.quiet+.quiet{margin-left:6px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+.actions .cta,.actions .quiet{width:auto;margin:0}
+.actions .cta{min-height:36px;padding:7px 16px;font-size:14px}
+
+/* Form elements */
+.channel{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--text2);margin:14px 0 0;cursor:pointer;line-height:1.45}
+.channel input{accent-color:var(--accent);width:16px;height:16px;flex:none;margin:2px 0 0}
+.file{display:flex;align-items:center;gap:12px;border:1px solid var(--line2);border-radius:9px;padding:13px 14px;cursor:pointer;background:var(--surface2);transition:border-color .12s,background .12s;margin-top:14px;position:relative}
+.file:hover{border-color:var(--accent);background:var(--accent-soft)}
+.file:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.file strong{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
+.file strong svg{width:18px;height:18px;color:var(--accent);flex:none}
+.file>span{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere;margin-top:3px}
+.file input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.file .file-text{flex:1;min-width:0}
+.file::after{content:"";width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);flex:none;margin-right:4px}
+.radio-choice{margin:16px 0 0;padding:14px 16px;border:1px solid var(--line);border-radius:9px;background:var(--surface2)}
+.radio-choice strong{display:block;margin-bottom:8px;font-weight:600}
+.radio-options{display:flex;gap:22px;flex-wrap:wrap;color:var(--text2)}
+.radio-options label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.radio-options input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.model{display:none;margin:14px 0 0;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);font-size:13.5px}
+.model b{color:var(--accent)}
+.confirm{display:none;margin:14px 2px 0;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--text2)}
+.confirm input{margin:2px 0 0;width:16px;height:16px;accent-color:var(--accent);flex:none}
+input[type=text],select{display:block;width:100%;min-height:36px;padding:7px 10px;border:1px solid var(--line2);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;font-size:13.5px;margin:4px 0 8px}
+label[for]{display:block;font-size:12px;color:var(--muted);margin-top:12px}
+
+/* Progress */
+#transfer{margin-top:20px}
+progress{appearance:none;-webkit-appearance:none;width:100%;height:6px;display:block;border:0;background:transparent;margin:0 0 10px}
+progress::-webkit-progress-bar{background:var(--line);border-radius:999px}
+progress::-webkit-progress-value{background:var(--accent);border-radius:999px;transition:width .3s}
+progress::-moz-progress-bar{background:var(--accent);border-radius:999px}
+.status-row{display:flex;gap:16px;font-size:13.5px;color:var(--text2);align-items:baseline}
+.status-row #message{flex:1;overflow-wrap:anywhere}
+.status-row #percent{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
+.error{color:var(--bad)!important}.good{color:var(--good)!important}
+
+/* Notices */
+.warn{display:flex;gap:11px;align-items:flex-start;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:9px;padding:12px 14px;margin:0 0 16px;font-size:13.5px;line-height:1.5;color:var(--warn)}
+.warn svg{width:18px;height:18px;flex:none;margin-top:1px}
+.bootloader-notice{margin:16px 0 0;display:block}
+.bootloader-notice strong{display:block;margin-bottom:3px;font-weight:600}
+.note{color:var(--text2);font-size:13px;margin:22px 2px 0;display:flex;gap:9px;align-items:flex-start;line-height:1.5}
+.note svg{width:16px;height:16px;color:var(--muted);flex:none;margin-top:2px}
+#componentDirectory{overflow-wrap:anywhere;font-size:12px;color:var(--muted)}
+
+/* Collapsible sections */
+details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:500;color:var(--text);min-height:44px;padding:10px 0}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"";width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);transition:transform .15s;flex:none;margin:0 2px 0 1px}
+details[open]>summary::before{transform:rotate(45deg)}
+.manual{border-top:1px solid var(--line);margin-top:20px}
+.manual .file{margin-top:4px}
+.manual .cta{font-size:14px;min-height:40px}
+.wizard-step{border-top:1px solid var(--line);margin-top:16px}
+.wizard-step summary{font-size:15px;font-weight:600}
+#appUpdates{margin-top:18px;padding:4px 24px 20px}
+#appUpdates>summary{font-size:15px;font-weight:600;padding:14px 0}
+#appUpdates>p{font-size:13.5px;color:var(--text2);margin:10px 0 0;overflow-wrap:anywhere}
+#appUpdateStatus{color:var(--text)}
+#appUpdateNotes{white-space:pre-wrap;font:inherit;font-size:13.5px;color:var(--text2);margin:10px 0 0;overflow-wrap:anywhere}
+#appUpdateNotes:empty,#appInstallLocation:empty,#appUpdateError:empty{display:none}
+#appUpdates>p:last-child{font-size:12px;color:var(--muted);margin-top:16px}
+
+/* Bootloader guide */
+.bootloader-guide{margin-top:22px;border-top:1px solid var(--line);padding-top:20px;scroll-margin-top:20px}
+.bootloader-guide h2{font-size:18px;margin:0 0 6px}
+.bootloader-guide .selected-release{margin:0 0 14px;color:var(--accent);font-weight:600;font-size:13.5px}
+.dfu-steps{padding-left:22px;margin:14px 0;font-size:14px;color:var(--text2)}
+.dfu-steps li{padding-left:4px;margin-bottom:10px}
+.dfu-state{border:1px solid var(--line);border-radius:8px;padding:11px 14px;font-size:13.5px;margin:16px 0 0;background:var(--surface2)}
+.guide-actions{display:flex;flex-direction:column;align-items:center;gap:8px}
+.guide-actions .cta{margin-top:14px}
+
+/* Components wizard */
+.component-row{padding:14px 0;border-bottom:1px solid var(--line)}
+.component-row label{display:flex;gap:10px;align-items:center;cursor:pointer}
+.component-row label input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.component-row strong{font-weight:600}
+.component-row p{color:var(--text2);margin:6px 0 8px 26px;font-size:13.5px;overflow-wrap:anywhere}
+.component-row .quiet{margin-left:26px}
+.component-row .quiet+.quiet{margin-left:6px}
+#componentUnit{margin-top:8px}
+#componentPanel .device-help{margin-top:10px}
+#componentErrorTechnical{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--muted);margin:0 0 10px}
+
+footer{font-size:12px;color:var(--muted);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:16px;line-height:1.55}
+footer .meta{display:inline-block;margin-top:6px}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--text);text-decoration:underline}
+
+button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#bootloaderGuideTitle:focus{outline:none}
+@media(max-width:620px){main{padding:18px 16px 32px}h1{font-size:21px}.panel{padding:18px}.device-meta{gap:12px}.device-meta strong{font-size:16px}.device-head strong{font-size:15px}.topbar{margin-bottom:20px}}
 </style>
 <main>
-<header>
-  <div class="brand"><img src="__LOGO_DATA__" alt="ApexTX"></div>
-  <div class="hgroup">
-    <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button><button data-lang="cn">中文</button></div>
-    <div class="tag">NOBLE&nbsp;NB4 / NB4+</div>
-  </div>
+<header class="topbar">
+  <div class="brand"><img src="__LOGO_DATA__" alt=""><div><strong>ApexTX Flasher</strong><span>FlySky Noble NB4 · NB4+</span></div></div>
+  <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button><button data-lang="cn">中文</button></div>
 </header>
 
 <h1 data-k="h1">Update your radio</h1>
-<p class="intro" data-k="intro">Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right firmware and verifies it before updating your radio.</p>
+<p class="intro" data-k="intro">Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right version, checks it, and guides you through each step.</p>
 
 <div class="tabs" id="tabs">
   <button data-mode="update" class="on" data-k="tabUpdate">Update</button>
   <button data-mode="components" data-k="componentsTitle">Components</button>
-  <button data-mode="recover" data-k="tabRecover">Install / Recovery</button>
+  <button data-mode="recover" data-k="tabRecover">Install or recover</button>
 </div>
 
-<!-- UPDATE MODE -->
+<!-- UPDATE -->
 <section class="panel" id="updatePanel">
   <div class="device-head"><span class="device-dot" id="deviceDot" aria-hidden="true"></span><strong id="deviceTitle"></strong><button class="quiet" id="refresh" data-k="refresh">Check again</button></div>
   <div class="device-meta">
     <div><span data-k="installed">Installed version</span><strong id="installedVersion">—</strong></div>
-    <div><span data-k="latest">Latest compatible release</span><strong id="latestVersion">—</strong><small class="preview-badge" id="previewBadge" data-k="previewLabel" hidden>PREVIEW</small></div>
+    <div><span data-k="latest">Latest available</span><strong id="latestVersion">—</strong><small class="preview-badge" id="previewBadge" data-k="previewLabel" hidden>PREVIEW</small></div>
   </div>
   <p class="device-help" id="deviceHelp" aria-live="polite"></p>
-  <details class="manual" id="componentsPanel">
-    <summary data-k="componentsTitle">Components</summary>
-    <p class="device-help" data-k="componentsHelp"></p>
-    <button class="quiet" id="readComponents" data-k="componentsRead"></button>
-    <p class="device-help" id="componentsStatus" role="status"></p>
-    <p class="device-help"><span data-k="componentModule"></span>: <strong id="componentModule">—</strong></p>
-    <p class="device-help"><span data-k="componentReceiver"></span>: <strong id="componentReceiver">—</strong></p>
-  </details>
-  <label class="channel"><input id="preview" type="checkbox" checked><span data-k="includePreview">Include alpha / beta releases</span></label>
   <p class="release-help" id="releaseHelp" aria-live="polite"></p>
   <a class="release-link" id="releaseLink" target="_blank" rel="noreferrer noopener" data-k="releaseNotes" hidden>Release notes ↗</a>
+  <label class="channel"><input id="preview" type="checkbox" checked><span data-k="includePreview">Include preview (alpha / beta) releases</span></label>
   <div class="warn bootloader-notice" id="bootloaderNotice" hidden><strong data-k="bootloaderTitle"></strong><span data-k="bootloaderHelp"></span></div>
   <button class="cta" id="upgrade" disabled></button>
   <section class="bootloader-guide" id="bootloaderGuide" aria-labelledby="bootloaderGuideTitle" hidden>
@@ -148,10 +220,18 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
     <div class="guide-actions"><button class="cta" id="bootloaderInstall" disabled></button><button class="quiet" id="bootloaderCancel" data-k="dfuCancel"></button></div>
   </section>
   <div id="updateTransferSlot"></div>
-  <details class="manual" id="manualSection"><summary data-k="manual">Choose a local firmware image</summary>
+  <details class="manual" id="componentsPanel">
+    <summary data-k="componentsTitle">Components</summary>
+    <p class="device-help" data-k="componentsHelp" style="margin-top:0"></p>
+    <div class="actions"><button class="quiet" id="readComponents" data-k="componentsRead"></button></div>
+    <p class="device-help" id="componentsStatus" role="status"></p>
+    <p class="device-help"><span data-k="componentModule"></span>: <strong id="componentModule">—</strong></p>
+    <p class="device-help" style="margin-top:4px;margin-bottom:12px"><span data-k="componentReceiver"></span>: <strong id="componentReceiver">—</strong></p>
+  </details>
+  <details class="manual" id="manualSection"><summary data-k="manual">Use a firmware file from this computer</summary>
   <label class="file">
-    <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span data-k="imglabel">Firmware image</span></strong>
-    <span id="fileinfo"></span>
+    <div class="file-text"><strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg><span data-k="imglabel">Firmware file</span></strong>
+    <span id="fileinfo"></span></div>
     <input id="file" type="file" accept=".bin,application/octet-stream">
   </label>
   <button class="cta" id="start" disabled>Update firmware</button>
@@ -159,24 +239,24 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
   </details>
 </section>
 
-<!-- INSTALL / RECOVERY MODE -->
+<!-- COMPONENTS -->
 <section class="panel hide" id="componentPanel">
-  <h2 data-k="wizardTitle"></h2><p class="device-help" data-k="wizardHelp"></p><div id="componentTransferSlot"></div><details class="manual" id="componentErrorDetails" hidden><summary data-k="wizardTechnical"></summary><pre id="componentErrorTechnical" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
-  <details class="wizard-step" id="componentPackageDetails" open><summary data-k="wizardPackage"></summary><label class="file"><strong data-k="wizardPackage"></strong><input id="componentPackage" type="file" accept=".zip,.gz,.tgz"><span id="componentPackageName"></span></label>
-  <button class="quiet" id="componentDownload" data-k="wizardDownload"></button></details>
+  <h2 data-k="wizardTitle"></h2><p class="device-help" data-k="wizardHelp" style="margin-top:0"></p><div id="componentTransferSlot"></div><details class="manual" id="componentErrorDetails" hidden><summary data-k="wizardTechnical"></summary><pre id="componentErrorTechnical"></pre></details>
+  <details class="wizard-step" id="componentPackageDetails" open><summary data-k="wizardPackage"></summary><label class="file"><div class="file-text"><strong data-k="wizardPackage"></strong><span id="componentPackageName"></span></div><input id="componentPackage" type="file" accept=".zip,.gz,.tgz"></label>
+  <div class="actions"><button class="quiet" id="componentDownload" data-k="wizardDownload"></button></div></details>
   <details class="manual"><summary data-k="wizardResume"></summary>
-    <label for="componentSessionPath" data-k="wizardSessionFolder"></label><input id="componentSessionPath" type="text"><button class="quiet" id="componentSessionBrowse" data-k="wizardBrowse"></button>
-    <button class="quiet" id="componentOpen" data-k="wizardOpen"></button>
+    <label for="componentSessionPath" data-k="wizardSessionFolder"></label><input id="componentSessionPath" type="text">
+    <div class="actions" style="margin-top:0;margin-bottom:12px"><button class="quiet" id="componentSessionBrowse" data-k="wizardBrowse"></button><button class="quiet" id="componentOpen" data-k="wizardOpen"></button></div>
   </details>
   <div id="componentPlan" hidden>
     <h3 id="componentUnit"></h3><p class="device-help" id="componentOutcome" role="status"></p><p class="device-help" id="componentMode"></p>
     <p class="note" id="componentDirectory"></p>
-    <details class="wizard-step" id="componentBackupDetails" open><summary data-k="wizardBackup"></summary><p class="device-help" data-k="wizardBackupHelp"></p>
-    <button class="quiet" id="componentBackup" data-k="wizardBackupCreate"></button>
-    <label for="componentBackupPath" data-k="wizardBackupFolder"></label><input id="componentBackupPath" type="text"><button class="quiet" id="componentBackupBrowse" data-k="wizardBrowse"></button>
-    <button class="quiet" id="componentAttachBackup" data-k="wizardBackupAttach"></button><p class="device-help" id="componentBackupStatus"></p></details>
+    <details class="wizard-step" id="componentBackupDetails" open><summary data-k="wizardBackup"></summary><p class="device-help" data-k="wizardBackupHelp" style="margin-top:0"></p>
+    <div class="actions"><button class="quiet" id="componentBackup" data-k="wizardBackupCreate"></button></div>
+    <label for="componentBackupPath" data-k="wizardBackupFolder"></label><input id="componentBackupPath" type="text">
+    <div class="actions" style="margin-top:0"><button class="quiet" id="componentBackupBrowse" data-k="wizardBrowse"></button><button class="quiet" id="componentAttachBackup" data-k="wizardBackupAttach"></button></div><p class="device-help" id="componentBackupStatus" style="margin-bottom:12px"></p></details>
     <h3 data-k="wizardReview"></h3>
-    <p class="device-help" id="componentBootloader"></p>
+    <p class="device-help" id="componentBootloader" style="margin-top:0"></p>
     <div id="componentRows">
       <div class="component-row"><label><input id="select_application" type="checkbox"><strong data-k="wizardApplication"></strong></label><p id="state_application"></p><button class="quiet" id="install_application" data-k="wizardInstall"></button></div>
       <div class="component-row"><label><input id="select_module" type="checkbox"><strong data-k="componentModule"></strong></label><p id="state_module"></p><button class="quiet" id="stage_module" data-k="wizardStage"></button><button class="quiet" id="install_module" data-k="wizardInstall"></button><button class="quiet" id="cancel_module" data-k="wizardCancel"></button><button class="quiet" id="recover_module" data-k="wizardRecover"></button></div>
@@ -184,32 +264,35 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
       <div class="component-row"><label><input id="select_resources" type="checkbox"><strong data-k="wizardResources"></strong></label><p id="state_resources"></p><button class="quiet" id="install_resources" data-k="wizardInstall"></button></div>
       <div class="component-row"><label><input id="select_audio" type="checkbox"><strong data-k="wizardAudio"></strong></label><p id="state_audio"></p><button class="quiet" id="install_audio" data-k="wizardInstall"></button></div>
     </div>
-    <button class="quiet" id="componentRead" data-k="componentsRead"></button>
+    <div class="actions"><button class="quiet" id="componentRead" data-k="componentsRead"></button></div>
     <div id="componentOnlineAudioBox" hidden><label for="componentOnlineAudio" data-k="wizardAudioOnline"></label>
       <select id="componentOnlineAudio"><option value="" data-k="wizardAudioPick"></option><option id="audioLanguage_en" value="en">English</option><option id="audioLanguage_es" value="es">Español</option><option id="audioLanguage_de" value="de">Deutsch</option><option id="audioLanguage_cn" value="cn">简体中文</option></select>
-      <button class="quiet" id="componentDownloadAudio" data-k="wizardAudioDownload"></button>
+      <div class="actions" style="margin-top:0"><button class="quiet" id="componentDownloadAudio" data-k="wizardAudioDownload"></button></div>
     </div>
-    <label class="file"><strong data-k="wizardAudioChoose"></strong><input id="componentAudio" type="file" accept=".zip"><span id="componentAudioName"></span></label>
+    <label class="file"><div class="file-text"><strong data-k="wizardAudioChoose"></strong><span id="componentAudioName"></span></div><input id="componentAudio" type="file" accept=".zip"></label>
     <label class="channel"><input id="componentReinstall" type="checkbox"><span data-k="wizardReinstall"></span></label>
     <label class="channel"><input id="componentConfirm" type="checkbox"><span data-k="wizardConfirm"></span></label>
     <button class="cta" id="componentApprove" data-k="wizardApprove"></button>
-    <details class="wizard-step" id="componentStorageDetails"><summary data-k="wizardStorage"></summary><p class="device-help" data-k="wizardStorageHelp"></p>
-    <button class="quiet" id="componentStorage" data-k="wizardStoragePrepare"></button>
-    <label for="componentVolume" data-k="wizardVolumeFolder"></label><input id="componentVolume" type="text"><button class="quiet" id="componentVolumeBrowse" data-k="wizardBrowse"></button></details>
-    <details class="manual"><summary data-k="wizardRecovery"></summary><p class="device-help" data-k="wizardRecoveryHelp"></p>
-      <button class="quiet" id="componentRestoreAudio" data-k="wizardRestoreAudio"></button><button class="quiet" id="componentRestoreNor" data-k="wizardRestoreNor"></button><button class="quiet" id="componentRestoreApp" data-k="wizardRestoreApp"></button>
+    <details class="wizard-step" id="componentStorageDetails"><summary data-k="wizardStorage"></summary><p class="device-help" data-k="wizardStorageHelp" style="margin-top:0"></p>
+    <div class="actions"><button class="quiet" id="componentStorage" data-k="wizardStoragePrepare"></button></div>
+    <label for="componentVolume" data-k="wizardVolumeFolder"></label><input id="componentVolume" type="text">
+    <div class="actions" style="margin-top:0;margin-bottom:12px"><button class="quiet" id="componentVolumeBrowse" data-k="wizardBrowse"></button></div></details>
+    <details class="manual"><summary data-k="wizardRecovery"></summary><p class="device-help" data-k="wizardRecoveryHelp" style="margin-top:0"></p>
+      <div class="actions" style="margin-bottom:12px"><button class="quiet" id="componentRestoreAudio" data-k="wizardRestoreAudio"></button><button class="quiet" id="componentRestoreNor" data-k="wizardRestoreNor"></button><button class="quiet" id="componentRestoreApp" data-k="wizardRestoreApp"></button></div>
     </details>
   </div>
 </section>
+
+<!-- INSTALL / RECOVER -->
 <section class="panel hide" id="recoverPanel">
-  <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span data-k="rwarn">This replaces the complete firmware including the bootloader — for first installation or recovery. The radio must be in STM32 ROM DFU mode (hold the recessed grip button while switching it on). Your current firmware is backed up first.</span></div>
+  <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span data-k="rwarn"></span></div>
   <label class="file">
-    <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span data-k="rimglabel">Complete firmware image</span></strong>
-    <span id="rfileinfo"></span>
+    <div class="file-text"><strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg><span data-k="rimglabel">Complete firmware file</span></strong>
+    <span id="rfileinfo"></span></div>
     <input id="rfile" type="file" accept=".bin,application/octet-stream">
   </label>
   <div class="radio-choice">
-    <strong data-k="radioPrompt">Which radio are you connecting?</strong>
+    <strong data-k="radioPrompt">Which radio is connected?</strong>
     <div class="radio-options">
       <label><input type="radio" name="radioVariant" value="NB4"> Noble NB4</label>
       <label><input type="radio" name="radioVariant" value="NB4+"> Noble NB4+</label>
@@ -218,273 +301,939 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible{o
   <div class="model" id="rmodel"></div>
   <label class="confirm" id="rconfirmWrap"><input type="checkbox" id="rconfirm"><span id="rconfirmLabel"></span></label>
   <p class="note" id="driverNote" data-k="windowsDriver" hidden></p>
-  <button class="cta" id="rstart" disabled>Back up &amp; install</button>
-  <p class="note" data-k="rduration">Allow 5–10 minutes. The radio’s screen stays black during installation; follow progress here and keep USB connected.</p>
+  <button class="cta" id="rstart" disabled>Back up and install</button>
+  <p class="note" data-k="rduration"></p>
   <div id="recoverTransferSlot"></div>
 </section>
 
 <div id="transfer" hidden><progress id="bar" max="100" value="0" aria-label="Progress"></progress>
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div></div>
 
-<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note">Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.</span></p>
+<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note"></span></p>
 <details class="panel" id="appUpdates">
-<summary data-k="appTitle">ApexTX Flasher updates</summary>
+<summary data-k="appTitle">App updates</summary>
 <p id="appUpdateStatus" role="status" aria-live="polite"></p>
-<pre id="appUpdateNotes" style="white-space:pre-wrap;font:inherit"></pre>
+<pre id="appUpdateNotes"></pre>
 <p id="appInstallLocation" class="device-help"></p>
 <p id="appUpdateError" class="error" role="alert"></p>
-<label class="channel"><input type="checkbox" id="appPreview"><span data-k="appPreview">Include preview versions of the desktop app</span></label>
-<label class="channel"><input type="checkbox" id="appRelocate"><span data-k="appRelocate">Install in my user folder</span></label>
-<div class="actions"><button class="quiet" id="appCheck" data-k="appCheck">Check app updates</button>
-<button class="cta" id="appInstall" data-k="appInstall">Update and restart</button>
-<button class="quiet" id="appLater" data-k="appLater">Remind me tomorrow</button>
-<button class="quiet" id="appSkip" data-k="appSkip">Skip this version</button></div>
-<button class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe">I checked the radio; recovery is finished</button>
-<p data-k="appSigning">Updates are authenticated with ApexTX's own signature. Windows or macOS may require permission to open an app without an official publisher certificate.</p>
+<label class="channel"><input type="checkbox" id="appPreview"><span data-k="appPreview"></span></label>
+<label class="channel"><input type="checkbox" id="appRelocate"><span data-k="appRelocate"></span></label>
+<div class="actions"><button class="cta" id="appInstall" data-k="appInstall">Update and restart</button>
+<button class="quiet" id="appCheck" data-k="appCheck">Check for updates</button>
+<button class="quiet" id="appLater" data-k="appLater"></button>
+<button class="quiet" id="appSkip" data-k="appSkip"></button></div>
+<div class="actions"><button class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe"></button></div>
+<p data-k="appSigning"></p>
 </details>
-<footer><span data-k="footer">ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.</span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
+<footer><span data-k="footer"></span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
 </main>
 <script>
 document.getElementById("driverNote").hidden=document.getElementById("bootloaderDriver").hidden=document.documentElement.dataset.platform!=="win32";
 const T={
- en:{h1:"Update your radio",intro:"Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right firmware and verifies it before updating your radio.",
-  windowsDriver:"Windows requires a WinUSB-compatible driver for the connected device.",
-  tabUpdate:"Update",tabRecover:"Install / Recovery",
-  imglabel:"Firmware image",fileinfo:"firmware.bin · ApexTX for the Noble NB4 / NB4+",
-  note:"Keep the radio powered and connected during the write — do not unplug. If recovery fails, leave it powered and retry in STM32 ROM DFU mode.",
-  footer:"ApexTX Flasher runs entirely on this computer. Firmware is sent directly to the radio over USB and is never uploaded anywhere.",
-  rwarn:"This writes the COMPLETE firmware, including the bootloader. Use it only for the first ApexTX installation or recovery; use Update for normal upgrades. The radio must be in STM32 ROM DFU mode. Its current internal firmware is backed up first. Recovery normally remains possible through the STM32 ROM bootloader, but choosing the correct model and keeping the backup are essential.",
-  rdone:"Installation complete and verified. Now switch the radio OFF (hold the power button until it is fully off), then switch it ON again to start it.",
-  rimglabel:"Complete firmware image",rfileinfo:"Complete firmware.bin (bootloader + application)",
-  radioPrompt:"Which radio are you connecting?",rmodelFor:"This image appears to be for: ",rmodelUnknown:"The app will validate the model marker, manifest and checksum before writing.",
-  rconfirm:"I confirm my radio is {radio} and this image is for {image}.",rconfirmGeneric:"I confirm the selected model is my radio and this is the correct ApexTX image.",
-  select:"Select a firmware image to continue.",ready:"Ready to update.",rready:"Ready. Your current firmware is backed up before writing.",
-  sizeerr:"Select a 2 MiB firmware.bin image built for ApexTX Update.",rsizeerr:"Select a complete firmware.bin (bootloader + application).",
-  validating:"Validating firmware image…",update:"Update firmware",retry:"Retry update",updating:"Updating firmware…",
-  rbtn:"Back up & install",rretry:"Retry",rworking:"Backing up & installing…"},
- de:{h1:"Fernbedienung aktualisieren",intro:"ApexTX auf deiner FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Die App findet die passende Firmware und prüft sie vor dem Update.",
-  windowsDriver:"Windows benötigt einen WinUSB-kompatiblen Treiber für das verbundene Gerät.",
-  tabUpdate:"Update",tabRecover:"Installation / Recovery",
-  imglabel:"Firmware-Image",fileinfo:"firmware.bin · ApexTX für die Noble NB4 / NB4+",
-  note:"Fernbedienung während des Schreibens eingeschaltet und verbunden lassen — nicht abziehen. Bei einem Recovery-Fehler eingeschaltet lassen und im STM32-ROM-DFU erneut versuchen.",
-  footer:"Der ApexTX Flasher läuft komplett auf diesem Computer. Die Firmware wird direkt per USB an die Fernbedienung gesendet und nirgends hochgeladen.",
-  rwarn:"Schreibt die KOMPLETTE Firmware inkl. Bootloader. Nur für die Erstinstallation von ApexTX oder Recovery nutzen; für normale Updates den Update-Tab verwenden. Die Fernbedienung muss im STM32-ROM-DFU sein. Die aktuelle interne Firmware wird vorher gesichert. Recovery bleibt normalerweise über den STM32-ROM-Bootloader möglich, aber das richtige Modell und die Sicherung sind unverzichtbar.",
-  rdone:"Installation abgeschlossen und verifiziert. Jetzt die Fernbedienung AUSschalten (Power-Taste lang halten, bis sie ganz aus ist), dann wieder EINschalten, damit sie startet.",
-  rimglabel:"Vollständiges Firmware-Image",rfileinfo:"Vollständige firmware.bin (Bootloader + Anwendung)",
-  radioPrompt:"Welche Fernbedienung ist verbunden?",rmodelFor:"Dieses Image scheint bestimmt für: ",rmodelUnknown:"Die App prüft Modellmarkierung, Manifest und Prüfsumme vor dem Schreiben.",
-  rconfirm:"Ich bestätige: Meine Fernbedienung ist {radio} und das Image ist für {image}.",rconfirmGeneric:"Ich bestätige das gewählte Modell und das richtige ApexTX-Image.",
-  select:"Wähle ein Firmware-Image, um fortzufahren.",ready:"Bereit zum Aktualisieren.",rready:"Bereit. Deine aktuelle Firmware wird vor dem Schreiben gesichert.",
-  sizeerr:"Wähle eine 2-MiB-firmware.bin für ApexTX Update.",rsizeerr:"Wähle eine vollständige firmware.bin (Bootloader + Anwendung).",
-  validating:"Firmware-Image wird geprüft…",update:"Firmware aktualisieren",retry:"Erneut versuchen",updating:"Firmware wird aktualisiert…",
-  rbtn:"Sichern & installieren",rretry:"Erneut versuchen",rworking:"Sichern & installieren…"},
- es:{h1:"Actualiza tu emisora",intro:"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. La aplicación busca el firmware compatible y lo verifica antes de actualizar tu emisora.",
-  windowsDriver:"Windows necesita un controlador compatible con WinUSB para el dispositivo conectado.",
-  tabUpdate:"Actualizar",tabRecover:"Instalación / Recuperación",
-  imglabel:"Imagen de firmware",fileinfo:"firmware.bin · ApexTX para la Noble NB4 / NB4+",
-  note:"Mantén la emisora encendida y conectada durante la escritura — no la desconectes. Si falla la recuperación, déjala encendida y reintenta en modo STM32 ROM DFU.",
-  footer:"ApexTX Flasher se ejecuta por completo en este ordenador. El firmware se envía directamente a la emisora por USB y no se sube a ningún sitio.",
-  rwarn:"Escribe el firmware COMPLETO, incluido el bootloader. Úsalo solo para la primera instalación de ApexTX o para recuperar una emisora; para una actualización normal usa Actualizar. La emisora debe estar en STM32 ROM DFU. Antes se guarda una copia del firmware interno actual. Normalmente la recuperación seguirá disponible mediante el bootloader ROM del STM32, pero es imprescindible elegir el modelo correcto y conservar la copia.",
-  rdone:"Instalación completada y verificada. Ahora APAGA la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a ENCENDERLA para arrancarla.",
-  rimglabel:"Imagen de firmware completa",rfileinfo:"firmware.bin completa (bootloader + aplicación)",
-  radioPrompt:"¿Qué emisora estás conectando?",rmodelFor:"Esta imagen parece ser para: ",rmodelUnknown:"La aplicación validará el marcador de modelo, el manifiesto y el checksum antes de escribir.",
-  rconfirm:"Confirmo que mi emisora es {radio} y que la imagen es para {image}.",rconfirmGeneric:"Confirmo el modelo elegido y que esta es la imagen ApexTX correcta.",
-  select:"Elige una imagen de firmware para continuar.",ready:"Lista para actualizar.",rready:"Lista. Tu firmware actual se respalda antes de escribir.",
-  sizeerr:"Elige una firmware.bin de 2 MiB para ApexTX Update.",rsizeerr:"Elige una firmware.bin completa (bootloader + aplicación).",
-  validating:"Verificando la imagen…",update:"Actualizar firmware",retry:"Reintentar",updating:"Actualizando firmware…",
-  rbtn:"Respaldar e instalar",rretry:"Reintentar",rworking:"Respaldando e instalando…"}
+en:{
+ "h1":"Update your radio",
+ "intro":"Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right version, checks it, and guides you through each step.",
+ "windowsDriver":"Windows needs a USB driver for the radio. If it isn't detected, install the WinUSB driver (for example with Zadig) and reconnect it.",
+ "tabUpdate":"Update",
+ "tabRecover":"Install or recover",
+ "imglabel":"Firmware file",
+ "fileinfo":"firmware.bin · ApexTX for the Noble NB4 / NB4+",
+ "note":"Keep the radio switched on and connected until the update finishes. If something goes wrong, leave it on and try again.",
+ "footer":"ApexTX Flasher works entirely on this computer. Firmware goes straight to your radio over USB and is never uploaded anywhere.",
+ "rwarn":"This replaces everything on the radio, including its start-up program. Use it for a first installation or to recover a radio that no longer starts. For everyday updates use the Update tab. The radio must be in recovery mode (black screen). Your current firmware is saved first.",
+ "rdone":"Installation complete and verified. Switch the radio off (hold the power button until it is fully off), then switch it on again.",
+ "rimglabel":"Complete firmware file",
+ "rfileinfo":"Complete firmware.bin for your radio model",
+ "radioPrompt":"Which radio is connected?",
+ "rmodelFor":"This file is for: ",
+ "rmodelUnknown":"The app checks the model, contents and checksum before writing anything.",
+ "rconfirm":"I confirm my radio is {radio} and this file is for {image}.",
+ "rconfirmGeneric":"I confirm the selected model is my radio and this is the correct ApexTX file.",
+ "select":"Choose a firmware file to continue.",
+ "ready":"Ready to update.",
+ "rready":"Ready. Your current firmware is saved before anything is written.",
+ "sizeerr":"This is not an ApexTX update file. Choose the 2 MiB firmware.bin from a release.",
+ "rsizeerr":"Choose a complete firmware.bin for your radio.",
+ "validating":"Checking the firmware file…",
+ "update":"Update firmware",
+ "retry":"Try again",
+ "updating":"Updating firmware…",
+ "rbtn":"Back up and install",
+ "rretry":"Try again",
+ "rworking":"Backing up and installing…",
+ "previewLabel":"PREVIEW",
+ "noUpdate":"No update available",
+ "newerInstalled":"Newer version installed",
+ "refresh":"Check again",
+ "installed":"Installed version",
+ "latest":"Latest available",
+ "includePreview":"Include preview (alpha / beta) releases",
+ "releaseNotes":"Release notes ↗",
+ "manual":"Use a firmware file from this computer",
+ "searching":"Looking for your radio…",
+ "absent":"Connect your radio",
+ "connected":"Noble {model} connected",
+ "normal":"Choose ApexTX Flasher on the radio",
+ "recovery":"Radio in recovery mode",
+ "multiple":"Connect one radio at a time",
+ "usbError":"USB connection unavailable",
+ "unknown":"Not available",
+ "dev":"Development build",
+ "connectHelp":"Switch the radio on, connect it with a USB data cable and choose ApexTX Flasher on its screen. A charge-only cable will not work.",
+ "normalHelp":"Unplug the USB cable, plug it in again and choose ApexTX Flasher on the radio.",
+ "readyHelp":"Your radio is ready. Keep it switched on and connected.",
+ "recoveryHelp":"The radio is in recovery mode, so its model can't be read. Use Install or recover and confirm your model.",
+ "multipleHelp":"Disconnect the other radios so the app knows which one to update.",
+ "checking":"Checking for releases…",
+ "noRelease":"No compatible release found. Include preview releases or use a file from this computer.",
+ "previewHelp":"This is a preview release. Read the release notes before installing.",
+ "availableHelp":"A newer version is available. It is downloaded and checked automatically.",
+ "currentHelp":"Your radio already has this version.",
+ "aheadHelp":"Your radio has a newer version than this release. Nothing to do.",
+ "developmentHelp":"Your radio runs a development build. Use a file from this computer to replace it.",
+ "downloadUpdate":"Update to {version}",
+ "installLatest":"Install {version}",
+ "upToDate":"Up to date",
+ "waitRadio":"Waiting for your radio",
+ "working":"Updating your radio…",
+ "offline":"Couldn't check for releases. Check your internet connection or use a file from this computer.",
+ "unavailable":"The app stopped responding. Check the radio screen, then reopen ApexTX Flasher.",
+ "downloading":"Downloading firmware…",
+ "downloadVerified":"Download checked.",
+ "waiting":"Waiting for the radio to enter update mode…",
+ "transferring":"Sending firmware to the radio…",
+ "transferCheck":"Checking the transfer…",
+ "installing":"Installing and verifying…",
+ "restarting":"Firmware verified. Restarting your radio…",
+ "done":"Firmware verified. Check that your radio shows the Home screen.",
+ "restartManually":"Firmware verified. Hold the radio's power button to restart it.",
+ "flashBusy":"Waiting for the radio to finish writing…",
+ "usbLostInstalling":"The USB connection dropped while the radio was installing. Leave the radio on: it finishes on its own. Restart it only when its screen says the firmware is verified.",
+ "usbLostVerified":"The firmware was written and verified. Hold the radio's power button to restart it.",
+ "usbLostTransfer":"The USB connection dropped before anything was written. Reconnect the radio and try again.",
+ "rduration":"Allow 5–10 minutes. The radio's screen stays black during installation; follow the progress here and keep the USB cable connected.",
+ "rautoDone":"Firmware and start-up program verified. Your radio is starting up. Check that the Home screen appears.",
+ "rbackup":"Saving your current firmware…",
+ "rerase":"Preparing the radio's memory…",
+ "rwrite":"Writing firmware…",
+ "rverify":"Verifying everything that was written…",
+ "rfinish":"Verified. Starting your radio…",
+ "maintenanceConnected":"ApexTX Flasher mode connected",
+ "maintenanceHelp":"Your radio is ready for a one-click update. The app copies the receiver updates to the radio, restarts it in update mode and installs the firmware. You can also read the component versions below.",
+ "bootloaderTitle":"Start-up program update needed",
+ "bootloaderHelp":"This version also updates the radio's start-up program (bootloader), which a normal update cannot change. The app downloads the complete firmware and guides you through recovery mode.",
+ "bootloaderUpdate":"Prepare complete installation · {version}",
+ "dfuTitle":"Put your radio in recovery mode",
+ "dfuDownloaded":"The firmware is downloaded and checked. Nothing has been written yet.",
+ "dfuStep1":"Unplug the USB cable and switch the radio off completely.",
+ "dfuStep2":"Hold the small recessed button in the left grip while you switch the radio on and plug in the USB data cable. The screen stays black; this is not Menu → System → Update.",
+ "dfuStep3":"Release the button once the app detects the radio below, then choose Back up and install.",
+ "dfuBackup":"The app saves your current firmware, installs the complete version and verifies every byte before the radio starts again.",
+ "dfuWait":"Waiting for your radio in recovery mode…",
+ "dfuWrongRadio":"A different radio is connected. Reconnect the original radio in recovery mode.",
+ "dfuDetected":"Your radio is in recovery mode. Ready to install.",
+ "dfuInstall":"Back up and install on Noble {model}",
+ "dfuCancel":"Cancel",
+ "dfuPreparing":"Downloading and checking the complete firmware…",
+ "componentsTitle":"Components",
+ "componentsRead":"Read versions",
+ "componentsHelp":"Shows the firmware versions of the RF module and the bound receiver. Reading them changes nothing on the radio.",
+ "componentsDone":"Versions read. Nothing was changed on the radio.",
+ "componentsStale":"Earlier reading. Read again for current values.",
+ "componentModule":"RF module",
+ "componentReceiver":"Receiver",
+ "componentPending":"Receiver not connected · version unknown",
+ "wizardTitle":"Components",
+ "wizardHelp":"Advanced, step-by-step update of the radio firmware, RF module, receiver, themes and voice pack from a complete release package. Nothing is installed until you confirm each step.",
+ "wizardPackage":"Release package (.zip or .tar.gz)",
+ "wizardDownload":"Download the release package",
+ "wizardResume":"Continue a saved plan",
+ "wizardBrowse":"Browse…",
+ "wizardOpen":"Open plan",
+ "wizardBackup":"1 · Back up the radio",
+ "wizardBackupHelp":"A complete backup needs the radio in recovery mode (black screen). It copies the internal firmware and the storage card so the radio can always be restored. Keep it on this computer. Normal updates keep your cars and calibration.",
+ "wizardBackupCreate":"Create complete backup",
+ "wizardBackupAttach":"Use an existing backup folder",
+ "wizardReview":"2 · Choose what to update",
+ "wizardApplication":"Radio firmware",
+ "wizardResources":"Themes and tools",
+ "wizardAudio":"Voice pack",
+ "wizardInstall":"Install",
+ "wizardStage":"Prepare only",
+ "wizardCancel":"Cancel preparation",
+ "wizardRecover":"Recover",
+ "wizardAudioChoose":"Optional: a voice pack from this computer",
+ "wizardReinstall":"Reinstall the current RF firmware even if it is up to date",
+ "wizardConfirm":"I checked the radio, the selected components and the backup. The motor is disconnected.",
+ "wizardApprove":"Confirm this plan",
+ "wizardStorage":"3 · Themes and voice pack over USB storage",
+ "wizardStorageHelp":"Themes and voice packs are copied through the radio's storage. Prepare the connection here, then reconnect the USB cable, choose USB Storage on the radio and select the drive that appears.",
+ "wizardStoragePrepare":"Prepare storage connection",
+ "wizardVolumeFolder":"Radio storage drive",
+ "wizardRecovery":"Restore from backup · experimental",
+ "wizardRecoveryHelp":"Puts the radio back to the state of its backup. Needs recovery mode (black screen). Restoring storage replaces the whole storage card; restoring firmware replaces the internal firmware and start-up program. The RF module and receiver have their own Recover action.",
+ "wizardRestoreNor":"Restore storage card",
+ "wizardRestoreApp":"Restore internal firmware",
+ "wizardRestoreAudio":"Restore previous voice pack",
+ "wizardDestructive":"Confirm this action on the radio:",
+ "wizardQualified":"Writing this RF firmware is not supported on this radio or build.",
+ "wizardBackupPending":"No verified backup selected yet.",
+ "wizardApproved":"Plan confirmed",
+ "wizardUnapproved":"Review and confirm the plan before installing.",
+ "wizardOutcome_complete":"All selected components are up to date and verified.",
+ "wizardOutcome_partial":"Some components are still pending.",
+ "wizardOutcome_recovery_required":"A component needs recovery before you continue.",
+ "wizardMode_maintenance":"ApexTX Flasher mode connected · read versions, prepare RF updates or storage.",
+ "wizardMode_update":"Update mode connected · the radio firmware can be installed.",
+ "wizardMode_storage":"USB Storage connected · themes and voice packs can be installed.",
+ "wizardMode_recovery":"Recovery mode connected · complete backup or restore.",
+ "wizardMode_other":"Connect the radio in the mode the selected step asks for.",
+ "wizardState_unselected":"Not selected",
+ "wizardState_pending":"Pending",
+ "wizardState_current":"Up to date",
+ "wizardState_ready":"Ready",
+ "wizardState_unknown":"Unknown",
+ "wizardState_blocked":"Not possible yet",
+ "wizardState_staged":"Prepared",
+ "wizardState_running":"In progress",
+ "wizardState_verifying":"Checking after restart",
+ "wizardState_complete":"Done",
+ "wizardState_cancelled":"Cancelled",
+ "wizardState_failed":"Failed",
+ "wizardState_recovery_required":"Needs recovery",
+ "wizardState_deferred":"Later",
+ "wizardState_available":"Update available",
+ "wizardBackupFolder":"Backup folder on this computer",
+ "wizardKeepAudio":"Keep the installed voice pack",
+ "wizardSessionFolder":"Saved plan folder",
+ "wizardFirstSetup":"After a first installation: open Menu > System > Calibration, then create a car and bind its receiver. Cars from the previous system stay in the backup.",
+ "wizardPhaseSaved":"Plan saved. Check each component before the next step.",
+ "wizardPhaseWorking":"Working on the selected component…",
+ "wizardPhasePreparing":"Preparing and checking the release package…",
+ "wizardPhaseBackup":"Creating and verifying the backup…",
+ "wizardPhaseStage":"Preparing the RF update · nothing installed yet",
+ "wizardPhaseRf":"Updating the RF component…",
+ "wizardPhaseAudio":"Installing the voice pack…",
+ "wizardPhaseResources":"Installing themes, tools and prepared RF updates…",
+ "wizardPhaseRestore":"Restoring and verifying the backup…",
+ "wizardPhaseVerify":"Verifying the component…",
+ "wizardErrorMode":"Reconnect the same radio in this mode: {mode}.",
+ "wizardErrorSpace":"Not enough space on the radio. Leave out the voice pack or themes, or free up space first.",
+ "wizardErrorIdentity":"The radio, a component or the backup changed. Read the versions and review the plan again.",
+ "wizardErrorFirst":"A first installation is not available yet for this radio model.",
+ "wizardErrorResume":"Continue with the original package and backup, or restore the previous files.",
+ "wizardErrorGeneric":"The step stopped. Check the connection and the component state, then try again.",
+ "wizardTechnical":"Details",
+ "wizardBootloader":"Start-up program",
+ "wizardBootRead":"Connect in update mode and read the versions to check what this update needs.",
+ "wizardBootRom":"This update needs recovery mode and a verified backup.",
+ "wizardAudioOnline":"Voice pack from this release",
+ "wizardAudioPick":"Choose a language…",
+ "wizardAudioDownload":"Download and prepare",
+ "publishingRf":"Copying receiver updates to the radio…",
+ "rebooting":"Restarting the radio in update mode…",
+ "appTitle":"App updates",
+ "appPreview":"Include preview versions of the app",
+ "appRelocate":"Install in my user folder",
+ "appCheck":"Check for updates",
+ "appInstall":"Update and restart",
+ "appLater":"Remind me tomorrow",
+ "appSkip":"Skip this version",
+ "appRadioSafe":"I checked the radio; recovery is finished",
+ "appSigning":"Updates are signed by ApexTX and checked before they are installed. Windows or macOS may ask for permission the first time the new version opens.",
+ "appInstalled":"ApexTX Flasher {version}",
+ "appAvailable":"Version {version} is available.",
+ "appCurrent":"You have the latest version.",
+ "appChecking":"Checking for updates…",
+ "appDownloading":"Downloading… {progress}%",
+ "appVerifying":"Checking the download…",
+ "appRestarting":"Restarting ApexTX Flasher…",
+ "appBlocked":"Finish the radio update or recovery first.",
+ "appUnsupported":"Automatic updates are available in the Windows and macOS apps.",
+ "appIncompatible":"This version needs a newer operating system.",
+ "appLastCheck":"Last checked: {date}",
+ "appOffline":"Couldn't check for app updates. Radio updates still work.",
+ "appUpdated":"ApexTX Flasher was updated."
+},
+es:{
+ "h1":"Actualiza tu emisora",
+ "intro":"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. La aplicación busca la versión adecuada, la comprueba y te guía paso a paso.",
+ "windowsDriver":"Windows necesita un controlador USB para la emisora. Si no se detecta, instala el controlador WinUSB (por ejemplo con Zadig) y vuelve a conectarla.",
+ "tabUpdate":"Actualizar",
+ "tabRecover":"Instalar o recuperar",
+ "imglabel":"Archivo de firmware",
+ "fileinfo":"firmware.bin · ApexTX para la Noble NB4 / NB4+",
+ "note":"Mantén la emisora encendida y conectada hasta que termine la actualización. Si algo falla, déjala encendida y vuelve a intentarlo.",
+ "footer":"ApexTX Flasher funciona por completo en este ordenador. El firmware va directo a tu emisora por USB y nunca se sube a ningún sitio.",
+ "rwarn":"Esto reemplaza todo el contenido de la emisora, incluido su programa de arranque. Úsalo para una primera instalación o para recuperar una emisora que ya no arranca. Para las actualizaciones habituales usa la pestaña Actualizar. La emisora debe estar en modo recuperación (pantalla negra). Antes se guarda una copia de tu firmware actual.",
+ "rdone":"Instalación completada y verificada. Apaga la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a encenderla.",
+ "rimglabel":"Archivo de firmware completo",
+ "rfileinfo":"firmware.bin completo para tu modelo de emisora",
+ "radioPrompt":"¿Qué emisora está conectada?",
+ "rmodelFor":"Este archivo es para: ",
+ "rmodelUnknown":"La aplicación comprueba el modelo, el contenido y la suma de verificación antes de escribir nada.",
+ "rconfirm":"Confirmo que mi emisora es {radio} y que este archivo es para {image}.",
+ "rconfirmGeneric":"Confirmo que el modelo elegido es mi emisora y que este es el archivo ApexTX correcto.",
+ "select":"Elige un archivo de firmware para continuar.",
+ "ready":"Lista para actualizar.",
+ "rready":"Lista. Tu firmware actual se guarda antes de escribir nada.",
+ "sizeerr":"Este no es un archivo de actualización ApexTX. Elige el firmware.bin de 2 MiB de una versión publicada.",
+ "rsizeerr":"Elige un firmware.bin completo para tu emisora.",
+ "validating":"Comprobando el archivo de firmware…",
+ "update":"Actualizar firmware",
+ "retry":"Reintentar",
+ "updating":"Actualizando firmware…",
+ "rbtn":"Respaldar e instalar",
+ "rretry":"Reintentar",
+ "rworking":"Respaldando e instalando…",
+ "previewLabel":"PRELIMINAR",
+ "noUpdate":"Sin actualizaciones",
+ "newerInstalled":"Versión más reciente instalada",
+ "refresh":"Volver a comprobar",
+ "installed":"Versión instalada",
+ "latest":"Última disponible",
+ "includePreview":"Incluir versiones preliminares (alpha / beta)",
+ "releaseNotes":"Notas de la versión ↗",
+ "manual":"Usar un archivo de firmware de este ordenador",
+ "searching":"Buscando tu emisora…",
+ "absent":"Conecta tu emisora",
+ "connected":"Noble {model} conectada",
+ "normal":"Elige ApexTX Flasher en la emisora",
+ "recovery":"Emisora en modo recuperación",
+ "multiple":"Conecta una sola emisora",
+ "usbError":"Conexión USB no disponible",
+ "unknown":"No disponible",
+ "dev":"Versión de desarrollo",
+ "connectHelp":"Enciende la emisora, conéctala con un cable USB de datos y elige ApexTX Flasher en su pantalla. Un cable de solo carga no sirve.",
+ "normalHelp":"Desconecta el cable USB, vuelve a conectarlo y elige ApexTX Flasher en la emisora.",
+ "readyHelp":"Tu emisora está lista. Mantenla encendida y conectada.",
+ "recoveryHelp":"La emisora está en modo recuperación y no se puede leer su modelo. Usa Instalar o recuperar y confirma tu modelo.",
+ "multipleHelp":"Desconecta las otras emisoras para que la aplicación sepa cuál actualizar.",
+ "checking":"Buscando versiones…",
+ "noRelease":"No hay ninguna versión compatible. Incluye las versiones preliminares o usa un archivo de este ordenador.",
+ "previewHelp":"Es una versión preliminar. Lee las notas de la versión antes de instalar.",
+ "availableHelp":"Hay una versión más reciente. Se descarga y se comprueba automáticamente.",
+ "currentHelp":"Tu emisora ya tiene esta versión.",
+ "aheadHelp":"Tu emisora tiene una versión más reciente que esta. No hay nada que hacer.",
+ "developmentHelp":"Tu emisora tiene una versión de desarrollo. Usa un archivo de este ordenador para reemplazarla.",
+ "downloadUpdate":"Actualizar a {version}",
+ "installLatest":"Instalar {version}",
+ "upToDate":"Actualizada",
+ "waitRadio":"Esperando a tu emisora",
+ "working":"Actualizando tu emisora…",
+ "offline":"No se pudo comprobar si hay versiones nuevas. Revisa tu conexión a internet o usa un archivo de este ordenador.",
+ "unavailable":"La aplicación dejó de responder. Mira la pantalla de la emisora y vuelve a abrir ApexTX Flasher.",
+ "downloading":"Descargando firmware…",
+ "downloadVerified":"Descarga comprobada.",
+ "waiting":"Esperando a que la emisora entre en modo actualización…",
+ "transferring":"Enviando el firmware a la emisora…",
+ "transferCheck":"Comprobando la transferencia…",
+ "installing":"Instalando y verificando…",
+ "restarting":"Firmware verificado. Reiniciando tu emisora…",
+ "done":"Firmware verificado. Comprueba que tu emisora muestra la pantalla de Inicio.",
+ "restartManually":"Firmware verificado. Mantén pulsado el botón de encendido de la emisora para reiniciarla.",
+ "flashBusy":"Esperando a que la emisora termine de escribir…",
+ "usbLostInstalling":"Se perdió la conexión USB mientras la emisora instalaba. Déjala encendida: termina por sí sola. Reiníciala solo cuando su pantalla indique que el firmware está verificado.",
+ "usbLostVerified":"El firmware se escribió y verificó. Mantén pulsado el botón de encendido de la emisora para reiniciarla.",
+ "usbLostTransfer":"Se perdió la conexión USB antes de escribir nada. Vuelve a conectar la emisora e inténtalo de nuevo.",
+ "rduration":"Puede tardar entre 5 y 10 minutos. La pantalla de la emisora permanece negra durante la instalación; sigue el progreso aquí y no desconectes el cable USB.",
+ "rautoDone":"Firmware y programa de arranque verificados. Tu emisora está arrancando. Comprueba que aparece la pantalla de Inicio.",
+ "rbackup":"Guardando tu firmware actual…",
+ "rerase":"Preparando la memoria de la emisora…",
+ "rwrite":"Escribiendo el firmware…",
+ "rverify":"Verificando todo lo escrito…",
+ "rfinish":"Verificado. Arrancando tu emisora…",
+ "maintenanceConnected":"Modo ApexTX Flasher conectado",
+ "maintenanceHelp":"Tu emisora está lista para actualizarse con un clic. La aplicación copia las actualizaciones de receptores a la emisora, la reinicia en modo actualización e instala el firmware. Debajo también puedes consultar las versiones de los componentes.",
+ "bootloaderTitle":"Hace falta actualizar el programa de arranque",
+ "bootloaderHelp":"Esta versión también actualiza el programa de arranque de la emisora (bootloader), algo que una actualización normal no puede cambiar. La aplicación descarga el firmware completo y te guía por el modo recuperación.",
+ "bootloaderUpdate":"Preparar instalación completa · {version}",
+ "dfuTitle":"Pon tu emisora en modo recuperación",
+ "dfuDownloaded":"El firmware está descargado y comprobado. Todavía no se ha escrito nada.",
+ "dfuStep1":"Desconecta el cable USB y apaga la emisora por completo.",
+ "dfuStep2":"Mantén pulsado el pequeño botón hundido del grip izquierdo mientras enciendes la emisora y conectas el cable USB de datos. La pantalla se queda negra; no es Menú → Sistema → Update.",
+ "dfuStep3":"Suelta el botón cuando la aplicación detecte la emisora aquí abajo y pulsa Respaldar e instalar.",
+ "dfuBackup":"La aplicación guarda tu firmware actual, instala la versión completa y verifica cada byte antes de que la emisora vuelva a arrancar.",
+ "dfuWait":"Esperando a tu emisora en modo recuperación…",
+ "dfuWrongRadio":"Hay otra emisora conectada. Vuelve a conectar la emisora original en modo recuperación.",
+ "dfuDetected":"Tu emisora está en modo recuperación. Lista para instalar.",
+ "dfuInstall":"Respaldar e instalar en Noble {model}",
+ "dfuCancel":"Cancelar",
+ "dfuPreparing":"Descargando y comprobando el firmware completo…",
+ "componentsTitle":"Componentes",
+ "componentsRead":"Consultar versiones",
+ "componentsHelp":"Muestra las versiones de firmware del módulo RF y del receptor enlazado. Consultarlas no cambia nada en la emisora.",
+ "componentsDone":"Versiones consultadas. No se cambió nada en la emisora.",
+ "componentsStale":"Lectura anterior. Vuelve a consultar para ver los valores actuales.",
+ "componentModule":"Módulo RF",
+ "componentReceiver":"Receptor",
+ "componentPending":"Receptor no conectado · versión desconocida",
+ "wizardTitle":"Componentes",
+ "wizardHelp":"Actualización avanzada, paso a paso, del firmware de la emisora, el módulo RF, el receptor, los temas y el paquete de voz a partir de un paquete completo de la versión. No se instala nada hasta que confirmes cada paso.",
+ "wizardPackage":"Paquete de la versión (.zip o .tar.gz)",
+ "wizardDownload":"Descargar el paquete de la versión",
+ "wizardResume":"Continuar un plan guardado",
+ "wizardBrowse":"Examinar…",
+ "wizardOpen":"Abrir plan",
+ "wizardBackup":"1 · Respaldar la emisora",
+ "wizardBackupHelp":"Una copia completa necesita la emisora en modo recuperación (pantalla negra). Copia el firmware interno y la tarjeta de almacenamiento para que la emisora siempre se pueda restaurar. Guárdala en este ordenador. Las actualizaciones normales conservan tus coches y la calibración.",
+ "wizardBackupCreate":"Crear copia completa",
+ "wizardBackupAttach":"Usar una carpeta de copia existente",
+ "wizardReview":"2 · Elige qué actualizar",
+ "wizardApplication":"Firmware de la emisora",
+ "wizardResources":"Temas y herramientas",
+ "wizardAudio":"Paquete de voz",
+ "wizardInstall":"Instalar",
+ "wizardStage":"Solo preparar",
+ "wizardCancel":"Cancelar preparación",
+ "wizardRecover":"Recuperar",
+ "wizardAudioChoose":"Opcional: un paquete de voz de este ordenador",
+ "wizardReinstall":"Reinstalar el firmware RF actual aunque esté al día",
+ "wizardConfirm":"He revisado la emisora, los componentes elegidos y la copia de seguridad. El motor está desconectado.",
+ "wizardApprove":"Confirmar este plan",
+ "wizardStorage":"3 · Temas y paquete de voz por almacenamiento USB",
+ "wizardStorageHelp":"Los temas y los paquetes de voz se copian a través del almacenamiento de la emisora. Prepara la conexión aquí, vuelve a conectar el cable USB, elige Almacenamiento USB en la emisora y selecciona la unidad que aparece.",
+ "wizardStoragePrepare":"Preparar conexión de almacenamiento",
+ "wizardVolumeFolder":"Unidad de almacenamiento de la emisora",
+ "wizardRecovery":"Restaurar desde la copia · experimental",
+ "wizardRecoveryHelp":"Devuelve la emisora al estado de su copia de seguridad. Necesita el modo recuperación (pantalla negra). Restaurar el almacenamiento reemplaza toda la tarjeta; restaurar el firmware reemplaza el firmware interno y el programa de arranque. El módulo RF y el receptor tienen su propia acción Recuperar.",
+ "wizardRestoreNor":"Restaurar tarjeta de almacenamiento",
+ "wizardRestoreApp":"Restaurar firmware interno",
+ "wizardRestoreAudio":"Restaurar el paquete de voz anterior",
+ "wizardDestructive":"Confirma esta acción en la emisora:",
+ "wizardQualified":"Escribir este firmware RF no está admitido en esta emisora o versión.",
+ "wizardBackupPending":"Todavía no hay una copia de seguridad verificada.",
+ "wizardApproved":"Plan confirmado",
+ "wizardUnapproved":"Revisa y confirma el plan antes de instalar.",
+ "wizardOutcome_complete":"Todos los componentes elegidos están al día y verificados.",
+ "wizardOutcome_partial":"Quedan componentes pendientes.",
+ "wizardOutcome_recovery_required":"Un componente necesita recuperación antes de continuar.",
+ "wizardMode_maintenance":"Modo ApexTX Flasher conectado · consultar versiones, preparar actualizaciones RF o el almacenamiento.",
+ "wizardMode_update":"Modo actualización conectado · se puede instalar el firmware de la emisora.",
+ "wizardMode_storage":"Almacenamiento USB conectado · se pueden instalar temas y paquetes de voz.",
+ "wizardMode_recovery":"Modo recuperación conectado · copia completa o restauración.",
+ "wizardMode_other":"Conecta la emisora en el modo que pide el paso elegido.",
+ "wizardState_unselected":"No seleccionado",
+ "wizardState_pending":"Pendiente",
+ "wizardState_current":"Al día",
+ "wizardState_ready":"Listo",
+ "wizardState_unknown":"Desconocido",
+ "wizardState_blocked":"Todavía no es posible",
+ "wizardState_staged":"Preparado",
+ "wizardState_running":"En curso",
+ "wizardState_verifying":"Comprobando tras el reinicio",
+ "wizardState_complete":"Hecho",
+ "wizardState_cancelled":"Cancelado",
+ "wizardState_failed":"Falló",
+ "wizardState_recovery_required":"Necesita recuperación",
+ "wizardState_deferred":"Más tarde",
+ "wizardState_available":"Actualización disponible",
+ "wizardBackupFolder":"Carpeta de la copia en este ordenador",
+ "wizardKeepAudio":"Conservar el paquete de voz instalado",
+ "wizardSessionFolder":"Carpeta del plan guardado",
+ "wizardFirstSetup":"Después de una primera instalación: abre Menú > Sistema > Calibración, crea un coche y enlaza su receptor. Los coches del sistema anterior quedan en la copia de seguridad.",
+ "wizardPhaseSaved":"Plan guardado. Revisa cada componente antes del siguiente paso.",
+ "wizardPhaseWorking":"Trabajando en el componente elegido…",
+ "wizardPhasePreparing":"Preparando y comprobando el paquete de la versión…",
+ "wizardPhaseBackup":"Creando y verificando la copia de seguridad…",
+ "wizardPhaseStage":"Preparando la actualización RF · todavía no se instala nada",
+ "wizardPhaseRf":"Actualizando el componente RF…",
+ "wizardPhaseAudio":"Instalando el paquete de voz…",
+ "wizardPhaseResources":"Instalando temas, herramientas y actualizaciones RF preparadas…",
+ "wizardPhaseRestore":"Restaurando y verificando la copia…",
+ "wizardPhaseVerify":"Verificando el componente…",
+ "wizardErrorMode":"Vuelve a conectar la misma emisora en este modo: {mode}.",
+ "wizardErrorSpace":"No hay espacio suficiente en la emisora. Deja fuera el paquete de voz o los temas, o libera espacio primero.",
+ "wizardErrorIdentity":"La emisora, un componente o la copia han cambiado. Consulta las versiones y revisa el plan de nuevo.",
+ "wizardErrorFirst":"La primera instalación todavía no está disponible para este modelo de emisora.",
+ "wizardErrorResume":"Continúa con el paquete y la copia originales, o restaura los archivos anteriores.",
+ "wizardErrorGeneric":"El paso se detuvo. Revisa la conexión y el estado del componente y vuelve a intentarlo.",
+ "wizardTechnical":"Detalles",
+ "wizardBootloader":"Programa de arranque",
+ "wizardBootRead":"Conecta en modo actualización y consulta las versiones para saber qué necesita esta actualización.",
+ "wizardBootRom":"Esta actualización necesita el modo recuperación y una copia verificada.",
+ "wizardAudioOnline":"Paquete de voz de esta versión",
+ "wizardAudioPick":"Elige un idioma…",
+ "wizardAudioDownload":"Descargar y preparar",
+ "publishingRf":"Copiando las actualizaciones de receptores a la emisora…",
+ "rebooting":"Reiniciando la emisora en modo actualización…",
+ "appTitle":"Actualizaciones de la aplicación",
+ "appPreview":"Incluir versiones preliminares de la aplicación",
+ "appRelocate":"Instalar en mi carpeta de usuario",
+ "appCheck":"Buscar actualizaciones",
+ "appInstall":"Actualizar y reiniciar",
+ "appLater":"Recordármelo mañana",
+ "appSkip":"Omitir esta versión",
+ "appRadioSafe":"He revisado la emisora; la recuperación ha terminado",
+ "appSigning":"Las actualizaciones están firmadas por ApexTX y se comprueban antes de instalarse. Windows o macOS pueden pedir permiso la primera vez que se abra la nueva versión.",
+ "appInstalled":"ApexTX Flasher {version}",
+ "appAvailable":"La versión {version} está disponible.",
+ "appCurrent":"Tienes la última versión.",
+ "appChecking":"Buscando actualizaciones…",
+ "appDownloading":"Descargando… {progress}%",
+ "appVerifying":"Comprobando la descarga…",
+ "appRestarting":"Reiniciando ApexTX Flasher…",
+ "appBlocked":"Termina primero la actualización o recuperación de la emisora.",
+ "appUnsupported":"Las actualizaciones automáticas están disponibles en las aplicaciones de Windows y macOS.",
+ "appIncompatible":"Esta versión necesita un sistema operativo más reciente.",
+ "appLastCheck":"Última comprobación: {date}",
+ "appOffline":"No se pudo buscar actualizaciones de la aplicación. Las actualizaciones de la emisora siguen funcionando.",
+ "appUpdated":"ApexTX Flasher se actualizó correctamente."
+},
+de:{
+ "h1":"Sender aktualisieren",
+ "intro":"ApexTX auf deinem FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Die App findet die passende Version, prüft sie und führt dich Schritt für Schritt.",
+ "windowsDriver":"Windows braucht einen USB-Treiber für den Sender. Wird er nicht erkannt, installiere den WinUSB-Treiber (zum Beispiel mit Zadig) und verbinde ihn erneut.",
+ "tabUpdate":"Aktualisieren",
+ "tabRecover":"Installieren oder wiederherstellen",
+ "imglabel":"Firmware-Datei",
+ "fileinfo":"firmware.bin · ApexTX für die Noble NB4 / NB4+",
+ "note":"Lass den Sender eingeschaltet und verbunden, bis das Update fertig ist. Geht etwas schief, lass ihn eingeschaltet und versuche es erneut.",
+ "footer":"ApexTX Flasher arbeitet vollständig auf diesem Computer. Die Firmware geht per USB direkt an deinen Sender und wird nirgends hochgeladen.",
+ "rwarn":"Dies ersetzt alles auf dem Sender, auch sein Startprogramm. Nutze es für eine Erstinstallation oder um einen Sender wiederherzustellen, der nicht mehr startet. Für normale Updates nimm den Reiter Aktualisieren. Der Sender muss im Wiederherstellungsmodus sein (schwarzer Bildschirm). Deine aktuelle Firmware wird vorher gesichert.",
+ "rdone":"Installation abgeschlossen und geprüft. Schalte den Sender aus (Einschalttaste halten, bis er ganz aus ist) und dann wieder ein.",
+ "rimglabel":"Vollständige Firmware-Datei",
+ "rfileinfo":"Vollständige firmware.bin für dein Sendermodell",
+ "radioPrompt":"Welcher Sender ist verbunden?",
+ "rmodelFor":"Diese Datei ist für: ",
+ "rmodelUnknown":"Die App prüft Modell, Inhalt und Prüfsumme, bevor etwas geschrieben wird.",
+ "rconfirm":"Ich bestätige: Mein Sender ist {radio} und diese Datei ist für {image}.",
+ "rconfirmGeneric":"Ich bestätige, dass das gewählte Modell mein Sender ist und dies die richtige ApexTX-Datei ist.",
+ "select":"Wähle eine Firmware-Datei, um fortzufahren.",
+ "ready":"Bereit zum Aktualisieren.",
+ "rready":"Bereit. Deine aktuelle Firmware wird gesichert, bevor etwas geschrieben wird.",
+ "sizeerr":"Das ist keine ApexTX-Update-Datei. Wähle die 2-MiB-firmware.bin einer Veröffentlichung.",
+ "rsizeerr":"Wähle eine vollständige firmware.bin für deinen Sender.",
+ "validating":"Firmware-Datei wird geprüft…",
+ "update":"Firmware aktualisieren",
+ "retry":"Erneut versuchen",
+ "updating":"Firmware wird aktualisiert…",
+ "rbtn":"Sichern und installieren",
+ "rretry":"Erneut versuchen",
+ "rworking":"Sichern und installieren…",
+ "previewLabel":"VORSCHAU",
+ "noUpdate":"Kein Update verfügbar",
+ "newerInstalled":"Neuere Version installiert",
+ "refresh":"Erneut prüfen",
+ "installed":"Installierte Version",
+ "latest":"Neueste verfügbare",
+ "includePreview":"Vorschauversionen (Alpha / Beta) einschließen",
+ "releaseNotes":"Versionshinweise ↗",
+ "manual":"Firmware-Datei von diesem Computer verwenden",
+ "searching":"Sender wird gesucht…",
+ "absent":"Sender verbinden",
+ "connected":"Noble {model} verbunden",
+ "normal":"Am Sender ApexTX Flasher wählen",
+ "recovery":"Sender im Wiederherstellungsmodus",
+ "multiple":"Nur einen Sender verbinden",
+ "usbError":"USB-Verbindung nicht verfügbar",
+ "unknown":"Nicht verfügbar",
+ "dev":"Entwicklungsversion",
+ "connectHelp":"Schalte den Sender ein, verbinde ihn mit einem USB-Datenkabel und wähle auf seinem Bildschirm ApexTX Flasher. Ein reines Ladekabel funktioniert nicht.",
+ "normalHelp":"Zieh das USB-Kabel ab, steck es wieder ein und wähle am Sender ApexTX Flasher.",
+ "readyHelp":"Dein Sender ist bereit. Lass ihn eingeschaltet und verbunden.",
+ "recoveryHelp":"Der Sender ist im Wiederherstellungsmodus, sein Modell kann nicht gelesen werden. Nutze Installieren oder wiederherstellen und bestätige dein Modell.",
+ "multipleHelp":"Trenne die anderen Sender, damit die App weiß, welchen sie aktualisieren soll.",
+ "checking":"Versionen werden gesucht…",
+ "noRelease":"Keine passende Version gefunden. Schließe Vorschauversionen ein oder verwende eine Datei von diesem Computer.",
+ "previewHelp":"Dies ist eine Vorschauversion. Lies vor der Installation die Versionshinweise.",
+ "availableHelp":"Eine neuere Version ist verfügbar. Sie wird automatisch heruntergeladen und geprüft.",
+ "currentHelp":"Dein Sender hat diese Version bereits.",
+ "aheadHelp":"Dein Sender hat eine neuere Version als diese. Nichts zu tun.",
+ "developmentHelp":"Dein Sender läuft mit einer Entwicklungsversion. Verwende eine Datei von diesem Computer, um sie zu ersetzen.",
+ "downloadUpdate":"Auf {version} aktualisieren",
+ "installLatest":"{version} installieren",
+ "upToDate":"Auf dem neuesten Stand",
+ "waitRadio":"Warte auf deinen Sender",
+ "working":"Sender wird aktualisiert…",
+ "offline":"Versionen konnten nicht geprüft werden. Prüfe deine Internetverbindung oder verwende eine Datei von diesem Computer.",
+ "unavailable":"Die App antwortet nicht mehr. Prüfe den Bildschirm des Senders und öffne ApexTX Flasher erneut.",
+ "downloading":"Firmware wird heruntergeladen…",
+ "downloadVerified":"Download geprüft.",
+ "waiting":"Warte, bis der Sender in den Update-Modus wechselt…",
+ "transferring":"Firmware wird an den Sender gesendet…",
+ "transferCheck":"Übertragung wird geprüft…",
+ "installing":"Installieren und prüfen…",
+ "restarting":"Firmware geprüft. Sender startet neu…",
+ "done":"Firmware geprüft. Prüfe, ob dein Sender den Startbildschirm zeigt.",
+ "restartManually":"Firmware geprüft. Halte die Einschalttaste des Senders gedrückt, um ihn neu zu starten.",
+ "flashBusy":"Warte, bis der Sender fertig geschrieben hat…",
+ "usbLostInstalling":"Die USB-Verbindung ist während der Installation abgebrochen. Lass den Sender eingeschaltet: Er schließt sie selbst ab. Starte ihn erst neu, wenn sein Bildschirm die Firmware als geprüft meldet.",
+ "usbLostVerified":"Die Firmware wurde geschrieben und geprüft. Halte die Einschalttaste des Senders gedrückt, um ihn neu zu starten.",
+ "usbLostTransfer":"Die USB-Verbindung ist abgebrochen, bevor etwas geschrieben wurde. Verbinde den Sender erneut und versuche es noch einmal.",
+ "rduration":"Rechne mit 5–10 Minuten. Der Bildschirm des Senders bleibt während der Installation schwarz; verfolge den Fortschritt hier und lass das USB-Kabel verbunden.",
+ "rautoDone":"Firmware und Startprogramm geprüft. Dein Sender startet. Prüfe, ob der Startbildschirm erscheint.",
+ "rbackup":"Aktuelle Firmware wird gesichert…",
+ "rerase":"Speicher des Senders wird vorbereitet…",
+ "rwrite":"Firmware wird geschrieben…",
+ "rverify":"Alles Geschriebene wird geprüft…",
+ "rfinish":"Geprüft. Sender wird gestartet…",
+ "maintenanceConnected":"ApexTX-Flasher-Modus verbunden",
+ "maintenanceHelp":"Dein Sender ist bereit für das Update mit einem Klick. Die App kopiert die Empfänger-Updates auf den Sender, startet ihn im Update-Modus neu und installiert die Firmware. Unten kannst du auch die Komponentenversionen lesen.",
+ "bootloaderTitle":"Update des Startprogramms nötig",
+ "bootloaderHelp":"Diese Version aktualisiert auch das Startprogramm des Senders (Bootloader), das ein normales Update nicht ändern kann. Die App lädt die vollständige Firmware herunter und führt dich durch den Wiederherstellungsmodus.",
+ "bootloaderUpdate":"Vollständige Installation vorbereiten · {version}",
+ "dfuTitle":"Sender in den Wiederherstellungsmodus bringen",
+ "dfuDownloaded":"Die Firmware ist heruntergeladen und geprüft. Es wurde noch nichts geschrieben.",
+ "dfuStep1":"Zieh das USB-Kabel ab und schalte den Sender ganz aus.",
+ "dfuStep2":"Halte die kleine versenkte Taste im linken Griff gedrückt, während du den Sender einschaltest und das USB-Datenkabel einsteckst. Der Bildschirm bleibt schwarz; das ist nicht Menü → System → Update.",
+ "dfuStep3":"Lass die Taste los, sobald die App den Sender unten erkennt, und wähle dann Sichern und installieren.",
+ "dfuBackup":"Die App sichert deine aktuelle Firmware, installiert die vollständige Version und prüft jedes Byte, bevor der Sender wieder startet.",
+ "dfuWait":"Warte auf deinen Sender im Wiederherstellungsmodus…",
+ "dfuWrongRadio":"Ein anderer Sender ist verbunden. Verbinde den ursprünglichen Sender erneut im Wiederherstellungsmodus.",
+ "dfuDetected":"Dein Sender ist im Wiederherstellungsmodus. Bereit zur Installation.",
+ "dfuInstall":"Sichern und auf Noble {model} installieren",
+ "dfuCancel":"Abbrechen",
+ "dfuPreparing":"Vollständige Firmware wird heruntergeladen und geprüft…",
+ "componentsTitle":"Komponenten",
+ "componentsRead":"Versionen lesen",
+ "componentsHelp":"Zeigt die Firmware-Versionen des HF-Moduls und des gebundenen Empfängers. Das Lesen ändert nichts am Sender.",
+ "componentsDone":"Versionen gelesen. Am Sender wurde nichts geändert.",
+ "componentsStale":"Frühere Abfrage. Lies erneut für aktuelle Werte.",
+ "componentModule":"HF-Modul",
+ "componentReceiver":"Empfänger",
+ "componentPending":"Empfänger nicht verbunden · Version unbekannt",
+ "wizardTitle":"Komponenten",
+ "wizardHelp":"Erweitertes, schrittweises Update von Sender-Firmware, HF-Modul, Empfänger, Themen und Sprachpaket aus einem vollständigen Veröffentlichungspaket. Es wird nichts installiert, bis du jeden Schritt bestätigst.",
+ "wizardPackage":"Veröffentlichungspaket (.zip oder .tar.gz)",
+ "wizardDownload":"Veröffentlichungspaket herunterladen",
+ "wizardResume":"Gespeicherten Plan fortsetzen",
+ "wizardBrowse":"Durchsuchen…",
+ "wizardOpen":"Plan öffnen",
+ "wizardBackup":"1 · Sender sichern",
+ "wizardBackupHelp":"Eine vollständige Sicherung braucht den Sender im Wiederherstellungsmodus (schwarzer Bildschirm). Sie kopiert die interne Firmware und die Speicherkarte, damit der Sender immer wiederhergestellt werden kann. Bewahre sie auf diesem Computer auf. Normale Updates behalten deine Autos und die Kalibrierung.",
+ "wizardBackupCreate":"Vollständige Sicherung erstellen",
+ "wizardBackupAttach":"Vorhandenen Sicherungsordner verwenden",
+ "wizardReview":"2 · Auswählen, was aktualisiert wird",
+ "wizardApplication":"Sender-Firmware",
+ "wizardResources":"Themen und Werkzeuge",
+ "wizardAudio":"Sprachpaket",
+ "wizardInstall":"Installieren",
+ "wizardStage":"Nur vorbereiten",
+ "wizardCancel":"Vorbereitung abbrechen",
+ "wizardRecover":"Wiederherstellen",
+ "wizardAudioChoose":"Optional: ein Sprachpaket von diesem Computer",
+ "wizardReinstall":"Aktuelle HF-Firmware erneut installieren, auch wenn sie aktuell ist",
+ "wizardConfirm":"Ich habe Sender, gewählte Komponenten und Sicherung geprüft. Der Motor ist abgeklemmt.",
+ "wizardApprove":"Diesen Plan bestätigen",
+ "wizardStorage":"3 · Themen und Sprachpaket über USB-Speicher",
+ "wizardStorageHelp":"Themen und Sprachpakete werden über den Speicher des Senders kopiert. Bereite die Verbindung hier vor, steck dann das USB-Kabel neu ein, wähle am Sender USB-Speicher und wähle das Laufwerk, das erscheint.",
+ "wizardStoragePrepare":"Speicherverbindung vorbereiten",
+ "wizardVolumeFolder":"Speicherlaufwerk des Senders",
+ "wizardRecovery":"Aus Sicherung wiederherstellen · experimentell",
+ "wizardRecoveryHelp":"Bringt den Sender in den Zustand seiner Sicherung zurück. Braucht den Wiederherstellungsmodus (schwarzer Bildschirm). Speicher wiederherstellen ersetzt die ganze Speicherkarte; Firmware wiederherstellen ersetzt interne Firmware und Startprogramm. HF-Modul und Empfänger haben ihre eigene Aktion Wiederherstellen.",
+ "wizardRestoreNor":"Speicherkarte wiederherstellen",
+ "wizardRestoreApp":"Interne Firmware wiederherstellen",
+ "wizardRestoreAudio":"Vorheriges Sprachpaket wiederherstellen",
+ "wizardDestructive":"Diese Aktion am Sender bestätigen:",
+ "wizardQualified":"Das Schreiben dieser HF-Firmware wird auf diesem Sender oder dieser Version nicht unterstützt.",
+ "wizardBackupPending":"Noch keine geprüfte Sicherung ausgewählt.",
+ "wizardApproved":"Plan bestätigt",
+ "wizardUnapproved":"Prüfe und bestätige den Plan vor der Installation.",
+ "wizardOutcome_complete":"Alle gewählten Komponenten sind aktuell und geprüft.",
+ "wizardOutcome_partial":"Einige Komponenten stehen noch aus.",
+ "wizardOutcome_recovery_required":"Eine Komponente braucht eine Wiederherstellung, bevor es weitergeht.",
+ "wizardMode_maintenance":"ApexTX-Flasher-Modus verbunden · Versionen lesen, HF-Updates oder Speicher vorbereiten.",
+ "wizardMode_update":"Update-Modus verbunden · die Sender-Firmware kann installiert werden.",
+ "wizardMode_storage":"USB-Speicher verbunden · Themen und Sprachpakete können installiert werden.",
+ "wizardMode_recovery":"Wiederherstellungsmodus verbunden · vollständige Sicherung oder Wiederherstellung.",
+ "wizardMode_other":"Verbinde den Sender in dem Modus, den der gewählte Schritt verlangt.",
+ "wizardState_unselected":"Nicht ausgewählt",
+ "wizardState_pending":"Ausstehend",
+ "wizardState_current":"Aktuell",
+ "wizardState_ready":"Bereit",
+ "wizardState_unknown":"Unbekannt",
+ "wizardState_blocked":"Noch nicht möglich",
+ "wizardState_staged":"Vorbereitet",
+ "wizardState_running":"Läuft",
+ "wizardState_verifying":"Prüfung nach Neustart",
+ "wizardState_complete":"Fertig",
+ "wizardState_cancelled":"Abgebrochen",
+ "wizardState_failed":"Fehlgeschlagen",
+ "wizardState_recovery_required":"Braucht Wiederherstellung",
+ "wizardState_deferred":"Später",
+ "wizardState_available":"Update verfügbar",
+ "wizardBackupFolder":"Sicherungsordner auf diesem Computer",
+ "wizardKeepAudio":"Installiertes Sprachpaket behalten",
+ "wizardSessionFolder":"Ordner des gespeicherten Plans",
+ "wizardFirstSetup":"Nach einer Erstinstallation: Menü > System > Kalibrierung öffnen, dann ein Auto anlegen und seinen Empfänger binden. Autos des vorherigen Systems bleiben in der Sicherung.",
+ "wizardPhaseSaved":"Plan gespeichert. Prüfe jede Komponente vor dem nächsten Schritt.",
+ "wizardPhaseWorking":"Gewählte Komponente wird bearbeitet…",
+ "wizardPhasePreparing":"Veröffentlichungspaket wird vorbereitet und geprüft…",
+ "wizardPhaseBackup":"Sicherung wird erstellt und geprüft…",
+ "wizardPhaseStage":"HF-Update wird vorbereitet · noch nichts installiert",
+ "wizardPhaseRf":"HF-Komponente wird aktualisiert…",
+ "wizardPhaseAudio":"Sprachpaket wird installiert…",
+ "wizardPhaseResources":"Themen, Werkzeuge und vorbereitete HF-Updates werden installiert…",
+ "wizardPhaseRestore":"Sicherung wird wiederhergestellt und geprüft…",
+ "wizardPhaseVerify":"Komponente wird geprüft…",
+ "wizardErrorMode":"Verbinde denselben Sender erneut in diesem Modus: {mode}.",
+ "wizardErrorSpace":"Nicht genug Platz auf dem Sender. Lass Sprachpaket oder Themen weg oder schaffe zuerst Platz.",
+ "wizardErrorIdentity":"Sender, eine Komponente oder die Sicherung haben sich geändert. Lies die Versionen und prüfe den Plan erneut.",
+ "wizardErrorFirst":"Eine Erstinstallation ist für dieses Sendermodell noch nicht verfügbar.",
+ "wizardErrorResume":"Mach mit dem ursprünglichen Paket und der Sicherung weiter oder stelle die vorherigen Dateien wieder her.",
+ "wizardErrorGeneric":"Der Schritt wurde angehalten. Prüfe Verbindung und Komponentenzustand und versuche es erneut.",
+ "wizardTechnical":"Details",
+ "wizardBootloader":"Startprogramm",
+ "wizardBootRead":"Verbinde im Update-Modus und lies die Versionen, um zu sehen, was dieses Update braucht.",
+ "wizardBootRom":"Dieses Update braucht den Wiederherstellungsmodus und eine geprüfte Sicherung.",
+ "wizardAudioOnline":"Sprachpaket dieser Version",
+ "wizardAudioPick":"Sprache wählen…",
+ "wizardAudioDownload":"Herunterladen und vorbereiten",
+ "publishingRf":"Empfänger-Updates werden auf den Sender kopiert…",
+ "rebooting":"Sender startet im Update-Modus neu…",
+ "appTitle":"App-Updates",
+ "appPreview":"Vorschauversionen der App einschließen",
+ "appRelocate":"In meinem Benutzerordner installieren",
+ "appCheck":"Nach Updates suchen",
+ "appInstall":"Aktualisieren und neu starten",
+ "appLater":"Morgen erinnern",
+ "appSkip":"Diese Version überspringen",
+ "appRadioSafe":"Ich habe den Sender geprüft; die Wiederherstellung ist abgeschlossen",
+ "appSigning":"Updates sind von ApexTX signiert und werden vor der Installation geprüft. Windows oder macOS fragen beim ersten Öffnen der neuen Version eventuell um Erlaubnis.",
+ "appInstalled":"ApexTX Flasher {version}",
+ "appAvailable":"Version {version} ist verfügbar.",
+ "appCurrent":"Du hast die neueste Version.",
+ "appChecking":"Updates werden gesucht…",
+ "appDownloading":"Wird heruntergeladen… {progress}%",
+ "appVerifying":"Download wird geprüft…",
+ "appRestarting":"ApexTX Flasher startet neu…",
+ "appBlocked":"Schließe zuerst das Update oder die Wiederherstellung des Senders ab.",
+ "appUnsupported":"Automatische Updates gibt es in den Windows- und macOS-Apps.",
+ "appIncompatible":"Diese Version braucht ein neueres Betriebssystem.",
+ "appLastCheck":"Zuletzt geprüft: {date}",
+ "appOffline":"App-Updates konnten nicht geprüft werden. Sender-Updates funktionieren weiterhin.",
+ "appUpdated":"ApexTX Flasher wurde aktualisiert."
+},
+cn:{
+ "h1":"更新遥控器",
+ "intro":"在 FlySky Noble NB4 或 NB4+ 上安装或更新 ApexTX。应用会找到合适的版本、进行校验，并逐步引导你完成。",
+ "windowsDriver":"Windows 需要为遥控器安装 USB 驱动。若未检测到遥控器，请安装 WinUSB 驱动（例如使用 Zadig）后重新连接。",
+ "tabUpdate":"更新",
+ "tabRecover":"安装或恢复",
+ "imglabel":"固件文件",
+ "fileinfo":"firmware.bin · Noble NB4 / NB4+ 的 ApexTX 固件",
+ "note":"更新完成前请保持遥控器开机并连接。如果出现问题，请保持开机并重试。",
+ "footer":"ApexTX Flasher 完全在本机运行。固件通过 USB 直接写入遥控器，不会上传到任何地方。",
+ "rwarn":"此操作会替换遥控器上的全部内容，包括启动程序。仅用于首次安装或恢复无法启动的遥控器。日常更新请使用“更新”标签页。遥控器必须处于恢复模式（黑屏）。写入前会先保存当前固件。",
+ "rdone":"安装完成并已校验。请关闭遥控器（按住电源键直到完全关机），然后重新开机。",
+ "rimglabel":"完整固件文件",
+ "rfileinfo":"适用于你遥控器型号的完整 firmware.bin",
+ "radioPrompt":"连接的是哪款遥控器？",
+ "rmodelFor":"此文件适用于：",
+ "rmodelUnknown":"写入前应用会检查型号、内容和校验和。",
+ "rconfirm":"我确认我的遥控器是 {radio}，此文件适用于 {image}。",
+ "rconfirmGeneric":"我确认所选型号是我的遥控器，且这是正确的 ApexTX 文件。",
+ "select":"选择固件文件以继续。",
+ "ready":"可以更新。",
+ "rready":"准备就绪。写入前会先保存当前固件。",
+ "sizeerr":"这不是 ApexTX 更新文件。请选择发布版本中 2 MiB 的 firmware.bin。",
+ "rsizeerr":"请选择适用于你遥控器的完整 firmware.bin。",
+ "validating":"正在检查固件文件…",
+ "update":"更新固件",
+ "retry":"重试",
+ "updating":"正在更新固件…",
+ "rbtn":"备份并安装",
+ "rretry":"重试",
+ "rworking":"正在备份并安装…",
+ "previewLabel":"预览版",
+ "noUpdate":"没有可用更新",
+ "newerInstalled":"已安装更新的版本",
+ "refresh":"重新检查",
+ "installed":"已安装版本",
+ "latest":"最新可用版本",
+ "includePreview":"包含预览版（Alpha / Beta）",
+ "releaseNotes":"版本说明 ↗",
+ "manual":"使用本机上的固件文件",
+ "searching":"正在查找遥控器…",
+ "absent":"请连接遥控器",
+ "connected":"Noble {model} 已连接",
+ "normal":"请在遥控器上选择 ApexTX Flasher",
+ "recovery":"遥控器处于恢复模式",
+ "multiple":"请每次只连接一台遥控器",
+ "usbError":"USB 连接不可用",
+ "unknown":"不可用",
+ "dev":"开发版本",
+ "connectHelp":"打开遥控器，用 USB 数据线连接，然后在遥控器屏幕上选择 ApexTX Flasher。仅充电线无法使用。",
+ "normalHelp":"拔下 USB 线，重新插入，然后在遥控器上选择 ApexTX Flasher。",
+ "readyHelp":"遥控器已就绪。请保持开机并连接。",
+ "recoveryHelp":"遥控器处于恢复模式，无法读取型号。请使用“安装或恢复”并确认型号。",
+ "multipleHelp":"请断开其他遥控器，以便应用确定要更新哪一台。",
+ "checking":"正在检查版本…",
+ "noRelease":"未找到兼容版本。请包含预览版或使用本机上的文件。",
+ "previewHelp":"这是预览版。安装前请阅读版本说明。",
+ "availableHelp":"有新版本可用。将自动下载并校验。",
+ "currentHelp":"遥控器已安装此版本。",
+ "aheadHelp":"遥控器上的版本比此版本更新。无需操作。",
+ "developmentHelp":"遥控器运行的是开发版本。请使用本机上的文件来替换。",
+ "downloadUpdate":"更新至 {version}",
+ "installLatest":"安装 {version}",
+ "upToDate":"已是最新",
+ "waitRadio":"正在等待遥控器",
+ "working":"正在更新遥控器…",
+ "offline":"无法检查版本。请检查网络连接或使用本机上的文件。",
+ "unavailable":"应用停止响应。请查看遥控器屏幕，然后重新打开 ApexTX Flasher。",
+ "downloading":"正在下载固件…",
+ "downloadVerified":"下载已校验。",
+ "waiting":"正在等待遥控器进入更新模式…",
+ "transferring":"正在将固件发送到遥控器…",
+ "transferCheck":"正在检查传输…",
+ "installing":"正在安装并校验…",
+ "restarting":"固件已校验。正在重启遥控器…",
+ "done":"固件已校验。请确认遥控器显示主页。",
+ "restartManually":"固件已校验。请按住遥控器电源键重启。",
+ "flashBusy":"正在等待遥控器完成写入…",
+ "usbLostInstalling":"安装过程中 USB 连接中断。请保持遥控器开机：它会自行完成。仅当屏幕显示固件已校验后再重启。",
+ "usbLostVerified":"固件已写入并校验。请按住遥控器电源键重启。",
+ "usbLostTransfer":"写入前 USB 连接已中断。请重新连接遥控器并重试。",
+ "rduration":"预计需要 5–10 分钟。安装期间遥控器屏幕保持黑色；请在此查看进度，并保持 USB 线连接。",
+ "rautoDone":"固件和启动程序已校验。遥控器正在启动，请确认主页出现。",
+ "rbackup":"正在保存当前固件…",
+ "rerase":"正在准备遥控器存储…",
+ "rwrite":"正在写入固件…",
+ "rverify":"正在校验已写入内容…",
+ "rfinish":"已校验。正在启动遥控器…",
+ "maintenanceConnected":"ApexTX Flasher 模式已连接",
+ "maintenanceHelp":"遥控器已可一键更新。应用会把接收机更新复制到遥控器，让它重启进入更新模式并安装固件。你也可以在下方读取组件版本。",
+ "bootloaderTitle":"需要更新启动程序",
+ "bootloaderHelp":"此版本还会更新遥控器的启动程序（引导程序），普通更新无法更改它。应用会下载完整固件并引导你完成恢复模式操作。",
+ "bootloaderUpdate":"准备完整安装 · {version}",
+ "dfuTitle":"让遥控器进入恢复模式",
+ "dfuDownloaded":"固件已下载并校验。尚未写入任何内容。",
+ "dfuStep1":"拔下 USB 线并完全关闭遥控器。",
+ "dfuStep2":"按住左侧握把内的小凹陷按钮，同时开机并插入 USB 数据线。屏幕保持黑色；这不是菜单 → 系统 → Update。",
+ "dfuStep3":"当应用在下方检测到遥控器后松开按钮，然后选择“备份并安装”。",
+ "dfuBackup":"应用会保存当前固件，安装完整版本并逐字节校验，然后遥控器重新启动。",
+ "dfuWait":"正在等待处于恢复模式的遥控器…",
+ "dfuWrongRadio":"连接了另一台遥控器。请在恢复模式下重新连接原来的遥控器。",
+ "dfuDetected":"遥控器已进入恢复模式。可以安装。",
+ "dfuInstall":"备份并安装到 Noble {model}",
+ "dfuCancel":"取消",
+ "dfuPreparing":"正在下载并校验完整固件…",
+ "componentsTitle":"组件",
+ "componentsRead":"读取版本",
+ "componentsHelp":"显示射频模块和已绑定接收机的固件版本。读取不会更改遥控器上的任何内容。",
+ "componentsDone":"版本已读取。遥控器未做任何更改。",
+ "componentsStale":"这是之前的读取结果。请重新读取以获取当前值。",
+ "componentModule":"射频模块",
+ "componentReceiver":"接收机",
+ "componentPending":"接收机未连接 · 版本未知",
+ "wizardTitle":"组件",
+ "wizardHelp":"从完整发布包逐步更新遥控器固件、射频模块、接收机、主题和语音包的高级流程。在你确认每一步之前不会安装任何内容。",
+ "wizardPackage":"发布包（.zip 或 .tar.gz）",
+ "wizardDownload":"下载发布包",
+ "wizardResume":"继续已保存的计划",
+ "wizardBrowse":"浏览…",
+ "wizardOpen":"打开计划",
+ "wizardBackup":"1 · 备份遥控器",
+ "wizardBackupHelp":"完整备份需要遥控器处于恢复模式（黑屏）。它会复制内部固件和存储卡，以便随时恢复遥控器。请保存在本机上。普通更新会保留你的车辆和校准。",
+ "wizardBackupCreate":"创建完整备份",
+ "wizardBackupAttach":"使用现有备份文件夹",
+ "wizardReview":"2 · 选择要更新的内容",
+ "wizardApplication":"遥控器固件",
+ "wizardResources":"主题与工具",
+ "wizardAudio":"语音包",
+ "wizardInstall":"安装",
+ "wizardStage":"仅准备",
+ "wizardCancel":"取消准备",
+ "wizardRecover":"恢复",
+ "wizardAudioChoose":"可选：本机上的语音包",
+ "wizardReinstall":"即使已是最新也重新安装当前射频固件",
+ "wizardConfirm":"我已检查遥控器、所选组件和备份。电机已断开。",
+ "wizardApprove":"确认此计划",
+ "wizardStorage":"3 · 通过 USB 存储安装主题和语音包",
+ "wizardStorageHelp":"主题和语音包通过遥控器的存储复制。先在此准备连接，然后重新插入 USB 线，在遥控器上选择 USB 存储，并选择出现的磁盘。",
+ "wizardStoragePrepare":"准备存储连接",
+ "wizardVolumeFolder":"遥控器存储磁盘",
+ "wizardRecovery":"从备份恢复 · 实验性",
+ "wizardRecoveryHelp":"将遥控器恢复到备份时的状态。需要恢复模式（黑屏）。恢复存储会替换整张存储卡；恢复固件会替换内部固件和启动程序。射频模块和接收机有各自的“恢复”操作。",
+ "wizardRestoreNor":"恢复存储卡",
+ "wizardRestoreApp":"恢复内部固件",
+ "wizardRestoreAudio":"恢复之前的语音包",
+ "wizardDestructive":"确认对遥控器执行此操作：",
+ "wizardQualified":"此遥控器或版本不支持写入该射频固件。",
+ "wizardBackupPending":"尚未选择已校验的备份。",
+ "wizardApproved":"计划已确认",
+ "wizardUnapproved":"安装前请检查并确认计划。",
+ "wizardOutcome_complete":"所选组件均已是最新并已校验。",
+ "wizardOutcome_partial":"仍有组件待处理。",
+ "wizardOutcome_recovery_required":"继续前有组件需要恢复。",
+ "wizardMode_maintenance":"ApexTX Flasher 模式已连接 · 读取版本、准备射频更新或存储。",
+ "wizardMode_update":"更新模式已连接 · 可安装遥控器固件。",
+ "wizardMode_storage":"USB 存储已连接 · 可安装主题和语音包。",
+ "wizardMode_recovery":"恢复模式已连接 · 完整备份或恢复。",
+ "wizardMode_other":"请以所选步骤要求的模式连接遥控器。",
+ "wizardState_unselected":"未选择",
+ "wizardState_pending":"待处理",
+ "wizardState_current":"已是最新",
+ "wizardState_ready":"就绪",
+ "wizardState_unknown":"未知",
+ "wizardState_blocked":"暂不可用",
+ "wizardState_staged":"已准备",
+ "wizardState_running":"进行中",
+ "wizardState_verifying":"重启后检查",
+ "wizardState_complete":"完成",
+ "wizardState_cancelled":"已取消",
+ "wizardState_failed":"失败",
+ "wizardState_recovery_required":"需要恢复",
+ "wizardState_deferred":"稍后",
+ "wizardState_available":"有可用更新",
+ "wizardBackupFolder":"本机上的备份文件夹",
+ "wizardKeepAudio":"保留已安装的语音包",
+ "wizardSessionFolder":"已保存计划的文件夹",
+ "wizardFirstSetup":"首次安装后：打开菜单 > 系统 > 校准，然后创建车辆并绑定接收机。原系统的车辆保留在备份中。",
+ "wizardPhaseSaved":"计划已保存。进入下一步前请检查各组件。",
+ "wizardPhaseWorking":"正在处理所选组件…",
+ "wizardPhasePreparing":"正在准备并检查发布包…",
+ "wizardPhaseBackup":"正在创建并校验备份…",
+ "wizardPhaseStage":"正在准备射频更新 · 尚未安装任何内容",
+ "wizardPhaseRf":"正在更新射频组件…",
+ "wizardPhaseAudio":"正在安装语音包…",
+ "wizardPhaseResources":"正在安装主题、工具和已准备的射频更新…",
+ "wizardPhaseRestore":"正在恢复并校验备份…",
+ "wizardPhaseVerify":"正在校验组件…",
+ "wizardErrorMode":"请以此模式重新连接同一台遥控器：{mode}。",
+ "wizardErrorSpace":"遥控器空间不足。请不选语音包或主题，或先释放空间。",
+ "wizardErrorIdentity":"遥控器、某个组件或备份已更改。请读取版本并重新检查计划。",
+ "wizardErrorFirst":"此遥控器型号暂不支持首次安装。",
+ "wizardErrorResume":"请使用原始发布包和备份继续，或恢复之前的文件。",
+ "wizardErrorGeneric":"此步骤已停止。请检查连接和组件状态后重试。",
+ "wizardTechnical":"详细信息",
+ "wizardBootloader":"启动程序",
+ "wizardBootRead":"以更新模式连接并读取版本，以了解此次更新的要求。",
+ "wizardBootRom":"此次更新需要恢复模式和已校验的备份。",
+ "wizardAudioOnline":"此版本的语音包",
+ "wizardAudioPick":"选择语言…",
+ "wizardAudioDownload":"下载并准备",
+ "publishingRf":"正在将接收机更新复制到遥控器…",
+ "rebooting":"遥控器正在重启进入更新模式…",
+ "appTitle":"应用更新",
+ "appPreview":"包含应用的预览版",
+ "appRelocate":"安装到我的用户文件夹",
+ "appCheck":"检查更新",
+ "appInstall":"更新并重启",
+ "appLater":"明天提醒我",
+ "appSkip":"跳过此版本",
+ "appRadioSafe":"我已检查遥控器；恢复已完成",
+ "appSigning":"更新由 ApexTX 签名，并在安装前进行校验。首次打开新版本时，Windows 或 macOS 可能会请求权限。",
+ "appInstalled":"ApexTX Flasher {version}",
+ "appAvailable":"版本 {version} 可用。",
+ "appCurrent":"你已安装最新版本。",
+ "appChecking":"正在检查更新…",
+ "appDownloading":"正在下载… {progress}%",
+ "appVerifying":"正在检查下载…",
+ "appRestarting":"正在重启 ApexTX Flasher…",
+ "appBlocked":"请先完成遥控器的更新或恢复。",
+ "appUnsupported":"自动更新适用于 Windows 和 macOS 应用。",
+ "appIncompatible":"此版本需要更新的操作系统。",
+ "appLastCheck":"上次检查：{date}",
+ "appOffline":"无法检查应用更新。遥控器更新仍可正常使用。",
+ "appUpdated":"ApexTX Flasher 已更新。"
+}
 };
-Object.assign(T.en,{"previewLabel": "PREVIEW", "noUpdate": "No update available", "newerInstalled": "Newer version installed", "refresh": "Check again", "installed": "Installed version", "latest": "Latest compatible release", "includePreview": "Include alpha / beta releases", "releaseNotes": "Release notes ↗", "manual": "Choose a local firmware image", "searching": "Looking for your radio…", "absent": "Connect your radio", "connected": "Noble {model} connected", "normal": "Choose ApexTX Flasher on the radio", "recovery": "Recovery mode detected", "multiple": "Connect one radio at a time", "usbError": "USB connection unavailable", "unknown": "Not available", "dev": "Development build", "connectHelp": "Switch on the radio, connect a USB data cable and choose ApexTX Flasher on the radio. A charging-only connection cannot be detected.", "normalHelp": "Unplug USB, plug it again and choose ApexTX Flasher on the radio.", "readyHelp": "ApexTX Update is ready. Keep the radio powered and connected.", "recoveryHelp": "STM32 recovery cannot identify the radio model. Use Install / Recovery and confirm your model.", "multipleHelp": "Disconnect the other radios to identify a single update target.", "checking": "Checking GitHub releases…", "noRelease": "No compatible release in this channel. Enable alpha / beta releases or choose a local image.", "previewHelp": "This is a preview release. Check the release notes before installing.", "availableHelp": "A newer compatible release is available. It will be downloaded and verified automatically.", "currentHelp": "Your radio already has this release.", "aheadHelp": "Your installed version is newer than this release. No automatic downgrade is offered.", "developmentHelp": "This is a development build. Choose a local image to replace it deliberately.", "downloadUpdate": "Update to {version}", "installLatest": "Install {version}", "upToDate": "Up to date", "waitRadio": "Waiting for your radio", "working": "Updating your radio…", "offline": "Could not check releases. Check your internet connection or choose a local image.", "unavailable": "The flasher is unavailable. Check the radio display."});
-Object.assign(T.es,{"previewLabel": "PRELIMINAR", "noUpdate": "Sin actualización disponible", "newerInstalled": "Versión más reciente instalada", "refresh": "Volver a buscar", "installed": "Versión instalada", "latest": "Última release compatible", "includePreview": "Incluir versiones alpha / beta", "releaseNotes": "Notas de la versión ↗", "manual": "Cargar un firmware desde este ordenador", "searching": "Buscando tu emisora…", "absent": "Conecta tu emisora", "connected": "Noble {model} conectada", "normal": "Elige ApexTX Flasher en la emisora", "recovery": "Modo recuperación detectado", "multiple": "Conecta una sola emisora", "usbError": "Conexión USB no disponible", "unknown": "No disponible", "dev": "Versión de desarrollo", "connectHelp": "Enciende la emisora, conecta un cable USB de datos y elige ApexTX Flasher en la emisora. Una conexión de solo carga no se puede detectar.", "normalHelp": "Desconecta el USB, vuelve a conectarlo y elige ApexTX Flasher en la emisora.", "readyHelp": "ApexTX Update está listo. Mantén la emisora encendida y conectada.", "recoveryHelp": "El modo STM32 no identifica el modelo. Usa Instalación / Recuperación y confirma qué emisora tienes.", "multipleHelp": "Desconecta las otras emisoras para identificar una sola.", "checking": "Buscando releases en GitHub…", "noRelease": "No hay una release compatible en este canal. Incluye versiones alpha / beta o carga una imagen local.", "previewHelp": "Es una versión preliminar. Consulta las notas antes de instalar.", "availableHelp": "Hay una versión compatible más reciente. Se descargará y verificará automáticamente.", "currentHelp": "Tu emisora ya tiene esta versión.", "aheadHelp": "Tu versión instalada es más reciente. No se ofrece una bajada automática de versión.", "developmentHelp": "Es una compilación de desarrollo. Usa la carga manual para reemplazarla de forma intencionada.", "downloadUpdate": "Actualizar a {version}", "installLatest": "Instalar {version}", "upToDate": "Ya está actualizada", "waitRadio": "Esperando a tu emisora", "working": "Actualizando tu emisora…", "offline": "No se pudieron consultar las releases. Comprueba internet o carga una imagen local.", "unavailable": "El flasheador no está disponible. Comprueba la pantalla de la emisora."});
-Object.assign(T.de,{"previewLabel": "VORABVERSION", "noUpdate": "Kein Update verfügbar", "newerInstalled": "Neuere Version installiert", "refresh": "Erneut suchen", "installed": "Installierte Version", "latest": "Neueste passende Version", "includePreview": "Alpha- / Beta-Versionen einschließen", "releaseNotes": "Versionshinweise ↗", "manual": "Lokales Firmware-Image auswählen", "searching": "Fernbedienung wird gesucht…", "absent": "Fernbedienung verbinden", "connected": "Noble {model} verbunden", "normal": "ApexTX Flasher an der Fernbedienung wählen", "recovery": "Recovery-Modus erkannt", "multiple": "Nur eine Fernbedienung verbinden", "usbError": "USB-Verbindung nicht verfügbar", "unknown": "Nicht verfügbar", "dev": "Entwicklungsversion", "connectHelp": "Fernbedienung einschalten, ein USB-Datenkabel verbinden und an der Fernbedienung ApexTX Flasher wählen. Eine reine Ladeverbindung ist nicht erkennbar.", "normalHelp": "USB abziehen, erneut einstecken und an der Fernbedienung ApexTX Flasher wählen.", "readyHelp": "ApexTX Update ist bereit. Fernbedienung eingeschaltet und verbunden lassen.", "recoveryHelp": "STM32-Recovery erkennt das Modell nicht. Installation / Recovery verwenden und das Modell bestätigen.", "multipleHelp": "Andere Fernbedienungen trennen, um ein einzelnes Ziel zu identifizieren.", "checking": "GitHub-Versionen werden gesucht…", "noRelease": "Keine passende Version in diesem Kanal. Alpha / Beta einschließen oder ein lokales Image wählen.", "previewHelp": "Dies ist eine Vorabversion. Vor der Installation die Versionshinweise lesen.", "availableHelp": "Eine neuere passende Version ist verfügbar. Download und Prüfung erfolgen automatisch.", "currentHelp": "Diese Version ist bereits installiert.", "aheadHelp": "Die installierte Version ist neuer. Kein automatisches Downgrade.", "developmentHelp": "Dies ist eine Entwicklungsversion. Zum bewussten Ersetzen ein lokales Image wählen.", "downloadUpdate": "Auf {version} aktualisieren", "installLatest": "{version} installieren", "upToDate": "Bereits aktuell", "waitRadio": "Warte auf Fernbedienung", "working": "Fernbedienung wird aktualisiert…", "offline": "Versionssuche fehlgeschlagen. Internet prüfen oder lokales Image wählen.", "unavailable": "Flasher nicht verfügbar. Display der Fernbedienung prüfen."});
-Object.assign(T.en,{"downloading": "Downloading firmware…", "downloadVerified": "Download verified.", "waiting": "Waiting for ApexTX Update…", "transferring": "Transferring firmware…", "transferCheck": "Verifying the transfer…", "installing": "Installing and verifying firmware…", "restarting": "Firmware verified. Restarting your radio…", "done": "Firmware verified. Confirm that your radio has returned to the Home screen.", "restartManually": "Firmware verified. Hold the radio’s power button to restart it."});
-Object.assign(T.es,{"downloading": "Descargando firmware…", "downloadVerified": "Descarga verificada.", "waiting": "Esperando a ApexTX Update…", "transferring": "Transfiriendo firmware…", "transferCheck": "Verificando la transferencia…", "installing": "Instalando y verificando el firmware…", "restarting": "Firmware verificado. Reiniciando la emisora…", "done": "Firmware verificado. Confirma que tu emisora ha vuelto a Inicio.", "restartManually": "Firmware verificado. Mantén pulsado el botón de encendido para reiniciar la emisora."});
-Object.assign(T.de,{"downloading": "Firmware wird heruntergeladen…", "downloadVerified": "Download verifiziert.", "waiting": "Warte auf ApexTX Update…", "transferring": "Firmware wird übertragen…", "transferCheck": "Übertragung wird geprüft…", "installing": "Firmware wird installiert und geprüft…", "restarting": "Firmware verifiziert. Fernbedienung startet neu…", "done": "Firmware verifiziert. Bitte den Startbildschirm an der Fernbedienung bestätigen.", "restartManually": "Firmware verifiziert. Zum Neustart die Einschalttaste der Fernbedienung gedrückt halten."});
-Object.assign(T.en,{flashBusy:"Waiting for the radio to finish writing flash…",usbLostInstalling:"USB status could not be read. Leave the radio powered: installation continues on the radio. Check its display and restart only after it reports the firmware verified.",usbLostVerified:"Firmware was written and verified. Hold the radio’s power button to restart it.",usbLostTransfer:"USB connection lost before flash memory was written. Reconnect the radio and try again."});
-Object.assign(T.es,{flashBusy:"Esperando a que la emisora termine de escribir…",usbLostInstalling:"No se pudo leer el estado por USB. Deja la emisora encendida: la instalación continúa en ella. Comprueba su pantalla y reiníciala solo cuando indique que el firmware está verificado.",usbLostVerified:"El firmware se escribió y verificó. Mantén pulsado el botón de encendido para reiniciar la emisora.",usbLostTransfer:"Se perdió el USB antes de escribir la memoria flash. Vuelve a conectar la emisora y reinténtalo."});
-Object.assign(T.de,{flashBusy:"Warte auf das Ende des Schreibvorgangs…",usbLostInstalling:"USB-Status nicht lesbar. Fernbedienung eingeschaltet lassen: Die Installation läuft dort weiter. Display prüfen und erst neu starten, wenn die Firmware als verifiziert gemeldet wird.",usbLostVerified:"Firmware wurde geschrieben und verifiziert. Zum Neustart die Einschalttaste gedrückt halten.",usbLostTransfer:"USB-Verbindung vor dem Schreiben des Flash-Speichers verloren. Fernbedienung erneut verbinden und wiederholen."});
-Object.assign(T.en,{rduration:"Allow 5–10 minutes. The radio’s screen stays black during installation; follow progress here and keep USB connected.",rautoDone:"Firmware and bootloader verified. Your radio is starting automatically. Confirm that the Home screen appears.",rbackup:"Backing up your current firmware…",rerase:"Erasing internal flash…",rwrite:"Writing firmware and bootloader…",rverify:"Verifying the complete image…",rfinish:"Image verified. Starting your radio…"});
-Object.assign(T.es,{rduration:"Puede tardar entre 5 y 10 minutos. La pantalla de la emisora permanece negra durante la instalación; sigue el progreso aquí y mantén el USB conectado.",rautoDone:"Firmware y bootloader verificados. La emisora está arrancando automáticamente. Confirma que aparece Inicio.",rbackup:"Respaldando el firmware actual…",rerase:"Borrando la memoria interna…",rwrite:"Escribiendo firmware y bootloader…",rverify:"Verificando la imagen completa…",rfinish:"Imagen verificada. Arrancando la emisora…"});
-Object.assign(T.de,{rduration:"Dies kann 5–10 Minuten dauern. Das Display bleibt während der Installation schwarz. Fortschritt hier verfolgen und USB verbunden lassen.",rautoDone:"Firmware und Bootloader verifiziert. Die Fernbedienung startet automatisch. Bitte den Startbildschirm bestätigen.",rbackup:"Aktuelle Firmware wird gesichert…",rerase:"Interner Flash wird gelöscht…",rwrite:"Firmware und Bootloader werden geschrieben…",rverify:"Vollständiges Image wird geprüft…",rfinish:"Image verifiziert. Fernbedienung startet…"});
 const $=s=>document.querySelector(s);
-Object.assign(T.en,{
- maintenanceConnected:"Maintenance connected",maintenanceHelp:"ApexTX Flasher connected. Updates start from here: the radio stores the RF images and restarts into update mode by itself. Component versions can be read below.",
- bootloaderTitle:"Bootloader update required",
- bootloaderHelp:"This release needs a newer bootloader. A normal Update keeps the old one. The flasher will download the full image and guide you into STM32 ROM DFU to install both firmware and bootloader.",
- bootloaderUpdate:"Prepare full installation · {version}",
- dfuTitle:"Connect your radio in DFU mode",
- dfuDownloaded:"The firmware has been downloaded and verified. Nothing has been written yet.",
- dfuStep1:"Disconnect USB and switch the radio off completely.",
- dfuStep2:"Hold the recessed button in the left grip while switching the radio on and connecting the USB data cable. This is different from Menu → System → Update.",
- dfuStep3:"Release the grip button once DFU is detected below. Then choose Back up & install.",
- dfuBackup:"The app backs up your current internal firmware, installs the complete image and verifies every byte before starting the radio automatically.",
- dfuWait:"Waiting for your radio in STM32 ROM DFU…",
- dfuWrongRadio:"A different radio is connected. Reconnect the original radio in STM32 ROM DFU.",
- dfuDetected:"Your radio is connected in DFU. Ready for the complete installation.",
- dfuInstall:"Back up & install on Noble {model}",
- dfuCancel:"Cancel installation",
- dfuPreparing:"Downloading and verifying the complete firmware…"
-});
-Object.assign(T.es,{
- maintenanceConnected:"Mantenimiento conectado",maintenanceHelp:"ApexTX Flasher conectado. La actualización empieza desde aquí: la emisora guarda las imágenes RF y se reinicia sola en modo actualización. Debajo puedes consultar las versiones de los componentes.",
- bootloaderTitle:"Es necesario actualizar el bootloader",
- bootloaderHelp:"Esta versión necesita un bootloader nuevo. Una actualización normal conserva el anterior. El flasher descargará la imagen completa y te guiará para entrar en STM32 ROM DFU e instalar el firmware y el bootloader.",
- bootloaderUpdate:"Preparar instalación completa · {version}",
- dfuTitle:"Conecta tu emisora en modo DFU",
- dfuDownloaded:"El firmware está descargado y verificado. Todavía no se ha escrito nada.",
- dfuStep1:"Desconecta el USB y apaga completamente la emisora.",
- dfuStep2:"Mantén pulsado el botón hundido del grip izquierdo mientras enciendes la emisora y conectas el cable USB de datos. Este modo es diferente de Menú → Sistema → Update.",
- dfuStep3:"Suelta el botón del grip cuando se detecte DFU aquí abajo. Después pulsa Respaldar e instalar.",
- dfuBackup:"La app respalda el firmware interno actual, instala la imagen completa y verifica cada byte antes de arrancar la emisora automáticamente.",
- dfuWait:"Esperando tu emisora en STM32 ROM DFU…",
- dfuWrongRadio:"Hay otra emisora conectada. Vuelve a conectar la emisora original en STM32 ROM DFU.",
- dfuDetected:"Tu emisora está conectada en DFU. Lista para la instalación completa.",
- dfuInstall:"Respaldar e instalar en Noble {model}",
- dfuCancel:"Cancelar instalación",
- dfuPreparing:"Descargando y verificando el firmware completo…"
-});
-Object.assign(T.de,{
- maintenanceConnected:"Wartung verbunden",maintenanceHelp:"ApexTX Flasher verbunden. Das Update startet von hier: Die Fernbedienung speichert die HF-Images und startet selbst in den Update-Modus. Komponentenversionen können unten gelesen werden.",
- bootloaderTitle:"Bootloader-Update erforderlich",
- bootloaderHelp:"Diese Version benötigt einen neueren Bootloader. Ein normales Update behält den bisherigen bei. Der Flasher lädt das vollständige Image herunter und führt durch den STM32-ROM-DFU-Modus, um Firmware und Bootloader zu installieren.",
- bootloaderUpdate:"Vollständige Installation vorbereiten · {version}",
- dfuTitle:"Fernbedienung im DFU-Modus verbinden",
- dfuDownloaded:"Die Firmware wurde heruntergeladen und geprüft. Es wurde noch nichts geschrieben.",
- dfuStep1:"USB trennen und die Fernbedienung vollständig ausschalten.",
- dfuStep2:"Die versenkte Taste am linken Griff beim Einschalten und Anschließen des USB-Datenkabels gedrückt halten. Dieser Modus unterscheidet sich von Menü → System → Update.",
- dfuStep3:"Die Grifftaste loslassen, sobald DFU unten erkannt wird. Anschließend Sichern & installieren wählen.",
- dfuBackup:"Die App sichert die aktuelle interne Firmware, installiert das vollständige Image und prüft jedes Byte, bevor die Fernbedienung automatisch startet.",
- dfuWait:"Warte auf deine Fernbedienung im STM32-ROM-DFU-Modus…",
- dfuWrongRadio:"Eine andere Fernbedienung ist verbunden. Die ursprüngliche Fernbedienung im STM32-ROM-DFU-Modus erneut verbinden.",
- dfuDetected:"Deine Fernbedienung ist im DFU-Modus verbunden. Bereit zur vollständigen Installation.",
- dfuInstall:"Sichern & auf Noble {model} installieren",
- dfuCancel:"Installation abbrechen",
- dfuPreparing:"Vollständige Firmware wird heruntergeladen und geprüft…"
-});
-Object.assign(T.en,{
- componentsTitle:"Components",componentsRead:"Read component versions",
- componentsHelp:"Choose ApexTX Flasher when plugging in USB, or open System > Update > Connect to ApexTX Flasher on the radio. Reading versions never writes firmware.",
- componentsDone:"Component versions read. No firmware was written.",
- componentsStale:"Previous reading. Read again before planning an update.",
- componentModule:"RF module (reported version)",componentReceiver:"Receiver firmware",
- componentPending:"Receiver disconnected · version check pending"
-});
-Object.assign(T.es,{
- componentsTitle:"Componentes",componentsRead:"Consultar versiones",
- componentsHelp:"Elige ApexTX Flasher al conectar el USB, o abre Sistema > Actualización > Conectar con ApexTX Flasher en la emisora. Leer versiones nunca escribe firmware.",
- componentsDone:"Versiones consultadas. No se escribió firmware.",
- componentsStale:"Lectura anterior. Vuelve a consultar antes de preparar una actualización.",
- componentModule:"Módulo RF (versión reportada)",componentReceiver:"Firmware del receptor",
- componentPending:"Receptor desconectado · falta comprobar su versión"
-});
-Object.assign(T.de,{
- componentsTitle:"Komponenten",componentsRead:"Komponentenversionen lesen",
- componentsHelp:"Beim Einstecken von USB ApexTX Flasher wählen, oder am Sender System > Update > Mit ApexTX Flasher verbinden öffnen. Das Lesen der Versionen schreibt keine Firmware.",
- componentsDone:"Versionen gelesen. Keine Firmware geschrieben.",
- componentsStale:"Frühere Abfrage. Vor dem Update erneut auslesen.",
- componentModule:"HF-Modul (gemeldete Version)",componentReceiver:"Empfänger-Firmware",
- componentPending:"Empfänger getrennt · Versionsprüfung ausstehend"
-});
-T.cn={
- maintenanceConnected:"维护连接已建立",maintenanceHelp:"ApexTX 刷写工具已连接。更新从这里开始：遥控器会保存射频镜像并自动重启进入更新模式。可在下方读取组件版本。",
- h1:"更新遥控器",
- intro:"在 Noble NB4 或 NB4+ 上安装或更新 ApexTX。刷写工具会查找兼容固件，并在写入前验证。",
- windowsDriver:"Windows 需要为更新接口安装兼容 WinUSB 的驱动程序。",
- tabUpdate:"更新",tabRecover:"安装 / 恢复",
- imglabel:"固件镜像",fileinfo:"firmware.bin · Noble NB4 / NB4+ 的 ApexTX 固件",
- note:"写入时保持遥控器供电和 USB 连接。恢复失败时保持供电，并在 STM32 ROM DFU 模式重试。",
- footer:"ApexTX 刷写工具在本机运行。固件通过 USB 直接传输到遥控器，不会上传到服务器。",
- rwarn:"此操作写入包括引导程序在内的完整固件，仅用于首次安装或恢复。日常升级请使用更新。遥控器必须处于 STM32 ROM DFU 模式。工具会先备份当前内部固件。请选择正确型号，并妥善保存备份。",
- rdone:"安装完成并已验证。长按电源键完全关闭遥控器，再重新开机。",
- rimglabel:"完整固件镜像",rfileinfo:"完整 firmware.bin（引导程序和应用程序）",
- radioPrompt:"连接的是哪款遥控器？",rmodelFor:"此镜像的目标型号：",
- rmodelUnknown:"写入前将验证型号标记、清单和校验和。",
- rconfirm:"确认我的遥控器是 {radio}，此镜像适用于 {image}。",
- rconfirmGeneric:"确认已选择正确的遥控器型号和 ApexTX 固件镜像。",
- select:"选择固件镜像以继续。",ready:"可以更新。",rready:"准备就绪。写入前会备份当前固件。",
- sizeerr:"请选择用于 ApexTX 更新的 2 MiB firmware.bin。",
- rsizeerr:"请选择包含引导程序和应用程序的完整 firmware.bin。",
- validating:"正在验证固件镜像…",update:"更新固件",retry:"重试更新",updating:"正在更新固件…",
- rbtn:"备份并安装",rretry:"重试",rworking:"正在备份并安装…",
- previewLabel:"预览版",noUpdate:"没有可用更新",newerInstalled:"已安装更新版本",refresh:"重新检查",
- installed:"已安装版本",latest:"最新兼容版本",includePreview:"包含 Alpha / Beta 版本",
- releaseNotes:"版本说明 ↗",manual:"选择本地固件镜像",searching:"正在查找遥控器…",
- absent:"请连接遥控器",connected:"Noble {model} 已连接",normal:"请在遥控器上选择 ApexTX 刷写工具",
- recovery:"检测到恢复模式",multiple:"请每次只连接一台遥控器",usbError:"USB 连接不可用",
- unknown:"不可用",dev:"开发版本",
- connectHelp:"打开遥控器，连接 USB 数据线，然后在遥控器上选择 ApexTX 刷写工具。仅充电连接无法被检测。",
- normalHelp:"拔下 USB，重新插入，然后在遥控器上选择 ApexTX 刷写工具。",
- readyHelp:"ApexTX 更新已就绪。请保持遥控器供电和连接。",
- recoveryHelp:"STM32 恢复模式无法识别遥控器型号。请使用安装 / 恢复并确认型号。",
- multipleHelp:"请断开其他遥控器，以确定唯一的更新目标。",
- checking:"正在检查 GitHub 发布版本…",
- noRelease:"此通道没有兼容版本。可启用 Alpha / Beta 版本或选择本地镜像。",
- previewHelp:"这是预览版本。安装前请阅读版本说明。",
- availableHelp:"有新的兼容版本可用。确认后将自动下载并验证。",
- currentHelp:"遥控器已安装此版本。",
- aheadHelp:"已安装版本高于此发布版本。不会自动降级。",
- developmentHelp:"这是开发版本。如需替换，请选择本地镜像。",
- downloadUpdate:"更新至 {version}",installLatest:"安装 {version}",upToDate:"已是最新版本",
- waitRadio:"正在等待遥控器",working:"正在更新遥控器…",
- offline:"无法检查发布版本。请检查网络连接或选择本地镜像。",
- unavailable:"刷写工具不可用。请查看遥控器屏幕。",
- downloading:"正在下载固件…",downloadVerified:"下载文件已验证。",waiting:"正在等待 ApexTX 更新…",
- transferring:"正在传输固件…",transferCheck:"正在验证传输…",installing:"正在安装并验证固件…",
- restarting:"固件已验证。正在重启遥控器…",done:"固件已验证。请确认遥控器已返回主页。",
- restartManually:"固件已验证。请长按遥控器电源键以重启。",
- flashBusy:"正在等待遥控器完成闪存写入…",
- usbLostInstalling:"无法读取 USB 状态。请保持供电，遥控器仍在安装。请查看其屏幕，仅在显示固件验证完成后重启。",
- usbLostVerified:"固件已写入并验证。请长按遥控器电源键以重启。",
- usbLostTransfer:"闪存写入前 USB 连接已断开。请重新连接遥控器并重试。",
- rduration:"预计需要 5–10 分钟。安装期间屏幕保持黑色，请在此查看进度并保持 USB 连接。",
- rautoDone:"固件和引导程序已验证。遥控器正在自动启动，请确认主页出现。",
- rbackup:"正在备份当前固件…",rerase:"正在擦除内部闪存…",rwrite:"正在写入固件和引导程序…",
- rverify:"正在验证完整镜像…",rfinish:"镜像已验证。正在启动遥控器…",
- bootloaderTitle:"需要更新引导程序",
- bootloaderHelp:"此版本需要更新的引导程序。普通更新会保留旧引导程序。工具将下载完整镜像，并引导你进入 STM32 ROM DFU 模式完成安装。",
- bootloaderUpdate:"准备完整安装 · {version}",dfuTitle:"请以 DFU 模式连接遥控器",
- dfuDownloaded:"固件已下载并验证，尚未写入。",
- dfuStep1:"断开 USB 并完全关闭遥控器。",
- dfuStep2:"按住左侧握把内的凹陷按钮，同时开机并连接 USB 数据线。这与菜单 → 系统 → 更新不同。",
- dfuStep3:"下方检测到 DFU 后松开握把按钮，再选择备份并安装。",
- dfuBackup:"工具会备份当前内部固件，安装完整镜像并逐字节验证，然后自动启动遥控器。",
- dfuWait:"正在等待处于 STM32 ROM DFU 模式的遥控器…",
- dfuWrongRadio:"连接了另一台遥控器。请在 STM32 ROM DFU 模式重新连接原遥控器。",
- dfuDetected:"遥控器已以 DFU 模式连接，可以进行完整安装。",
- dfuInstall:"备份并安装到 Noble {model}",dfuCancel:"取消安装",
- dfuPreparing:"正在下载并验证完整固件…",
- componentsTitle:"组件",componentsRead:"读取组件版本",
- componentsHelp:"插入 USB 时选择 ApexTX 刷写工具，或在遥控器上打开系统 > 更新 > 连接 ApexTX 刷写工具。读取版本不会写入固件。",
- componentsDone:"组件版本已读取，没有写入固件。",
- componentsStale:"这是之前的读取结果。准备更新前请重新读取。",
- componentModule:"射频模块（报告版本）",componentReceiver:"接收机固件",
- componentPending:"接收机未连接 · 版本待检查"
-};
-Object.assign(T.en,{"wizardTitle": "Component update", "wizardHelp": "Experimental workflow. Prepare the files, back up this radio and review each component. Connecting USB never starts an installation.", "wizardPackage": "Choose a complete ApexTX package (.zip or .tar.gz)", "wizardDownload": "Download complete release package", "wizardResume": "Resume a saved plan", "wizardBrowse": "Browse…", "wizardOpen": "Open plan", "wizardBackup": "1 · Recovery backup", "wizardBackupHelp": "Use ROM DFU (black screen) for the complete internal firmware and external storage copy. Keep this private backup on the computer. Existing cars and calibration are retained by normal updates; cars from the previous system are not converted automatically.", "wizardBackupCreate": "Create complete backup · ROM DFU", "wizardBackupAttach": "Use verified backup folder", "wizardReview": "2 · Review and select components", "wizardApplication": "Radio firmware", "wizardResources": "Themes and tools", "wizardAudio": "Voice pack", "wizardInstall": "Install", "wizardStage": "Prepare only", "wizardCancel": "Cancel preparation", "wizardRecover": "Recover RF", "wizardAudioChoose": "Optional: choose one audio pack", "wizardReinstall": "Reinstall current RF firmware (bench test)", "wizardConfirm": "I reviewed the radio, components and backup. The motor is disconnected for RF maintenance.", "wizardApprove": "Confirm this plan", "wizardStorage": "3 · USB Storage for resources and audio", "wizardStorageHelp": "First prepare storage from Maintenance. Then reconnect USB, select Storage on the radio and choose its mounted volume. The app checks that it belongs to this plan.", "wizardStoragePrepare": "Prepare storage connection", "wizardRecovery": "Complete backup restoration · experimental", "wizardRecoveryHelp": "Use ROM DFU and this radio’s verified backup. NOR restoration replaces all external storage; firmware restoration replaces internal firmware and bootloader. RF module and receiver recovery use their own Recover RF action.", "wizardRestoreNor": "Restore complete external storage", "wizardRestoreApp": "Restore internal firmware", "wizardDestructive": "Confirm the selected operation on this radio:", "wizardQualified": "RF writing is not qualified for this hardware/compilación.", "wizardBackupPending": "No verified recovery backup selected.", "wizardApproved": "Plan confirmed", "wizardUnapproved": "Review and confirm the plan before installing.", "wizardOutcome_complete": "Selected components verified.", "wizardOutcome_partial": "There are pending or deferred components.", "wizardOutcome_recovery_required": "Recovery is required before continuing.", "wizardMode_maintenance": "Maintenance connected · read versions and prepare RF or storage.", "wizardMode_update": "ApexTX Update connected · ready for the radio application.", "wizardMode_storage": "USB Storage connected · ready for resources and audio.", "wizardMode_recovery": "ROM DFU connected · complete backup or recovery.", "wizardMode_other": "Connect this transmitter in the mode required by the selected action.", "wizardState_unselected": "Not selected", "wizardState_pending": "Pending", "wizardState_current": "Current", "wizardState_ready": "Ready", "wizardState_unknown": "Unknown", "wizardState_blocked": "Blocked", "wizardState_staged": "Prepared", "wizardState_running": "In progress", "wizardState_verifying": "Verify after restart", "wizardState_complete": "Complete", "wizardState_cancelled": "Cancelled", "wizardState_failed": "Failed", "wizardState_recovery_required": "Recovery required", "wizardState_deferred": "Deferred"});
-Object.assign(T.es,{"wizardTitle": "Actualización de componentes", "wizardHelp": "Flujo experimental. Prepara los archivos, respalda esta emisora y revisa cada componente. Conectar USB nunca inicia una instalación.", "wizardPackage": "Elegir paquete completo de ApexTX (.zip o .tar.gz)", "wizardDownload": "Descargar paquete completo del release", "wizardResume": "Continuar un plan guardado", "wizardBrowse": "Examinar…", "wizardOpen": "Abrir plan", "wizardBackup": "1 · Copia de recuperación", "wizardBackupHelp": "Usa ROM DFU (pantalla negra) para copiar el firmware interno y todo el almacenamiento externo. Guarda esta copia privada en el ordenador. Las actualizaciones normales conservan coches y calibración; los coches del sistema anterior no se convierten automáticamente.", "wizardBackupCreate": "Crear copia completa · ROM DFU", "wizardBackupAttach": "Usar carpeta de copia verificada", "wizardReview": "2 · Revisar y seleccionar componentes", "wizardApplication": "Firmware de la emisora", "wizardResources": "Temas y herramientas", "wizardAudio": "Paquete de voz", "wizardInstall": "Instalar", "wizardStage": "Solo preparar", "wizardCancel": "Cancelar preparación", "wizardRecover": "Recuperar RF", "wizardAudioChoose": "Opcional: elegir un paquete de audio", "wizardReinstall": "Reinstalar RF aunque esté actualizado (prueba de banco)", "wizardConfirm": "He revisado la emisora, los componentes y la copia. El motor está desconectado para el mantenimiento RF.", "wizardApprove": "Confirmar este plan", "wizardStorage": "3 · USB Storage para recursos y audio", "wizardStorageHelp": "Prepara primero el almacenamiento desde Mantenimiento. Después reconecta USB, elige Storage en la emisora y selecciona el volumen montado. La app comprueba que pertenece a este plan.", "wizardStoragePrepare": "Preparar conexión de almacenamiento", "wizardRecovery": "Restaurar copia completa · experimental", "wizardRecoveryHelp": "Usa ROM DFU y la copia verificada de esta emisora. Restaurar NOR sustituye todo el almacenamiento externo; restaurar firmware sustituye firmware interno y bootloader. El módulo RF y el receptor tienen su propia acción Recuperar RF.", "wizardRestoreNor": "Restaurar todo el almacenamiento externo", "wizardRestoreApp": "Restaurar firmware interno", "wizardDestructive": "Confirma la operación seleccionada en esta emisora:", "wizardQualified": "La escritura RF no está validada para este hardware/compilación.", "wizardBackupPending": "Todavía no hay una copia de recuperación verificada.", "wizardApproved": "Plan confirmado", "wizardUnapproved": "Revisa y confirma el plan antes de instalar.", "wizardOutcome_complete": "Componentes seleccionados verificados.", "wizardOutcome_partial": "Quedan componentes pendientes o aplazados.", "wizardOutcome_recovery_required": "Hace falta recuperar antes de continuar.", "wizardMode_maintenance": "Mantenimiento conectado · consultar versiones y preparar RF o almacenamiento.", "wizardMode_update": "ApexTX Update conectado · listo para el firmware principal.", "wizardMode_storage": "USB Storage conectado · listo para recursos y audio.", "wizardMode_recovery": "ROM DFU conectado · copia completa o recuperación.", "wizardMode_other": "Conecta esta emisora en el modo que requiere la acción elegida.", "wizardState_unselected": "Sin seleccionar", "wizardState_pending": "Pendiente", "wizardState_current": "Actualizado", "wizardState_ready": "Preparado", "wizardState_unknown": "Desconocido", "wizardState_blocked": "Bloqueado", "wizardState_staged": "Imagen preparada", "wizardState_running": "En curso", "wizardState_verifying": "Verificar tras reiniciar", "wizardState_complete": "Completado", "wizardState_cancelled": "Cancelado", "wizardState_failed": "Falló", "wizardState_recovery_required": "Requiere recuperación", "wizardState_deferred": "Aplazado"});
-Object.assign(T.de,{"wizardTitle": "Komponenten aktualisieren", "wizardHelp": "Experimenteller Ablauf. Dateien vorbereiten, diesen Sender sichern und jede Komponente prüfen. Eine USB-Verbindung startet keine Installation.", "wizardPackage": "Vollständiges ApexTX-Paket wählen (.zip oder .tar.gz)", "wizardDownload": "Vollständiges Release-Paket herunterladen", "wizardResume": "Gespeicherten Plan fortsetzen", "wizardBrowse": "Durchsuchen…", "wizardOpen": "Plan öffnen", "wizardBackup": "1 · Wiederherstellungskopie", "wizardBackupHelp": "ROM DFU (schwarzer Bildschirm) sichert interne Firmware und den gesamten externen Speicher. Diese private Kopie auf dem Computer behalten. Normale Updates erhalten Autos und Kalibrierung; Autos des bisherigen Systems werden nicht automatisch konvertiert.", "wizardBackupCreate": "Vollständige Sicherung · ROM DFU", "wizardBackupAttach": "Geprüften Sicherungsordner verwenden", "wizardReview": "2 · Komponenten prüfen und auswählen", "wizardApplication": "Senderfirmware", "wizardResources": "Designs und Werkzeuge", "wizardAudio": "Sprachpaket", "wizardInstall": "Installieren", "wizardStage": "Nur vorbereiten", "wizardCancel": "Vorbereitung abbrechen", "wizardRecover": "HF wiederherstellen", "wizardAudioChoose": "Optional: ein Audiopaket wählen", "wizardReinstall": "Aktuelle HF-Firmware neu installieren (Prüfstand)", "wizardConfirm": "Sender, Komponenten und Sicherung sind geprüft. Der Motor ist für die HF-Wartung getrennt.", "wizardApprove": "Diesen Plan bestätigen", "wizardStorage": "3 · USB-Speicher für Ressourcen und Audio", "wizardStorageHelp": "Speicher zunächst im Wartungsmodus vorbereiten. USB neu verbinden, am Sender Speicher wählen und das Laufwerk auswählen. Die App prüft die Zuordnung zum Plan.", "wizardStoragePrepare": "Speicherverbindung vorbereiten", "wizardRecovery": "Vollständige Sicherung wiederherstellen · experimentell", "wizardRecoveryHelp": "ROM DFU und die geprüfte Sicherung dieses Senders verwenden. NOR ersetzt den externen Speicher; Firmware ersetzt interne Firmware und Bootloader. HF-Modul und Empfänger haben eine eigene HF-Wiederherstellung.", "wizardRestoreNor": "Gesamten externen Speicher wiederherstellen", "wizardRestoreApp": "Interne Firmware wiederherstellen", "wizardDestructive": "Ausgewählte Aktion für diesen Sender bestätigen:", "wizardQualified": "HF-Schreiben ist für diese Hardware/Firmware nicht qualifiziert.", "wizardBackupPending": "Keine geprüfte Wiederherstellungskopie ausgewählt.", "wizardApproved": "Plan bestätigt", "wizardUnapproved": "Plan vor der Installation prüfen und bestätigen.", "wizardOutcome_complete": "Ausgewählte Komponenten geprüft.", "wizardOutcome_partial": "Komponenten sind noch ausstehend oder zurückgestellt.", "wizardOutcome_recovery_required": "Vor dem Fortfahren ist Wiederherstellung erforderlich.", "wizardMode_maintenance": "Wartung verbunden · Versionen lesen und HF/Speicher vorbereiten.", "wizardMode_update": "ApexTX Update verbunden · bereit für die Senderanwendung.", "wizardMode_storage": "USB-Speicher verbunden · bereit für Ressourcen und Audio.", "wizardMode_recovery": "ROM DFU verbunden · vollständige Sicherung oder Wiederherstellung.", "wizardMode_other": "Diesen Sender im für die Aktion benötigten Modus verbinden.", "wizardState_unselected": "Nicht ausgewählt", "wizardState_pending": "Ausstehend", "wizardState_current": "Aktuell", "wizardState_ready": "Bereit", "wizardState_unknown": "Unbekannt", "wizardState_blocked": "Gesperrt", "wizardState_staged": "Vorbereitet", "wizardState_running": "In Arbeit", "wizardState_verifying": "Nach Neustart prüfen", "wizardState_complete": "Abgeschlossen", "wizardState_cancelled": "Abgebrochen", "wizardState_failed": "Fehlgeschlagen", "wizardState_recovery_required": "Wiederherstellung nötig", "wizardState_deferred": "Zurückgestellt"});
-Object.assign(T.cn,{"wizardTitle": "组件更新", "wizardHelp": "实验性流程。先准备文件、备份此遥控器并检查各组件。连接 USB 不会自动安装。", "wizardPackage": "选择完整 ApexTX 包（.zip 或 .tar.gz）", "wizardDownload": "下载完整发布包", "wizardResume": "继续已保存的计划", "wizardBrowse": "浏览…", "wizardOpen": "打开计划", "wizardBackup": "1 · 恢复备份", "wizardBackupHelp": "使用 ROM DFU（黑屏）复制内部固件及全部外部存储。请在电脑上保留此私密备份。正常更新保留车辆及校准；原系统的车辆不会自动转换。", "wizardBackupCreate": "创建完整备份 · ROM DFU", "wizardBackupAttach": "使用已验证的备份文件夹", "wizardReview": "2 · 检查并选择组件", "wizardApplication": "遥控器固件", "wizardResources": "主题与工具", "wizardAudio": "语音包", "wizardInstall": "安装", "wizardStage": "仅准备", "wizardCancel": "取消准备", "wizardRecover": "恢复射频", "wizardAudioChoose": "可选：选择一个语音包", "wizardReinstall": "重新安装当前射频固件（台架测试）", "wizardConfirm": "已检查遥控器、组件及备份。进行射频维护时电机已断开。", "wizardApprove": "确认此计划", "wizardStorage": "3 · 资源和音频的 USB 存储", "wizardStorageHelp": "先在维护模式准备存储，然后重新连接 USB，在遥控器上选择存储并选择已挂载的卷。应用会确认它属于此计划。", "wizardStoragePrepare": "准备存储连接", "wizardRecovery": "完整备份恢复 · 实验性", "wizardRecoveryHelp": "使用 ROM DFU 及此遥控器已验证的备份。恢复 NOR 将替换全部外部存储；恢复固件将替换内部固件及引导程序。射频模块和接收机分别使用恢复射频操作。", "wizardRestoreNor": "恢复全部外部存储", "wizardRestoreApp": "恢复内部固件", "wizardDestructive": "确认对此遥控器执行所选操作：", "wizardQualified": "此硬件或构建尚未通过射频写入验证。", "wizardBackupPending": "尚未选择已验证的恢复备份。", "wizardApproved": "计划已确认", "wizardUnapproved": "安装前请检查并确认计划。", "wizardOutcome_complete": "所选组件已验证。", "wizardOutcome_partial": "仍有待处理或已推迟的组件。", "wizardOutcome_recovery_required": "继续前需要恢复。", "wizardMode_maintenance": "维护已连接 · 读取版本并准备射频或存储。", "wizardMode_update": "ApexTX 更新已连接 · 可安装遥控器应用。", "wizardMode_storage": "USB 存储已连接 · 可安装资源和音频。", "wizardMode_recovery": "ROM DFU 已连接 · 完整备份或恢复。", "wizardMode_other": "请以所选操作要求的模式连接此遥控器。", "wizardState_unselected": "未选择", "wizardState_pending": "待处理", "wizardState_current": "已是最新", "wizardState_ready": "就绪", "wizardState_unknown": "未知", "wizardState_blocked": "已阻止", "wizardState_staged": "镜像已准备", "wizardState_running": "正在进行", "wizardState_verifying": "重启后验证", "wizardState_complete": "已完成", "wizardState_cancelled": "已取消", "wizardState_failed": "失败", "wizardState_recovery_required": "需要恢复", "wizardState_deferred": "已推迟"});
-Object.assign(T.en,{"wizardBackupFolder": "Backup folder on this computer", "wizardVolumeFolder": "Mounted radio storage volume"});
-Object.assign(T.es,{"wizardBackupFolder": "Carpeta de la copia en este ordenador", "wizardVolumeFolder": "Volumen de almacenamiento de la emisora"});
-Object.assign(T.de,{"wizardBackupFolder": "Sicherungsordner auf diesem Computer", "wizardVolumeFolder": "Eingebundenes Speicherlaufwerk des Senders"});
-Object.assign(T.cn,{"wizardBackupFolder": "此电脑上的备份文件夹", "wizardVolumeFolder": "遥控器已挂载的存储卷"});
-Object.assign(T.en,{"wizardRestoreAudio": "Restore previous audio"});
-Object.assign(T.es,{"wizardRestoreAudio": "Restaurar audio anterior"});
-Object.assign(T.de,{"wizardRestoreAudio": "Vorheriges Audio wiederherstellen"});
-Object.assign(T.cn,{"wizardRestoreAudio": "恢复之前的音频"});
 let displayedComponentPlan=null,displayedComponentBackup=null;
-Object.assign(T.cn,{"appTitle": "更新 ApexTX Flasher", "appPreview": "包含桌面应用预览版", "appRelocate": "安装到我的用户文件夹", "appCheck": "检查应用更新", "appInstall": "更新并重启", "appLater": "明天提醒我", "appSkip": "跳过此版本", "appRadioSafe": "已检查遥控器，恢复已完成", "appSigning": "更新使用 ApexTX 签名进行验证。Windows 或 macOS 可能要求允许打开没有官方发布者证书的应用。", "appInstalled": "已安装应用：{version}", "appAvailable": "有新版本 ApexTX Flasher {version}。", "appCurrent": "ApexTX Flasher 已是最新。", "appChecking": "正在检查 ApexTX Flasher 更新…", "appDownloading": "正在下载 ApexTX Flasher… {progress}%", "appVerifying": "正在验证 ApexTX Flasher 更新…", "appRestarting": "正在重启 ApexTX Flasher…", "appBlocked": "更新应用前请完成遥控器操作或恢复。", "appUnsupported": "自动安装需要官方 Windows 或 macOS 桌面包。", "appIncompatible": "此应用更新需要更新的操作系统。", "appLastCheck": "上次成功检查：{date}", "appOffline": "无法检查应用更新。本地遥控器操作仍可使用。", "appUpdated": "ApexTX Flasher 已成功更新。"});
-Object.assign(T.en,{"wizardKeepAudio": "Keep the installed voice pack", "wizardSessionFolder": "Saved plan folder", "wizardFirstSetup": "After first installation: run Menu > System > Calibration, then create a car and bind its receiver. Cars from the previous system remain in the backup."});
-Object.assign(T.es,{"wizardKeepAudio": "Conservar el paquete de voz instalado", "wizardSessionFolder": "Carpeta del plan guardado", "wizardFirstSetup": "Después de la primera instalación: Menú > Sistema > Calibración; después crea un coche y enlaza su receptor. Los coches del sistema anterior quedan en la copia."});
-Object.assign(T.de,{"wizardKeepAudio": "Installiertes Sprachpaket behalten", "wizardSessionFolder": "Ordner des gespeicherten Plans", "wizardFirstSetup": "Nach der Erstinstallation: Menü > System > Kalibrierung ausführen, dann ein Auto anlegen und den Empfänger binden. Bisherige Autos bleiben in der Sicherung."});
-Object.assign(T.cn,{"wizardKeepAudio": "保留已安装的语音包", "wizardSessionFolder": "已保存计划的文件夹", "wizardFirstSetup": "首次安装后，请在菜单 > 系统 > 校准进行校准，然后创建车辆并绑定接收机。原系统的车辆保留在备份中。"});
-Object.assign(T.en,{"wizardPhaseSaved": "Plan saved. Review each component’s state before the next phase.", "wizardPhaseWorking": "Preparing the selected component action…", "wizardPhasePreparing": "Preparing and verifying the complete package…", "wizardPhaseBackup": "Creating and verifying the complete recovery backup…", "wizardPhaseStage": "Preparing the RF image · no RF installation yet", "wizardPhaseRf": "Installing the RF component…", "wizardPhaseAudio": "Installing audio files…", "wizardPhaseResources": "Installing themes, tools and prepared RF images…", "wizardPhaseRestore": "Restoring and verifying the backup…", "wizardPhaseVerify": "Independently verifying the selected component…", "wizardErrorMode": "Reconnect the original transmitter in the required mode: {mode}.", "wizardErrorSpace": "Not enough storage. Defer audio/resources or free space while keeping the settings/history reserve.", "wizardErrorIdentity": "The component, radio or backup identity changed. Read versions and review the plan again.", "wizardErrorFirst": "First installation stays blocked until complete rollback is demonstrated on this transmitter model.", "wizardErrorResume": "Resume with the original package and backup, or restore the previous files.", "wizardErrorGeneric": "The action stopped. Review the connection, component state and recovery instructions before retrying.", "wizardTechnical": "Technical details"});
-Object.assign(T.es,{"wizardPhaseSaved": "Plan guardado. Revisa el estado de cada componente antes de la siguiente fase.", "wizardPhaseWorking": "Preparando la acción del componente elegido…", "wizardPhasePreparing": "Preparando y verificando el paquete completo…", "wizardPhaseBackup": "Creando y verificando la copia completa de recuperación…", "wizardPhaseStage": "Preparando imagen RF · todavía no se instala en RF", "wizardPhaseRf": "Instalando el componente RF…", "wizardPhaseAudio": "Instalando archivos de audio…", "wizardPhaseResources": "Instalando temas, herramientas e imágenes RF preparadas…", "wizardPhaseRestore": "Restaurando y verificando la copia…", "wizardPhaseVerify": "Verificando de forma independiente el componente…", "wizardErrorMode": "Reconecta la misma emisora en el modo requerido: {mode}.", "wizardErrorSpace": "Falta espacio. Aplaza audio/recursos o libera espacio conservando la reserva para ajustes e historial.", "wizardErrorIdentity": "Ha cambiado la identidad del componente, la emisora o la copia. Consulta versiones y vuelve a revisar el plan.", "wizardErrorFirst": "La primera instalación sigue bloqueada hasta demostrar la restauración completa en este modelo de emisora.", "wizardErrorResume": "Continúa con el paquete y la copia originales, o restaura los archivos anteriores.", "wizardErrorGeneric": "La acción se ha detenido. Revisa la conexión, el estado del componente y las instrucciones de recuperación antes de reintentar.", "wizardTechnical": "Detalles técnicos"});
-Object.assign(T.de,{"wizardPhaseSaved": "Plan gespeichert. Vor der nächsten Phase den Zustand jeder Komponente prüfen.", "wizardPhaseWorking": "Ausgewählte Komponentenaktion wird vorbereitet…", "wizardPhasePreparing": "Vollständiges Paket wird vorbereitet und geprüft…", "wizardPhaseBackup": "Vollständige Wiederherstellungskopie wird erstellt und geprüft…", "wizardPhaseStage": "HF-Image vorbereiten · noch keine HF-Installation", "wizardPhaseRf": "HF-Komponente wird installiert…", "wizardPhaseAudio": "Audiodateien werden installiert…", "wizardPhaseResources": "Designs, Werkzeuge und vorbereitete HF-Images werden installiert…", "wizardPhaseRestore": "Sicherung wird wiederhergestellt und geprüft…", "wizardPhaseVerify": "Komponente wird unabhängig geprüft…", "wizardErrorMode": "Ursprünglichen Sender im benötigten Modus verbinden: {mode}.", "wizardErrorSpace": "Nicht genug Speicher. Audio/Ressourcen zurückstellen oder Speicher freigeben; Reserve für Einstellungen und Verlauf behalten.", "wizardErrorIdentity": "Komponenten-, Sender- oder Sicherungsidentität geändert. Versionen erneut lesen und Plan prüfen.", "wizardErrorFirst": "Erstinstallation bleibt gesperrt, bis vollständige Wiederherstellung auf diesem Sendermodell nachgewiesen ist.", "wizardErrorResume": "Mit Originalpaket und Sicherung fortsetzen oder vorherige Dateien wiederherstellen.", "wizardErrorGeneric": "Aktion gestoppt. Verbindung, Komponentenzustand und Wiederherstellungsanleitung vor erneutem Versuch prüfen.", "wizardTechnical": "Technische Details"});
-Object.assign(T.cn,{"wizardPhaseSaved": "计划已保存。下一阶段前请检查各组件状态。", "wizardPhaseWorking": "正在准备所选组件操作…", "wizardPhasePreparing": "正在准备并验证完整包…", "wizardPhaseBackup": "正在创建并验证完整恢复备份…", "wizardPhaseStage": "正在准备射频镜像 · 尚未安装射频固件", "wizardPhaseRf": "正在安装射频组件…", "wizardPhaseAudio": "正在安装音频文件…", "wizardPhaseResources": "正在安装主题、工具和已准备的射频镜像…", "wizardPhaseRestore": "正在恢复并验证备份…", "wizardPhaseVerify": "正在独立验证所选组件…", "wizardErrorMode": "请以所需模式重新连接原遥控器：{mode}。", "wizardErrorSpace": "存储空间不足。请推迟音频或资源，或释放空间并保留设置和历史记录预留空间。", "wizardErrorIdentity": "组件、遥控器或备份身份已改变。请重新读取版本并检查计划。", "wizardErrorFirst": "此遥控器型号完成完整恢复验证前，首次安装保持禁用。", "wizardErrorResume": "请使用原包及备份继续，或恢复之前的文件。", "wizardErrorGeneric": "操作已停止。重试前请检查连接、组件状态及恢复说明。", "wizardTechnical": "技术详情"});
 const componentKeys=['application','module','receiver','resources','audio'];
-Object.assign(T.en,{"appTitle": "ApexTX Flasher updates", "appPreview": "Include preview versions of the desktop app", "appRelocate": "Install in my user folder", "appCheck": "Check app updates", "appInstall": "Update and restart", "appLater": "Remind me tomorrow", "appSkip": "Skip this version", "appRadioSafe": "I checked the radio; recovery is finished", "appSigning": "Updates are authenticated with ApexTX’s own signature. Windows or macOS may require permission to open an app without an official publisher certificate.", "appInstalled": "Installed app: {version}", "appAvailable": "ApexTX Flasher {version} is available.", "appCurrent": "ApexTX Flasher is up to date.", "appChecking": "Checking ApexTX Flasher updates…", "appDownloading": "Downloading ApexTX Flasher… {progress}%", "appVerifying": "Verifying the ApexTX Flasher update…", "appRestarting": "Restarting ApexTX Flasher…", "appBlocked": "Finish the radio operation or recovery before updating the app.", "appUnsupported": "Automatic installation requires an official Windows or macOS desktop package.", "appIncompatible": "This app update requires a newer operating system.", "appLastCheck": "Last successful check: {date}", "appOffline": "Could not check app updates. Local radio operations are still available.", "appUpdated": "ApexTX Flasher was updated successfully."});
-Object.assign(T.es,{"appTitle": "Actualizaciones de ApexTX Flasher", "appPreview": "Incluir versiones preliminares de la app de escritorio", "appRelocate": "Instalar en mi carpeta de usuario", "appCheck": "Buscar actualizaciones de la app", "appInstall": "Actualizar y reiniciar", "appLater": "Recordármelo mañana", "appSkip": "Omitir esta versión", "appRadioSafe": "He comprobado la emisora; la recuperación ha terminado", "appSigning": "Las actualizaciones se autentican con firma propia de ApexTX. Windows o macOS pueden pedir autorización para abrir una app sin certificado oficial de editor.", "appInstalled": "App instalada: {version}", "appAvailable": "ApexTX Flasher {version} está disponible.", "appCurrent": "ApexTX Flasher está actualizado.", "appChecking": "Buscando actualizaciones de ApexTX Flasher…", "appDownloading": "Descargando ApexTX Flasher… {progress}%", "appVerifying": "Verificando la actualización de ApexTX Flasher…", "appRestarting": "Reiniciando ApexTX Flasher…", "appBlocked": "Termina la operación o recuperación de la emisora antes de actualizar la app.", "appUnsupported": "La instalación automática requiere un paquete oficial de escritorio para Windows o macOS.", "appIncompatible": "Esta actualización de la app requiere un sistema operativo más reciente.", "appLastCheck": "Última comprobación correcta: {date}", "appOffline": "No se ha podido comprobar la actualización de la app. Las operaciones locales de la emisora siguen disponibles.", "appUpdated": "ApexTX Flasher se ha actualizado correctamente."});
-Object.assign(T.de,{"appTitle": "ApexTX Flasher aktualisieren", "appPreview": "Vorabversionen der Desktop-App einbeziehen", "appRelocate": "In meinem Benutzerordner installieren", "appCheck": "Nach App-Updates suchen", "appInstall": "Aktualisieren und neu starten", "appLater": "Morgen erinnern", "appSkip": "Diese Version überspringen", "appRadioSafe": "Fernbedienung geprüft; Wiederherstellung abgeschlossen", "appSigning": "Updates werden mit der eigenen ApexTX-Signatur geprüft. Windows oder macOS können eine Freigabe für Apps ohne offizielles Herausgeberzertifikat verlangen.", "appInstalled": "Installierte App: {version}", "appAvailable": "ApexTX Flasher {version} ist verfügbar.", "appCurrent": "ApexTX Flasher ist aktuell.", "appChecking": "ApexTX-Flasher-Updates werden gesucht…", "appDownloading": "ApexTX Flasher wird heruntergeladen… {progress}%", "appVerifying": "ApexTX-Flasher-Update wird geprüft…", "appRestarting": "ApexTX Flasher wird neu gestartet…", "appBlocked": "Vorgang oder Wiederherstellung der Fernbedienung vor dem App-Update abschließen.", "appUnsupported": "Automatische Installation erfordert ein offizielles Windows- oder macOS-App-Paket.", "appIncompatible": "Dieses App-Update erfordert ein neueres Betriebssystem.", "appLastCheck": "Letzte erfolgreiche Prüfung: {date}", "appOffline": "App-Updates konnten nicht geprüft werden. Lokale Funkgerätefunktionen bleiben verfügbar.", "appUpdated": "ApexTX Flasher wurde erfolgreich aktualisiert."});
 const token='__SESSION_TOKEN__';
 const file=$('#file'),start=$('#start'),message=$('#message'),bar=$('#bar'),percent=$('#percent'),fileinfo=$('#fileinfo');
 const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('#rmodel'),rconfirm=$('#rconfirm'),rconfirmWrap=$('#rconfirmWrap'),rconfirmLabel=$('#rconfirmLabel');
@@ -545,18 +1294,6 @@ function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'search
  renderComponents();
  document.querySelectorAll('#tabs button,input[name="radioVariant"],#rconfirm').forEach(el=>el.disabled=running||!!plan);
 }
-Object.assign(T.en,{"wizardBootloader": "Bootloader", "wizardBootRead": "Connect Update and read versions to check requirements.", "wizardBootRom": "This update requires ROM DFU and the verified recovery backup.", "wizardState_available": "Update available", "wizardQualified": "RF writing is not qualified for this hardware/build."});
-Object.assign(T.es,{"wizardBootloader": "Bootloader", "wizardBootRead": "Conecta Update y lee versiones para comprobar los requisitos.", "wizardBootRom": "Esta actualización requiere ROM DFU y la copia de recuperación verificada.", "wizardState_available": "Actualización disponible"});
-Object.assign(T.de,{"wizardBootloader": "Bootloader", "wizardBootRead": "Update-Modus verbinden und Versionen lesen, um die Anforderungen zu prüfen.", "wizardBootRom": "Dieses Update benötigt ROM DFU und die geprüfte Wiederherstellungskopie.", "wizardState_available": "Update verfügbar"});
-Object.assign(T.cn,{"wizardBootloader": "引导程序", "wizardBootRead": "连接 Update 模式并读取版本以检查要求。", "wizardBootRom": "本次更新需要 ROM DFU 和已验证的恢复备份。", "wizardState_available": "有可用更新"});
-Object.assign(T.en,{"wizardAudioOnline": "Optional voice pack from this release", "wizardAudioPick": "Choose one language…", "wizardAudioDownload": "Download and prepare voice pack"});
-Object.assign(T.es,{"wizardAudioOnline": "Paquete de voz opcional de este release", "wizardAudioPick": "Elige un idioma…", "wizardAudioDownload": "Descargar y preparar paquete de voz"});
-Object.assign(T.de,{"wizardAudioOnline": "Optionales Sprachpaket dieser Version", "wizardAudioPick": "Eine Sprache auswählen…", "wizardAudioDownload": "Sprachpaket laden und vorbereiten"});
-Object.assign(T.cn,{"wizardAudioOnline": "此版本的可选语音包", "wizardAudioPick": "选择一种语言…", "wizardAudioDownload": "下载并准备语音包"});
-Object.assign(T.en,{publishingRf:"Storing RF images on the radio…",rebooting:"Restarting the radio into update mode…"});
-Object.assign(T.es,{publishingRf:"Guardando imágenes RF en la emisora…",rebooting:"Reiniciando la emisora en modo actualización…"});
-Object.assign(T.de,{publishingRf:"HF-Images werden auf der Fernbedienung gespeichert…",rebooting:"Fernbedienung startet in den Update-Modus…"});
-Object.assign(T.cn,{publishingRf:"正在将射频镜像保存到遥控器…",rebooting:"遥控器正在重启进入更新模式…"});
 function renderComponents(){
  const p=snapshot?.integrated,device=snapshot?.device||{},busy=running||requesting,d=T[lang],maintenance=device.state==='normal'&&device.maintenance===true,rom=device.state==='recovery',storage=device.mode==='storage';
  $('#componentPlan').hidden=!p;

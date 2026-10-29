@@ -6,6 +6,20 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.8] - 2026-10-29
+
+- Refreshed the ApexTX Flasher desktop interface: a calmer layout that
+  follows the system light or dark appearance, consistent buttons and
+  collapsible sections, and wording written for radio owners rather than
+  developers in English, Spanish, German and Simplified Chinese. Every flow
+  is unchanged: one-click update from the radio's ApexTX Flasher USB mode,
+  update and recovery, the Components wizard, voice packs and app updates.
+- Replaced the desktop app icon with the ApexTX mark on a dark tile so it is
+  visible in the Dock and taskbar on light and dark desktops. The icon is
+  rendered by `tools/nb4-flasher-icon.py` and packaged on both platforms.
+- Published ApexTX Flasher 1.4.0-alpha.2 (build 14002) as the first signed
+  desktop release for the app's own update check.
+
 ## [0.1.0-alpha.7] - 2026-10-29
 
 - Added RF module and receiver firmware updates from the radio. Verified
