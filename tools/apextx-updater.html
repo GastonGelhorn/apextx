@@ -118,6 +118,8 @@ progress{appearance:none;-webkit-appearance:none;width:100%;height:6px;display:b
 progress::-webkit-progress-bar{background:var(--line);border-radius:999px}
 progress::-webkit-progress-value{background:var(--accent);border-radius:999px;transition:width .3s}
 progress::-moz-progress-bar{background:var(--accent);border-radius:999px}
+progress:indeterminate::-webkit-progress-bar{background:linear-gradient(90deg,var(--line) 0 30%,var(--accent) 30% 50%,var(--line) 50%);background-size:300% 100%;animation:indeterminate 1.4s linear infinite}
+@keyframes indeterminate{from{background-position:100% 0}to{background-position:0 0}}
 .status-row{display:flex;gap:16px;font-size:13.5px;color:var(--text2);align-items:baseline}
 .status-row #message{flex:1;overflow-wrap:anywhere}
 .status-row #percent{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
@@ -188,7 +190,7 @@ details[open]>summary::before{transform:rotate(45deg)}
 #componentErrorTechnical{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--muted);margin:0 0 10px}
 
 footer{font-size:12px;color:var(--muted);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:16px;line-height:1.55}
-footer .meta{display:block;margin-top:6px}
+footer .meta{display:block}
 #appUpdateCheck:not(:empty)::before,#appInstallLocation:not(:empty)::before{content:" · "}
 footer #appUpdateError{margin:6px 0 0;font-size:12.5px}
 footer #appUpdateError:empty{display:none}
@@ -341,19 +343,18 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note"></span></p>
 <dialog id="appDialog" aria-labelledby="appDialogTitle">
 <div class="dlg">
-<div class="dlg-head"><img src="__LOGO_DATA__" alt=""><div><h2 id="appDialogTitle" data-k="appDialogTitle"></h2><p id="appDialogLead"></p></div></div>
+<div class="dlg-head"><img src="__LOGO_DATA__" alt=""><div><h2 id="appDialogTitle"></h2><p id="appDialogLead"></p></div></div>
 <div class="dlg-notes" id="appDialogNotes"><h3 id="appWhatsNew"></h3><pre id="appUpdateNotes"></pre></div>
 <a class="dlg-link" id="appReleaseLink" target="_blank" rel="noreferrer noopener" data-k="appReleaseLink" hidden></a>
 <div class="dlg-progress" id="appDialogProgress" hidden><progress id="appDialogBar" max="100" value="0" aria-label="Progress"></progress><p id="appDialogState"></p></div>
 <p id="appDialogNote"></p>
 <p id="appDialogError" class="error" role="alert"></p>
 <div class="actions"><button type="button" class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe"></button></div>
-<div class="dlg-actions"><button type="button" class="quiet" id="appSkip" data-k="appSkip"></button><span class="spacer"></span><button type="button" class="quiet" id="appLater" data-k="appLater"></button><button type="button" class="cta" id="appInstall" data-k="appInstall"></button></div>
-<p class="dlg-signing" data-k="appSigning"></p>
+<div class="dlg-actions"><button type="button" class="quiet" id="appSkip" data-k="appSkip"></button><span class="spacer"></span><button type="button" class="quiet" id="appLater" data-k="appLater"></button><button type="button" class="cta" id="appInstall" data-k="appInstall"></button><button type="button" class="quiet" id="appClose" data-k="appClose"></button><button type="button" class="cta" id="appTryAgain" data-k="appTryAgain"></button></div>
+<p class="dlg-signing" id="appSigningNote" data-k="appSigning"></p>
 </div>
 </dialog>
-<footer><span data-k="footer"></span>
-<div class="meta"><span id="appUpdateStatus" role="status" aria-live="polite"></span> · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a><span id="appUpdateCheck"></span><span id="appInstallLocation"></span></div>
+<footer><div class="meta"><span id="appUpdateStatus" role="status" aria-live="polite"></span> · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a><span id="appUpdateCheck"></span><span id="appInstallLocation"></span></div>
 <p id="appUpdateError" class="error" role="alert"></p>
 <label class="channel footer-channel"><input type="checkbox" id="appPreview"><span data-k="appPreview"></span></label></footer>
 </main>
@@ -369,7 +370,6 @@ en:{
  "imglabel":"Firmware file",
  "fileinfo":"firmware.bin · ApexTX for the Noble NB4 / NB4+",
  "note":"Keep the radio switched on and connected until the update finishes. If something goes wrong, leave it on and try again.",
- "footer":"ApexTX Flasher works entirely on this computer. Firmware goes straight to your radio over USB and is never uploaded anywhere.",
  "rwarn":"This replaces everything on the radio, including its start-up program. Use it for a first installation or to recover a radio that no longer starts. For everyday updates use the Update tab. The radio must be in recovery mode (black screen). Your current firmware is saved first.",
  "rdone":"Installation complete and verified. Switch the radio off (hold the power button until it is fully off), then switch it on again.",
  "rimglabel":"Complete firmware file",
@@ -567,6 +567,12 @@ en:{
  "appInstall":"Update and restart",
  "appLater":"Remind me later",
  "appSkip":"Skip this version",
+ "appUpToDateTitle":"You're up to date",
+ "appUpToDateLead":"ApexTX Flasher {version} is the latest version.",
+ "appCheckFailedTitle":"Couldn't check for updates",
+ "appCheckFailedLead":"Check your internet connection and try again. Radio updates still work.",
+ "appClose":"Close",
+ "appTryAgain":"Try again",
  "appShow":"Update available",
  "appDialogTitle":"A new version of ApexTX Flasher is available",
  "appDialogLead":"ApexTX Flasher {available} is ready to install. You have version {version}.",
@@ -596,7 +602,6 @@ es:{
  "imglabel":"Archivo de firmware",
  "fileinfo":"firmware.bin · ApexTX para la Noble NB4 / NB4+",
  "note":"Mantén la emisora encendida y conectada hasta que termine la actualización. Si algo falla, déjala encendida y vuelve a intentarlo.",
- "footer":"ApexTX Flasher funciona por completo en este ordenador. El firmware va directo a tu emisora por USB y nunca se sube a ningún sitio.",
  "rwarn":"Esto reemplaza todo el contenido de la emisora, incluido su programa de arranque. Úsalo para una primera instalación o para recuperar una emisora que ya no arranca. Para las actualizaciones habituales usa la pestaña Actualizar. La emisora debe estar en modo recuperación (pantalla negra). Antes se guarda una copia de tu firmware actual.",
  "rdone":"Instalación completada y verificada. Apaga la emisora (mantén el botón de encendido hasta que se apague del todo) y vuelve a encenderla.",
  "rimglabel":"Archivo de firmware completo",
@@ -794,6 +799,12 @@ es:{
  "appInstall":"Actualizar y reiniciar",
  "appLater":"Recordármelo más tarde",
  "appSkip":"Omitir esta versión",
+ "appUpToDateTitle":"Estás al día",
+ "appUpToDateLead":"ApexTX Flasher {version} es la última versión.",
+ "appCheckFailedTitle":"No se pudo buscar actualizaciones",
+ "appCheckFailedLead":"Comprueba tu conexión a internet y vuelve a intentarlo. Las actualizaciones de la emisora siguen funcionando.",
+ "appClose":"Cerrar",
+ "appTryAgain":"Reintentar",
  "appShow":"Actualización disponible",
  "appDialogTitle":"Hay una nueva versión de ApexTX Flasher",
  "appDialogLead":"ApexTX Flasher {available} está lista para instalarse. Tienes la versión {version}.",
@@ -823,7 +834,6 @@ de:{
  "imglabel":"Firmware-Datei",
  "fileinfo":"firmware.bin · ApexTX für die Noble NB4 / NB4+",
  "note":"Lass den Sender eingeschaltet und verbunden, bis das Update fertig ist. Geht etwas schief, lass ihn eingeschaltet und versuche es erneut.",
- "footer":"ApexTX Flasher arbeitet vollständig auf diesem Computer. Die Firmware geht per USB direkt an deinen Sender und wird nirgends hochgeladen.",
  "rwarn":"Dies ersetzt alles auf dem Sender, auch sein Startprogramm. Nutze es für eine Erstinstallation oder um einen Sender wiederherzustellen, der nicht mehr startet. Für normale Updates nimm den Reiter Aktualisieren. Der Sender muss im Wiederherstellungsmodus sein (schwarzer Bildschirm). Deine aktuelle Firmware wird vorher gesichert.",
  "rdone":"Installation abgeschlossen und geprüft. Schalte den Sender aus (Einschalttaste halten, bis er ganz aus ist) und dann wieder ein.",
  "rimglabel":"Vollständige Firmware-Datei",
@@ -1021,6 +1031,12 @@ de:{
  "appInstall":"Aktualisieren und neu starten",
  "appLater":"Später erinnern",
  "appSkip":"Diese Version überspringen",
+ "appUpToDateTitle":"Du bist auf dem neuesten Stand",
+ "appUpToDateLead":"ApexTX Flasher {version} ist die neueste Version.",
+ "appCheckFailedTitle":"Updates konnten nicht geprüft werden",
+ "appCheckFailedLead":"Prüfe deine Internetverbindung und versuche es erneut. Sender-Updates funktionieren weiterhin.",
+ "appClose":"Schließen",
+ "appTryAgain":"Erneut versuchen",
  "appShow":"Update verfügbar",
  "appDialogTitle":"Eine neue Version von ApexTX Flasher ist verfügbar",
  "appDialogLead":"ApexTX Flasher {available} kann jetzt installiert werden. Du hast Version {version}.",
@@ -1050,7 +1066,6 @@ cn:{
  "imglabel":"固件文件",
  "fileinfo":"firmware.bin · Noble NB4 / NB4+ 的 ApexTX 固件",
  "note":"更新完成前请保持遥控器开机并连接。如果出现问题，请保持开机并重试。",
- "footer":"ApexTX Flasher 完全在本机运行。固件通过 USB 直接写入遥控器，不会上传到任何地方。",
  "rwarn":"此操作会替换遥控器上的全部内容，包括启动程序。仅用于首次安装或恢复无法启动的遥控器。日常更新请使用“更新”标签页。遥控器必须处于恢复模式（黑屏）。写入前会先保存当前固件。",
  "rdone":"安装完成并已校验。请关闭遥控器（按住电源键直到完全关机），然后重新开机。",
  "rimglabel":"完整固件文件",
@@ -1248,6 +1263,12 @@ cn:{
  "appInstall":"更新并重启",
  "appLater":"稍后提醒我",
  "appSkip":"跳过此版本",
+ "appUpToDateTitle":"已是最新版本",
+ "appUpToDateLead":"ApexTX Flasher {version} 已是最新版本。",
+ "appCheckFailedTitle":"无法检查更新",
+ "appCheckFailedLead":"请检查网络连接后重试。遥控器更新仍可正常使用。",
+ "appClose":"关闭",
+ "appTryAgain":"重试",
  "appShow":"有可用更新",
  "appDialogTitle":"ApexTX Flasher 有新版本",
  "appDialogLead":"ApexTX Flasher {available} 已可安装。你当前的版本是 {version}。",
@@ -1437,7 +1458,7 @@ rstart.onclick=()=>send('/api/recover',rfile.files[0],{'X-ApexTX-Radio-Variant':
 function clearError(){localError=null;if(!snapshot?.operation){$('#transfer').hidden=true;message.textContent='';message.className='';}}
 function showError(text){if(mode==='components'){$('#componentTransferSlot').appendChild($('#transfer'));$('#componentErrorDetails').hidden=false;$('#componentErrorTechnical').textContent=text;text=componentError(text);}localError=text;message.textContent=text;message.className='error';$('#transfer').hidden=false;}
 async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);if(path.startsWith('/api/components/')&&r.status===202)running=true;return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
-const appDialog=$('#appDialog');let dialogShown=null,dialogPinned=false;
+const appDialog=$('#appDialog');let dialogShown=null,dialogPinned=false,manualCheck=null;
 function openDialog(){if(appDialog.open)return;if(appDialog.showModal)appDialog.showModal();else appDialog.open=true;}
 function closeDialog(){dialogPinned=false;if(!appDialog.open)return;if(appDialog.close)appDialog.close();else appDialog.open=false;}
 function renderAppUpdate(){
@@ -1457,36 +1478,46 @@ function renderAppUpdate(){
  $('#appShow').hidden=!offer||busy;$('#appShow').disabled=requesting;
  $('#appPreview').checked=!!a.preview;$('#appPreview').disabled=busy||requesting||a.state==='checking';
  $('#appRadioSafe').hidden=!snapshot?.radio_unconfirmed;$('#appRadioSafe').disabled=!!snapshot?.running||!!snapshot?.bootloader_install;
- // Update dialog: shown once per offer after the automatic check, again on request.
- $('#appDialogLead').textContent=offer?d.appDialogLead.replace('{available}',a.available).replace('{version}',a.version||''):'';
+ // Update dialog: opens by itself once per offer, and on request from the top bar with the check's result.
+ if(manualCheck&&!manualCheck.done&&((a.checks||0)>manualCheck.base&&a.state!=='checking'))manualCheck.done=true;
+ if(manualCheck&&offer){manualCheck=null;dialogPinned=true;}
+ const mode=busy?'busy':offer?'offer':manualCheck?(manualCheck.done?((a.state==='error'||manualCheck.failed)?'error':'current'):'checking'):null;
+ const installed=a.version||'__APP_VERSION__';
+ $('#appDialogTitle').textContent=mode==='checking'?d.appChecking:mode==='current'?d.appUpToDateTitle:mode==='error'?d.appCheckFailedTitle:d.appDialogTitle;
+ $('#appDialogLead').textContent=mode==='checking'?d.appInstalled.replace('{version}',installed):mode==='current'?d.appUpToDateLead.replace('{version}',installed):mode==='error'?d.appCheckFailedLead:offer?d.appDialogLead.replace('{available}',a.available).replace('{version}',installed):'';
  $('#appWhatsNew').textContent=d.appWhatsNew.replace('{version}',a.available||'');
  $('#appUpdateNotes').textContent=a.notes||'';
- $('#appDialogNotes').hidden=!a.notes||busy;
- $('#appReleaseLink').hidden=!a.release_url||busy;if(a.release_url)$('#appReleaseLink').href=a.release_url;
- $('#appDialogProgress').hidden=!busy;
- if(busy){$('#appDialogBar').value=a.state==='downloading'?(a.progress||0):100;$('#appDialogState').textContent=d[stateKey].replace('{progress}',a.progress||0);}
- $('#appDialogNote').textContent=busy?'':a.blocked?d.appBlocked:offer&&!a.compatible?d.appIncompatible:'';
- $('#appDialogError').textContent=busy?'':(a.error||'');
- $('#appInstall').hidden=busy;$('#appInstall').disabled=busy||requesting||!!a.blocked||!a.compatible||!offer||a.state==='checking';
- $('#appLater').hidden=$('#appSkip').hidden=busy;$('#appLater').disabled=$('#appSkip').disabled=requesting;
+ $('#appDialogNotes').hidden=mode!=='offer'||!a.notes;
+ $('#appReleaseLink').hidden=mode!=='offer'||!a.release_url;if(a.release_url)$('#appReleaseLink').href=a.release_url;
+ $('#appDialogProgress').hidden=mode!=='busy'&&mode!=='checking';
+ if(mode==='busy'){$('#appDialogBar').value=a.state==='downloading'?(a.progress||0):100;$('#appDialogState').textContent=d[stateKey].replace('{progress}',a.progress||0);}
+ else if(mode==='checking'){if($('#appDialogBar').removeAttribute)$('#appDialogBar').removeAttribute('value');$('#appDialogState').textContent='';}
+ $('#appDialogNote').textContent=mode==='offer'?(a.blocked?d.appBlocked:!a.compatible?d.appIncompatible:''):'';
+ $('#appDialogError').textContent=mode==='error'?(manualCheck?.failed||a.error||''):mode==='offer'?(a.error||''):'';
+ $('#appInstall').hidden=mode!=='offer';$('#appInstall').disabled=busy||requesting||!!a.blocked||!a.compatible||!offer||a.state==='checking';
+ $('#appLater').hidden=$('#appSkip').hidden=mode!=='offer';$('#appLater').disabled=$('#appSkip').disabled=requesting;
+ $('#appSigningNote').hidden=mode!=='offer'&&mode!=='busy';
+ $('#appClose').hidden=mode!=='current'&&mode!=='error';$('#appTryAgain').hidden=mode!=='error';$('#appTryAgain').disabled=requesting;
  if(offer&&!a.hidden&&!a.blocked&&!snapshot?.running&&dialogShown!==a.available){dialogShown=a.available;openDialog();}
- else if(offer&&(busy||dialogPinned))openDialog();
- if(!offer||(a.hidden&&!busy&&!dialogPinned))closeDialog();
+ else if(mode&&(mode!=='offer'||dialogPinned))openDialog();
+ if(!mode||(mode==='offer'&&a.hidden&&!dialogPinned))closeDialog();
 }
+function checkNow(){if($('#appCheck').disabled||requesting)return;manualCheck={base:snapshot?.app_update?.checks||0};dialogPinned=true;openDialog();renderAppUpdate();return appRequest('check');}
+function dismissDialog(){manualCheck=null;closeDialog();renderAppUpdate();}
 async function appRequest(action,data={}){
  // Errors belong to the desktop app panel or dialog, never the radio progress panel.
  requesting=true;render();
  try{const r=await fetch('/api/app-update/'+action,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);}
- catch(e){$('#appDialogError').textContent=e.message;if(!appDialog.open)$('#appUpdateError').textContent=e.message;}
- finally{requesting=false;}
+ catch(e){if(action==='check'&&manualCheck){manualCheck.done=true;manualCheck.failed=e.message;}else{$('#appDialogError').textContent=e.message;if(!appDialog.open)$('#appUpdateError').textContent=e.message;}}
+ finally{requesting=false;renderAppUpdate();}
 }
-$('#appCheck').onclick=()=>appRequest('check');
+$('#appCheck').onclick=checkNow;$('#appTryAgain').onclick=checkNow;$('#appClose').onclick=dismissDialog;
 $('#appPreview').onchange=()=>appRequest('check',{preview:$('#appPreview').checked});
 $('#appShow').onclick=()=>{if($('#appShow').disabled)return;dialogPinned=true;openDialog();};
 $('#appInstall').onclick=()=>{if(!$('#appInstall').disabled)return appRequest('install',{version:snapshot.app_update.available});};
 $('#appLater').onclick=()=>{dialogPinned=false;return appRequest('later');};
 $('#appSkip').onclick=()=>{dialogPinned=false;return appRequest('skip');};
-if(appDialog.addEventListener)appDialog.addEventListener('cancel',e=>{e.preventDefault();if(!$('#appLater').hidden&&!$('#appLater').disabled)$('#appLater').onclick();});
+if(appDialog.addEventListener)appDialog.addEventListener('cancel',e=>{e.preventDefault();if(!$('#appLater').hidden&&!$('#appLater').disabled)$('#appLater').onclick();else if(!$('#appDialogProgress').hidden&&$('#appInstall').hidden===false)return;else if(manualCheck)dismissDialog();});
 $('#appRadioSafe').onclick=()=>appRequest('acknowledge-radio');
 $('#refresh').onclick=()=>request('/api/refresh');
 $('#readComponents').onclick=()=>{if($('#readComponents').disabled)return;const device=snapshot.device;return request('/api/components/read',{serial:device.serial,target:device.target});};
