@@ -44,6 +44,11 @@ enum TelemetryStates {
 extern uint8_t telemetryState;
 
 constexpr uint8_t TELEMETRY_TIMEOUT10ms = 100; // 1 second
+#if defined(RADIO_NB4)
+// A stream must be continuous this long before "connected" or "recovered"
+// is announced. Loss is still announced as soon as the stream times out.
+constexpr uint16_t NB4_TELEMETRY_SETTLE10ms = 200; // 2 seconds
+#endif
 
 #define TELEMETRY_SERIAL_DEFAULT       0
 #define TELEMETRY_SERIAL_8E2           1
