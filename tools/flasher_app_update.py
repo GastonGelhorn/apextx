@@ -409,7 +409,7 @@ class AppUpdateController:
                 self.preferences['preview'] = preview
                 self.save()
             self.checking = True
-            self.state.update(state='checking', error=None)
+            self.state.update(state='checking', error=None, checks=self.state.get('checks', 0) + 1)
             self.next_check = time.time() + 3600
         def work():
             try:
