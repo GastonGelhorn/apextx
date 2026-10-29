@@ -305,6 +305,17 @@ class Nb4Afhds3Bind : public ::testing::Test {
     ProtoDriver.deinit(context);
     context = ProtoDriver.init(0); rxCount = 0;
   }
+  // Keeps the receiver stream alive for `ticks` 10 ms steps, with a quality
+  // record every half second and the telemetry task run on every step.
+  void streamFor(unsigned ticks, uint8_t index) {
+    for (unsigned i = 0; i < ticks; ++i) {
+      ++g_tmr10ms;
+      if (i % 50 == 0)
+        receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, index, REQUEST_SET_NO_RESP);
+      telemetryInterrupt10ms();
+      telemetryWakeup();
+    }
+  }
   void connectNormal() {
     bindCommit(); learned(0x44, REQUEST_SET_NO_RESP);
     setModuleMode(0, MODULE_MODE_NORMAL);
@@ -644,6 +655,8 @@ TEST_F(Nb4Afhds3Bind, ReceiverLossIsNotKeptAliveByModuleAndDoesNotWaitForLowSign
   EXPECT_TRUE(TELEMETRY_STREAMING());
   EXPECT_EQ(nb4ReadCarState().receiver.value, 8600);
   telemetryWakeup();
+  EXPECT_EQ(telemetryState, TELEMETRY_INIT); // first packet is not announced
+  streamFor(NB4_TELEMETRY_SETTLE10ms, 95);
   EXPECT_EQ(telemetryState, TELEMETRY_OK);
   for (unsigned i = 0; i < TELEMETRY_TIMEOUT10ms; ++i) {
     ++g_tmr10ms;
@@ -658,8 +671,66 @@ TEST_F(Nb4Afhds3Bind, ReceiverLossIsNotKeptAliveByModuleAndDoesNotWaitForLowSign
   EXPECT_EQ(telemetryState, TELEMETRY_KO);
   EXPECT_EQ(nb4ReadCarState().link.validity, Nb4Validity::Absent);
   EXPECT_EQ(nb4ReadCarState().receiver.validity, Nb4Validity::Absent);
+  // "Recovered" also waits for a continuous stream, not for the first packet.
   receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 90}, 97, REQUEST_SET_NO_RESP);
   telemetryWakeup();
+  EXPECT_EQ(telemetryState, TELEMETRY_KO);
+  streamFor(NB4_TELEMETRY_SETTLE10ms, 97);
+  EXPECT_EQ(telemetryState, TELEMETRY_OK);
+}
+
+TEST_F(Nb4Afhds3Bind, ConnectIsAnnouncedOnceAfterTheStreamSettles) {
+  bindCommit(); learned();
+  setModuleMode(0, MODULE_MODE_NORMAL);
+  g_model.disableTelemetryWarning = false;
+  g_tmr10ms += 2000;
+  // Link-up: one quality record, then a pause longer than the stream timeout
+  // while the module synchronises, then the regular stream. The radio must
+  // not announce the first packet and then report a loss.
+  receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 95, REQUEST_SET_NO_RESP);
+  telemetryWakeup();
+  EXPECT_EQ(telemetryState, TELEMETRY_INIT);
+  for (unsigned i = 0; i < TELEMETRY_TIMEOUT10ms + 50; ++i) {
+    ++g_tmr10ms;
+    telemetryInterrupt10ms();
+    telemetryWakeup();
+    EXPECT_EQ(telemetryState, TELEMETRY_INIT);
+  }
+  EXPECT_FALSE(TELEMETRY_STREAMING());
+  receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 96, REQUEST_SET_NO_RESP);
+  telemetryWakeup();
+  EXPECT_EQ(telemetryState, TELEMETRY_INIT);
+  for (unsigned i = 0; i < NB4_TELEMETRY_SETTLE10ms - 1; ++i) {
+    ++g_tmr10ms;
+    if (i % 50 == 0)
+      receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 96, REQUEST_SET_NO_RESP);
+    telemetryInterrupt10ms();
+    telemetryWakeup();
+    EXPECT_EQ(telemetryState, TELEMETRY_INIT);
+  }
+  ++g_tmr10ms;
+  telemetryInterrupt10ms();
+  telemetryWakeup();
+  EXPECT_EQ(telemetryState, TELEMETRY_OK);
+  // A short pause inside the settle window restarts it instead of counting.
+  receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 97, REQUEST_SET_NO_RESP);
+  for (unsigned i = 0; i < TELEMETRY_TIMEOUT10ms + 1; ++i) {
+    ++g_tmr10ms; telemetryInterrupt10ms(); telemetryWakeup();
+  }
+  EXPECT_EQ(telemetryState, TELEMETRY_KO);
+  receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 98, REQUEST_SET_NO_RESP);
+  for (unsigned i = 0; i < NB4_TELEMETRY_SETTLE10ms / 2; ++i) {
+    ++g_tmr10ms; telemetryInterrupt10ms(); telemetryWakeup();
+    if (i % 50 == 49)
+      receive(TELEMETRY_DATA, {0x22, 4, 0xfe, 0x81, 95}, 98, REQUEST_SET_NO_RESP);
+  }
+  for (unsigned i = 0; i < TELEMETRY_TIMEOUT10ms + 1; ++i) {
+    ++g_tmr10ms; telemetryInterrupt10ms(); telemetryWakeup();
+  }
+  EXPECT_EQ(telemetryState, TELEMETRY_KO);
+  streamFor(NB4_TELEMETRY_SETTLE10ms, 99);
+  EXPECT_EQ(telemetryState, TELEMETRY_KO);
+  streamFor(1, 99);
   EXPECT_EQ(telemetryState, TELEMETRY_OK);
 }
 

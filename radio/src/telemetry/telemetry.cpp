@@ -67,6 +67,27 @@ struct telemetry_buffer {
 uint8_t telemetryStreaming = 0;
 uint8_t telemetryState = TELEMETRY_INIT;
 
+#if defined(RADIO_NB4)
+// The receiver's first packets arrive while the module is still synchronising
+// after the link comes up, and the stream can pause past its one-second
+// timeout before it settles. Announcing the first packet then produces
+// "connected", "lost" and "recovered" in a row. Only a stream that has been
+// continuous for NB4_TELEMETRY_SETTLE10ms is announced; a loss is the safety
+// alarm and stays immediate.
+static tmr10ms_t telemetryStreamSince = 0;
+static bool telemetryWasStreaming = false;
+
+static bool nb4TelemetryStreamSettled()
+{
+  const bool streaming = TELEMETRY_STREAMING();
+  const tmr10ms_t now = get_tmr10ms();
+  if (streaming && !telemetryWasStreaming) telemetryStreamSince = now;
+  telemetryWasStreaming = streaming;
+  return streaming &&
+         (tmr10ms_t)(now - telemetryStreamSince) >= NB4_TELEMETRY_SETTLE10ms;
+}
+#endif
+
 TelemetryData telemetryData;
 static rxStatStruct rxStat;
 
@@ -366,8 +387,14 @@ void telemetryWakeup()
 #if defined(RADIO_NB4)
   // Receiver loss is independent of the low-signal warning repeat interval.
   checkConnection = true;
+  const bool settled = nb4TelemetryStreamSettled();
 #endif
   if (checkConnection && !g_model.disableTelemetryWarning) {
+#if defined(RADIO_NB4)
+    if (TELEMETRY_STREAMING() && telemetryState != TELEMETRY_OK && !settled) {
+      // Not announced yet: the stream has to stay up for a while first.
+    } else
+#endif
     if (TELEMETRY_STREAMING()) {
       if (telemetryState == TELEMETRY_INIT) {
         AUDIO_TELEMETRY_CONNECTED();
@@ -439,6 +466,9 @@ void telemetryReset()
 
   telemetryStreaming = 0; // reset counter only if valid telemetry packets are being detected
   telemetryState = TELEMETRY_INIT;
+#if defined(RADIO_NB4)
+  telemetryWasStreaming = false;
+#endif
 }
 
 #if defined(LOG_TELEMETRY) && !defined(SIMU)
