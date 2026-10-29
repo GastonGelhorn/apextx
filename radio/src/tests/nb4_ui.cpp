@@ -260,7 +260,6 @@ TEST(Nb4Ui, UpdateComponentsRenderInEveryLanguageAndReturnToTheirCaller)
       snprintf(name, sizeof(name), "update-connected-%s-%s", locale, orientation ? "landscape" : "portrait");
       saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"), name, w, h);
       nb4MaintenanceStopUsb();
-#if defined(NB4_RF_UPDATE_BENCH)
       nb4RfUpdateTestRequireRecovery();
       lv_tick_inc(50); lv_timer_handler(); root->run();
       lv_obj_update_layout(root->getLvObj());
@@ -273,7 +272,6 @@ TEST(Nb4Ui, UpdateComponentsRenderInEveryLanguageAndReturnToTheirCaller)
       EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/system/calibration")));
       EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/models/management")));
       nb4RfUpdateTestReset();
-#endif
 #endif
       Layer::back()->onCancel(); root->run();
       EXPECT_EQ(Layer::back(), caller);

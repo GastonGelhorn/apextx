@@ -1736,7 +1736,7 @@
 #define TR_NB4_LOCATION              "Location"
 #define TR_NB4_DATE_LOCATION         "Date & location"
 #define TR_NB4_UPDATE                "Update"
-#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "The radio restarts in update mode. Connect USB and open ApexTX Updater on your computer."
+#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "The radio restarts in update mode. Connect USB and open ApexTX Flasher on your computer."
 #define TR_NB4_MODEL_VARIABLES       "Model variables"
 #define TR_NB4_USE_VARIABLES         "Use variables"
 #define TR_NB4_OPEN_THE_VARIABLE_EDITOR "Open the variable editor"
@@ -2213,6 +2213,11 @@
 #define TR_NB4_RECOVERY_RESTART_INFO "Clear the saved fault and restart with scripts enabled? Car settings and calibration are preserved. If the fault repeats, recovery mode will return."
 
 #define TR_NB4_UPDATE_BENCH_LABEL "Experimental RF bench test"
+#define TR_NB4_USB_FLASHER "ApexTX Flasher"
+#define TR_NB4_UPDATE_RF_INSTALL "Install RF update"
+#define TR_NB4_UPDATE_RF_INSTALL_INFO "The RF image on the card is installed on the connected component. Keep the radio and the receiver powered; driving is disabled until it finishes."
+#define TR_NB4_UPDATE_RF_AVAILABLE "RF update ready to install"
+#define TR_NB4_UPDATE_RF_IDLE "No RF update pending"
 
 #define TR_NB4_UPDATE_AVAILABLE "RF update"
 #define TR_NB4_UPDATE_AVAILABLE_INFO "A prepared image is newer than the connected component. Review versions and the update plan. Installation starts only after confirmation."

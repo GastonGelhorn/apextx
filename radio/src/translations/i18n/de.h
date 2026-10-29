@@ -1732,7 +1732,7 @@
 #define TR_NB4_LOCATION              "Ort"
 #define TR_NB4_DATE_LOCATION         "Datum & Ort"
 #define TR_NB4_UPDATE                "Update"
-#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "Die Funke startet in den Update-Modus neu. USB verbinden und den ApexTX Updater auf dem Computer öffnen."
+#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "Die Funke startet in den Update-Modus neu. USB verbinden und den ApexTX Flasher auf dem Computer öffnen."
 #define TR_NB4_MODEL_VARIABLES       "Modellvariablen"
 #define TR_NB4_USE_VARIABLES         "Variablen nutzen"
 #define TR_NB4_OPEN_THE_VARIABLE_EDITOR "Variablen-Editor öffnen"
@@ -2209,6 +2209,11 @@
 #define TR_NB4_RECOVERY_RESTART_INFO "Gespeicherten Fehler löschen und mit aktiven Skripten neu starten? Autos und Kalibrierung bleiben erhalten. Bei erneutem Fehler startet wieder der Wiederherstellungsmodus."
 
 #define TR_NB4_UPDATE_BENCH_LABEL "Experimenteller HF-Test"
+#define TR_NB4_USB_FLASHER "ApexTX Flasher"
+#define TR_NB4_UPDATE_RF_INSTALL "HF-Update installieren"
+#define TR_NB4_UPDATE_RF_INSTALL_INFO "Das HF-Image auf der Karte wird auf der verbundenen Komponente installiert. Funke und Empfänger eingeschaltet lassen; der Fahrbetrieb ist bis zum Abschluss gesperrt."
+#define TR_NB4_UPDATE_RF_AVAILABLE "HF-Update bereit zur Installation"
+#define TR_NB4_UPDATE_RF_IDLE "Kein HF-Update ausstehend"
 
 #define TR_NB4_UPDATE_AVAILABLE "HF-Update"
 #define TR_NB4_UPDATE_AVAILABLE_INFO "Ein vorbereitetes Image ist neuer als die verbundene Komponente. Versionen und Update-Plan prüfen. Die Installation beginnt erst nach Bestätigung."

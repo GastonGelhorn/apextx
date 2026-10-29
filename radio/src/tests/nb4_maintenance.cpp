@@ -4,6 +4,8 @@
 #include "gtests.h"
 #if defined(RADIO_NB4)
 #include "nb4_maintenance_protocol.h"
+#include "nb4_maintenance.h"
+#include "nb4_rf_update.h"
 using namespace nb4;
 
 TEST(Nb4Maintenance, FragmentedPacketsKeepRequestAndCheckIntegrity) {
@@ -36,5 +38,20 @@ TEST(Nb4Maintenance, MalformedAndOversizedFramesCannotEscapeBuffer) {
   for (size_t i = 0; i < size; ++i) EXPECT_EQ(decoder.push(frame[i]), i == size - 1);
   EXPECT_EQ(decoder.request(), 4u);
   EXPECT_EQ(maintenanceCrc(reinterpret_cast<const uint8_t*>("123456789"), 9), 0xcbf43926u);
+}
+TEST(Nb4Maintenance, RebootIntoUpdateIsAcknowledgedBeforeTheRestart) {
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); nb4MaintenanceStopUsb(); } } reset;
+  char output[1024];
+  ASSERT_GT(nb4MaintenanceTestExchange(1, nullptr, 0, output, sizeof(output)), 0u);
+  EXPECT_NE(std::string(output).find("\"assets\":true,\"reboot_update\":true"), std::string::npos) << output;
+  EXPECT_NE(std::string(output).find("\"rf_build\":\"production\""), std::string::npos) << output;
+  const uint8_t payload = 0;
+  ASSERT_GT(nb4MaintenanceTestExchange(24, &payload, 1, output, sizeof(output)), 0u);
+  EXPECT_STREQ(output, "{\"error\":\"unexpected_payload\"}");
+  EXPECT_FALSE(nb4MaintenanceTestRebootRequested());
+  ASSERT_GT(nb4MaintenanceTestExchange(24, nullptr, 0, output, sizeof(output)), 0u);
+  EXPECT_STREQ(output, "{\"reboot_update\":true}");
+  EXPECT_TRUE(nb4MaintenanceTestRebootRequested());
+  EXPECT_FALSE(nb4MaintenanceTestRebootRequested());
 }
 #endif

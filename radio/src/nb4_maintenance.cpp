@@ -15,6 +15,7 @@
 #include "fifo.h"
 #include "fw_version.h"
 #include "hal/usb_driver.h"
+#include "hal/abnormal_reboot.h"
 #include <atomic>
 
 namespace {
@@ -24,6 +25,12 @@ nb4::MaintenanceDecoder decoder;
 uint8_t outgoing[nb4::maintenanceFrameSize];
 size_t outgoingSize = 0;
 tmr10ms_t lastByte = 0;
+// Service ticks left before a requested restart into update mode; the reply
+// is flushed first so the host sees the acknowledgement.
+uint8_t rebootTicks = 0;
+#if defined(SIMU)
+bool rebootRequested = false;
+#endif
 
 void receive(uint8_t* data, uint32_t length)
 {
@@ -83,6 +90,18 @@ bool nb4MaintenanceEnable()
   return true;
 }
 bool nb4MaintenanceEnabled() { return enabled; }
+void nb4RebootIntoUpdateMode()
+{
+  watchdogSuspend(2000);
+  pulsesStop();
+  pwrOn();
+  abnormalRebootRequestDfu();
+#if defined(SIMU)
+  rebootRequested = true;
+#else
+  NVIC_SystemReset();
+#endif
+}
 extern "C" bool nb4MaintenanceUsbSelected() { return enabled; }
 void nb4MaintenanceStartUsb()
 {
@@ -95,7 +114,7 @@ void nb4MaintenanceStartUsb()
 void nb4MaintenanceStopUsb()
 {
   nb4RfUpdateUsbDisconnected();
-  active = enabled = false;
+  active = enabled = false; rebootTicks = 0;
 #if !defined(SIMU)
   usbSerialSetReceiveDataCb(nullptr, nullptr);
 #endif
@@ -164,6 +183,7 @@ void nb4MaintenanceService()
     outgoingSize = 0;
   }
 #endif
+  if (rebootTicks && !outgoingSize && !--rebootTicks) { nb4RebootIntoUpdateMode(); return; }
   const auto now = get_tmr10ms();
   if (tmr10ms_t(now - lastByte) >= 100) decoder.reset();
   uint8_t byte;
@@ -180,17 +200,23 @@ void nb4MaintenanceService()
     } else if (decoder.length()) {
       strcpy(response, "{\"error\":\"unexpected_payload\"}");
     } else if (decoder.command() == uint8_t(nb4::MaintenanceCommand::Capabilities)) {
+      const bool write = nb4RfUpdateWriteSupported(false) || nb4RfUpdateWriteSupported(true);
       snprintf(response, sizeof(response), "{\"protocol\":1,\"inventory\":true,\"rf_write\":%s,"
                        "\"rf_build\":\"%s\","
                        "\"rf_recover\":%s,"
                        "\"raw_backup\":false,\"file_transfer\":true,\"storage_session\":true,\"application_identity\":true,"
-                       "\"reason\":\"hardware_qualification_required\"}",
-                       boolean(nb4RfUpdateWriteSupported(false) || nb4RfUpdateWriteSupported(true)),
-                       nb4RfUpdateBuildKind(),
-                       boolean(nb4RfUpdateRecoverySupported()));
+                       "\"assets\":true,\"reboot_update\":true,"
+                       "\"reason\":\"%s\"}",
+                       boolean(write), nb4RfUpdateBuildKind(), boolean(nb4RfUpdateRecoverySupported()),
+                       write ? "" : "hardware_qualification_required");
     } else if (decoder.command() == uint8_t(nb4::MaintenanceCommand::Inventory)) {
       length = nb4MaintenanceInventory(response, sizeof(response));
       if (!length) strcpy(response, "{\"error\":\"inventory_changed\"}");
+    } else if (decoder.command() == uint8_t(nb4::MaintenanceCommand::RebootUpdate)) {
+      // Same guard as the Update page: never leave an RF operation behind.
+      if ((nb4RfUpdateStorageOwned() && !nb4RfUpdateNeedsRecovery()) || nb4RacePhase() == Nb4RacePhase::Running)
+        strcpy(response, "{\"error\":\"maintenance_busy\"}");
+      else { rebootTicks = 30; strcpy(response, "{\"reboot_update\":true}"); }
     } else {
       // Never accept upload/start as an acknowledged no-op. An old or
       // unqualified device cannot accidentally authorize a newer host writer.
@@ -202,4 +228,24 @@ void nb4MaintenanceService()
     break; // One response at a time; no overwriting the pending transmit buffer.
   }
 }
+#if defined(SIMU)
+size_t nb4MaintenanceTestExchange(uint8_t command, const void* payload, size_t length, char* output, size_t capacity)
+{
+  uint8_t frame[nb4::maintenanceFrameSize];
+  const auto size = nb4::maintenanceEncode(frame, sizeof(frame), command, 1, payload, length);
+  active = true; outgoingSize = 0;
+  for (size_t i = 0; i < size; ++i) incoming.push(frame[i]);
+  nb4MaintenanceService();
+  const size_t count = outgoingSize ? outgoing[6] | (size_t(outgoing[7]) << 8) : 0;
+  if (count >= capacity) return 0;
+  memcpy(output, outgoing + nb4::maintenanceHeaderSize, count); output[count] = 0;
+  outgoingSize = 0;
+  return count;
+}
+bool nb4MaintenanceTestRebootRequested()
+{
+  for (unsigned i = 0; i < 64 && rebootTicks; ++i) nb4MaintenanceService();
+  const bool result = rebootRequested; rebootRequested = false; return result;
+}
+#endif
 #endif

@@ -96,19 +96,21 @@ class UpdatePage : public MenuPage {
       return prefix + text;
     });
     lv_label_set_long_mode(receiver->getLvObj(), LV_LABEL_LONG_WRAP);
-#if defined(NB4_RF_UPDATE_BENCH)
     auto progress = new DynamicText(content(), {0, 0, LV_PCT(100), 0}, [] {
       if (nb4RfUpdateNeedsRecovery()) return std::string(STR_NB4_UPDATE_RF_RECOVERY);
       const int percent = nb4RfUpdatePercent();
-      if (percent < 0) return std::string(STR_NB4_UPDATE_BENCH_LABEL);
-      char text[64]; snprintf(text, sizeof(text), STR_NB4_UPDATE_RF_PROGRESS, unsigned(percent));
-      return std::string(text);
+      if (percent >= 0) {
+        char text[64]; snprintf(text, sizeof(text), STR_NB4_UPDATE_RF_PROGRESS, unsigned(percent));
+        return std::string(text);
+      }
+      if (nb4RfUpdateInstallable() >= 0) return std::string(STR_NB4_UPDATE_RF_AVAILABLE);
+#if defined(NB4_RF_UPDATE_BENCH)
+      return std::string(STR_NB4_UPDATE_BENCH_LABEL);
+#else
+      return std::string(STR_NB4_UPDATE_RF_IDLE);
+#endif
     });
     lv_label_set_long_mode(progress->getLvObj(), LV_LABEL_LONG_WRAP);
-#else
-    if (nb4RfUpdateNeedsRecovery()) note(STR_NB4_UPDATE_RF_RECOVERY);
-    else note(STR_NB4_UPDATE_RF_UNQUALIFIED);
-#endif
     auto connect = button(STR_NB4_UPDATE_USB_INVENTORY, [] {
       new ConfirmDialog(STR_NB4_UPDATE,
 #if defined(NB4_RF_UPDATE_BENCH)
@@ -132,41 +134,32 @@ class UpdatePage : public MenuPage {
       connect->check(selected);
       connect->enable(!selected);
     });
-    auto action = button(STR_NB4_UPDATE_FIRMWARE, [] {
-
+    button(STR_NB4_UPDATE_FIRMWARE, [] {
       if (nb4RfUpdateStorageOwned() && !nb4RfUpdateNeedsRecovery()) {
         new MessageDialog(STR_NB4_UPDATE, STR_NB4_UPDATE_RF_RECOVERY); return;
       }
       new ConfirmDialog(STR_NB4_UPDATE, STR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE, [] {
-        watchdogSuspend(2000);
-        pulsesStop();
-        pwrOn();
-        abnormalRebootRequestDfu();
-#if !defined(SIMU)
-        NVIC_SystemReset();
-#endif
+        nb4RebootIntoUpdateMode();
       });
     });
-#if defined(NB4_RF_UPDATE_BENCH)
-    auto rfAction = button(STR_NB4_UPDATE_RF_REINSTALL, [] {
+    // One action for the RF image on the card: install it on the connected
+    // component, or recover an interrupted installation.
+    auto rfAction = button(STR_NB4_UPDATE_RF_INSTALL, [] {
       const bool recovery = nb4RfUpdateNeedsRecovery();
-      new ConfirmDialog(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_REINSTALL,
-                        STR_NB4_UPDATE_BENCH_INFO, [recovery] {
-        if (!nb4RfUpdateLocalStart(recovery))
+      new ConfirmDialog(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_INSTALL,
+                        STR_NB4_UPDATE_RF_INSTALL_INFO, [recovery] {
+        if (!(recovery ? nb4RfUpdateLocalStart(true) : nb4RfUpdateLocalInstall()))
           new MessageDialog(STR_NB4_UPDATE, STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
       });
     });
     rfAction->setCheckHandler([rfAction] {
-      const bool recovery = nb4RfUpdateNeedsRecovery(), prepared = nb4RfUpdatePrepared();
-      rfAction->setText(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_REINSTALL);
-      if (recovery || prepared) lv_obj_clear_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
+      const bool recovery = nb4RfUpdateNeedsRecovery();
+      const bool installable = !recovery && nb4RfUpdateInstallable() >= 0 && nb4RfUpdatePercent() < 0;
+      rfAction->setText(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_INSTALL);
+      if (recovery || installable) lv_obj_clear_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
       else lv_obj_add_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
-      rfAction->enable(recovery ? nb4RfUpdateRecoverySupported() : prepared);
+      rfAction->enable(recovery ? nb4RfUpdateRecoverySupported() : installable);
     });
-    (void)action;
-#else
-    (void)action;
-#endif
   }
 };
 #endif

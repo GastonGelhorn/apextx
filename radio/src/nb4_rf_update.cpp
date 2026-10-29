@@ -31,6 +31,12 @@ FIL imageFile{};
 bool open = false, uploading = false, validated = false, initializing = true;
 bool validating = false, startRequested = false, storagePaused = false, reinstall = false;
 bool recovering = false, journalValid = false;
+bool assetUploading = false;
+unsigned assetIndex = 0;
+uint32_t assetUploaded = 0;
+int installable = -1;
+uint32_t installableEpoch = UINT32_MAX;
+bool installableDirty = true;
 bool journalDamaged = false, entryProbeStarted = false, entryProbeFinished = false;
 uint32_t entryProbeEpoch = 0;
 #if defined(NB4_RF_UPDATE_BENCH)
@@ -94,8 +100,36 @@ void unitId(uint32_t uid[3]) {
 uint32_t get32(const uint8_t* p) {
   return p[0] | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
 }
-void assetPath(char* result, size_t size) {
-  snprintf(result, size, "/FIRMWARE/RF/%08lX.bin", (unsigned long)rfImages[imageIndex].product);
+void assetPathFor(unsigned index, char* result, size_t size) {
+  snprintf(result, size, "/FIRMWARE/RF/%08lX.bin", (unsigned long)rfImages[index].product);
+}
+void assetPath(char* result, size_t size) { assetPathFor(imageIndex, result, size); }
+bool headroom(uint32_t bytes) {
+  DWORD freeClusters; FATFS* filesystem = nullptr;
+  if (f_getfree("", &freeClusters, &filesystem) != FR_OK) return false;
+#if defined(SIMU)
+  return true;  // The simulator reports free clusters without a volume.
+#else
+  return uint64_t(freeClusters) * filesystem->csize * 512 >= bytes;
+#endif
+}
+bool assetPresent(unsigned index) {
+  char path[48]; assetPathFor(index, path, sizeof(path)); FILINFO info;
+  return f_stat(path, &info) == FR_OK && info.fsize == rfImages[index].size;
+}
+bool assetVerified(unsigned index) {
+  char path[48]; assetPathFor(index, path, sizeof(path));
+  FIL file; if (f_open(&file, path, FA_READ) != FR_OK) return false;
+  bool ok = f_size(&file) == rfImages[index].size;
+  Sha256 hash; uint8_t block[512]; UINT count = 0;
+  for (uint32_t offset = 0; ok && offset < rfImages[index].size; offset += count) {
+    const auto wanted = std::min<uint32_t>(sizeof(block), rfImages[index].size - offset);
+    ok = f_read(&file, block, wanted, &count) == FR_OK && count == wanted;
+    if (ok) hash.update(block, count);
+  }
+  f_close(&file);
+  uint8_t digest[32]; hash.finish(digest);
+  return ok && !memcmp(digest, rfImages[index].sha256, 32);
 }
 RfUpdateIdentity snapshot(bool receiver) {
   const auto module = afhds3::getModuleVersionInfo(0);
@@ -196,11 +230,16 @@ bool send(void*, bool response, uint8_t opcode, uint8_t sequence,
 const RfUpdateIo io{nullptr, readImage, send, checkpoint};
 void closeImage() {
   if (open) f_close(&imageFile);
-  open = uploading = validating = false;
+  open = uploading = validating = assetUploading = false;
   if (storagePaused) { nb4StorageResume(); storagePaused = false; }
 }
 void error(char* output, size_t capacity, const char* reason) {
   snprintf(output, capacity, "{\"error\":\"%s\"}", reason);
+}
+void assetStatus(char* output, size_t capacity, unsigned index, bool verified) {
+  snprintf(output, capacity, "{\"asset\":%u,\"verified\":%s,\"uploaded\":%lu,\"bytes\":%lu}",
+           index, verified ? "true" : "false",
+           (unsigned long)(verified ? rfImages[index].size : assetUploaded), (unsigned long)rfImages[index].size);
 }
 void status(char* output, size_t capacity) {
   snprintf(output, capacity,
@@ -236,6 +275,13 @@ const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity&
   }
   return nullptr;
 }
+// Images the radio installs by itself: a production rule exists for this target.
+bool installableImage(unsigned index) {
+  for (const auto& rule : rfUpdateHardware)
+    if (rule.target == NB4_UPDATE_TARGET && rule.image == index && rule.transferVerified && rule.recoveryVerified)
+      return true;
+  return false;
+}
 bool qualified(unsigned index, const RfUpdateIdentity& current) {
   const auto rule = hardwareRule(index, current);
   if (!rule) return false;
@@ -255,7 +301,7 @@ const char* nb4RfUpdateBuildKind() {
 #if defined(NB4_RF_UPDATE_BENCH)
   return rfBenchMarker;
 #else
-  return "qualification-gated";
+  return "production";
 #endif
 }
 bool nb4RfUpdateWriteSupported(bool receiver) {
@@ -297,6 +343,28 @@ bool nb4RfUpdateLocalStart(bool recovery) {
   char result[512];
   nb4RfUpdateCommand(recovery ? 21 : 18, payload, recovery ? 4 : 5, result, sizeof(result));
   return strstr(result, "\"error\"") == nullptr;
+}
+int nb4RfUpdateInstallable() { return installable; }
+bool nb4RfUpdateLocalInstall() {
+  const int index = installable;
+  if (index < 0 || nb4RfUpdateStorageOwned() || !startupReady || uploading || validating || startRequested ||
+      nb4RacePhase() == Nb4RacePhase::Running || usbPluggedInStorageMode() || !sdMounted() || g_vbat100mV < 38)
+    return false;
+  const bool receiver = rfImages[index].receiver;
+  const auto candidate = snapshot(receiver);
+  if (nb4RfUpdateCandidate(receiver) != index || !qualified(index, candidate)) return false;
+  uint32_t local = (candidate.epoch + 1) * 2654435761u ^ (uint32_t(get_tmr10ms()) << 8);
+  if (!local) local = 1;
+  if (!engine.prepare(rfImages[index], candidate, local, false)) return false;
+  imageIndex = index; operation = local; identity = candidate;
+  entryProbeStarted = entryProbeFinished = false;
+  uploading = validated = startRequested = recovering = false; uploaded = rfImages[index].size;
+  pinnedPeerLength = 0; memset(pinnedPeer, 0, sizeof(pinnedPeer));
+  // A local installation has no desktop backup; the journal records the image itself.
+  memcpy(backupHash, rfImages[index].sha256, 32);
+  journalValid = validated = journal(RfUpdatePhase::Ready);
+  installableDirty = true;
+  return validated && nb4RfUpdateLocalStart(false);
 }
 bool nb4RfUpdateDrivingLocked() { return drivingLocked.load(); }
 bool nb4RfUpdateFrame(afhds3::Transport& transport) {
@@ -410,7 +478,7 @@ void nb4RfUpdateRxByte() { if (linkOwned.load() || drivingLocked.load()) ++rxWir
 #endif
 bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
                          char* output, size_t capacity) {
-  if (command < 16 || command > 21) return false;
+  if (command < 16 || command > 23) return false;
   if (command == 19) {
     if (length != 4 || (get32(payload) && get32(payload) != operation)) error(output, capacity, "operation_mismatch");
     else status(output, capacity);
@@ -438,9 +506,7 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
     }
     if (!nb4StorageQuiesce()) { error(output, capacity, "storage_busy"); return true; }
     storagePaused = true;
-    DWORD freeClusters; FATFS* filesystem;
-    if (f_getfree("", &freeClusters, &filesystem) != FR_OK ||
-        uint64_t(freeClusters) * filesystem->csize * 512 < rfImages[candidateIndex].size + 262144u) {
+    if (!headroom(rfImages[candidateIndex].size + 262144u)) {
       closeImage(); error(output, capacity, "storage_headroom_required"); return true;
     }
     FRESULT result = f_mkdir("/FIRMWARE");
@@ -458,6 +524,60 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
     pinnedPeerLength = 0; memset(pinnedPeer, 0, sizeof(pinnedPeer));
     memcpy(backupHash, payload + 13, 32); new (&imageHash) Sha256();
     status(output, capacity); return true;
+  }
+  if (command == 22) {
+    // index(1). A verified asset is reported as present; otherwise a stage
+    // file opens for AssetData. Images without a production rule are refused.
+    if (length != 1 || payload[0] >= sizeof(rfImages) / sizeof(rfImages[0])) {
+      error(output, capacity, "invalid_asset"); return true;
+    }
+    const unsigned index = payload[0];
+    if (!installableImage(index)) { error(output, capacity, "image_not_installable"); return true; }
+    if (nb4RfUpdateStorageOwned() || !startupReady || uploading || validating || startRequested ||
+        nb4RacePhase() == Nb4RacePhase::Running || usbPluggedInStorageMode() || !sdMounted()) {
+      error(output, capacity, "maintenance_busy"); return true;
+    }
+    if (!nb4StorageQuiesce()) { error(output, capacity, "storage_busy"); return true; }
+    storagePaused = true;
+    if (assetVerified(index)) { closeImage(); assetStatus(output, capacity, index, true); return true; }
+    if (!headroom(rfImages[index].size + 262144u)) {
+      closeImage(); error(output, capacity, "storage_headroom_required"); return true;
+    }
+    FRESULT result = f_mkdir("/FIRMWARE");
+    if (result == FR_OK || result == FR_EXIST) result = f_mkdir("/FIRMWARE/RF");
+    if ((result != FR_OK && result != FR_EXIST) || f_open(&imageFile, stagePath, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+      closeImage(); error(output, capacity, "storage_failed"); return true;
+    }
+    open = assetUploading = true; assetIndex = index; assetUploaded = 0; new (&imageHash) Sha256();
+    assetStatus(output, capacity, index, false); return true;
+  }
+  if (command == 23) {
+    // index(1), offset(4), data. The asset becomes visible only once it hashes.
+    if (!assetUploading || length <= 5 || payload[0] != assetIndex || get32(payload + 1) != assetUploaded ||
+        length - 5 > rfImages[assetIndex].size - assetUploaded) {
+      error(output, capacity, "upload_range"); return true;
+    }
+    UINT count;
+    if (f_write(&imageFile, payload + 5, length - 5, &count) != FR_OK || count != length - 5) {
+      closeImage(); error(output, capacity, "storage_full"); return true;
+    }
+    imageHash.update(payload + 5, count); assetUploaded += count;
+    bool verified = false;
+    if (assetUploaded == rfImages[assetIndex].size) {
+      uint8_t digest[32]; imageHash.finish(digest);
+      bool ok = !memcmp(digest, rfImages[assetIndex].sha256, 32) && f_sync(&imageFile) == FR_OK;
+      if (f_close(&imageFile) != FR_OK) ok = false;
+      open = assetUploading = false;
+      char path[48]; assetPathFor(assetIndex, path, sizeof(path));
+      if (ok) {
+        const auto result = f_unlink(path);
+        ok = (result == FR_OK || result == FR_NO_FILE) && f_rename(stagePath, path) == FR_OK;
+      }
+      closeImage(); installableDirty = true; nb4RfNoticeInvalidate();
+      if (!ok) { f_unlink(stagePath); error(output, capacity, "asset_verification_failed"); return true; }
+      verified = true;
+    }
+    assetStatus(output, capacity, assetIndex, verified); return true;
   }
   if (length < 4 || get32(payload) != operation || !operation) {
     error(output, capacity, "operation_mismatch"); return true;
@@ -543,7 +663,7 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
 }
 
 void nb4RfUpdateService() {
-  if (disconnected.exchange(false) && (uploading || validating)) {
+  if (disconnected.exchange(false) && (uploading || validating || assetUploading)) {
     startRequested = validated = false; closeImage();
   }
   if (initializing && sdMounted() && !usbPluggedInStorageMode()) {
@@ -604,6 +724,15 @@ void nb4RfUpdateService() {
         drivingLocked = linkOwned = false;
       } else engine.requireRecovery(RfUpdateError::Storage);
     }
+  }
+  if (startupReady && !open && !startRequested && sdMounted() &&
+      (installableDirty || installableEpoch != afhds3::getVersionEpoch(0))) {
+    installableDirty = false; installableEpoch = afhds3::getVersionEpoch(0); installable = -1;
+    if (engine.phase() != RfUpdatePhase::RecoveryRequired)
+      for (bool receiver : {true, false}) {
+        const int index = nb4RfUpdateCandidate(receiver);
+        if (index >= 0 && qualified(index, snapshot(receiver)) && assetPresent(index)) { installable = index; break; }
+      }
   }
   const auto now = uint32_t(get_tmr10ms()) * 10;
   if (validating) {
@@ -670,7 +799,7 @@ void nb4RfUpdateService() {
       transmit = requestPending = false;
       abortTransport = true;
     }
-    startRequested = validated = false; closeImage();
+    startRequested = validated = false; closeImage(); installableDirty = true;
   }
 }
 void nb4RfUpdateUsbDisconnected() { disconnected = true; }
@@ -690,6 +819,8 @@ void nb4RfUpdateTestReset() {
   memset(backupHash, 0, sizeof(backupHash)); memset(pinnedPeer, 0, sizeof(pinnedPeer));
   validated = startRequested = recovering = journalValid = benchArmed = false;
   journalDamaged = entryProbeStarted = entryProbeFinished = false;
+  assetUploading = installableDirty = false; assetIndex = assetUploaded = 0;
+  installable = -1; installableEpoch = UINT32_MAX; installableDirty = true;
   linkOwned = drivingLocked = false; startupReady = true;
   transmit = overflow = requestPending = abortTransport = disconnected = releaseEntryRequest = false;
   awaitingModuleEntryAck = false;

@@ -25,6 +25,11 @@ bool nb4RfUpdateRecoverySupported();
 bool nb4RfUpdatePrepared();
 bool nb4RfUpdateNeedsRecovery();
 bool nb4RfUpdateLocalStart(bool recovery);
+// Catalog image on the card that is newer than a connected, qualified
+// component; refreshed by the service, never by the caller's thread.
+int nb4RfUpdateInstallable();
+// Journals a local operation for that image and starts it.
+bool nb4RfUpdateLocalInstall();
 int nb4RfUpdatePercent();
 const char* nb4RfUpdateBuildKind();
 #if defined(SIMU)

@@ -1736,7 +1736,7 @@
 #define TR_NB4_LOCATION              "位置"
 #define TR_NB4_DATE_LOCATION         "日期与位置"
 #define TR_NB4_UPDATE                "更新"
-#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "遥控器将重启进入更新模式。连接 USB，在电脑打开 ApexTX Updater。"
+#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "遥控器将重启进入更新模式。连接 USB，在电脑打开 ApexTX 刷写工具。"
 #define TR_NB4_MODEL_VARIABLES       "模型变量"
 #define TR_NB4_USE_VARIABLES         "启用变量"
 #define TR_NB4_OPEN_THE_VARIABLE_EDITOR "打开变量编辑器"
@@ -2213,6 +2213,11 @@
 #define TR_NB4_RECOVERY_RESTART_INFO "清除已保存的故障并启用脚本重启？车辆设置和校准将保留。如果故障再次出现，系统将返回恢复模式。"
 
 #define TR_NB4_UPDATE_BENCH_LABEL "实验性射频测试"
+#define TR_NB4_USB_FLASHER "ApexTX 刷写工具"
+#define TR_NB4_UPDATE_RF_INSTALL "安装射频更新"
+#define TR_NB4_UPDATE_RF_INSTALL_INFO "将存储卡中的射频镜像安装到已连接的组件。请保持遥控器和接收机通电；完成前驾驶功能将被禁用。"
+#define TR_NB4_UPDATE_RF_AVAILABLE "射频更新已可安装"
+#define TR_NB4_UPDATE_RF_IDLE "没有待处理的射频更新"
 
 #define TR_NB4_UPDATE_AVAILABLE "射频更新"
 #define TR_NB4_UPDATE_AVAILABLE_INFO "已准备的镜像比已连接组件更新。请检查版本及更新计划。安装前必须确认。"

@@ -551,3 +551,42 @@ TEST(Nb4RfJournal, ARejectedPreparationPreservesThePreviousPreparedOperation) {
   EXPECT_NE(fixture.command(19).find("\"operation\":17"), std::string::npos);
 }
 #endif
+
+TEST(Nb4RfJournal, AssetUploadKeepsOnlyAnImageThatHashesAndRefusesImagesWithoutARule) {
+  JournalFixture fixture; char output[512]{};
+  const uint8_t unruled = 3;  // FGr8B: catalogued, but no production hardware rule.
+  ASSERT_TRUE(nb4RfUpdateCommand(22, &unruled, 1, output, sizeof(output)));
+  EXPECT_NE(std::string(output).find("image_not_installable"), std::string::npos);
+  const uint8_t index = 1;
+  ASSERT_TRUE(nb4RfUpdateCommand(22, &index, 1, output, sizeof(output)));
+  EXPECT_NE(std::string(output).find("\"verified\":false"), std::string::npos) << output;
+  EXPECT_TRUE(nb4RfUpdateStorageOwned());
+  std::vector<uint8_t> chunk(5 + 512, 0); chunk[0] = index; chunk[1] = 1;
+  ASSERT_TRUE(nb4RfUpdateCommand(23, chunk.data(), chunk.size(), output, sizeof(output)));
+  EXPECT_NE(std::string(output).find("upload_range"), std::string::npos) << "chunks arrive in order";
+  for (uint32_t offset = 0; offset < rfImages[1].size;) {
+    const auto count = std::min<uint32_t>(512, rfImages[1].size - offset);
+    chunk[1] = offset; chunk[2] = offset >> 8; chunk[3] = offset >> 16; chunk[4] = offset >> 24;
+    ASSERT_TRUE(nb4RfUpdateCommand(23, chunk.data(), 5 + count, output, sizeof(output)));
+    offset += count;
+  }
+  // Zero bytes never hash to the pinned image: nothing becomes visible.
+  EXPECT_NE(std::string(output).find("asset_verification_failed"), std::string::npos) << output;
+  EXPECT_FALSE(std::filesystem::exists(fixture.root / "FIRMWARE/RF/12340004.bin"));
+  EXPECT_FALSE(std::filesystem::exists(fixture.root / "FIRMWARE/RF/transfer.tmp"));
+  EXPECT_FALSE(nb4RfUpdateStorageOwned());
+  {
+    std::ofstream file(fixture.root / "FIRMWARE/RF/12340004.bin", std::ios::binary);
+    const std::vector<uint8_t> bytes(rfImages[1].size, 0);
+    file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  }
+  // A file of the right size that does not hash is offered for replacement.
+  ASSERT_TRUE(nb4RfUpdateCommand(22, &index, 1, output, sizeof(output)));
+  EXPECT_NE(std::string(output).find("\"verified\":false"), std::string::npos) << output;
+  EXPECT_TRUE(nb4RfUpdateStorageOwned());
+  nb4RfUpdateUsbDisconnected(); nb4RfUpdateService();
+  EXPECT_FALSE(nb4RfUpdateStorageOwned());
+  // Without a connected, newer-than-image component nothing is installable.
+  EXPECT_LT(nb4RfUpdateInstallable(), 0);
+  EXPECT_FALSE(nb4RfUpdateLocalInstall());
+}

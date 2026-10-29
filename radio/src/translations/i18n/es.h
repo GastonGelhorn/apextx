@@ -1740,7 +1740,7 @@
 #define TR_NB4_LOCATION              "Ubicación"
 #define TR_NB4_DATE_LOCATION         "Fecha y ubicación"
 #define TR_NB4_UPDATE                "Actualizar"
-#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "La emisora se reinicia en modo actualización. Conecta el USB y abre ApexTX Updater en el ordenador."
+#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "La emisora se reinicia en modo actualización. Conecta el USB y abre ApexTX Flasher en el ordenador."
 #define TR_NB4_MODEL_VARIABLES       "Variables del modelo"
 #define TR_NB4_USE_VARIABLES         "Usar variables"
 #define TR_NB4_OPEN_THE_VARIABLE_EDITOR "Abrir el editor de variables"
@@ -2217,6 +2217,11 @@
 #define TR_NB4_RECOVERY_RESTART_INFO "Se borrará el fallo guardado y se reiniciará con scripts activados. Los coches y la calibración se conservan. Si el fallo se repite, volverá el modo de recuperación."
 
 #define TR_NB4_UPDATE_BENCH_LABEL "Prueba RF experimental"
+#define TR_NB4_USB_FLASHER "ApexTX Flasher"
+#define TR_NB4_UPDATE_RF_INSTALL "Instalar actualización RF"
+#define TR_NB4_UPDATE_RF_INSTALL_INFO "La imagen RF de la tarjeta se instala en el componente conectado. Mantén la emisora y el receptor encendidos; la conducción queda desactivada hasta terminar."
+#define TR_NB4_UPDATE_RF_AVAILABLE "Actualización RF lista para instalar"
+#define TR_NB4_UPDATE_RF_IDLE "Sin actualizaciones RF pendientes"
 
 #define TR_NB4_UPDATE_AVAILABLE "Actualización RF"
 #define TR_NB4_UPDATE_AVAILABLE_INFO "Hay una imagen preparada más reciente que el componente conectado. Revisa las versiones y el plan. La instalación requiere confirmación."

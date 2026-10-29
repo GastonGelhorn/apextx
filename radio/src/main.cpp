@@ -116,6 +116,14 @@ void openUsbMenu()
     setSelectedUsbMode(USB_SERIAL_MODE);
   });
 #endif
+#if defined(RADIO_NB4)
+  // Maintenance link for the desktop flasher: a serial session that the
+  // flasher protocol owns. Nothing is installed without a confirmation there.
+  _usbMenu->addLine(STR_NB4_USB_FLASHER, [] {
+    TRACE("USB ApexTX Flasher");
+    nb4MaintenanceEnable();
+  });
+#endif
 }
 
 #else

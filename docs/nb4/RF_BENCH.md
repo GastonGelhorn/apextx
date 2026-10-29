@@ -1,9 +1,19 @@
-# Experimental RF bench procedure
+# RF bench procedure
 
-This procedure is for development qualification. It is not a public integrated
-updater or a claim that interrupted RF writes have been recovered on hardware.
-Normal builds cannot write RF firmware. Do not perform a deliberate power cut
-until the component's independent recovery has been demonstrated.
+This procedure is how the RF writer was qualified on hardware. Production
+builds now write the images that carry a verified transfer/recovery rule in
+`tools/nb4_rf_catalog.py` (the RF module and the FGr4 V2 / FGr4S V2
+receivers, on NB4 and NB4+); every other catalogued receiver stays read-only
+until its identity words are known and this procedure has been repeated for
+it. The bench build remains the way to qualify a new rule. Do not perform a
+deliberate power cut until the component's independent recovery has been
+demonstrated.
+
+In production the images reach the card through the flasher's maintenance
+session (`AssetBegin`/`AssetData`), the radio shows the home notice when a
+connected component is older, and **Install RF update** on the Update page
+journals a local operation and runs the same engine; **Recover RF update**
+appears instead when a journal records an interrupted operation.
 
 On the original NB4 bench, the module has received its complete 38,954-byte
 image through both normal installation and recovery from an interrupted
@@ -216,7 +226,7 @@ boot-peer checkpoint prevent this exit. This does not mark the RF image as
 installed.
 
 **Update radio firmware** always updates the transmitter application. The
-private bench **Reinstall RF / Recover RF** action is separate, so a failed RF
+**Install RF update / Recover RF update** action is separate, so a failed RF
 operation does not replace the route needed to install an application repair.
 
 Completion requires every image byte to have been requested and a fresh
