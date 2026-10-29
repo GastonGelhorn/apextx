@@ -72,8 +72,8 @@ uncommitted maintenance engine. Apply after that work reaches a safe checkpoint:
    Keep the branch's newer module `reported_product`, profile IDs, catalog format
    and maintenance protocol. Do not revert them to this increment's older base.
 2. Regenerate/check `radio/src/nb4_rf_images.h` with `tools/nb4-rf-generate.py`.
-   Existing `UPDATE_HARDWARE` rules must still cover only indices `0..2`.
-   Product/version evidence does not supply FGr8B hardware or recovery rules.
+   (Superseded: install rules are now product-based, `UPDATE_RULES` in the
+   catalog, and cover the latest image of every receiver on both radios.)
 3. Run RF catalog, maintenance-transfer, generated-header and native RF tests.
    The added tests also assert that none of the new receiver candidates has a hardware qualification rule.
 4. Update the maintenance documentation's image counts and supported candidates;

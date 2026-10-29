@@ -1,14 +1,12 @@
 # RF bench procedure
 
 This procedure is how the RF writer was qualified on hardware. Production
-builds now write the images that carry a verified transfer/recovery rule in
-`tools/nb4_rf_catalog.py` (the RF module and the FGr4 V2 / FGr4S V2
-receivers, on NB4 and NB4+, plus the latest image of every other receiver
-under a provisional product-only rule awaiting hardware reports); the older
-per-package receiver variants stay read-only. Provisional rules are pinned to
-the real identity words as receivers report them, and this procedure is how a
-new tuple is qualified. The bench build remains the way to qualify a new rule.
-Do not perform a
+builds write the images listed in `INSTALLABLE_IMAGES` of
+`tools/nb4_rf_catalog.py` (the RF module, the FGr4 V2 / FGr4S V2 receivers
+and the latest image of every other receiver, on NB4 and NB4+) whenever the
+connected component reports the image's product ID, as the stock firmware
+does; the older per-package receiver variants stay read-only. The bench build
+remains the way to exercise an image without a rule. Do not perform a
 deliberate power cut until the component's independent recovery has been
 demonstrated.
 
@@ -47,8 +45,9 @@ The initial original-NB4 measurements are:
 | FGr4 V2 | 0x12340004 | 0x0104 | 0x0113 | RF hardware 0x0104, boot 0x0103, library 0x0301 |
 | FGr4S V2 | 0x12340006 | 0x0104 | 0x0111 | RF hardware 0x0104, boot 0x0107, library 0x0301 |
 
-The FGr4S product ID is shared. Its full hardware tuple must match, not merely
-its name or product ID. NB4+ readings still require independent confirmation.
+These identity words are diagnostics: installation is decided by the product
+ID, as in the stock firmware, and the receiver bootloader checks its own
+product word. NB4+ readings still require independent confirmation.
 These versions already match the prepared images, so a normal upgrade performs
 no RF write. Bench reinstallation must be selected explicitly.
 

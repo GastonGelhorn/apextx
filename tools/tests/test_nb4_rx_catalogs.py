@@ -37,8 +37,9 @@ class ReceiverCatalogs(unittest.TestCase):
     def test_all_existing_module_and_receiver_indices_remain_stable(self):
         self.assertEqual(rf.IMAGES[:3],rf.COMMON_IMAGES)
         self.assertEqual([i['product'] for i in rf.COMMON_IMAGES],[0x12340003,0x12340004,0x12340006])
-        provisional=[(target,image) for target in (1,2) for image in (7,8,9,10,11)]
-        self.assertEqual([(rule['target'],rule['image']) for rule in rf.UPDATE_HARDWARE if rule['image'] >= 3],provisional)
+        self.assertEqual(rf.INSTALLABLE_IMAGES,(0,1,2,7,8,9,10,11))
+        self.assertEqual([(rule['target'],rule['image']) for rule in rf.UPDATE_RULES],
+                         [(target,image) for target in (1,2) for image in rf.INSTALLABLE_IMAGES])
         self.assertEqual([rf.IMAGES[i]['product'] for i in (7,8,9,10,11)],[0x1010b,0x10107,0x10104,0x1010e,0x10108])
 
     def test_each_profile_has_one_payload_per_product_and_only_verified_images(self):
@@ -67,8 +68,8 @@ class ReceiverCatalogs(unittest.TestCase):
             for product,version in latest.items():
                 self.assertEqual(rf.assess_receiver(description,self.inventory(product,version-1))['state'],'available')
                 self.assertEqual(rf.assess_receiver(description,self.inventory(product,version))['state'],'current')
-        # The provisional rules cover exactly the merged receiver images.
-        ruled={rule['image'] for rule in rf.UPDATE_HARDWARE if rule['image']>=3}
+        # The receiver rules cover exactly the merged receiver images.
+        ruled={rule['image'] for rule in rf.UPDATE_RULES if rule['image']>=3}
         self.assertEqual(ruled,{rf.IMAGES.index(i) for i in rf.LATEST_RECEIVER_IMAGES})
 
     def test_newer_gyro_payload_is_recorded_but_not_exported_or_selected(self):

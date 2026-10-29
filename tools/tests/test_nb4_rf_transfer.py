@@ -112,7 +112,7 @@ class RfTransferTests(unittest.TestCase):
         record = json.loads((self.root / 'operation/operation.json').read_text())
         self.assertFalse(record['write_started']); self.assertEqual(record['state'], 'staged')
         self.assertNotIn(wire.START, self.peer.commands)
-        with self.assertRaisesRegex(wire.MaintenanceError, 'not qualified'):
+        with self.assertRaisesRegex(wire.MaintenanceError, 'not installable'):
             self.transfer.start(confirmed=True)
         self.assertNotIn(wire.START, self.peer.commands)
 
@@ -146,23 +146,23 @@ class RfTransferTests(unittest.TestCase):
         value['receiver']['firmware']=0x114; value['receiver']['identity_words'][3]=0x114
         self.assertEqual(rf.plan(value,1)['state'],'ahead')
         value['receiver']['product']=0x12340006
-        self.assertIn('shared', rf.plan(value,2)['reason'])
+        self.assertEqual(rf.plan(value,2)['state'],'ahead')
+        self.assertIn('downgrade', rf.plan(value,2)['reason'])
         self.assertFalse(rf.plan(value,2)['write_supported'])
 
-    def test_hardware_revision_is_checked_before_staging_a_shared_product(self):
-        self.peer.inventory['receiver']['identity_words'][2] = 0x107
-        with patch.object(rf,'verify_backup',return_value={}):
-            with self.assertRaises(wire.MaintenanceError):self.transfer.stage(1,self.data,self.backup)
-        self.assertNotIn(wire.PREPARE,self.peer.commands)
+    def test_product_decides_and_identity_words_are_diagnostics(self):
         receiver = self.peer.inventory['receiver']
+        before = rf.plan(self.peer.inventory,1)['state']
+        self.assertEqual(before,'available')
+        receiver['identity_words'][2] = 0x107  # another bootloader revision changes nothing
+        self.assertEqual(rf.plan(self.peer.inventory,1)['state'],before)
         receiver.update(product=0x12340006,firmware=0x111,write_supported=True,
                         identity_words=[0x104,0x104,0x103,0x111,0x301])
-        self.assertEqual(rf.plan(self.peer.inventory,2)['state'],'incompatible')
-        self.assertFalse(rf.plan(self.peer.inventory,2)['write_supported'])
-        receiver['identity_words'][2] = 0x107
         self.assertEqual(rf.plan(self.peer.inventory,2)['state'],'current')
+        self.assertEqual(rf.plan(self.peer.inventory,1)['state'],'incompatible')
+        self.assertIn('different RF component',rf.plan(self.peer.inventory,1)['reason'])
 
-    def test_provisional_receiver_rules_match_the_product_alone_on_both_radios(self):
+    def test_receiver_rules_match_the_product_on_both_radios(self):
         self.catalog.stop(); self.addCleanup(self.catalog.start)  # the full catalog, index 8 included
         receiver = self.peer.inventory['receiver']
         for target in ('nb4', 'nb4plus'):
@@ -177,9 +177,7 @@ class RfTransferTests(unittest.TestCase):
             receiver['product'] = 0x10107
             # The older per-package variant keeps no rule anywhere.
             self.assertEqual(rf.plan(self.peer.inventory, 3)['state'], 'incompatible')
-        # The wildcard never widens the pinned FGr4 rules.
-        receiver.update(product=0x12340004, firmware=0x112, identity_words=[0x205, 0x104, 0x103, 0x112, 0x301])
-        self.assertEqual(rf.plan(self.peer.inventory, 1)['state'], 'incompatible')
+            self.assertIn('does not install', rf.plan(self.peer.inventory, 3)['reason'])
 
     def test_receiver_update_requires_a_live_two_way_link_before_preparation(self):
         for connected, two_way in ((False, True), (True, False), (False, False)):
@@ -262,12 +260,12 @@ class RfTransferTests(unittest.TestCase):
         self.assertEqual(self.peer.commands.count(wire.START),1)
         self.assertNotIn(wire.RECOVER,self.peer.commands)
 
-    def test_completion_rejects_matching_version_on_a_different_hardware_revision(self):
+    def test_completion_rejects_matching_version_on_a_different_product(self):
         self.peer.can_write=True; self.peer.inventory['receiver']['write_supported']=True
         with patch.object(rf,'verify_backup',return_value={}):
             self.transfer.stage(1,self.data,self.backup)
         before=copy.deepcopy(self.peer.inventory); wrong=copy.deepcopy(before)
-        wrong['receiver'].update(firmware=0x113,identity_words=[0x104,0x104,0x107,0x113,0x301])
+        wrong['receiver'].update(product=0x12340006,firmware=0x113,identity_words=[0x104,0x104,0x107,0x113,0x301])
         with patch.object(self.transfer,'inventory',side_effect=(before,wrong)), \
              patch.object(rf,'verify_backup',return_value={}), \
              patch.object(rf.time,'sleep',lambda _:None):
@@ -293,9 +291,9 @@ class RfTransferTests(unittest.TestCase):
         self.assertEqual(self.transfer.record['state'],'complete')
         self.assertNotIn(wire.START,self.peer.commands); self.assertNotIn(wire.RECOVER,self.peer.commands)
         self.transfer.record['state']='recovery_required'
-        bad=copy.deepcopy(self.peer.inventory); bad['receiver']['identity_words'][2]=0x107
+        bad=copy.deepcopy(self.peer.inventory); bad['receiver']['product']=0x12340006
         with patch.object(self.transfer,'inventory',return_value=bad):
-            with self.assertRaisesRegex(wire.MaintenanceError,'matching hardware'): self.transfer.reconcile()
+            with self.assertRaisesRegex(wire.MaintenanceError,'matching product'): self.transfer.reconcile()
         self.assertEqual(self.transfer.record['state'],'recovery_required')
         late=dict(self.peer.status,operation=self.peer.status['operation']+1)
         with patch.object(self.transfer.client,'request',return_value=late):

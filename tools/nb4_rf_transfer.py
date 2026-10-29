@@ -11,7 +11,7 @@ import time
 from nb4_maintenance import (Client, MaintenanceError, CAPABILITIES, INVENTORY,
                              PREPARE, UPLOAD, START, STATUS, CANCEL, RECOVER, STORAGE_SESSION,
                              ASSET_BEGIN, ASSET_DATA, REBOOT_UPDATE, MAX_PAYLOAD, validate_inventory)
-from nb4_rf_catalog import ANY_IDENTITY, IMAGES, UPDATE_HARDWARE, image_name
+from nb4_rf_catalog import IMAGES, UPDATE_RULES, image_name
 from nb4_storage_backup import verify_backup, sync_directory
 
 ASSET_CHUNK = 512
@@ -32,12 +32,11 @@ class AssetClient(Client):
 
 def installable_images(target):
     """Catalog indices the radio installs by itself on this target: the same
-    production rule (transfer and recovery verified) as the firmware applies."""
+    rules as the firmware applies."""
     number = {'nb4': 1, 'nb4plus': 2}.get(target)
     if number is None:
         raise MaintenanceError('Select one identified ApexTX radio first.')
-    return sorted({rule['image'] for rule in UPDATE_HARDWARE
-                   if rule['target'] == number and rule['transfer'] and rule['recovery']})
+    return sorted({rule['image'] for rule in UPDATE_RULES if rule['target'] == number})
 
 
 def validate_asset(value, index, size):
@@ -119,27 +118,18 @@ def plan(inventory, index):
         reason = 'Bind and connect the receiver with two-way telemetry before preparing an update.'
     elif (current['valid'] and current['product'] == image.get('reported_product', image['product']) and
             (image['kind'] == 'receiver' or current.get('firmware_known'))):
-        if image['kind'] == 'receiver':
-            words = current['identity_words']
-            hardware, rf_hardware, bootloader, library = words[0], words[1], words[2], words[4]
-        else:
-            hardware, rf_hardware, bootloader, library = current['hardware'], 0, 0, current['rf_library']
         target = {'nb4':1, 'nb4plus':2}.get(inventory['target'])
         if target is None:
             raise MaintenanceError('The inventory does not identify a supported transmitter.')
-        compatible = any(rule['target'] == target and rule['image'] == index and
-                         all(expected in (ANY_IDENTITY, reported) for expected, reported in
-                             zip((rule['hardware'],rule['rf_hardware'],rule['bootloader'],rule['rf_library']),
-                                 (hardware,rf_hardware,bootloader,library)))
-                         for rule in UPDATE_HARDWARE)
-        if compatible:
+        # Identity words are diagnostics; the product match above and the
+        # radio's rule for this image decide, as in the stock firmware.
+        if any(rule['target'] == target and rule['image'] == index for rule in UPDATE_RULES):
             state = ('current' if current['firmware'] == image['version'] else
                      'ahead' if current['firmware'] > image['version'] else 'available')
             reason = 'No downgrade is permitted.' if state == 'ahead' else ''
         else:
             state = 'incompatible'
-            reason = ('This product ID is shared. The hardware identity does not match this image.'
-                      if index == 2 else 'The hardware identity does not match this image.')
+            reason = 'This radio does not install this catalog image.'
     elif current['valid'] and current['product'] != image.get('reported_product', image['product']):
         state = 'incompatible'
         reason = 'This image is for a different RF component.'
@@ -290,7 +280,7 @@ class RfTransfer:
         if phase == 5:
             decision = plan(current, self.record['image'])
             if decision['state'] != 'current':
-                raise MaintenanceError('The completed RF operation needs a fresh matching hardware and version reading.')
+                raise MaintenanceError('The completed RF operation needs a fresh matching product and version reading.')
             state = 'complete'
             self.record['verified_inventory'] = current
         elif phase == 1 and value['cancellable'] and not value['driving_locked'] and not value['transferred']:
@@ -373,7 +363,7 @@ class RfTransfer:
             raise MaintenanceError('The radio or receiver changed. Prepare a new plan.')
         decision = plan(current, self.record['image'])
         if (decision['state'] != 'available' and not (reinstall and decision['state'] == 'current')) or not decision['write_supported']:
-            raise MaintenanceError('This RF hardware is not qualified for writing, or is already current.')
+            raise MaintenanceError('This image is not installable here, or the component is already current.')
         if self.client.request(CAPABILITIES).get('rf_write') is not True:
             raise MaintenanceError('This build does not enable RF writing.')
         self.check_backup()

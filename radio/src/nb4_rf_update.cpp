@@ -266,29 +266,21 @@ void status(char* output, size_t capacity) {
         (unsigned long)afhds3::getMaintenanceDiagnostics(0));
 #endif
 }
-bool ruleWordFits(uint32_t expected, uint32_t reported) {
-  return expected == rfUpdateAnyIdentity || expected == reported;
-}
-const RfUpdateHardwareRule* hardwareRule(unsigned index, const RfUpdateIdentity& current) {
-  for (const auto& rule : rfUpdateHardware) {
-    if (rule.target == NB4_UPDATE_TARGET && rule.image == index &&
-        ruleWordFits(rule.hardware, current.hardware) && ruleWordFits(rule.rfHardware, current.rfHardware) &&
-        ruleWordFits(rule.bootloader, current.bootloader) && ruleWordFits(rule.rfLibrary, current.rfLibrary) &&
-        current.product == rfImages[index].reportedProduct) return &rule;
-  }
-  return nullptr;
-}
-// Images the radio installs by itself: a production rule exists for this target.
+// Images the radio installs by itself on this target.
 bool installableImage(unsigned index) {
-  for (const auto& rule : rfUpdateHardware)
-    if (rule.target == NB4_UPDATE_TARGET && rule.image == index && rule.transferVerified && rule.recoveryVerified)
-      return true;
+  for (const auto& rule : rfUpdateRules)
+    if (rule.target == NB4_UPDATE_TARGET && rule.image == index) return true;
   return false;
 }
+// The rule applies when the connected component reports the image's product,
+// as the stock firmware selects images; the component's bootloader checks
+// the product word again before accepting any data.
+bool ruleApplies(unsigned index, const RfUpdateIdentity& current) {
+  return installableImage(index) && current.product == rfImages[index].reportedProduct;
+}
 bool qualified(unsigned index, const RfUpdateIdentity& current) {
-  const auto rule = hardwareRule(index, current);
-  if (!rule) return false;
-  if (rule->transferVerified && rule->recoveryVerified) return true;
+  if (current.product != rfImages[index].reportedProduct) return false;
+  if (installableImage(index)) return true;
 #if defined(NB4_RF_UPDATE_BENCH)
   uint32_t uid[3]; unitId(uid); char serial[13];
   snprintf(serial, sizeof(serial), "%08lX%04lX", (unsigned long)(uid[0] + uid[2]),
@@ -317,7 +309,7 @@ int nb4RfUpdateCandidate(bool receiver) {
   const auto current=snapshot(receiver);
   if (!current.product || !current.version) return -1;
   for (unsigned i=0;i<sizeof(rfImages)/sizeof(rfImages[0]);++i)
-    if (rfImages[i].receiver==receiver && current.version<rfImages[i].version && hardwareRule(i,current))
+    if (rfImages[i].receiver==receiver && current.version<rfImages[i].version && ruleApplies(i,current))
       return int(i);
   return -1;
 }
@@ -501,8 +493,8 @@ bool nb4RfUpdateCommand(uint8_t command, const uint8_t* payload, size_t length,
         candidate.epoch != get32(payload + 5) || candidate.car != get32(payload + 9)) {
       error(output, capacity, "inventory_or_backup_required"); return true;
     }
-    if (!hardwareRule(candidateIndex, candidate)) {
-      error(output, capacity, "hardware_identity_not_supported"); return true;
+    if (!ruleApplies(candidateIndex, candidate)) {
+      error(output, capacity, "image_not_installable"); return true;
     }
     if (candidate.version > rfImages[candidateIndex].version) {
       error(output, capacity, "image_version_not_allowed"); return true;

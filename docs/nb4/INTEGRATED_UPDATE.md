@@ -42,21 +42,22 @@ complete identity, every requested range, the image hash, transfer coverage
 and a fresh version after restart. It checkpoints the boot peer before
 sending image data and locks driving while an interrupted write needs recovery.
 
-Production builds install the RF module and the FGr4 V2 / FGr4S V2 images
-(catalog indices 0–2), whose transfer and recovery were exercised on the bench
-([RF bench procedure](RF_BENCH.md)), on both NB4 and NB4+. Both radios also
-install the latest image of every other receiver (INr4-GYB 0x108, FGr8B,
-FGr4B and FGr12B 0x117, Mini-Z 0x108; indices 7–11) under provisional rules
-that match the product ID alone, the way the stock firmware updates them,
-because no identity words have been read from those receivers yet; each rule
-is pinned to the real words once a receiver reports them (the flasher's
-`--inventory` prints them). The older per-package variants (indices 3–6) have
-no hardware rule and are never selected. The flasher's
-one-click update only stores those images on the card (`/FIRMWARE/RF/`): the
-radio hashes each file before it becomes visible, and the computer never
-writes an RF component in that flow. A separate private bench build remains
-bound to one transmitter serial number for unqualified combinations.
-A shared product ID alone never authorizes an image.
+Production builds install, on both NB4 and NB4+, the RF module, the FGr4 V2
+and FGr4S V2 images (catalog indices 0–2, whose transfer and recovery were
+exercised on the bench, see [RF bench procedure](RF_BENCH.md)) and the latest
+image of every other receiver (INr4-GYB 0x108, FGr8B, FGr4B and FGr12B
+0x117, Mini-Z 0x108; indices 7–11). An image is selected the way the stock
+firmware selects it: the connected component must report the image's product
+ID, the image hash must match the catalog, and the component's bootloader
+verifies its own product word before accepting data. Identity words
+(hardware, RF hardware, bootloader, library) are read as diagnostics and
+freeze the identity for one operation; they do not gate installation. The
+older per-package variants (indices 3–6) have no rule and are never
+selected. The flasher's one-click update only stores the images on the card
+(`/FIRMWARE/RF/`): the radio hashes each file before it becomes visible, and
+the computer never writes an RF component in that flow. A separate private
+bench build remains bound to one transmitter serial number for images
+without a rule.
 
 The experimental desktop **Components** wizard and Linux component CLI share
 a persistent dependency plan. They verify a complete offline package, pin the
@@ -97,9 +98,9 @@ does not establish RF recovery or complete raw-NOR restoration.
 6. Prepare the module and then the connected receiver. Preparation transfers
    a verified file to external storage; **Install** is a separate action.
    Current versions require no write. A failed dependency stops subsequent
-   components. Production builds write only images with a hardware rule
-   (catalog indices 0–2 and the provisional receiver rules for indices 7–11);
-   use the private qualification procedure below to bench-test any other image.
+   components. Production builds write only images with an install rule
+   (catalog indices 0–2 and 7–11); use the private qualification procedure
+   below to bench-test any other image.
 7. Prepare the storage connection from Maintenance. Reconnect USB and select
    **Storage**, then choose the mounted radio volume in the app. A fresh
    unit-bound token links that volume to this plan; capacity or a volume name
@@ -221,7 +222,7 @@ and never executes it or accesses USB:
     python3 tools/apextx-updater.py --rf-bundle /path/to/new-rf.zip
 
 Catalog format 3 contains component identities, versions, sizes, hashes and
-hardware rules. The module's reported product ID is mapped explicitly to its
+install rules. The module's reported product ID is mapped explicitly to its
 image ID. Receiver versions preserve all five identity words and use the fourth
 word as the application version. Rebuild older development catalogs.
 The catalog is not a transmitter image; normal Update and ROM recovery reject it.

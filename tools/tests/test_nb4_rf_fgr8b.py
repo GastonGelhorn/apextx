@@ -32,20 +32,15 @@ class Fgr8bPins(unittest.TestCase):
         self.assertNotEqual(rf.FGR8B_NB4['sha256'], rf.FGR8B_NB4PLUS['sha256'])
         self.assertEqual(rf.IMAGES[:3], rf.COMMON_IMAGES, 'Existing engine indices must remain stable')
 
-    def test_only_the_latest_image_carries_a_provisional_product_only_rule(self):
+    def test_only_the_latest_image_is_installable_on_both_radios(self):
         candidates = {index for index, image in enumerate(rf.IMAGES) if image['product'] == 0x10107}
         self.assertEqual(candidates, {3, 8})
-        rules = [rule for rule in rf.UPDATE_HARDWARE if rf.IMAGES[rule['image']]['product'] == 0x10107]
-        self.assertEqual([(rule['target'], rule['image']) for rule in rules], [(1, 8), (2, 8)])
-        for rule in rules:
-            self.assertIn('FGr8B', rule['provisional'])
-            self.assertEqual({rule[key] for key in ('hardware', 'rf_hardware', 'bootloader', 'rf_library')},
-                             {rf.ANY_IDENTITY})
-        self.assertFalse(any(rf.ANY_IDENTITY in (rule['hardware'], rule['rf_hardware'], rule['bootloader'],
-                                                  rule['rf_library']) for rule in rf.UPDATE_HARDWARE if rule['image'] < 3))
-        self.assertIn('rfUpdateAnyIdentity = 0xffffffff', rf.firmware_catalog_header())
-        self.assertIn('{1, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true}', rf.firmware_catalog_header())
-        self.assertIn('{2, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true}', rf.firmware_catalog_header())
+        rules = [(rule['target'], rule['image']) for rule in rf.UPDATE_RULES if rf.IMAGES[rule['image']]['product'] == 0x10107]
+        self.assertEqual(rules, [(1, 8), (2, 8)])
+        header = rf.firmware_catalog_header()
+        self.assertIn('struct RfUpdateRule { uint32_t target, image; };', header)
+        self.assertIn('  {1, 8},\n', header); self.assertIn('  {2, 8},\n', header)
+        self.assertNotIn('  {1, 3},\n', header); self.assertNotIn('  {2, 3},\n', header)
         self.assertEqual(len({(entry['kind'], entry['product'], entry['version']) for entry in rf.IMAGES}), len(rf.IMAGES))
 
     def test_current_ahead_available_unknown_and_disconnected_never_authorize_writes(self):

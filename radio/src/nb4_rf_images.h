@@ -29,28 +29,24 @@ constexpr RfUpdateImage rfImages[] = {
   {0x1010e, 0x117, 86780, rfImageHash10, true, 0x1010e},
   {0x10108, 0x117, 88916, rfImageHash11, true, 0x10108},
 };
-struct RfUpdateHardwareRule {
-  uint32_t target, image, hardware, rfHardware, bootloader, rfLibrary;
-  bool transferVerified, recoveryVerified;
-};
-// A rule word equal to rfUpdateAnyIdentity accepts any reported value.
-constexpr uint32_t rfUpdateAnyIdentity = 0xffffffff;
-constexpr RfUpdateHardwareRule rfUpdateHardware[] = {
-  {1, 0, 0x10003, 0x0, 0x0, 0x30000, true, true},
-  {1, 1, 0x104, 0x104, 0x103, 0x301, true, true},
-  {1, 2, 0x104, 0x104, 0x107, 0x301, true, true},
-  {2, 0, 0x10003, 0x0, 0x0, 0x30000, true, true},
-  {2, 1, 0x104, 0x104, 0x103, 0x301, true, true},
-  {2, 2, 0x104, 0x104, 0x107, 0x301, true, true},
-  {1, 7, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {1, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {1, 9, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {1, 10, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {1, 11, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {2, 7, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {2, 8, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {2, 9, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {2, 10, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
-  {2, 11, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, true, true},
+// Images the radio installs on a target; the component must report the image product.
+struct RfUpdateRule { uint32_t target, image; };
+constexpr RfUpdateRule rfUpdateRules[] = {
+  {1, 0},
+  {1, 1},
+  {1, 2},
+  {1, 7},
+  {1, 8},
+  {1, 9},
+  {1, 10},
+  {1, 11},
+  {2, 0},
+  {2, 1},
+  {2, 2},
+  {2, 7},
+  {2, 8},
+  {2, 9},
+  {2, 10},
+  {2, 11},
 };
 }

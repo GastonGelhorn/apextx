@@ -98,35 +98,16 @@ MERGED_PROFILES = tuple(
          images=COMMON_IMAGES + LATEST_RECEIVER_IMAGES) for radio in ('nb4', 'nb4plus'))
 PROFILES += MERGED_PROFILES
 
-# Hardware tuples the radio may write. Transfer and recovery of the module and
-# the FGr4 V2 variants were exercised on the bench (docs/nb4/RF_BENCH.md), so
-# the radio installs them in production builds. The other receivers have no
-# identity evidence yet and therefore no rule: the radio never selects them.
-UPDATE_HARDWARE = (
-    dict(target=1, image=0, hardware=0x10003, rf_hardware=0, bootloader=0,
-         rf_library=0x30000, transfer=True, recovery=True),
-    dict(target=1, image=1, hardware=0x104, rf_hardware=0x104, bootloader=0x103,
-         rf_library=0x301, transfer=True, recovery=True),
-    dict(target=1, image=2, hardware=0x104, rf_hardware=0x104, bootloader=0x107,
-         rf_library=0x301, transfer=True, recovery=True),
-)
-# The second target (NB4+) carries the same module and receiver tuples.
-UPDATE_HARDWARE += tuple(dict(rule, target=2) for rule in UPDATE_HARDWARE)
-
-# A rule word of ANY_IDENTITY matches whatever the component reports for that
-# word; the product ID and the catalog image still have to match. It exists
-# for receivers whose identity words nobody has read yet.
-ANY_IDENTITY = 0xffffffff
-# Provisional rules for the latest image of every other receiver, on both
-# radios: the stock firmware updates these receivers by product ID, the image
-# headers carry no hardware words, and no identity words have been read yet.
-# Each rule is pinned to the real tuple once a receiver reports it (PR 33 has
-# an FGr8B tester). The older per-package variants (indices 3-6) keep no rule.
-UPDATE_HARDWARE += tuple(
-    dict(target=target, image=IMAGES.index(image), hardware=ANY_IDENTITY, rf_hardware=ANY_IDENTITY,
-         bootloader=ANY_IDENTITY, rf_library=ANY_IDENTITY, transfer=True, recovery=True,
-         provisional=f"{image['label']} identity words pending a hardware report")
-    for target in (1, 2) for image in LATEST_RECEIVER_IMAGES)
+# Images the radio installs by itself, per target (1 = NB4, 2 = NB4+). An
+# image is authorized by the product ID the component reports and by its
+# pinned hash, the way the stock firmware updates components: the receiver
+# bootloader verifies its own product word, and FlySky ships one image per
+# product. Identity words are read and shown as diagnostics and freeze the
+# identity for the duration of one operation; they do not gate installation.
+# The older per-package variants (indices 3-6) are not installed: the merged
+# catalogs carry the latest verified image of each product.
+INSTALLABLE_IMAGES = (0, 1, 2) + tuple(IMAGES.index(image) for image in LATEST_RECEIVER_IMAGES)
+UPDATE_RULES = tuple(dict(target=target, image=image) for target in (1, 2) for image in INSTALLABLE_IMAGES)
 
 
 class CatalogError(ValueError):
@@ -147,17 +128,11 @@ def firmware_catalog_header():
                      (image['product'], image['version'], image['bytes'], index,
                       'true' if image['kind'] == 'receiver' else 'false',
                       image.get('reported_product', image['product'])))
-    lines += ['};', 'struct RfUpdateHardwareRule {',
-              '  uint32_t target, image, hardware, rfHardware, bootloader, rfLibrary;',
-              '  bool transferVerified, recoveryVerified;', '};',
-              '// A rule word equal to rfUpdateAnyIdentity accepts any reported value.',
-              'constexpr uint32_t rfUpdateAnyIdentity = 0x%x;' % ANY_IDENTITY,
-              'constexpr RfUpdateHardwareRule rfUpdateHardware[] = {']
-    for rule in UPDATE_HARDWARE:
-        lines.append('  {%d, %d, 0x%x, 0x%x, 0x%x, 0x%x, %s, %s},' %
-                     (rule['target'], rule['image'], rule['hardware'], rule['rf_hardware'],
-                      rule['bootloader'], rule['rf_library'], str(rule['transfer']).lower(),
-                      str(rule['recovery']).lower()))
+    lines += ['};', '// Images the radio installs on a target; the component must report the image product.',
+              'struct RfUpdateRule { uint32_t target, image; };',
+              'constexpr RfUpdateRule rfUpdateRules[] = {']
+    for rule in UPDATE_RULES:
+        lines.append('  {%d, %d},' % (rule['target'], rule['image']))
     lines += ['};', '}', '']
     return '\n'.join(lines)
 
