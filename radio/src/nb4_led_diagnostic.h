@@ -14,10 +14,15 @@ struct Nb4LedDiagStats {
   uint32_t timeouts = 0, lastFlags = 0, lastRemaining = 0;
 };
 
-void nb4LedDiagStart(uint32_t now, uint8_t intensity);
+// quiet: while the test runs, the internal RF module is powered down, the
+// audio amplifier is muted, the haptic motor is off and ADC sampling is
+// paused, so an electrical cause outside the LED driver can be told apart
+// from the waveform. Everything resumes when the test ends.
+void nb4LedDiagStart(uint32_t now, uint8_t intensity, bool quiet = false);
 void nb4LedDiagTick(uint32_t now);  // UI task, including while scanout is stopped
 void nb4LedDiagStop();             // restores scanout even when cancelled
 bool nb4LedDiagActive();
+bool nb4LedDiagQuiet();            // active and quiet: module off, ADC paused
 unsigned nb4LedDiagPhase();
 bool nb4LedDiagWritePattern();     // sole LED timer writer while active
 Nb4LedDiagStats nb4LedDiagResult(unsigned phase);

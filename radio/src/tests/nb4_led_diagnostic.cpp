@@ -53,4 +53,36 @@ TEST(Nb4LedDiagnostic, FinishesAcrossClockWrapAndCancelAllowsRestart)
   EXPECT_EQ(rgbGetLedColor(3), 0xFFFFFFu);
   nb4LedDiagStop();
 }
+
+TEST(Nb4LedDiagnostic, QuietRunDropsTheModuleProtocolOnlyWhileItRuns)
+{
+  extern uint8_t getRequiredProtocol(uint8_t module);
+  nb4LedBootComplete();
+  g_model.moduleData[INTERNAL_MODULE].type = MODULE_TYPE_FLYSKY_AFHDS3;
+  const uint8_t before = getRequiredProtocol(INTERNAL_MODULE);
+  EXPECT_NE(before, PROTOCOL_CHANNELS_NONE);
+
+  nb4LedDiagStart(100, 128);
+  EXPECT_FALSE(nb4LedDiagQuiet());
+  EXPECT_EQ(getRequiredProtocol(INTERNAL_MODULE), before);
+  nb4LedDiagStop();
+
+  nb4LedDiagStart(200, 128, true);
+  EXPECT_TRUE(nb4LedDiagQuiet());
+  EXPECT_EQ(getRequiredProtocol(INTERNAL_MODULE), PROTOCOL_CHANNELS_NONE);
+  EXPECT_TRUE(nb4LedDiagWritePattern());
+  // The test ends by itself and the module comes back without a restart.
+  for (unsigned p = 1; p <= NB4_LED_DIAG_PHASES; ++p)
+    nb4LedDiagTick(200 + p * NB4_LED_DIAG_PHASE_MS);
+  EXPECT_FALSE(nb4LedDiagActive());
+  EXPECT_FALSE(nb4LedDiagQuiet());
+  EXPECT_EQ(getRequiredProtocol(INTERNAL_MODULE), before);
+
+  // Cancelling a quiet run restores it as well.
+  nb4LedDiagStart(300, 128, true);
+  EXPECT_TRUE(nb4LedDiagQuiet());
+  nb4LedDiagStop();
+  EXPECT_FALSE(nb4LedDiagQuiet());
+  EXPECT_EQ(getRequiredProtocol(INTERNAL_MODULE), before);
+}
 #endif

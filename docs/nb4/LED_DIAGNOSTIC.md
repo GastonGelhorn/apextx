@@ -30,7 +30,8 @@ an NB4+ image. Neither `bootloader.bin` nor `firmware.elf` is an update image.
 1. Unplug USB and leave the base pack off for the first run. Cold-start the radio.
 2. Open **Menu > Display & interface > Lights > LED diagnostic D1** (the Lights
    tile may also be in Quick access). The diagnostic UI is intentionally English.
-3. Press **Run 50%**. Observe the physical LEDs for all three six-second phases:
+3. Leave **Quiet** off for the first run. Press **Run 50%**. Observe the
+   physical LEDs for all three six-second phases:
    **A: LTDC ON**, **B: LTDC OFF**, **C: LTDC ON**. During B the screen may go
    blank or freeze; it returns automatically. The backlight setting and panel
    power stay unchanged. Closing the dialog cancels the test and restores LTDC.
@@ -40,9 +41,23 @@ an NB4+ image. Neither `bootloader.bin` nor `firmware.elf` is an update image.
    selected LED mode do not override the pattern while the test is running.
 5. Photograph the result counters after the screen returns. Repeat with
    **Run 100%**. If useful, repeat with the base pack on and label that result.
-6. Close the dialog to return to the normal settings. After the test, the
+6. Switch **Quiet** on and run again at the same level. While a quiet run
+   lasts, the internal RF module is de-initialised and unpowered, the audio
+   amplifier is muted, the haptic motor is off and ADC sampling is paused
+   (sticks, keys and the battery reading freeze; the touch screen keeps
+   working). All of it resumes by itself when the run ends or the dialog is
+   closed; the module rebinds without a restart. The report's first line says
+   whether the run was quiet.
+7. Close the dialog to return to the normal settings. After the test, the
    ordinary LED policy resumes. Install the matching `standard` artifact to
    remove the diagnostic completely.
+
+The quiet run separates the LED waveform from the rest of the board. If the
+last two LEDs are clean only in the quiet run, something the normal firmware
+powers (first suspect: the RF module and its supply bursts; then audio and
+haptic) disturbs them, and the next step is switching those back on one at a
+time. If they fail in the quiet run too, the cause is in the LED line or its
+supply and not in those peripherals.
 
 All phases redraw the same small coloured panel at 10 Hz. Only LTDC scanout
 (its continuous framebuffer reads and line interrupts) is disabled in B.
@@ -52,8 +67,8 @@ electrical effect. Simulator results cannot validate the LED waveform.
 
 ## Report
 
-Include `BUILD.json`'s commit/model/hash, 50% or 100%, battery/base/USB state,
-and for each phase A/B/C:
+Include `BUILD.json`'s commit/model/hash, 50% or 100%, quiet on or off,
+battery/base/USB state, and for each phase A/B/C:
 
 - Actual left-to-right colours, which LEDs flicker, and whether they recover.
 - TX (transfers started), TC (completed), TE (transfer errors), DME (direct-mode

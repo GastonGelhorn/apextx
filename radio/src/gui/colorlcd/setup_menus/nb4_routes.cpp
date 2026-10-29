@@ -190,8 +190,18 @@ class Nb4LedDiagnosticDialog : public BaseDialog
     new StaticText(form, {0, 0, LV_PCT(100), 0},
         "Bench test: receiver off.\nON 6s / screen OFF 6s / ON 6s.\n"
         "Left to right: white, blue, green, red.", COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+    auto quietLine = new Window(form, {0, 0, LV_PCT(100), 0});
+    quietLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM);
+    lv_obj_set_style_flex_cross_place(quietLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
+    new StaticText(quietLine, {0, 0, 0, 0},
+        "Quiet: RF module off, amp muted,\nhaptic off, ADC paused",
+        COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+    new ToggleSwitch(quietLine, {0, 0, 0, 0},
+        [this] { return (uint8_t)quiet; }, [this](uint8_t on) { quiet = on; });
     auto buttons = new Window(form, {0, 0, LV_PCT(100), 0});
-    buttons->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_SMALL, LV_SIZE_CONTENT);
+    // The width stays at the constructor's 100 %; passing LV_SIZE_CONTENT here
+    // collapsed the row and the two 48 % buttons with it.
+    buttons->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_SMALL);
     new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 50%", [this] { start(128); return 0; });
     new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 100%", [this] { start(255); return 0; });
     status = new StaticText(form, {0, 0, LV_PCT(100), 0}, "Ready", COLOR_THEME_PRIMARY1_INDEX);
@@ -215,9 +225,11 @@ class Nb4LedDiagnosticDialog : public BaseDialog
     nb4LedDiagTick(now);
     if (!nb4LedDiagActive()) {
       running = false;
-      status->setText("Done - screen restored");
+      status->setText(quietRun ? "Done - quiet run, all restored"
+                               : "Done - screen restored");
       char text[512];
-      size_t used = 0;
+      size_t used = snprintf(text, sizeof(text), "Quiet peripherals: %s\n",
+                             quietRun ? "ON" : "off");
       for (unsigned p = 0; p < NB4_LED_DIAG_PHASES; ++p) {
         const auto r = nb4LedDiagResult(p);
         used += snprintf(text + used, sizeof(text) - used,
@@ -236,8 +248,9 @@ class Nb4LedDiagnosticDialog : public BaseDialog
     } else if (now - lastDraw >= 100) {
       lastDraw = now;
       const unsigned p = nb4LedDiagPhase();
-      char text[40];
-      snprintf(text, sizeof(text), "Phase %c: LTDC %s", 'A' + p, p == 1 ? "OFF" : "ON");
+      char text[48];
+      snprintf(text, sizeof(text), "Phase %c: LTDC %s%s", 'A' + p,
+               p == 1 ? "OFF" : "ON", quietRun ? " (quiet)" : "");
       status->setText(text);
       // Identical bounded GUI redraw stimulus while physical scanout is ON/OFF.
       lv_obj_set_style_bg_color(stimulus->getLvObj(),
@@ -247,6 +260,8 @@ class Nb4LedDiagnosticDialog : public BaseDialog
 
  private:
   bool running = false;
+  bool quiet = false;
+  bool quietRun = false;
   uint32_t lastDraw = 0;
   StaticText* status;
   StaticText* report;
@@ -254,9 +269,12 @@ class Nb4LedDiagnosticDialog : public BaseDialog
   void start(uint8_t intensity)
   {
     if (running) return;
-    nb4LedDiagStart(timersGetMsTick(), intensity);
+    quietRun = quiet;
+    nb4LedDiagStart(timersGetMsTick(), intensity, quietRun);
     running = true;
-    report->setText("Running at 20 LED frames/s.\nWatch the physical strip in all three phases.");
+    report->setText(quietRun
+        ? "Running at 20 LED frames/s, quiet.\nRF module, audio, haptic and ADC are off until the end."
+        : "Running at 20 LED frames/s.\nWatch the physical strip in all three phases.");
   }
 };
 #endif

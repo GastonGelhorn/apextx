@@ -26,6 +26,9 @@
 #endif
 
 #include "edgetx.h"
+#if defined(NB4_LED_DIAGNOSTIC)
+#include "nb4_led_diagnostic.h"
+#endif
 
 const etx_hal_adc_driver_t* _hal_adc_driver = nullptr;
 const etx_hal_adc_inputs_t* _hal_adc_inputs = nullptr;
@@ -71,6 +74,10 @@ static bool adcSingleRead()
 
 bool adcRead()
 {
+#if defined(NB4_LED_DIAGNOSTIC)
+  // Quiet LED test: no conversions; the last values stay in place.
+  if (nb4LedDiagQuiet()) return true;
+#endif
   adcSingleRead();
 
   // TODO: this hack needs to go away...
