@@ -6,6 +6,17 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- ApexTX Flasher 1.4.0-alpha.3 (build 14003): the desktop app now checks for
+  its own updates at every launch and presents a new version in a dialog with
+  the release notes, **Update and restart**, **Remind me later** and **Skip
+  this version**, plus a link to the GitHub release. **Check for updates** moved
+  to the top bar next to the language switcher and turns into an **Update
+  available** badge when a version is waiting; the collapsible "App updates"
+  panel is gone. The "Install in my user folder" option was removed: when the
+  app cannot replace itself in place (disk image, Downloads or a read-only
+  folder) it installs the update in the user folder automatically and reports
+  the new location.
+
 ## [0.1.0-alpha.8] - 2026-10-29
 
 - Refreshed the ApexTX Flasher desktop interface: a calmer layout that

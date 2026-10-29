@@ -73,11 +73,11 @@ flasher or touches USB.
 Windows uses same-volume `ReplaceFileW` with a retained old EXE. macOS exchanges
 whole bundles atomically with `RENAME_SWAP`. If replacement is unsupported or
 blocked, the old app is retained. A non-writable folder, disk image or translocated
-Mac app can be migrated explicitly with **Install in my user folder** to
-`~/Applications` or `%LOCALAPPDATA%\Programs\ApexTX Flasher`. No elevation or
-privileged service is used. The original is retained on relocation; open the new
-copy from that folder afterwards. An existing different user installation is not
-overwritten silently.
+Mac app is migrated automatically to `~/Applications` or
+`%LOCALAPPDATA%\Programs\ApexTX Flasher`; the footer then names the new
+location. No elevation or privileged service is used. The original is retained
+on relocation; open the new copy from that folder afterwards. An existing
+different user installation is not overwritten silently.
 
 A private transaction journal and old copy survive crashes. The new app starts
 with radio discovery disabled; the UI handshake and helper confirmation must
