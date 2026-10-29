@@ -1,13 +1,17 @@
-ApexTX Flasher 1.4.0-alpha.2 refreshes the app: a cleaner interface that
-follows your system's light or dark appearance, plain-language guidance in
-English, Spanish, German and Chinese, and a new icon that is easy to find in
-the Dock or taskbar. Updating, install / recovery, the Components wizard and
-voice packs work exactly as before.
+ApexTX Flasher 1.4.0-alpha.3 makes app updates effortless. The app checks for
+a new version every time it opens and shows it in a dialog with the release
+notes, an **Update and restart** button and a link to the full release notes.
+You can also check at any time with **Check for updates** at the top of the
+window; a blue **Update available** badge appears there whenever a new version
+is waiting.
 
-This is the first ApexTX Flasher release that installed copies can download
-and install from **App updates**. Updates are signed by ApexTX and checked
-before installation; the app never restarts while a radio update, backup or
-recovery is in progress.
+If the app cannot replace itself where it is (for example when it runs from a
+disk image or a folder you cannot write to), it installs the update in your
+user folder automatically and tells you where it went.
+
+Updating, install / recovery, the Components wizard and voice packs are
+unchanged. Updates are signed by ApexTX and checked before installation; the
+app never restarts while a radio update, backup or recovery is in progress.
 
 Windows may show a SmartScreen prompt and macOS a Gatekeeper prompt the first
 time the new version opens. The app requires macOS 15 or later, or 64-bit
