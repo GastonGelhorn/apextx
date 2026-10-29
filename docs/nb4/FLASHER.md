@@ -41,6 +41,25 @@ three app packages and the audio packs to succeed; a missing download fails
 publication. Downloaded binaries and application archives carry GitHub build
 attestations in addition to checksums.
 
+## Interface and icon
+
+The interface follows the system light or dark appearance and is written for
+radio owners: one **Update** tab for the normal flow, **Components** for the
+advanced step-by-step wizard and **Install or recover** for complete images.
+Everything the app shows is translated into English, Spanish, German and
+Simplified Chinese.
+
+| Update (light) | ApexTX Flasher mode (dark, Spanish) |
+| --- | --- |
+| ![Update tab in light appearance](images/flasher-update-en.png) | ![One-click update in dark appearance](images/flasher-update-dark-es.png) |
+
+The application icon is the ApexTX mark on a dark tile, rendered from the
+brand logo by [`tools/nb4-flasher-icon.py`](../../tools/nb4-flasher-icon.py)
+into `tools/apextx-flasher-icon.png`; `build-flasher.py` turns that master into
+the macOS `.icns` and Windows `.ico`. Re-run the script after changing the logo.
+
+![Application icon at 192, 96, 48, 32 and 16 px on light and dark backgrounds](images/flasher-icon.png)
+
 ## One application, platform-specific packages
 
 Both platforms use `tools/apextx-updater.py`, the same HTML interface and the
