@@ -87,8 +87,9 @@ does not establish RF recovery or complete raw-NOR restoration.
 6. Prepare the module and then the connected receiver. Preparation transfers
    a verified file to external storage; **Install** is a separate action.
    Current versions require no write. A failed dependency stops subsequent
-   components. Normal builds reject RF writes; use the private qualification
-   procedure below for a bench test.
+   components. Production builds write only images with a hardware rule
+   (catalog indices 0–2); use the private qualification procedure below to
+   bench-test any other image.
 7. Prepare the storage connection from Maintenance. Reconnect USB and select
    **Storage**, then choose the mounted radio volume in the app. A fresh
    unit-bound token links that volume to this plan; capacity or a volume name
