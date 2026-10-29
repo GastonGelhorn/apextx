@@ -15,21 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def app_icon(destination):
+    """Write the platform icon from the rendered master (tools/nb4-flasher-icon.py)."""
     from PIL import Image
-    source = Image.open(ROOT / 'docs/branding/apextx-logo.png').convert('RGBA')
-    pixels = source.load()
-    for y in range(source.height):
-        for x in range(source.width):
-            r, g, b, _ = pixels[x, y]
-            level = max(r, g, b)
-            alpha = 0 if level <= 26 else 255 if level >= 80 else int((level - 26) / 54 * 255)
-            pixels[x, y] = (r, g, b, alpha)
-    source = source.crop(source.getbbox())
-    size = 1024 if destination.suffix == '.icns' else 256
-    canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    source.thumbnail((size * 9 // 10, size * 9 // 10), Image.Resampling.LANCZOS)
-    canvas.paste(source, ((size - source.width) // 2, (size - source.height) // 2))
-    canvas.save(destination)
+    master = Image.open(ROOT / 'tools/apextx-flasher-icon.png').convert('RGBA')
+    if destination.suffix == '.icns':
+        master.save(destination)
+    else:
+        sizes = [(size, size) for size in (16, 24, 32, 48, 64, 128, 256)]
+        master.resize((256, 256), Image.Resampling.LANCZOS).save(destination, sizes=sizes)
 
 
 def main():
