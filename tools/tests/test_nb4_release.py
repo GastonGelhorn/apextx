@@ -48,7 +48,7 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("nb4_package", ROOT / "tools/nb4-package.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for model, profile in (("nb4", "nb4-rf-1b"), ("nb4plus", "nb4plus-rf-1b")):
+        for model, profile in (("nb4", "nb4-rf-2"), ("nb4plus", "nb4plus-rf-2")):
             with self.subTest(model=model):
                 path = ROOT / f"tools/rf-catalog/{model}.zip"
                 self.assertFalse(path.is_symlink())

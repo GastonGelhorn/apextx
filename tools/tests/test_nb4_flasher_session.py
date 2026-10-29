@@ -218,11 +218,11 @@ class Session(unittest.TestCase):
         self.assertFalse(s.snapshot()['error'],s.snapshot()['message'])
         self.assertEqual(s.snapshot()['progress'],100)
         self.assertEqual(updates[0]['serial'],'A'); self.assertEqual(updates[0]['image'],b'validated image')
-        self.assertEqual(updates[0]['assets'],[0,1,2]); self.assertTrue(updates[0]['rebooted'])
+        self.assertEqual(updates[0]['assets'],[0,1,2,7,8,9,10,11]); self.assertTrue(updates[0]['rebooted'])
         self.assertEqual(peer.commands[-1],REBOOT_UPDATE)
         self.assertLess(peer.commands.index(ASSET_BEGIN),peer.commands.index(REBOOT_UPDATE))
         self.assertFalse({PREPARE,START}&set(peer.commands))
-        self.assertEqual(peer.commands.count(ASSET_DATA),sum((IMAGES[i]['bytes']+511)//512 for i in range(3)))
+        self.assertEqual(peer.commands.count(ASSET_DATA),sum((IMAGES[i]['bytes']+511)//512 for i in (0,1,2,7,8,9,10,11)))
 
     def test_one_click_stops_before_the_reboot_when_an_asset_is_rejected(self):
         from test_nb4_rf_transfer import Radio
@@ -257,10 +257,13 @@ class Session(unittest.TestCase):
         self.assertEqual(len(images[image_name(IMAGES[0])]),IMAGES[0]['bytes'])
         with patch.object(sessions.Path,'is_file',return_value=False):
             with self.assertRaisesRegex(usb.UpdateError,'missing'): s.catalog_images(s.device,s.offer)
-        from nb4_rf_catalog import RECEIVERS_FROM_NB4PLUS
+        from nb4_rf_catalog import FGR8B_NB4, FGR8B_NB4PLUS, LATEST_RECEIVER_IMAGES
         s.device.update(target=2)
         plus=s.catalog_images(s.device,s.offer)
-        self.assertIn(image_name(RECEIVERS_FROM_NB4PLUS[0]),plus); self.assertNotIn(image_name(RECEIVERS_FROM_NB4PLUS[0]),images)
+        # Both radios carry the latest verified receiver images; older variants are not shipped.
+        for catalog in (images,plus):
+            self.assertTrue(all(image_name(i) in catalog for i in LATEST_RECEIVER_IMAGES))
+            self.assertIn(image_name(FGR8B_NB4PLUS),catalog); self.assertNotIn(image_name(FGR8B_NB4),catalog)
 
     def prepare(self, target=1):
         from tools.tests.test_nb4_releases import image

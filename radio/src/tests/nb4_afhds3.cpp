@@ -210,7 +210,6 @@ TEST(Nb4Afhds3, WithoutAddressTheReceiverFillsTheGapAfterChecking)
 #include "storage/yaml/yaml_tree_walker.h"
 #include "nb4_car_state.h"
 #include "nb4_rf_update.h"
-#include "bootloader/nb4_update_id.h"
 #include "nb4_ui_languages.h"
 #include <vector>
 
@@ -347,7 +346,7 @@ class Nb4Afhds3Bind : public ::testing::Test {
 };
 }
 
-TEST_F(Nb4Afhds3Bind, Fgr8bProvisionalRuleMatchesTheProductAloneOnNb4PlusOnly) {
+TEST_F(Nb4Afhds3Bind, Fgr8bProvisionalRuleMatchesTheProductAloneOnBothRadios) {
   connectNormal();
   auto version = receiverVersion();
   version[4] = 0x07; version[5] = 0x01; version[6] = 0x01; version[7] = 0;  // product 0x10107
@@ -360,11 +359,8 @@ TEST_F(Nb4Afhds3Bind, Fgr8bProvisionalRuleMatchesTheProductAloneOnNb4PlusOnly) {
   receive(COMMAND_RESULT, version, 95, REQUEST_SET_NO_RESP);
   ASSERT_TRUE(getReceiverVersionInfo(0).valid);
   EXPECT_EQ(getReceiverVersionInfo(0).productNumber, 0x10107u);
-#if NB4_UPDATE_TARGET == NB4_UPDATE_TARGET_NB4PLUS
-  EXPECT_EQ(nb4RfUpdateCandidate(true), 8);  // FGr8B 0x117 from the NB4+ package
-#else
-  EXPECT_EQ(nb4RfUpdateCandidate(true), -1);  // NB4 keeps no FGr8B rule
-#endif
+  // FGr8B 0x117 from the NB4+ package: both radios share the RF hardware.
+  EXPECT_EQ(nb4RfUpdateCandidate(true), 8);
   EXPECT_FALSE(nb4RfUpdateWriteSupported(false)) << "a wildcard rule never reaches the module";
 }
 

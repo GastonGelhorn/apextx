@@ -162,20 +162,21 @@ class RfTransferTests(unittest.TestCase):
         receiver['identity_words'][2] = 0x107
         self.assertEqual(rf.plan(self.peer.inventory,2)['state'],'current')
 
-    def test_provisional_fgr8b_rule_matches_the_product_on_nb4plus_only(self):
+    def test_provisional_receiver_rules_match_the_product_alone_on_both_radios(self):
         self.catalog.stop(); self.addCleanup(self.catalog.start)  # the full catalog, index 8 included
         receiver = self.peer.inventory['receiver']
-        receiver.update(product=0x10107, firmware=0x114, identity_words=[0x205, 0x206, 0x109, 0x114, 0x302])
-        self.peer.inventory['target'] = 'nb4plus'
-        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'available')
-        receiver['firmware'] = receiver['identity_words'][3] = 0x117
-        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'current')
-        receiver['product'] = 0x10108
-        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'incompatible')
-        receiver['product'] = 0x10107
-        self.peer.inventory['target'] = 'nb4'
-        self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'incompatible')
-        self.assertEqual(rf.plan(self.peer.inventory, 3)['state'], 'incompatible')
+        for target in ('nb4', 'nb4plus'):
+            self.peer.inventory['target'] = target
+            receiver.update(product=0x10107, firmware=0x114, identity_words=[0x205, 0x206, 0x109, 0x114, 0x302])
+            self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'available')
+            receiver['firmware'] = receiver['identity_words'][3] = 0x117
+            self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'current')
+            receiver['product'] = 0x10108
+            self.assertEqual(rf.plan(self.peer.inventory, 8)['state'], 'incompatible')
+            self.assertEqual(rf.plan(self.peer.inventory, 11)['state'], 'current')
+            receiver['product'] = 0x10107
+            # The older per-package variant keeps no rule anywhere.
+            self.assertEqual(rf.plan(self.peer.inventory, 3)['state'], 'incompatible')
         # The wildcard never widens the pinned FGr4 rules.
         receiver.update(product=0x12340004, firmware=0x112, identity_words=[0x205, 0x104, 0x103, 0x112, 0x301])
         self.assertEqual(rf.plan(self.peer.inventory, 1)['state'], 'incompatible')
@@ -368,19 +369,22 @@ class RfTransferTests(unittest.TestCase):
 
 class AssetTests(unittest.TestCase):
     def setUp(self):
-        self.data = {0: b'm' * 700, 1: b'r' * 1200, 2: b's' * 3001}
-        images = tuple(dict(rf.IMAGES[i], bytes=len(d), sha256=hashlib.sha256(d).hexdigest()) for i, d in self.data.items())
-        catalog = patch.object(rf, 'IMAGES', images + rf.IMAGES[3:]); catalog.start(); self.addCleanup(catalog.stop)
+        self.data = {0: b'm' * 700, 1: b'r' * 1200, 2: b's' * 3001,
+                     7: b'g' * 300, 8: b'e' * 512, 9: b'z' * 600, 10: b'b' * 100, 11: b't' * 1024}
+        images = tuple(dict(rf.IMAGES[i], bytes=len(self.data[i]), sha256=hashlib.sha256(self.data[i]).hexdigest())
+                       if i in self.data else rf.IMAGES[i] for i in range(len(rf.IMAGES)))
+        catalog = patch.object(rf, 'IMAGES', images); catalog.start(); self.addCleanup(catalog.stop)
         self.files = {rf.image_name(images[i]): d for i, d in self.data.items()}
         self.peer = Radio(); self.client = rf.AssetClient(self.peer)
 
     def test_publish_skips_verified_images_and_streams_the_rest_sequentially(self):
         self.peer.assets[0] = self.data[0]
         result = rf.publish_assets(self.client, 'nb4', self.files)
-        self.assertEqual([(r['image'], r['state']) for r in result], [(0, 'present'), (1, 'uploaded'), (2, 'uploaded')])
+        self.assertEqual([(r['image'], r['state']) for r in result],
+                         [(0, 'present')] + [(i, 'uploaded') for i in (1, 2, 7, 8, 9, 10, 11)])
         self.assertEqual(self.peer.assets, self.data)
-        self.assertEqual(self.peer.commands.count(wire.ASSET_BEGIN), 3)
-        self.assertEqual(self.peer.commands.count(wire.ASSET_DATA), 3 + 6)
+        self.assertEqual(self.peer.commands.count(wire.ASSET_BEGIN), 8)
+        self.assertEqual(self.peer.commands.count(wire.ASSET_DATA), 3 + 6 + 1 + 1 + 2 + 1 + 2)
         self.assertFalse({wire.PREPARE, wire.UPLOAD, wire.START, wire.REBOOT_UPDATE} & set(self.peer.commands))
 
     def test_verification_failure_is_surfaced_and_nothing_is_kept(self):
@@ -431,8 +435,8 @@ class AssetTests(unittest.TestCase):
         self.assertEqual(self.peer.commands, [])
 
     def test_installable_images_follow_the_production_rules_of_both_targets(self):
-        self.assertEqual(rf.installable_images('nb4'), [0, 1, 2])
-        self.assertEqual(rf.installable_images('nb4plus'), [0, 1, 2, 8])
+        self.assertEqual(rf.installable_images('nb4'), [0, 1, 2, 7, 8, 9, 10, 11])
+        self.assertEqual(rf.installable_images('nb4plus'), [0, 1, 2, 7, 8, 9, 10, 11])
         with self.assertRaises(wire.MaintenanceError): rf.installable_images('nb4pro')
         self.assertLessEqual(rf.ASSET_CHUNK + 5, wire.MAX_PAYLOAD)
 

@@ -3,9 +3,10 @@
 For the component wizard, RF catalog preparation, complete backup and
 recovery, see [Integrated update](INTEGRATED_UPDATE.md). Release packages
 carry the verified RF catalog as `rf/catalog.zip`; the flasher stores those
-images on the radio, and the radio installs the module and FGr4 V2 / FGr4S V2
-images itself (NB4+ also the FGr8B, see [Integrated update](INTEGRATED_UPDATE.md)).
-A catalog ZIP is never a transmitter image.
+images on the radio, and the radio installs the module and the latest
+verified receiver images itself (see [Integrated update](INTEGRATED_UPDATE.md)).
+Both radios get the same catalog: NB4 and NB4+ share their RF hardware. A
+catalog ZIP is never a transmitter image.
 
 One-click updates follow this flow:
 

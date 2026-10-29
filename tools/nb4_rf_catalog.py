@@ -85,6 +85,18 @@ PROFILES += (
     dict(PROFILES[1], id='nb4plus-rf-1b',
          sha256='1b119de1e2a0efa9787f3db3fd9abe01cd16b4a7f4069d254dcf8b9e46b90b72'),
 )
+SOURCE_PROFILES = PROFILES
+
+# The latest verified image per receiver product across both packages. The
+# NB4 and NB4+ share their RF hardware and FlySky no longer publishes NB4
+# packages, so both radios ship the NB4+ receiver images. INr4-GYB keeps the
+# NB4 package's 0x108: the NB4+ 0x109 fails the CRC gate (UNVERIFIED above).
+LATEST_RECEIVER_IMAGES = (RECEIVERS_FROM_NB4[4],) + RECEIVERS_FROM_NB4PLUS
+# Merged profiles are built from verified source bundles, never from a package.
+MERGED_PROFILES = tuple(
+    dict(id=f'{radio}-rf-2', radio=radio, sources=('nb4-rf-1b', 'nb4plus-rf-1b'),
+         images=COMMON_IMAGES + LATEST_RECEIVER_IMAGES) for radio in ('nb4', 'nb4plus'))
+PROFILES += MERGED_PROFILES
 
 # Hardware tuples the radio may write. Transfer and recovery of the module and
 # the FGr4 V2 variants were exercised on the bench (docs/nb4/RF_BENCH.md), so
@@ -105,16 +117,16 @@ UPDATE_HARDWARE += tuple(dict(rule, target=2) for rule in UPDATE_HARDWARE)
 # word; the product ID and the catalog image still have to match. It exists
 # for receivers whose identity words nobody has read yet.
 ANY_IDENTITY = 0xffffffff
-# FGr8B 0x117 from the NB4+ 1.0.31 package (catalog index 8), requested in
-# PR 33 by a contributor with an FGr8B on an NB4+. The image header carries no
-# hardware words, so the rule matches the product alone until that receiver's
-# identity words are reported and pinned here. NB4 keeps no FGr8B rule: its
-# own package carries the older 0x114 and the newer image is not in its catalog.
-UPDATE_HARDWARE += (
-    dict(target=2, image=8, hardware=ANY_IDENTITY, rf_hardware=ANY_IDENTITY,
+# Provisional rules for the latest image of every other receiver, on both
+# radios: the stock firmware updates these receivers by product ID, the image
+# headers carry no hardware words, and no identity words have been read yet.
+# Each rule is pinned to the real tuple once a receiver reports it (PR 33 has
+# an FGr8B tester). The older per-package variants (indices 3-6) keep no rule.
+UPDATE_HARDWARE += tuple(
+    dict(target=target, image=IMAGES.index(image), hardware=ANY_IDENTITY, rf_hardware=ANY_IDENTITY,
          bootloader=ANY_IDENTITY, rf_library=ANY_IDENTITY, transfer=True, recovery=True,
-         provisional='FGr8B identity words pending a hardware report'),
-)
+         provisional=f"{image['label']} identity words pending a hardware report")
+    for target in (1, 2) for image in LATEST_RECEIVER_IMAGES)
 
 
 class CatalogError(ValueError):
@@ -324,9 +336,15 @@ def image_name(entry):
     return f"images/{entry['kind']}-{entry['product']:08x}-{entry['version']:08x}.bin"
 
 
+def source_profile(identifier):
+    return next(p for p in SOURCE_PROFILES if p['id'] == identifier)
+
+
 def manifest(profile):
+    sources = profile.get('sources')
     return dict(format=FORMAT, profile=profile['id'], radio=profile['radio'],
-                input_sha256=profile['sha256'],
+                input_sha256=([source_profile(s)['sha256'] for s in sources] if sources
+                              else profile['sha256']),
                 rf_write_supported=False,
                 images=[dict(entry, file=image_name(entry)) for entry in profile['images']])
 
@@ -335,7 +353,7 @@ def import_source(data):
     if not 64 <= len(data) <= MAX_SOURCE:
         raise CatalogError('Installation package exceeds the permitted size.')
     source_hash = digest(data)
-    matches = [p for p in PROFILES if p['sha256'] == source_hash]
+    matches = [p for p in PROFILES if p.get('sha256') == source_hash]
     if len(matches) != 1:
         raise CatalogError('This exact installation package has not been reviewed; nothing was prepared.')
     profile = matches[0]
@@ -387,6 +405,50 @@ def verify_bundle(raw):
     except (zipfile.BadZipFile, KeyError, UnicodeError, ValueError, RuntimeError,
             NotImplementedError, OSError) as error:
         raise CatalogError('RF bundle is damaged or incomplete.') from error
+
+
+def merge_bundles(raws, profile_id):
+    """Combine verified source bundles into a merged profile's image set."""
+    profile = next((p for p in PROFILES if p['id'] == profile_id and p.get('sources')), None)
+    if not profile:
+        raise CatalogError('Not a merged catalog profile.')
+    images, seen = {}, []
+    for raw in raws:
+        description, files = verify_bundle(raw)
+        if description['profile'] not in profile['sources'] or description['profile'] in seen:
+            raise CatalogError('A merged catalog takes each reviewed source bundle once.')
+        seen.append(description['profile'])
+        for name, data in files.items():
+            if images.get(name, data) != data:
+                raise CatalogError('Source bundles disagree on an image.')
+            images[name] = data
+    if set(seen) != set(profile['sources']):
+        raise CatalogError('A reviewed source bundle is missing.')
+    selected = {}
+    for entry in profile['images']:
+        name = image_name(entry)
+        if name not in images:
+            raise CatalogError('Expected firmware product/version is missing.')
+        validate_image(images[name], entry)
+        selected[name] = images[name]
+    return manifest(profile), selected
+
+
+def merge(sources, destination, profile_id):
+    raws = []
+    for source in sources:
+        source = Path(source)
+        if source.stat().st_size > MAX_BUNDLE:
+            raise CatalogError('RF bundle exceeds the permitted size.')
+        with source.open('rb') as stream:
+            raws.append(stream.read(MAX_BUNDLE + 1))
+    description, images = merge_bundles(raws, profile_id)
+    raw = bundle_bytes(description, images)
+    with Path(destination).open('xb') as stream:  # never replace an existing file
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+    return description
 
 
 def inspect_source_file(source):

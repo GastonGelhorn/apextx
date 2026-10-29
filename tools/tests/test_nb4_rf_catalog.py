@@ -92,6 +92,29 @@ class RfCatalog(unittest.TestCase):
         description, images = rf.import_source(self.source)
         return rf.bundle_bytes(description, images)
 
+    def test_merged_profile_takes_each_verified_source_bundle_once_and_selects_its_images(self):
+        images = self.profile['images']
+        first = dict(self.profile, id='first', images=images[:2])
+        second = dict(self.profile, id='second', images=images[1:])
+        merged = dict(id='merged', radio='nb4', sources=('first', 'second'), images=images)
+        _, files = rf.import_source(self.source)
+        with patch.object(rf, 'PROFILES', (first, second, merged)), patch.object(rf, 'SOURCE_PROFILES', (first, second)):
+            raws = [rf.bundle_bytes(rf.manifest(p), {rf.image_name(i): files[rf.image_name(i)] for i in p['images']})
+                    for p in (first, second)]
+            description, selected = rf.merge_bundles(raws, 'merged')
+            self.assertEqual(description['input_sha256'], [self.profile['sha256']] * 2)
+            self.assertEqual(set(selected), {rf.image_name(i) for i in images})
+            raw = rf.bundle_bytes(description, selected)
+            self.assertEqual(rf.verify_bundle(raw), (description, selected))
+            self.assertEqual(raw, rf.bundle_bytes(*rf.merge_bundles(raws[::-1], 'merged')))
+            for bad in (raws[:1], raws + raws[:1], raws[::-1][:1]):
+                with self.assertRaises(rf.CatalogError): rf.merge_bundles(bad, 'merged')
+            with self.assertRaises(rf.CatalogError): rf.merge_bundles(raws, 'first')
+            with self.assertRaises(rf.CatalogError): rf.merge_bundles([raws[0], raw], 'merged')
+            mutated = changed_bundle(raws[1], mutate=lambda name, data: data[:-1] + bytes([data[-1] ^ 1]) if name.endswith('.bin') else data)
+            with self.assertRaises(rf.CatalogError): rf.merge_bundles([raws[0], mutated], 'merged')
+            with self.assertRaises(rf.CatalogError): rf.import_source(raw)
+
     def test_known_source_extracts_only_the_three_pinned_complete_images(self):
         description, images = rf.import_source(self.source)
         self.assertEqual(len(images), 3)

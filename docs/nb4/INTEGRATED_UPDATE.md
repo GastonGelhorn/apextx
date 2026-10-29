@@ -16,9 +16,13 @@ that the RF module, receivers or audio have been updated.
   over USB serial. Opening the app never opens this port or writes firmware.
   Desktop snapshots become stale after ten seconds.
 - The RF catalog preparer validates exact package hashes, complete image sizes,
-  image hashes and CRCs. Both verified catalogs are committed under
-  `tools/rf-catalog/` (`nb4.zip`, profile `nb4-rf-1b`; `nb4plus.zip`, profile
-  `nb4plus-rf-1b`), ship in every release package as `rf/catalog.zip` and are
+  image hashes and CRCs. The shipped catalogs under `tools/rf-catalog/`
+  (`nb4.zip`, profile `nb4-rf-2`; `nb4plus.zip`, profile `nb4plus-rf-2`) are
+  merged from the verified NB4 2.0.116 and NB4+ 1.0.31 source bundles
+  (`apextx-rf-package.py <bundles> --merge <profile> --output <zip>`) and
+  carry the latest verified image of every product for both radios: the NB4
+  and NB4+ share their RF hardware, and FlySky no longer publishes NB4
+  packages. They ship in every release package as `rf/catalog.zip` and are
   embedded in ApexTX Flasher.
 - Audio installation verifies a full filesystem backup on the computer before
   replacing any file. It preserves personal recordings and omitted assignable
@@ -40,12 +44,14 @@ sending image data and locks driving while an interrupted write needs recovery.
 
 Production builds install the RF module and the FGr4 V2 / FGr4S V2 images
 (catalog indices 0–2), whose transfer and recovery were exercised on the bench
-([RF bench procedure](RF_BENCH.md)), on both NB4 and NB4+. NB4+ also installs
-the FGr8B 0x117 image (index 8) under a provisional rule that matches the
-product ID alone, because no FGr8B identity words have been read yet; the
-rule is pinned to the real words once a contributor's receiver reports them
-(the flasher's `--inventory` prints them). The other receivers in the catalog
-have no hardware rule and are never selected. The flasher's
+([RF bench procedure](RF_BENCH.md)), on both NB4 and NB4+. Both radios also
+install the latest image of every other receiver (INr4-GYB 0x108, FGr8B,
+FGr4B and FGr12B 0x117, Mini-Z 0x108; indices 7–11) under provisional rules
+that match the product ID alone, the way the stock firmware updates them,
+because no identity words have been read from those receivers yet; each rule
+is pinned to the real words once a receiver reports them (the flasher's
+`--inventory` prints them). The older per-package variants (indices 3–6) have
+no hardware rule and are never selected. The flasher's
 one-click update only stores those images on the card (`/FIRMWARE/RF/`): the
 radio hashes each file before it becomes visible, and the computer never
 writes an RF component in that flow. A separate private bench build remains
@@ -92,8 +98,8 @@ does not establish RF recovery or complete raw-NOR restoration.
    a verified file to external storage; **Install** is a separate action.
    Current versions require no write. A failed dependency stops subsequent
    components. Production builds write only images with a hardware rule
-   (catalog indices 0–2, plus the provisional FGr8B rule on NB4+); use the
-   private qualification procedure below to bench-test any other image.
+   (catalog indices 0–2 and the provisional receiver rules for indices 7–11);
+   use the private qualification procedure below to bench-test any other image.
 7. Prepare the storage connection from Maintenance. Reconnect USB and select
    **Storage**, then choose the mounted radio volume in the app. A fresh
    unit-bound token links that volume to this plan; capacity or a volume name

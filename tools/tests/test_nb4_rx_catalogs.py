@@ -13,7 +13,7 @@ import nb4_rf_catalog as rf
 
 class ReceiverCatalogs(unittest.TestCase):
     def descriptions(self):
-        return [rf.manifest(profile) for profile in rf.PROFILES]
+        return [rf.manifest(profile) for profile in rf.SOURCE_PROFILES]
 
     def inventory(self, product, firmware, **extra):
         return dict(product=product, firmware=firmware, target='nb4', connected=True, valid=True, **extra)
@@ -37,7 +37,9 @@ class ReceiverCatalogs(unittest.TestCase):
     def test_all_existing_module_and_receiver_indices_remain_stable(self):
         self.assertEqual(rf.IMAGES[:3],rf.COMMON_IMAGES)
         self.assertEqual([i['product'] for i in rf.COMMON_IMAGES],[0x12340003,0x12340004,0x12340006])
-        self.assertEqual([(rule['target'],rule['image']) for rule in rf.UPDATE_HARDWARE if rule['image'] >= 3],[(2,8)])
+        provisional=[(target,image) for target in (1,2) for image in (7,8,9,10,11)]
+        self.assertEqual([(rule['target'],rule['image']) for rule in rf.UPDATE_HARDWARE if rule['image'] >= 3],provisional)
+        self.assertEqual([rf.IMAGES[i]['product'] for i in (7,8,9,10,11)],[0x1010b,0x10107,0x10104,0x1010e,0x10108])
 
     def test_each_profile_has_one_payload_per_product_and_only_verified_images(self):
         accepted={(i['product'],i['version'],i['sha256']) for i in rf.IMAGES}
@@ -45,7 +47,29 @@ class ReceiverCatalogs(unittest.TestCase):
             images=profile['images']
             self.assertEqual(len({i['product'] for i in images}),len(images))
             self.assertTrue(all((i['product'],i['version'],i['sha256']) in accepted for i in images))
-            self.assertEqual(len(images),8 if profile['radio']=='nb4' else 7)
+            if profile.get('sources'):
+                self.assertEqual(images,rf.COMMON_IMAGES+rf.LATEST_RECEIVER_IMAGES)
+            else:
+                self.assertEqual(len(images),8 if profile['radio']=='nb4' else 7)
+
+    def test_merged_profiles_carry_the_latest_verified_image_of_every_product_for_both_radios(self):
+        merged=[p for p in rf.PROFILES if p.get('sources')]
+        self.assertEqual([(p['id'],p['radio']) for p in merged],[('nb4-rf-2','nb4'),('nb4plus-rf-2','nb4plus')])
+        latest={}
+        for image in rf.IMAGES[3:]:  # receivers pinned from the packages; indices 0-2 are common to both
+            latest[image['product']]=max(latest.get(image['product'],0),image['version'])
+        self.assertEqual({i['product']:i['version'] for i in rf.LATEST_RECEIVER_IMAGES},latest)
+        for profile in merged:
+            self.assertEqual(set(profile['sources']),{'nb4-rf-1b','nb4plus-rf-1b'})
+            description=rf.manifest(profile)
+            self.assertEqual(description['input_sha256'],[rf.source_profile(s)['sha256'] for s in profile['sources']])
+            self.assertFalse(description['rf_write_supported'])
+            for product,version in latest.items():
+                self.assertEqual(rf.assess_receiver(description,self.inventory(product,version-1))['state'],'available')
+                self.assertEqual(rf.assess_receiver(description,self.inventory(product,version))['state'],'current')
+        # The provisional rules cover exactly the merged receiver images.
+        ruled={rule['image'] for rule in rf.UPDATE_HARDWARE if rule['image']>=3}
+        self.assertEqual(ruled,{rf.IMAGES.index(i) for i in rf.LATEST_RECEIVER_IMAGES})
 
     def test_newer_gyro_payload_is_recorded_but_not_exported_or_selected(self):
         self.assertEqual(len(rf.UNVERIFIED_RECEIVER_IMAGES),1)
@@ -57,7 +81,7 @@ class ReceiverCatalogs(unittest.TestCase):
         self.assertEqual(result['available'],0x108)
         self.assertEqual(result['known_unverified'],[dict(version=0x109,source_radio='nb4plus',reason='crc32-mismatch')])
         self.assertFalse(result['write_supported'])
-        plus=[rf.manifest(p) for p in rf.PROFILES if p['radio']=='nb4plus']
+        plus=[rf.manifest(p) for p in rf.SOURCE_PROFILES if p['radio']=='nb4plus']
         self.assertEqual(rf.assess_receiver_catalogs(plus,self.inventory(0x1010b,0x108))['state'],'unknown')
 
     def test_empty_stale_disconnected_invalid_or_forged_metadata_stays_unknown(self):
