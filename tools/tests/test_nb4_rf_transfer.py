@@ -24,13 +24,38 @@ class Radio:
              identity_words=[0x104,0x104,0x103,0x112,0x301], write_supported=False)
         self.status = dict(operation=0, phase=0, error_code=0, uploaded=0,
                            transferred=0, validated=False, cancellable=True, driving_locked=False)
+        self.installed = 0x113  # receiver version reported once an operation completes
+        self.assets, self.stage = {}, None  # verified card files; the open stage file
+        self.corrupt_asset = False
+        self.reboot_requested = False
 
     def write(self, frame):
         cmd, request, payload = wire.Decoder().feed(frame)[0]
         self.commands.append(cmd)
         if cmd == wire.CAPABILITIES:
-            result = dict(protocol=1, inventory=True, file_transfer=True,
+            result = dict(protocol=1, inventory=True, file_transfer=True, assets=True, reboot_update=True,
                           rf_write=self.can_write, rf_recover=self.can_write)
+        elif cmd == wire.ASSET_BEGIN:
+            index = payload[0]; size = rf.IMAGES[index]['bytes']
+            if index in self.assets:
+                result = dict(asset=index, verified=True, uploaded=size, bytes=size)
+            else:
+                self.stage = (index, bytearray()); result = dict(asset=index, verified=False, uploaded=0, bytes=size)
+        elif cmd == wire.ASSET_DATA:
+            index, offset = struct.unpack_from('<BI', payload); block = payload[5:]
+            assert self.stage and self.stage[0] == index and offset == len(self.stage[1]) and 1 <= len(block) <= 1019
+            self.stage[1].extend(block); size = rf.IMAGES[index]['bytes']
+            if len(self.stage[1]) < size:
+                result = dict(asset=index, verified=False, uploaded=len(self.stage[1]), bytes=size)
+            else:
+                data = bytes(self.stage[1]); self.stage = None
+                if self.corrupt_asset or hashlib.sha256(data).hexdigest() != rf.IMAGES[index]['sha256']:
+                    result = dict(error='asset_verification_failed')
+                else:
+                    self.assets[index] = data; result = dict(asset=index, verified=True, uploaded=size, bytes=size)
+        elif cmd == wire.REBOOT_UPDATE:
+            assert not payload
+            self.reboot_requested = True; result = dict(reboot_update=True)
         elif cmd == wire.INVENTORY:
             result = self.inventory
         elif cmd == wire.PREPARE:
@@ -52,8 +77,8 @@ class Radio:
         elif cmd == wire.STATUS:
             self.status.update(phase=5,transferred=len(self.data),driving_locked=False,cancellable=False)
             self.inventory['epoch'] += 1
-            self.inventory['receiver']['firmware']=0x113
-            self.inventory['receiver']['identity_words'][3]=0x113
+            self.inventory['receiver']['firmware']=self.installed
+            self.inventory['receiver']['identity_words'][3]=self.installed
             result=self.status
         else:
             raise AssertionError(f'unexpected write command: {cmd}')
@@ -321,6 +346,77 @@ class RfTransferTests(unittest.TestCase):
         self.assertNotIn(wire.START,commands)
         self.assertLess(commands.count(wire.STATUS),10)
         self.assertEqual(self.transfer.load()['state'],'recovery_required')
+
+
+class AssetTests(unittest.TestCase):
+    def setUp(self):
+        self.data = {0: b'm' * 700, 1: b'r' * 1200, 2: b's' * 3001}
+        images = tuple(dict(rf.IMAGES[i], bytes=len(d), sha256=hashlib.sha256(d).hexdigest()) for i, d in self.data.items())
+        catalog = patch.object(rf, 'IMAGES', images + rf.IMAGES[3:]); catalog.start(); self.addCleanup(catalog.stop)
+        self.files = {rf.image_name(images[i]): d for i, d in self.data.items()}
+        self.peer = Radio(); self.client = rf.AssetClient(self.peer)
+
+    def test_publish_skips_verified_images_and_streams_the_rest_sequentially(self):
+        self.peer.assets[0] = self.data[0]
+        result = rf.publish_assets(self.client, 'nb4', self.files)
+        self.assertEqual([(r['image'], r['state']) for r in result], [(0, 'present'), (1, 'uploaded'), (2, 'uploaded')])
+        self.assertEqual(self.peer.assets, self.data)
+        self.assertEqual(self.peer.commands.count(wire.ASSET_BEGIN), 3)
+        self.assertEqual(self.peer.commands.count(wire.ASSET_DATA), 3 + 6)
+        self.assertFalse({wire.PREPARE, wire.UPLOAD, wire.START, wire.REBOOT_UPDATE} & set(self.peer.commands))
+
+    def test_verification_failure_is_surfaced_and_nothing_is_kept(self):
+        self.peer.corrupt_asset = True
+        with self.assertRaisesRegex(wire.MaintenanceError, 'RF module.*asset_verification_failed'):
+            rf.publish_assets(self.client, 'nb4', self.files)
+        self.assertEqual(self.peer.assets, {})
+
+    def test_tampered_or_missing_catalog_bytes_never_reach_the_radio(self):
+        files = dict(self.files); files[rf.image_name(rf.IMAGES[0])] = b'x' * 700
+        with self.assertRaisesRegex(wire.MaintenanceError, 'verification failed'):
+            rf.publish_assets(self.client, 'nb4', files)
+        with self.assertRaises(wire.MaintenanceError):
+            rf.publish_assets(self.client, 'nb4', {})
+        self.assertNotIn(wire.ASSET_DATA, self.peer.commands)
+        capabilities = dict(protocol=1, inventory=True)
+        with patch.object(self.client, 'request', return_value=capabilities):
+            with self.assertRaisesRegex(wire.MaintenanceError, 'does not accept'):
+                rf.publish_assets(self.client, 'nb4', self.files)
+
+    def test_foreign_or_non_sequential_progress_stops_the_upload(self):
+        replies = {wire.CAPABILITIES: dict(protocol=1, assets=True),
+                   wire.ASSET_BEGIN: dict(asset=0, verified=False, uploaded=0, bytes=700),
+                   wire.ASSET_DATA: dict(asset=0, verified=False, uploaded=7, bytes=700)}
+        with patch.object(self.client, 'request', side_effect=lambda cmd, payload=b'': replies[cmd]) as request:
+            with self.assertRaisesRegex(wire.MaintenanceError, 'does not match'):
+                rf.publish_assets(self.client, 'nb4', self.files)
+        self.assertEqual([c.args[0] for c in request.call_args_list].count(wire.ASSET_DATA), 1)
+        replies[wire.ASSET_BEGIN] = dict(asset=1, verified=False, uploaded=0, bytes=700)
+        with patch.object(self.client, 'request', side_effect=lambda cmd, payload=b'': replies[cmd]):
+            with self.assertRaisesRegex(wire.MaintenanceError, 'Invalid RF asset'):
+                rf.publish_assets(self.client, 'nb4', self.files)
+
+    def test_reboot_requires_the_capability_and_an_explicit_confirmation(self):
+        rf.reboot_into_update(self.client)
+        self.assertTrue(self.peer.reboot_requested)
+        self.assertEqual(self.peer.commands, [wire.CAPABILITIES, wire.REBOOT_UPDATE])
+        self.peer.reboot_requested = False
+        with patch.object(self.client, 'request', return_value=dict(protocol=1, inventory=True)):
+            with self.assertRaises(wire.MaintenanceError): rf.reboot_into_update(self.client)
+        with patch.object(self.client, 'request', side_effect=[dict(reboot_update=True), dict(reboot_update=False)]):
+            with self.assertRaisesRegex(wire.MaintenanceError, 'did not confirm'): rf.reboot_into_update(self.client)
+        self.assertFalse(self.peer.reboot_requested)
+
+    def test_asset_client_cannot_prepare_start_or_recover_an_rf_write(self):
+        for command in (wire.PREPARE, wire.UPLOAD, wire.START, wire.CANCEL, wire.RECOVER, wire.STORAGE_SESSION):
+            with self.assertRaises(wire.MaintenanceError): self.client.request(command, b'')
+        self.assertEqual(self.peer.commands, [])
+
+    def test_installable_images_follow_the_production_rules_of_both_targets(self):
+        self.assertEqual(rf.installable_images('nb4'), [0, 1, 2])
+        self.assertEqual(rf.installable_images('nb4plus'), [0, 1, 2])
+        with self.assertRaises(wire.MaintenanceError): rf.installable_images('nb4pro')
+        self.assertLessEqual(rf.ASSET_CHUNK + 5, wire.MAX_PAYLOAD)
 
 
 if __name__ == '__main__': unittest.main()

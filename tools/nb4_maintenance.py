@@ -15,6 +15,9 @@ CAPABILITIES, INVENTORY = 1, 2
 STORAGE_SESSION = 3
 PREPARE, UPLOAD, START, STATUS, CANCEL = 16, 17, 18, 19, 20
 RECOVER = 21
+# Catalog assets stored on the card for the radio's own installer, and the
+# restart into ApexTX Update. Neither command writes an RF component.
+ASSET_BEGIN, ASSET_DATA, REBOOT_UPDATE = 22, 23, 24
 TARGETS = {1: 'nb4', 2: 'nb4plus'}
 
 

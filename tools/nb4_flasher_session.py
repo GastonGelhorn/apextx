@@ -1,12 +1,20 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """One device/release session shared by the Windows and macOS front ends."""
 import copy
+from pathlib import Path
 import threading
 import time
 
 from nb4_releases import ReleaseClient, bootloader_required, image_bootloader_generation, update_decision
 from nb4_usb_update import UpdateError, discover, probe, release, run_update
-from nb4_maintenance import TARGETS
+from nb4_maintenance import TARGETS, connection
+from nb4_rf_transfer import AssetClient, publish_assets, reboot_into_update
+
+REPLUG = 'Unplug USB, plug it again and choose ApexTX Flasher on the radio.'
+
+
+def maintenance_mode(device):
+    return device.get('state') == 'normal' and device.get('maintenance') is True
 
 
 class FlasherSession:
@@ -197,7 +205,7 @@ class FlasherSession:
                     raise UpdateError('The radio disconnected during inventory. Read it again.')
                 with self.lock:
                     self.inventory, self.inventory_time = inventory, time.monotonic()
-                self.progress('Component versions read. RF installation is not enabled in this experimental build.', 100)
+                self.progress('Component versions read. Nothing was written.', 100)
         except Exception as error:
             self.inventory = None
             self.finish(error)
@@ -345,7 +353,10 @@ class FlasherSession:
             device = self.device
             if self.bootloader_install:
                 raise UpdateError('Finish or cancel the pending bootloader installation first.')
-            if (device.get('state') != 'ready' or not serial or
+            # Update mode, or the radio's own ApexTX Flasher connection, which
+            # the one-click path restarts into Update mode. Any other USB mode
+            # (joystick, storage, plain serial) cannot be updated from here.
+            if ((device.get('state') != 'ready' and not maintenance_mode(device)) or not serial or
                     (serial, target) != (device.get('serial'), device.get('target')) or
                     not self.offer or release_id != self.offer['id'] or target != self.offer['target']):
                 raise UpdateError('The radio or release changed. Check the detected radio and try again.')
@@ -408,25 +419,93 @@ class FlasherSession:
             return selection
         return find
 
-    def automatic(self, device, offer):
+    @staticmethod
+    def require_maintenance(device):
+        current = probe()
+        if not maintenance_mode(current) or (current.get('serial'), current.get('target')) != (device['serial'], device['target']):
+            raise UpdateError('The radio left its ApexTX Flasher connection. Nothing was written. ' + REPLUG)
+        return current
+
+    def catalog_images(self, device, offer):
+        """Verified RF images for this radio: the downloaded release package's
+        rf/catalog.zip when a plan for this radio and release holds one, else
+        the catalog embedded next to the tools. Both are re-verified here."""
+        from nb4_rf_catalog import MAX_BUNDLE, verify_bundle
+        hardware = TARGETS[device['target']]
+        with self.lock:
+            plan = self.integrated
+        if (plan and plan.package.catalog and plan.record['serial'] == device['serial'] and
+                plan.record['target'] == device['target'] and plan.package.manifest.get('release') == offer['version']):
+            return plan.package.images
+        path = Path(__file__).with_name('rf-catalog') / f'{hardware}.zip'
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BUNDLE:
+            raise UpdateError('The RF catalog for this radio is missing from ApexTX Flasher. Download a complete copy.')
+        catalog, images = verify_bundle(path.read_bytes())
+        if catalog['radio'] != hardware:
+            raise UpdateError('The RF catalog targets a different transmitter. Nothing was written.')
+        return images
+
+    @staticmethod
+    def wait_for_update_mode(device, *, timeout=20, clock=time.monotonic, sleep=time.sleep):
+        """Only standard descriptor reads while the radio re-enumerates. A
+        read that fails mid-transition is retried; a different radio is not."""
+        deadline = clock() + timeout
+        while True:
+            try:
+                current = probe()
+            except UpdateError:
+                current = dict(state='error')
+            if (current.get('state'), current.get('serial'), current.get('target')) == ('ready', device['serial'], device['target']):
+                return current
+            if current.get('state') == 'multiple' or current.get('serial') not in (None, device['serial']):
+                raise UpdateError('A different radio appeared. Nothing was written. Reconnect the original radio.')
+            if clock() >= deadline:
+                raise UpdateError('The radio did not return in ApexTX Update mode. Nothing was written. '
+                                  'On the radio open System > Update > Update radio firmware, or reconnect it.')
+            sleep(.5)
+
+    def automatic(self, device, offer, *, clock=time.monotonic, sleep=time.sleep):
         try:
             with self.usb_lock:
                 finder = self.pinned_finder(device)
-                selection = finder(device['serial'])
-                if selection is None:
-                    raise UpdateError('The radio was disconnected. Reconnect it in ApexTX Update mode.')
-                release(selection)
+                maintenance = maintenance_mode(device)
+                if maintenance:
+                    self.require_maintenance(device)
+                else:
+                    selection = finder(device['serial'])
+                    if selection is None:
+                        raise UpdateError('The radio was disconnected. Reconnect it in ApexTX Update mode.')
+                    release(selection)
                 image = self.client.download(offer, self.progress)
-                self.check_bootloader(device, image)
-                if offer.get('bootloader'):
-                    # Re-read only standard descriptors before opening a write
-                    # transaction; discovery alone does not prove compatibility.
-                    current = probe()
-                    if (current.get('state'), current.get('serial'), current.get('target')) != ('ready', device['serial'], device['target']):
-                        raise UpdateError('The connected radio changed. Nothing was written.')
+                if maintenance:
+                    # The user confirmed this update once. Store the catalog
+                    # images first (files only; the radio installs RF itself),
+                    # then let the radio restart into Update mode. Its
+                    # bootloader generation is only known once it is there.
+                    images = self.catalog_images(device, offer)
+                    self.require_maintenance(device)
+                    hardware = TARGETS[device['target']]
+                    with connection(device['serial'], hardware, verified=True) as port:
+                        client = AssetClient(port)
+                        publish_assets(client, hardware, images,
+                                       progress=lambda message, percent: self.progress(message, 8 + percent * 4 // 100))
+                        self.progress('Restarting the radio into ApexTX Update...', 12)
+                        reboot_into_update(client)
+                    current = self.wait_for_update_mode(device, clock=clock, sleep=sleep)
                     self.check_bootloader(current, image)
-                run_update(image, lambda message, percent: self.progress(message, 8 + percent * 92 // 100),
-                           serial=device['serial'], wait_seconds=0, finder=finder)
+                    wait_seconds = 10
+                else:
+                    self.check_bootloader(device, image)
+                    if offer.get('bootloader'):
+                        # Re-read only standard descriptors before opening a write
+                        # transaction; discovery alone does not prove compatibility.
+                        current = probe()
+                        if (current.get('state'), current.get('serial'), current.get('target')) != ('ready', device['serial'], device['target']):
+                            raise UpdateError('The connected radio changed. Nothing was written.')
+                        self.check_bootloader(current, image)
+                    wait_seconds = 0
+                run_update(image, lambda message, percent: self.progress(message, 12 + percent * 88 // 100),
+                           serial=device['serial'], wait_seconds=wait_seconds, finder=finder)
         except Exception as error:
             self.finish(error)
         else:

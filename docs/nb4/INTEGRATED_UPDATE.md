@@ -16,8 +16,10 @@ that the RF module, receivers or audio have been updated.
   over USB serial. Opening the app never opens this port or writes firmware.
   Desktop snapshots become stale after ten seconds.
 - The RF catalog preparer validates exact package hashes, complete image sizes,
-  image hashes and CRCs. It prepares three reviewed component images: one
-  module and the initial FGr4 V2/FGr4S V2 receiver candidates.
+  image hashes and CRCs. Both verified catalogs are committed under
+  `tools/rf-catalog/` (`nb4.zip`, profile `nb4-rf-1b`; `nb4plus.zip`, profile
+  `nb4plus-rf-1b`), ship in every release package as `rf/catalog.zip` and are
+  embedded in ApexTX Flasher.
 - Audio installation verifies a full filesystem backup on the computer before
   replacing any file. It preserves personal recordings and omitted assignable
   tracks, retains storage headroom and journals interrupted installations.
@@ -36,10 +38,14 @@ complete identity, every requested range, the image hash, transfer coverage
 and a fresh version after restart. It checkpoints the boot peer before
 sending image data and locks driving while an interrupted write needs recovery.
 
-**Normal builds do not enable RF module/receiver writes.** Transfer and
-recovery must be qualified on each supported hardware combination. A separate
-private bench build is bound to one transmitter serial number and requires
-explicit arming and confirmation. See [RF bench procedure](RF_BENCH.md).
+Production builds install the RF module and the FGr4 V2 / FGr4S V2 images
+(catalog indices 0–2), whose transfer and recovery were exercised on the bench
+([RF bench procedure](RF_BENCH.md)), on both NB4 and NB4+. The other receivers
+in the catalog have no hardware rule and are never selected. The flasher's
+one-click update only stores those images on the card (`/FIRMWARE/RF/`): the
+radio hashes each file before it becomes visible, and the computer never
+writes an RF component in that flow. A separate private bench build remains
+bound to one transmitter serial number for unqualified combinations.
 A shared product ID alone never authorizes an image.
 
 The experimental desktop **Components** wizard and Linux component CLI share
@@ -166,8 +172,9 @@ power until the corresponding independent recovery has passed on hardware.
 
 ## Read a live inventory
 
-1. On the radio, open **Menu > System > Update > Connect to ApexTX Flasher**
-   and confirm. An existing ordinary Serial connection can be switched directly.
+1. Choose **ApexTX Flasher** on the radio's USB menu when plugging in, or open
+   **Menu > System > Update > Connect to ApexTX Flasher** and confirm. An
+   existing ordinary Serial connection can be switched directly.
 2. Connect USB if needed. Close USB Storage or Joystick before switching.
 3. In the desktop app, open **Components > Read component versions**.
 
@@ -184,9 +191,13 @@ The same explicitly selected connection works from Linux:
 
 The versioned APXM protocol uses bounded frames, CRC-32 and request IDs. It is
 separate from debug/CLI serial sessions and the APXINFO bootloader descriptor.
-Capabilities separately report inventory, verified staging, RF write and RF
-recovery support. Staging a file does not authorize or start a write. Unsupported
-commands are rejected. The ordinary inventory client cannot send RF commands.
+Capabilities separately report inventory, verified staging, RF write, RF
+recovery, asset and restart support. Staging a file does not authorize or start
+a write. `AssetBegin`/`AssetData` (22/23) store a catalog image in 512-byte
+chunks and the radio verifies its SHA-256 before keeping it; `RebootUpdate`
+(24) restarts into ApexTX Update after the reply. Unsupported commands are
+rejected. The ordinary inventory client cannot send RF commands, and the
+flasher's asset client cannot prepare, start or recover one.
 A disconnected or one-way receiver is not considered checked or updated.
 
 ## Prepare and verify an RF catalog offline

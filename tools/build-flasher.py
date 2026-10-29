@@ -56,7 +56,8 @@ def main():
                'nb4_flasher_session.py', 'nb4_rf_catalog.py',
                'nb4_maintenance.py', 'nb4_audio_install.py', 'nb4_storage_backup.py',
                'nb4_rf_transfer.py', 'nb4_backup_agent.py', 'nb4_nor_restore.py',
-               'nb4_integrated_update.py', 'nb4_resource_install.py']
+               'nb4_integrated_update.py', 'nb4_resource_install.py',
+               'rf-catalog/nb4.zip', 'rf-catalog/nb4plus.zip']
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = work / 'apextx-flasher-build.json'
     metadata.write_text(json.dumps({
@@ -72,6 +73,8 @@ def main():
         '--icon', str(icon), '--paths', str(ROOT / 'tools'),
         '--add-data', str(ROOT / 'tools/apextx-updater.html') + ':.',
         '--add-data', str(ROOT / 'tools/apextx-updater-logo.png') + ':.',
+        # Verified RF catalogs for the one-click update without a release package.
+        '--add-data', str(ROOT / 'tools/rf-catalog') + ':rf-catalog',
         '--add-data', str(ROOT / 'LICENSE') + ':licenses',
         '--add-data', str(ROOT / 'tools/flasher-update-keys.json') + ':.',
         '--collect-all', 'cryptography',

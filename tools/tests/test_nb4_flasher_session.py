@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(ROOT / 'tools/tests'))
 import nb4_usb_update as usb
 import nb4_flasher_session as sessions
 from tools.tests.test_nb4_updater import radio
@@ -175,6 +176,91 @@ class Session(unittest.TestCase):
             s.scan()
         self.assertIsNone(s.snapshot()['operation'])
         self.assertEqual(s.snapshot()['progress'], 0)
+
+    def maintenance_session(self):
+        s=self.setup_session()
+        s.device=dict(state='normal',maintenance=True,mode='maintenance',serial='A',target=1,model='NB4',version='0.1.0-alpha.3')
+        s.client.download.return_value=b'validated image'; s.client.latest.return_value=dict(s.offer)
+        return s
+
+    def one_click(self,s,probes,peer,updates):
+        from test_nb4_rf_transfer import Radio
+        from itertools import count
+        peer=peer or Radio()
+        manager=Mock(); manager.__enter__=Mock(return_value=peer); manager.__exit__=Mock(return_value=False)
+        def update(image,progress,**kwargs):
+            updates.append(dict(kwargs,image=image,assets=sorted(peer.assets),rebooted=peer.reboot_requested))
+            progress('Firmware verified.',100)
+        ticks=count()
+        s.begin('upgrade')
+        with patch.object(sessions,'probe',side_effect=probes),patch.object(sessions,'connection',return_value=manager), \
+                patch.object(sessions,'discover',return_value=radio()),patch.object(sessions,'release'), \
+                patch.object(sessions,'run_update',side_effect=update):
+            s.automatic(s.device,s.offer,clock=lambda:next(ticks),sleep=lambda _:None)
+        return peer
+
+    def test_only_update_mode_or_the_flasher_connection_can_choose_an_offer(self):
+        s=self.maintenance_session()
+        self.assertEqual(s.choice('A',1,42)[0]['mode'],'maintenance')
+        for mode in ('joystick','storage','serial'):
+            s.device.update(mode=mode,maintenance=False)
+            with self.assertRaises(usb.UpdateError): s.choice('A',1,42)
+        self.assertIn('ApexTX Flasher on the radio',sessions.REPLUG)
+
+    def test_one_click_update_stores_the_catalog_then_reboots_and_flashes_the_same_radio(self):
+        from nb4_maintenance import ASSET_BEGIN,ASSET_DATA,REBOOT_UPDATE,PREPARE,START
+        from nb4_rf_catalog import IMAGES
+        s=self.maintenance_session(); updates=[]
+        with patch.object(sessions,'probe',return_value=s.device),patch.object(sessions,'connection',side_effect=AssertionError('scanning must not open the port')):
+            s.scan()  # Detection alone never publishes or restarts anything.
+        absent=dict(state='absent'); ready=dict(state='ready',serial='A',target=1,model='NB4',bootloader=1,version=None)
+        peer=self.one_click(s,[s.device,s.device,absent,usb.UpdateError('re-enumerating'),ready],None,updates)
+        self.assertFalse(s.snapshot()['error'],s.snapshot()['message'])
+        self.assertEqual(s.snapshot()['progress'],100)
+        self.assertEqual(updates[0]['serial'],'A'); self.assertEqual(updates[0]['image'],b'validated image')
+        self.assertEqual(updates[0]['assets'],[0,1,2]); self.assertTrue(updates[0]['rebooted'])
+        self.assertEqual(peer.commands[-1],REBOOT_UPDATE)
+        self.assertLess(peer.commands.index(ASSET_BEGIN),peer.commands.index(REBOOT_UPDATE))
+        self.assertFalse({PREPARE,START}&set(peer.commands))
+        self.assertEqual(peer.commands.count(ASSET_DATA),sum((IMAGES[i]['bytes']+511)//512 for i in range(3)))
+
+    def test_one_click_stops_before_the_reboot_when_an_asset_is_rejected(self):
+        from test_nb4_rf_transfer import Radio
+        s=self.maintenance_session(); updates=[]
+        peer=Radio(); peer.corrupt_asset=True
+        self.one_click(s,[s.device,s.device],peer,updates)
+        self.assertTrue(s.snapshot()['error']); self.assertIn('asset_verification_failed',s.snapshot()['message'])
+        self.assertFalse(peer.reboot_requested); self.assertEqual(updates,[]); self.assertEqual(peer.assets,{})
+
+    def test_one_click_gives_up_when_the_radio_does_not_return_or_another_one_appears(self):
+        s=self.maintenance_session(); updates=[]
+        probes=iter([s.device,s.device]+[dict(state='absent')]*60)
+        peer=self.one_click(s,lambda:next(probes),None,updates)
+        self.assertTrue(peer.reboot_requested); self.assertEqual(updates,[])
+        self.assertIn('did not return',s.snapshot()['message'])
+        s=self.maintenance_session(); updates=[]
+        other=dict(state='ready',serial='B',target=1,model='NB4',bootloader=1,version=None)
+        self.one_click(s,[s.device,s.device,other],None,updates)
+        self.assertIn('different radio',s.snapshot()['message']); self.assertEqual(updates,[])
+
+    def test_one_click_requires_the_same_radio_in_flasher_mode_before_touching_it(self):
+        s=self.maintenance_session(); updates=[]
+        joystick=dict(s.device,maintenance=False,mode='joystick')
+        peer=self.one_click(s,[joystick],None,updates)
+        self.assertIn('Unplug USB',s.snapshot()['message']); self.assertEqual(peer.commands,[]); self.assertEqual(updates,[])
+        s.client.download.assert_not_called()
+
+    def test_embedded_catalog_is_verified_and_pinned_to_the_radio(self):
+        from nb4_rf_catalog import IMAGES,image_name
+        s=self.maintenance_session()
+        images=s.catalog_images(s.device,s.offer)
+        self.assertEqual(len(images[image_name(IMAGES[0])]),IMAGES[0]['bytes'])
+        with patch.object(sessions.Path,'is_file',return_value=False):
+            with self.assertRaisesRegex(usb.UpdateError,'missing'): s.catalog_images(s.device,s.offer)
+        from nb4_rf_catalog import RECEIVERS_FROM_NB4PLUS
+        s.device.update(target=2)
+        plus=s.catalog_images(s.device,s.offer)
+        self.assertIn(image_name(RECEIVERS_FROM_NB4PLUS[0]),plus); self.assertNotIn(image_name(RECEIVERS_FROM_NB4PLUS[0]),images)
 
     def prepare(self, target=1):
         from tools.tests.test_nb4_releases import image

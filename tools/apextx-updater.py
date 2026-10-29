@@ -68,6 +68,11 @@ def package_self_test():
         raise RuntimeError('The shared maintenance/audio runtime is incomplete.')
     if not PROFILES or any(manifest(profile)['rf_write_supported'] for profile in PROFILES):
         raise RuntimeError('The read-only RF package preparer is missing or unsafe.')
+    from nb4_rf_catalog import MAX_BUNDLE, verify_bundle
+    for radio in ('nb4', 'nb4plus'):
+        bundle = folder / 'rf-catalog' / f'{radio}.zip'
+        if not bundle.is_file() or bundle.stat().st_size > MAX_BUNDLE or verify_bundle(bundle.read_bytes())[0]['radio'] != radio:
+            raise RuntimeError('The embedded RF catalog is missing or targets the wrong radio.')
     return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
                 release_client=True, rf_catalog=True, maintenance=True, audio_installer=True,
                 rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True)

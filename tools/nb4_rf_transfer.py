@@ -9,15 +9,92 @@ import struct
 import time
 
 from nb4_maintenance import (Client, MaintenanceError, CAPABILITIES, INVENTORY,
-                             PREPARE, UPLOAD, START, STATUS, CANCEL, RECOVER, STORAGE_SESSION, validate_inventory)
-from nb4_rf_catalog import IMAGES, UPDATE_HARDWARE
+                             PREPARE, UPLOAD, START, STATUS, CANCEL, RECOVER, STORAGE_SESSION,
+                             ASSET_BEGIN, ASSET_DATA, REBOOT_UPDATE, MAX_PAYLOAD, validate_inventory)
+from nb4_rf_catalog import IMAGES, UPDATE_HARDWARE, image_name
 from nb4_storage_backup import verify_backup, sync_directory
+
+ASSET_CHUNK = 512
+assert ASSET_CHUNK + 5 <= MAX_PAYLOAD
 
 
 class TransferClient(Client):
     # Unlike the default inventory client, this is instantiated only inside an
     # explicit maintenance operation after the USB identity has been selected.
     allowed_commands = (CAPABILITIES, INVENTORY, STORAGE_SESSION, PREPARE, UPLOAD, START, STATUS, CANCEL, RECOVER)
+
+
+class AssetClient(Client):
+    # The one-click flasher path stores catalog files and restarts the radio;
+    # it cannot prepare, start or recover an RF write.
+    allowed_commands = (CAPABILITIES, INVENTORY, ASSET_BEGIN, ASSET_DATA, REBOOT_UPDATE)
+
+
+def installable_images(target):
+    """Catalog indices the radio installs by itself on this target: the same
+    production rule (transfer and recovery verified) as the firmware applies."""
+    number = {'nb4': 1, 'nb4plus': 2}.get(target)
+    if number is None:
+        raise MaintenanceError('Select one identified ApexTX radio first.')
+    return sorted({rule['image'] for rule in UPDATE_HARDWARE
+                   if rule['target'] == number and rule['transfer'] and rule['recovery']})
+
+
+def validate_asset(value, index, size):
+    if (not isinstance(value, dict) or value.get('asset') != index or
+            type(value.get('verified')) is not bool or value.get('bytes') != size or
+            type(value.get('uploaded')) is not int or not 0 <= value['uploaded'] <= size):
+        raise MaintenanceError('Invalid RF asset progress.')
+    return value
+
+
+def publish_assets(client, target, images, *, progress=lambda *_: None):
+    """Store every installable catalog image on the radio's card.
+
+    `images` is the file map of a bundle that verify_bundle() accepted. Each
+    image is hashed again here, and the radio hashes it independently before
+    the file becomes visible; a present, verified image is never re-sent. This
+    never writes an RF component: installation stays with the radio.
+    """
+    capabilities = client.request(CAPABILITIES)
+    if capabilities.get('protocol') != 1 or capabilities.get('assets') is not True:
+        raise MaintenanceError('This radio build does not accept RF catalog assets.')
+    results = []
+    for index in installable_images(target):
+        image = IMAGES[index]
+        data = images.get(image_name(image))
+        if (not isinstance(data, bytes) or len(data) != image['bytes'] or
+                hashlib.sha256(data).hexdigest() != image['sha256']):
+            raise MaintenanceError('RF image verification failed before transfer.')
+        try:
+            value = validate_asset(client.request(ASSET_BEGIN, bytes([index])), index, len(data))
+            if value['verified']:
+                results.append(dict(image=index, label=image['label'], bytes=len(data), state='present'))
+                continue
+            if value['uploaded'] != 0:
+                raise MaintenanceError('The radio did not start an empty asset upload.')
+            for offset in range(0, len(data), ASSET_CHUNK):
+                block = data[offset:offset + ASSET_CHUNK]
+                value = validate_asset(client.request(ASSET_DATA, struct.pack('<BI', index, offset) + block),
+                                       index, len(data))
+                if value['uploaded'] != offset + len(block):
+                    raise MaintenanceError('RF asset progress does not match the transferred file.')
+                progress(f"Publishing RF image {image['label']}", value['uploaded'] * 100 // len(data))
+            if not value['verified']:
+                raise MaintenanceError('The radio did not verify the stored RF image.')
+        except MaintenanceError as error:
+            raise MaintenanceError(f"{image['label']}: {error}") from error
+        results.append(dict(image=index, label=image['label'], bytes=len(data), state='uploaded'))
+    return results
+
+
+def reboot_into_update(client):
+    """Ask the radio to restart into ApexTX Update. The reply precedes the
+    restart; the caller then waits for the update device to enumerate."""
+    if client.request(CAPABILITIES).get('reboot_update') is not True:
+        raise MaintenanceError('This radio build cannot restart into update mode from the flasher.')
+    if client.request(REBOOT_UPDATE).get('reboot_update') is not True:
+        raise MaintenanceError('The radio did not confirm the restart into update mode.')
 
 
 def save_json(path, value):

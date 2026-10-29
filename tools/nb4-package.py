@@ -41,6 +41,17 @@ def verify(package):
     print(f"Verified {len(manifest['files'])} files: {manifest['release']}")
     return manifest
 
+def rf_catalog(rf_bundle, hardware):
+    """The release's RF catalog: a bundle this installer verifies, pinned to
+    the radio the firmware image names. The radio installs only the images
+    with a production rule for its target; the package merely carries them."""
+    from nb4_rf_catalog import verify_bundle, MAX_BUNDLE
+    with Path(rf_bundle).open('rb') as stream:
+        catalog, _ = verify_bundle(stream.read(MAX_BUNDLE + 1))
+    if catalog['radio'] != hardware:
+        raise ValueError("The RF catalog targets a different transmitter")
+    return Path(rf_bundle)
+
 def create(args):
     build, out = args.build.resolve(), args.output.resolve()
     baseline = args.baseline.resolve() if args.baseline else None
@@ -177,14 +188,7 @@ def create(args):
             copies["images/" + image.name] = image
     rf_bundle = getattr(args, 'rf_bundle', None)
     if rf_bundle:
-        if public_image:
-            raise ValueError("Integrated RF packages remain experimental pending hardware recovery qualification")
-        from nb4_rf_catalog import verify_bundle, MAX_BUNDLE
-        with rf_bundle.open('rb') as stream:
-            catalog, _ = verify_bundle(stream.read(MAX_BUNDLE + 1))
-        if catalog['radio'] != hardware:
-            raise ValueError("The RF catalog targets a different transmitter")
-        copies["rf/catalog.zip"] = rf_bundle
+        copies["rf/catalog.zip"] = rf_catalog(rf_bundle, hardware)
     for name in ("apextx-full-backup.py", "apextx-rf-maintenance.py", "nb4_backup_agent.py",
                  "apextx-restore-storage.py", "apextx-components.py", "nb4_nor_restore.py", "nb4_integrated_update.py",
                  "nb4_resource_install.py",
@@ -261,7 +265,9 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--baseline", type=Path, help="Directory containing the previously installed firmware.bin and verified install.json")
     parser.add_argument("--tests", type=Path)
-    parser.add_argument("--rf-bundle", type=Path, help="Verified RF catalog for an experimental offline bench package")
+    parser.add_argument("--rf-bundle", type=Path,
+                        help="Verified RF catalog ZIP (tools/rf-catalog/<radio>.zip) copied to rf/catalog.zip; "
+                             "must be prepared for the radio the firmware image names")
     parser.add_argument("--release", default=PROJECT_VERSION)
     parser.add_argument("--model", choices=sorted(TARGETS),
                         help="Radio the package is expected to be for; refused if the image says otherwise")

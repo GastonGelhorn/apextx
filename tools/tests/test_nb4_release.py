@@ -36,6 +36,32 @@ class Nb4ReleasePolicyTest(unittest.TestCase):
             workflow.index("apt-get update"),
         )
 
+    def test_release_packages_ship_the_verified_rf_catalogs(self) -> None:
+        import importlib.util
+        import sys
+        sys.path.insert(0, str(ROOT / "tools"))
+        from nb4_rf_catalog import MAX_BUNDLE, verify_bundle
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertIn("--rf-bundle tools/rf-catalog/${{ matrix.model }}.zip", workflow)
+        source = (ROOT / "tools/nb4-package.py").read_text(encoding="utf-8")
+        self.assertNotIn("remain experimental", source)
+        spec = importlib.util.spec_from_file_location("nb4_package", ROOT / "tools/nb4-package.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for model, profile in (("nb4", "nb4-rf-1b"), ("nb4plus", "nb4plus-rf-1b")):
+            with self.subTest(model=model):
+                path = ROOT / f"tools/rf-catalog/{model}.zip"
+                self.assertFalse(path.is_symlink())
+                self.assertLessEqual(path.stat().st_size, MAX_BUNDLE)
+                description, images = verify_bundle(path.read_bytes())
+                self.assertEqual((description["profile"], description["radio"]), (profile, model))
+                self.assertFalse(description["rf_write_supported"])
+                self.assertEqual(len(images), len(description["images"]))
+                # Public packages accept the catalog; a mismatched radio is refused.
+                self.assertEqual(module.rf_catalog(path, model), path)
+                with self.assertRaisesRegex(ValueError, "different transmitter"):
+                    module.rf_catalog(path, "nb4plus" if model == "nb4" else "nb4")
+
     def test_project_owned_sources_have_spdx_headers(self) -> None:
         patterns = (
             "radio/src/nb4*.[ch]", "radio/src/nb4*.cpp",

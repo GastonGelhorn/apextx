@@ -97,6 +97,33 @@ class IntegratedTests(unittest.TestCase):
                 self.plan.rf('receiver','install',lambda *_:None,reinstall=True)
         self.assertNotIn(START,peer.commands); self.assertNotIn(PREPARE,peer.commands)
 
+    def test_radio_reported_write_support_enables_a_confirmed_install_from_the_shipped_catalog(self):
+        from test_nb4_rf_transfer import Radio
+        import nb4_rf_transfer as rf
+        from nb4_maintenance import START,PREPARE,UPLOAD
+        data=(Path(__file__).resolve().parents[1]/'rf-catalog/nb4.zip').read_bytes()
+        manifest=json.loads((self.source/'manifest.json').read_text())
+        catalog=self.source/'rf/catalog.zip'; catalog.parent.mkdir(); catalog.write_bytes(data)
+        manifest['files']['rf/catalog.zip']=dict(bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
+        (self.source/'manifest.json').write_text(json.dumps(manifest))
+        self.plan=integrated.IntegratedUpdate.create(self.source,'000000000001',1,self.root/'session-rf')
+        self.assertTrue(self.plan.record['rf_assets'])
+        self.inv['receiver']['write_supported']=True; self.read()
+        step=self.plan.record['steps']['receiver']
+        self.assertEqual((step['state'],step['image'],step['write_supported']),('current',2,True))
+        peer=Radio(); peer.can_write=True; peer.installed=0x111; peer.inventory=copy.deepcopy(self.inv)
+        manager=Mock(); manager.__enter__=Mock(return_value=peer); manager.__exit__=Mock(return_value=False)
+        (self.root/'backup').mkdir(exist_ok=True)
+        (self.root/'backup/device.json').write_text(json.dumps(dict(serial='000000000001',target='nb4')))
+        (self.root/'backup/storage.json').write_text('{}')
+        with self.ready(),patch.object(rf,'verify_backup',return_value={}),patch.object(rf.time,'sleep',lambda _:None), \
+                patch.object(integrated,'probe',return_value=self.device),patch.object(integrated,'connection',return_value=manager):
+            self.plan.rf('receiver','install',lambda *_:None,reinstall=True)
+        self.assertEqual(self.plan.record['steps']['receiver']['state'],'complete')
+        self.assertEqual(peer.commands.count(START),1); self.assertIn(PREPARE,peer.commands)
+        self.assertEqual(peer.data,self.plan.package.images[integrated.image_name(integrated.IMAGES[2])])
+        self.assertEqual(peer.commands.count(UPLOAD),(len(peer.data)+999)//1000)
+
     def test_package_is_copied_offline_and_tampering_or_wrong_hardware_is_rejected(self):
         (self.source/'firmware.bin').write_bytes(b'changed')
         self.assertEqual(len(integrated.IntegratedUpdate.load(self.plan.root).package.image),2097152)
