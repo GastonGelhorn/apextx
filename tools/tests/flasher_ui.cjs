@@ -169,12 +169,26 @@ for(const language of ['en','es','de']) {
  await get('bootloaderCancel').onclick();
  assert.equal(calls[0].url,'/api/bootloader/cancel');
  calls=[];
- const appOffer={version:'1.4.0',state:'available',available:'1.5.0',notes:'<script>unsafe</script>',supported:true,compatible:true,preview:false};
+ const appOffer={version:'1.4.0',state:'available',available:'1.5.0',notes:'<script>unsafe</script>',supported:true,compatible:true,preview:false,release_url:'https://github.com/GastonGelhorn/apextx/releases/tag/flasher-v1.5.0'};
+ state(device,offer,{app_update:{...appOffer,hidden:true}});
+ assert.equal(get('appDialog').open,undefined,'A snoozed or skipped offer never opens the dialog by itself');
+ assert.equal(get('appShow').hidden,false,'A snoozed offer stays reachable from the top bar');
+ assert.equal(get('appCheck').hidden,true,'The check button gives way to the update pill');
  state(device,offer,{app_update:appOffer});
  assert.equal(calls.length,0,'App detection and rendering never download or install');
  assert.equal(get('appInstall').disabled,false);
  assert.equal(get('appUpdateNotes').textContent,'<script>unsafe</script>','Notes are text, not executable HTML');
- assert.equal(get('appUpdates').open,true,'An available app update is visible');
+ assert.equal(get('appDialog').open,true,'An available app update opens the update dialog automatically');
+ assert.equal(get('appReleaseLink').href,appOffer.release_url);
+ assert.equal(get('appDialogLead').textContent.includes('1.5.0')&&get('appDialogLead').textContent.includes('1.4.0'),true);
+ state(device,offer,{app_update:{...appOffer,hidden:true}});
+ assert.equal(get('appDialog').open,false,'Remind me later closes the dialog');
+ get('appShow').onclick();
+ assert.equal(get('appDialog').open,true,'Show update reopens a snoozed offer');
+ state(device,offer,{app_update:{...appOffer,hidden:true}});
+ assert.equal(get('appDialog').open,true,'A dialog opened on request stays open while snoozed');
+ state(device,offer,{app_update:{...appOffer,available:undefined,state:'current'}});
+ assert.equal(get('appDialog').open,false,'No offer, no dialog');
  for(const blocked of [{...appOffer,blocked:true},{...appOffer,supported:false},{...appOffer,compatible:false}]){
   state(device,offer,{app_update:blocked});
   assert.equal(get('appInstall').disabled,true);
@@ -182,11 +196,10 @@ for(const language of ['en','es','de']) {
   assert.equal(calls.length,0);
  }
  state(device,offer,{app_update:appOffer});
- get('appRelocate').checked=true;
  await get('appInstall').onclick();
  assert.equal(calls.length,1);
  assert.equal(calls[0].url,'/api/app-update/install');
- assert.deepEqual(JSON.parse(calls[0].options.body),{version:'1.5.0',relocate:true});
+ assert.deepEqual(JSON.parse(calls[0].options.body),{version:'1.5.0'},'Installation location is decided by the installer, not the user');
  calls=[];
  await get('appLater').onclick();
  assert.equal(calls[0].url,'/api/app-update/later');
@@ -196,8 +209,14 @@ for(const language of ['en','es','de']) {
  state(device,offer,{app_update:{...appOffer,state:'downloading',progress:42}});
  assert.equal(get('appInstall').disabled,true);
  assert.equal(get('appUpdateStatus').textContent.includes('42'),true);
+ assert.equal(get('appDialog').open,true,'Download progress is shown in the dialog');
+ assert.equal(get('appDialogState').textContent.includes('42'),true);
+ assert.equal(get('appLater').hidden&&get('appSkip').hidden,true,'A running download cannot be deferred');
  state(device,offer,{app_update:{...appOffer,state:'error',error:'App network unavailable'}});
- assert.equal(get('appUpdateError').textContent,'App network unavailable');
+ assert.equal(get('appDialogError').textContent,'App network unavailable');
+ state(device,offer,{app_update:{version:'1.4.0',state:'error',error:'Offline',supported:true,preview:false}});
+ assert.equal(get('appUpdateStatus').textContent.includes('1.4.0'),true);
+ assert.equal(get('appCheck').hidden,false,'Manual check stays available after a failed automatic check');
  assert.equal(get('start').disabled,false,'An app update check failure preserves local radio updating');
  console.log('Shared flasher UI: connection states, all languages, offline/manual, version policy, busy guards, and explicit upgrade request passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -36,6 +36,11 @@ button{font:inherit}
 .brand img{width:40px;height:40px;display:block;border-radius:9px}
 .brand strong{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
 .brand span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.topbar-right .quiet{min-height:32px;font-size:12.5px}
+.pill{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:6px 12px;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600;cursor:pointer}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.85}
+.pill:hover{background:var(--accent-hover)}
 .lang{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:2px}
 .lang button{all:unset;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);padding:5px 9px;border-radius:6px;line-height:1}
 .lang button:hover{color:var(--text)}
@@ -137,13 +142,28 @@ details[open]>summary::before{transform:rotate(45deg)}
 .manual .cta{font-size:14px;min-height:40px}
 .wizard-step{border-top:1px solid var(--line);margin-top:16px}
 .wizard-step summary{font-size:15px;font-weight:600}
-#appUpdates{margin-top:18px;padding:4px 24px 20px}
-#appUpdates>summary{font-size:15px;font-weight:600;padding:14px 0}
-#appUpdates>p{font-size:13.5px;color:var(--text2);margin:10px 0 0;overflow-wrap:anywhere}
-#appUpdateStatus{color:var(--text)}
-#appUpdateNotes{white-space:pre-wrap;font:inherit;font-size:13.5px;color:var(--text2);margin:10px 0 0;overflow-wrap:anywhere}
-#appUpdateNotes:empty,#appInstallLocation:empty,#appUpdateError:empty{display:none}
-#appUpdates>p:last-child{font-size:12px;color:var(--muted);margin-top:16px}
+/* App update dialog */
+#appDialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);padding:0;width:min(540px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;box-shadow:0 24px 64px rgba(0,0,0,.35)}
+#appDialog::backdrop{background:rgba(8,10,14,.55)}
+.dlg{padding:26px 28px 24px}
+.dlg-head{display:flex;gap:16px;align-items:flex-start}
+.dlg-head img{width:60px;height:60px;border-radius:14px;flex:none}
+.dlg-head h2{font-size:17px;font-weight:600;letter-spacing:-.01em;margin:6px 0 4px;line-height:1.3}
+.dlg-head p{margin:0;color:var(--text2);font-size:13.5px}
+.dlg-notes{margin:20px 0 0;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:12px 14px;max-height:220px;overflow:auto}
+.dlg-notes h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px;font-weight:600}
+.dlg-notes pre{white-space:pre-wrap;font:inherit;font-size:13.5px;color:var(--text2);margin:0;overflow-wrap:anywhere;line-height:1.5}
+.dlg-link{display:inline-block;margin-top:12px;font-size:13px;text-decoration:none}
+.dlg-link:hover{text-decoration:underline}
+.dlg-progress{margin-top:22px}
+.dlg-progress p{margin:0;font-size:13.5px;color:var(--text2)}
+#appDialogNote{margin:16px 0 0;font-size:13.5px;color:var(--warn)}
+#appDialogError{margin:16px 0 0;font-size:13.5px}
+.dlg-actions{display:flex;gap:8px;align-items:center;margin-top:24px;flex-wrap:wrap}
+.dlg-actions .spacer{flex:1}
+.dlg-actions .cta{width:auto;margin:0;min-height:36px;padding:7px 18px;font-size:14px}
+.dlg-actions .quiet{margin:0}
+.dlg-signing{margin:18px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
 
 /* Bootloader guide */
 .bootloader-guide{margin-top:22px;border-top:1px solid var(--line);padding-top:20px;scroll-margin-top:20px}
@@ -168,7 +188,12 @@ details[open]>summary::before{transform:rotate(45deg)}
 #componentErrorTechnical{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--muted);margin:0 0 10px}
 
 footer{font-size:12px;color:var(--muted);margin:26px 2px 0;border-top:1px solid var(--line);padding-top:16px;line-height:1.55}
-footer .meta{display:inline-block;margin-top:6px}
+footer .meta{display:block;margin-top:6px}
+#appUpdateCheck:not(:empty)::before,#appInstallLocation:not(:empty)::before{content:" · "}
+footer #appUpdateError{margin:6px 0 0;font-size:12.5px}
+footer #appUpdateError:empty{display:none}
+.footer-channel{font-size:12.5px;color:var(--muted);margin-top:10px}
+.footer-channel input{width:14px;height:14px;margin-top:2px}
 footer a{color:var(--muted);text-decoration:none}
 footer a:hover{color:var(--text);text-decoration:underline}
 
@@ -179,7 +204,11 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <main>
 <header class="topbar">
   <div class="brand"><img src="__LOGO_DATA__" alt=""><div><strong>ApexTX Flasher</strong><span>FlySky Noble NB4 · NB4+</span></div></div>
-  <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button><button data-lang="cn">中文</button></div>
+  <div class="topbar-right">
+    <button class="quiet" id="appCheck" data-k="appCheck">Check for updates</button>
+    <button class="pill" id="appShow" data-k="appShow" hidden></button>
+    <div class="lang" id="lang"><button data-lang="en">EN</button><button data-lang="es">ES</button><button data-lang="de">DE</button><button data-lang="cn">中文</button></div>
+  </div>
 </header>
 
 <h1 data-k="h1">Update your radio</h1>
@@ -310,22 +339,23 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div></div>
 
 <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note"></span></p>
-<details class="panel" id="appUpdates">
-<summary data-k="appTitle">App updates</summary>
-<p id="appUpdateStatus" role="status" aria-live="polite"></p>
-<pre id="appUpdateNotes"></pre>
-<p id="appInstallLocation" class="device-help"></p>
+<dialog id="appDialog" aria-labelledby="appDialogTitle">
+<div class="dlg">
+<div class="dlg-head"><img src="__LOGO_DATA__" alt=""><div><h2 id="appDialogTitle" data-k="appDialogTitle"></h2><p id="appDialogLead"></p></div></div>
+<div class="dlg-notes" id="appDialogNotes"><h3 id="appWhatsNew"></h3><pre id="appUpdateNotes"></pre></div>
+<a class="dlg-link" id="appReleaseLink" target="_blank" rel="noreferrer noopener" data-k="appReleaseLink" hidden></a>
+<div class="dlg-progress" id="appDialogProgress" hidden><progress id="appDialogBar" max="100" value="0" aria-label="Progress"></progress><p id="appDialogState"></p></div>
+<p id="appDialogNote"></p>
+<p id="appDialogError" class="error" role="alert"></p>
+<div class="actions"><button type="button" class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe"></button></div>
+<div class="dlg-actions"><button type="button" class="quiet" id="appSkip" data-k="appSkip"></button><span class="spacer"></span><button type="button" class="quiet" id="appLater" data-k="appLater"></button><button type="button" class="cta" id="appInstall" data-k="appInstall"></button></div>
+<p class="dlg-signing" data-k="appSigning"></p>
+</div>
+</dialog>
+<footer><span data-k="footer"></span>
+<div class="meta"><span id="appUpdateStatus" role="status" aria-live="polite"></span> · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a><span id="appUpdateCheck"></span><span id="appInstallLocation"></span></div>
 <p id="appUpdateError" class="error" role="alert"></p>
-<label class="channel"><input type="checkbox" id="appPreview"><span data-k="appPreview"></span></label>
-<label class="channel"><input type="checkbox" id="appRelocate"><span data-k="appRelocate"></span></label>
-<div class="actions"><button class="cta" id="appInstall" data-k="appInstall">Update and restart</button>
-<button class="quiet" id="appCheck" data-k="appCheck">Check for updates</button>
-<button class="quiet" id="appLater" data-k="appLater"></button>
-<button class="quiet" id="appSkip" data-k="appSkip"></button></div>
-<div class="actions"><button class="quiet" id="appRadioSafe" hidden data-k="appRadioSafe"></button></div>
-<p data-k="appSigning"></p>
-</details>
-<footer><span data-k="footer"></span><br><span class="meta">ApexTX&nbsp;Flasher&nbsp;__APP_VERSION__ · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a></span></footer>
+<label class="channel footer-channel"><input type="checkbox" id="appPreview"><span data-k="appPreview"></span></label></footer>
 </main>
 <script>
 document.getElementById("driverNote").hidden=document.getElementById("bootloaderDriver").hidden=document.documentElement.dataset.platform!=="win32";
@@ -532,17 +562,19 @@ en:{
  "wizardAudioDownload":"Download and prepare",
  "publishingRf":"Copying receiver updates to the radio…",
  "rebooting":"Restarting the radio in update mode…",
- "appTitle":"App updates",
  "appPreview":"Include preview versions of the app",
- "appRelocate":"Install in my user folder",
  "appCheck":"Check for updates",
  "appInstall":"Update and restart",
- "appLater":"Remind me tomorrow",
+ "appLater":"Remind me later",
  "appSkip":"Skip this version",
+ "appShow":"Update available",
+ "appDialogTitle":"A new version of ApexTX Flasher is available",
+ "appDialogLead":"ApexTX Flasher {available} is ready to install. You have version {version}.",
+ "appWhatsNew":"What's new in {version}",
+ "appReleaseLink":"View all release notes ↗",
  "appRadioSafe":"I checked the radio; recovery is finished",
  "appSigning":"Updates are signed by ApexTX and checked before they are installed. Windows or macOS may ask for permission the first time the new version opens.",
  "appInstalled":"ApexTX Flasher {version}",
- "appAvailable":"Version {version} is available.",
  "appCurrent":"You have the latest version.",
  "appChecking":"Checking for updates…",
  "appDownloading":"Downloading… {progress}%",
@@ -757,17 +789,19 @@ es:{
  "wizardAudioDownload":"Descargar y preparar",
  "publishingRf":"Copiando las actualizaciones de receptores a la emisora…",
  "rebooting":"Reiniciando la emisora en modo actualización…",
- "appTitle":"Actualizaciones de la aplicación",
  "appPreview":"Incluir versiones preliminares de la aplicación",
- "appRelocate":"Instalar en mi carpeta de usuario",
  "appCheck":"Buscar actualizaciones",
  "appInstall":"Actualizar y reiniciar",
- "appLater":"Recordármelo mañana",
+ "appLater":"Recordármelo más tarde",
  "appSkip":"Omitir esta versión",
+ "appShow":"Actualización disponible",
+ "appDialogTitle":"Hay una nueva versión de ApexTX Flasher",
+ "appDialogLead":"ApexTX Flasher {available} está lista para instalarse. Tienes la versión {version}.",
+ "appWhatsNew":"Novedades de {version}",
+ "appReleaseLink":"Ver todas las notas de la versión ↗",
  "appRadioSafe":"He revisado la emisora; la recuperación ha terminado",
  "appSigning":"Las actualizaciones están firmadas por ApexTX y se comprueban antes de instalarse. Windows o macOS pueden pedir permiso la primera vez que se abra la nueva versión.",
  "appInstalled":"ApexTX Flasher {version}",
- "appAvailable":"La versión {version} está disponible.",
  "appCurrent":"Tienes la última versión.",
  "appChecking":"Buscando actualizaciones…",
  "appDownloading":"Descargando… {progress}%",
@@ -982,17 +1016,19 @@ de:{
  "wizardAudioDownload":"Herunterladen und vorbereiten",
  "publishingRf":"Empfänger-Updates werden auf den Sender kopiert…",
  "rebooting":"Sender startet im Update-Modus neu…",
- "appTitle":"App-Updates",
  "appPreview":"Vorschauversionen der App einschließen",
- "appRelocate":"In meinem Benutzerordner installieren",
  "appCheck":"Nach Updates suchen",
  "appInstall":"Aktualisieren und neu starten",
- "appLater":"Morgen erinnern",
+ "appLater":"Später erinnern",
  "appSkip":"Diese Version überspringen",
+ "appShow":"Update verfügbar",
+ "appDialogTitle":"Eine neue Version von ApexTX Flasher ist verfügbar",
+ "appDialogLead":"ApexTX Flasher {available} kann jetzt installiert werden. Du hast Version {version}.",
+ "appWhatsNew":"Neu in {version}",
+ "appReleaseLink":"Alle Versionshinweise ansehen ↗",
  "appRadioSafe":"Ich habe den Sender geprüft; die Wiederherstellung ist abgeschlossen",
  "appSigning":"Updates sind von ApexTX signiert und werden vor der Installation geprüft. Windows oder macOS fragen beim ersten Öffnen der neuen Version eventuell um Erlaubnis.",
  "appInstalled":"ApexTX Flasher {version}",
- "appAvailable":"Version {version} ist verfügbar.",
  "appCurrent":"Du hast die neueste Version.",
  "appChecking":"Updates werden gesucht…",
  "appDownloading":"Wird heruntergeladen… {progress}%",
@@ -1207,17 +1243,19 @@ cn:{
  "wizardAudioDownload":"下载并准备",
  "publishingRf":"正在将接收机更新复制到遥控器…",
  "rebooting":"遥控器正在重启进入更新模式…",
- "appTitle":"应用更新",
  "appPreview":"包含应用的预览版",
- "appRelocate":"安装到我的用户文件夹",
  "appCheck":"检查更新",
  "appInstall":"更新并重启",
- "appLater":"明天提醒我",
+ "appLater":"稍后提醒我",
  "appSkip":"跳过此版本",
+ "appShow":"有可用更新",
+ "appDialogTitle":"ApexTX Flasher 有新版本",
+ "appDialogLead":"ApexTX Flasher {available} 已可安装。你当前的版本是 {version}。",
+ "appWhatsNew":"{version} 的新功能",
+ "appReleaseLink":"查看全部版本说明 ↗",
  "appRadioSafe":"我已检查遥控器；恢复已完成",
  "appSigning":"更新由 ApexTX 签名，并在安装前进行校验。首次打开新版本时，Windows 或 macOS 可能会请求权限。",
  "appInstalled":"ApexTX Flasher {version}",
- "appAvailable":"版本 {version} 可用。",
  "appCurrent":"你已安装最新版本。",
  "appChecking":"正在检查更新…",
  "appDownloading":"正在下载… {progress}%",
@@ -1399,41 +1437,56 @@ rstart.onclick=()=>send('/api/recover',rfile.files[0],{'X-ApexTX-Radio-Variant':
 function clearError(){localError=null;if(!snapshot?.operation){$('#transfer').hidden=true;message.textContent='';message.className='';}}
 function showError(text){if(mode==='components'){$('#componentTransferSlot').appendChild($('#transfer'));$('#componentErrorDetails').hidden=false;$('#componentErrorTechnical').textContent=text;text=componentError(text);}localError=text;message.textContent=text;message.className='error';$('#transfer').hidden=false;}
 async function request(path,data={}){localError=null;requesting=true;render();try{const r=await fetch(path,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);if(path.startsWith('/api/components/')&&r.status===202)running=true;return true;}catch(e){showError(e.message);return false;}finally{requesting=false;render();}}
+const appDialog=$('#appDialog');let dialogShown=null,dialogPinned=false;
+function openDialog(){if(appDialog.open)return;if(appDialog.showModal)appDialog.showModal();else appDialog.open=true;}
+function closeDialog(){dialogPinned=false;if(!appDialog.open)return;if(appDialog.close)appDialog.close();else appDialog.open=false;}
 function renderAppUpdate(){
- const a=snapshot?.app_update||{},d=T[lang],busy=['downloading','verifying','restarting'].includes(a.state);
- let text=(d.appInstalled||'').replace('{version}',a.version||'__APP_VERSION__');
- const key={checking:'appChecking',current:'appCurrent',downloading:'appDownloading',verifying:'appVerifying',restarting:'appRestarting',error:'appOffline'}[a.state];
- if(key)text+=' · '+d[key].replace('{progress}',a.progress||0);
- else if(a.available&&!a.hidden)text+=' · '+d.appAvailable.replace('{version}',a.available);
- if(a.blocked)text+=' '+d.appBlocked;
- if(!a.supported)text+=' '+d.appUnsupported;
- if(a.available&&!a.compatible)text+=' '+d.appIncompatible;
- if(a.last_check)text+=' '+d.appLastCheck.replace('{date}',new Date(a.last_check*1000).toLocaleString());
- if(a.last_result?.result==='updated'&&a.last_result.version===a.version)text+=' '+d.appUpdated;
+ const a=snapshot?.app_update||{},d=T[lang],busy=['downloading','verifying','restarting'].includes(a.state),offer=!!a.available&&!!a.supported;
+ const stateKey={checking:'appChecking',current:'appCurrent',downloading:'appDownloading',verifying:'appVerifying',restarting:'appRestarting',error:'appOffline'}[a.state];
+ // Top bar button, footer status and channel.
+ let text=d.appInstalled.replace('{version}',a.version||'__APP_VERSION__');
+ if(busy||a.state==='checking'||(a.state==='error'&&!a.available))text+=' · '+d[stateKey].replace('{progress}',a.progress||0);
+ else if(a.last_result?.result==='updated'&&a.last_result.version===a.version)text+=' · '+d.appUpdated;
+ else if(a.state==='current'&&!a.available)text+=' · '+d.appCurrent;
+ if(!a.supported)text+=' · '+d.appUnsupported;
  $('#appUpdateStatus').textContent=text;
+ $('#appUpdateCheck').textContent=a.last_check&&!busy?d.appLastCheck.replace('{date}',new Date(a.last_check*1000).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})):'';
  $('#appInstallLocation').textContent=a.last_result?.location||'';
- $('#appUpdateError').textContent=a.error||a.last_result?.error||'';
- $('#appUpdateNotes').textContent=a.hidden?'':a.notes||'';
- $('#appInstall').disabled=busy||requesting||a.blocked||!a.supported||!a.compatible||!a.available||a.state==='checking';
- $('#appCheck').disabled=busy||requesting||a.state==='checking';
+ $('#appUpdateError').textContent=a.last_result?.error||'';
+ $('#appCheck').hidden=offer&&!busy;$('#appCheck').disabled=busy||requesting||a.state==='checking';
+ $('#appShow').hidden=!offer||busy;$('#appShow').disabled=requesting;
  $('#appPreview').checked=!!a.preview;$('#appPreview').disabled=busy||requesting||a.state==='checking';
- $('#appRelocate').disabled=busy||requesting;
- $('#appLater').hidden=$('#appSkip').hidden=!a.available||a.hidden||busy;
  $('#appRadioSafe').hidden=!snapshot?.radio_unconfirmed;$('#appRadioSafe').disabled=!!snapshot?.running||!!snapshot?.bootloader_install;
- if(a.available&&!a.hidden&&!running&&!a.blocked)$('#appUpdates').open=true;
+ // Update dialog: shown once per offer after the automatic check, again on request.
+ $('#appDialogLead').textContent=offer?d.appDialogLead.replace('{available}',a.available).replace('{version}',a.version||''):'';
+ $('#appWhatsNew').textContent=d.appWhatsNew.replace('{version}',a.available||'');
+ $('#appUpdateNotes').textContent=a.notes||'';
+ $('#appDialogNotes').hidden=!a.notes||busy;
+ $('#appReleaseLink').hidden=!a.release_url||busy;if(a.release_url)$('#appReleaseLink').href=a.release_url;
+ $('#appDialogProgress').hidden=!busy;
+ if(busy){$('#appDialogBar').value=a.state==='downloading'?(a.progress||0):100;$('#appDialogState').textContent=d[stateKey].replace('{progress}',a.progress||0);}
+ $('#appDialogNote').textContent=busy?'':a.blocked?d.appBlocked:offer&&!a.compatible?d.appIncompatible:'';
+ $('#appDialogError').textContent=busy?'':(a.error||'');
+ $('#appInstall').hidden=busy;$('#appInstall').disabled=busy||requesting||!!a.blocked||!a.compatible||!offer||a.state==='checking';
+ $('#appLater').hidden=$('#appSkip').hidden=busy;$('#appLater').disabled=$('#appSkip').disabled=requesting;
+ if(offer&&!a.hidden&&!a.blocked&&!snapshot?.running&&dialogShown!==a.available){dialogShown=a.available;openDialog();}
+ else if(offer&&(busy||dialogPinned))openDialog();
+ if(!offer||(a.hidden&&!busy&&!dialogPinned))closeDialog();
 }
 async function appRequest(action,data={}){
- // Errors belong to the desktop app panel, never the radio progress panel.
+ // Errors belong to the desktop app panel or dialog, never the radio progress panel.
  requesting=true;render();
  try{const r=await fetch('/api/app-update/'+action,{method:'POST',headers:{'X-ApexTX-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw Error(j.error);}
- catch(e){$('#appUpdateError').textContent=e.message;}
+ catch(e){$('#appDialogError').textContent=e.message;if(!appDialog.open)$('#appUpdateError').textContent=e.message;}
  finally{requesting=false;}
 }
 $('#appCheck').onclick=()=>appRequest('check');
 $('#appPreview').onchange=()=>appRequest('check',{preview:$('#appPreview').checked});
-$('#appInstall').onclick=()=>{if(!$('#appInstall').disabled)return appRequest('install',{version:snapshot.app_update.available,relocate:$('#appRelocate').checked});};
-$('#appLater').onclick=()=>appRequest('later');
-$('#appSkip').onclick=()=>appRequest('skip');
+$('#appShow').onclick=()=>{if($('#appShow').disabled)return;dialogPinned=true;openDialog();};
+$('#appInstall').onclick=()=>{if(!$('#appInstall').disabled)return appRequest('install',{version:snapshot.app_update.available});};
+$('#appLater').onclick=()=>{dialogPinned=false;return appRequest('later');};
+$('#appSkip').onclick=()=>{dialogPinned=false;return appRequest('skip');};
+if(appDialog.addEventListener)appDialog.addEventListener('cancel',e=>{e.preventDefault();if(!$('#appLater').hidden&&!$('#appLater').disabled)$('#appLater').onclick();});
 $('#appRadioSafe').onclick=()=>appRequest('acknowledge-radio');
 $('#refresh').onclick=()=>request('/api/refresh');
 $('#readComponents').onclick=()=>{if($('#readComponents').disabled)return;const device=snapshot.device;return request('/api/components/read',{serial:device.serial,target:device.target});};
@@ -1479,7 +1532,7 @@ async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-
  if(snapshot.operation&&!localError&&!requesting){$('#transfer').hidden=false;message.textContent=operationMessage(snapshot);message.className=snapshot.error?'error':snapshot.progress===100?'good':'';bar.value=snapshot.progress;percent.textContent=`${snapshot.progress}%`;}
  render();
  if(snapshot.bootloader_install&&!hadGuide){$('#bootloaderGuideTitle').focus({preventScroll:true});$('#bootloaderGuide').scrollIntoView({block:'start',behavior:'smooth'});}
- }catch(e){if(snapshot?.app_update?.state==='restarting'){$('#appUpdateStatus').textContent=T[lang].appRestarting;return;}showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
+ }catch(e){if(snapshot?.app_update?.state==='restarting'){$('#appUpdateStatus').textContent=$('#appDialogState').textContent=T[lang].appRestarting;return;}showError(T[lang].unavailable);start.disabled=rstart.disabled=$('#upgrade').disabled=$('#bootloaderInstall').disabled=$('#bootloaderCancel').disabled=true;}
  setTimeout(poll,800);
 }
 applyLang(pick());poll();

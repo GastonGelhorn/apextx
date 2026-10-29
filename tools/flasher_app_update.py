@@ -34,6 +34,10 @@ class AppUpdateError(RuntimeError):
         self.retry_seconds = retry_seconds
 
 
+class RelocationRequired(AppUpdateError):
+    """The running copy cannot be replaced in place; install in the user folder."""
+
+
 def json_object(raw):
     def unique(pairs):
         result = {}
@@ -346,7 +350,9 @@ class AppUpdateController:
         self.stopped = threading.Event()
         self.client = client or AppReleaseClient()
         self.checking = False
-        self.next_check = self.preferences.get('last_check', 0) + 86400
+        # Check at every launch (the monitor fires a couple of seconds after
+        # start-up), then once a day while the app stays open.
+        self.next_check = 0
         cached = self.preferences.get('offer')
         if cached:
             try:
@@ -374,6 +380,7 @@ class AppUpdateController:
             if self.offer:
                 doc = self.offer['document']
                 result.update(available=doc['version'], notes=doc['notes'], compatible=self.offer['compatible'],
+                    release_url=f'https://github.com/{REPOSITORY}/releases/tag/flasher-v{doc["version"]}',
                     hidden=(self.preferences.get('skip') == doc['version'] or time.time() < self.preferences.get('snooze', 0)))
             return result
 
@@ -471,7 +478,14 @@ class AppUpdateController:
                     folder = Path(tempfile.mkdtemp(prefix='update-', dir=self.directory))
                     self.client.download(offer, folder, self.progress)
                 self.state['state'] = 'verifying'
-                transaction = prepare(folder, offer, relocate)
+                try:
+                    transaction = prepare(folder, offer, relocate)
+                except RelocationRequired:
+                    # A copy on a disk image, in Downloads or in a folder the
+                    # user cannot write moves to the user folder on its own.
+                    if relocate:
+                        raise
+                    transaction = prepare(folder, offer, True)
                 start_helper(transaction)
                 with self.session.lock:
                     # Reservation prevents every device operation until exit.

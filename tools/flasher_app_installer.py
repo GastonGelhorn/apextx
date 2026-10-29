@@ -13,7 +13,7 @@ import time
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from flasher_app_update import (AppUpdateError, MANIFEST, SIGNATURE, atomic_json,
+from flasher_app_update import (AppUpdateError, RelocationRequired, MANIFEST, SIGNATURE, atomic_json,
     data_directory, file_digest, json_object, target_platform, verify_manifest, InstanceLease)
 
 EXECUTABLE = 'Contents/MacOS/ApexTX-Flasher'
@@ -128,13 +128,13 @@ def prepare(folder, offer, relocate=False):
             raise AppUpdateError('The user installation already exists. Open that copy to update it.')
     if (sys.platform == 'darwin' and (str(current).startswith('/Volumes/') or '/AppTranslocation/' in str(current))
             and not relocate):
-        raise AppUpdateError('Choose “Install in my user folder” to update this copy.')
+        raise RelocationRequired('This copy runs from a disk image or download and is installed in the user folder instead.')
     # Staging in the destination's parent makes atomic replacement possible.
     try:
         stage = destination.parent / ('.apextx-update-' + secrets.token_hex(12))
         stage.mkdir(mode=0o700)
     except OSError as error:
-        raise AppUpdateError('The app folder is not writable. Choose “Install in my user folder”.') from error
+        raise RelocationRequired('The app folder is not writable; the update is installed in the user folder instead.') from error
     if shutil.disk_usage(stage).free < item['size'] * 4 + 64 * 1024**2:
         raise AppUpdateError('Not enough space in the installation folder.')
     if sys.platform == 'darwin':

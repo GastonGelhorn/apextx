@@ -53,6 +53,13 @@ Simplified Chinese.
 | --- | --- |
 | ![Update tab in light appearance](images/flasher-update-en.png) | ![One-click update in dark appearance](images/flasher-update-dark-es.png) |
 
+The app checks for its own updates when it opens and once a day afterwards.
+A new version is announced in a dialog with the release notes; **Check for
+updates** in the top bar checks on demand and becomes an **Update available**
+badge while a version is waiting.
+
+![App update dialog](images/flasher-app-update-en.png)
+
 The application icon is the ApexTX mark on a dark tile, rendered from the
 brand logo by [`tools/nb4-flasher-icon.py`](../../tools/nb4-flasher-icon.py)
 into `tools/apextx-flasher-icon.png`; `build-flasher.py` turns that master into
