@@ -6,8 +6,8 @@ read-only hexadecimal identifiers, not decimal version numbers. A receiver
 product ID shared by several models lists those models together; unknown IDs
 are shown in hexadecimal rather than guessed.
 
-Opening a visible AFHDS3 receiver page requests the information. Ordinary
-driving and passive API getters do not start queries. Reads wait for five
+Each stable AFHDS3 connection starts one bounded check without a visible
+receiver page. Passive API getters do not start queries. Reads wait for five
 seconds of settled module/receiver state, are disabled during binding, and
 receiver queries require a two-way connection. Cached results avoid repeated
 reads. Missing replies produce **Unavailable**, not an endless loading state.
@@ -23,11 +23,14 @@ reconfiguration and transport reinitialisation invalidate the caches.
 
 The internal NB4 module uses a short version reply rather than every field of
 the legacy `ModuleVersion` structure. The displayed word is at byte offset
-18, matching the contributor's stock-firmware readout; at least 22 payload
-bytes are required. This is not a verified cross-device image compatibility
-format and must not be used to select or approve firmware images.
+18. Only the exact 26-byte reply currently establishes its application version;
+the RF-library word is at offset 22. Receiver replies retain all five identity
+words: hardware, RF hardware, bootloader, application and RF library. The
+application word is the fourth, at byte offset 10, not the first.
+The reported module product ID and its catalog image ID are distinct and mapped
+explicitly. A version word alone does not authorize an image.
 
-**This feature does not update RF modules or receivers.** It does not write
-their firmware, alter their configuration, or extract FlySky updater files.
-Those are separate proposals in issue #23. RF module/receiver firmware updates
-remain unimplemented.
+Version queries never update firmware or alter configuration. Normal builds
+keep RF writes disabled. See [Integrated maintenance](../INTEGRATED_UPDATE.md)
+and the [separate private RF bench procedure](../RF_BENCH.md) for installation,
+qualification and recovery status.

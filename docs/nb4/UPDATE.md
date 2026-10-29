@@ -1,12 +1,29 @@
-# ApexTX Updater for the original Noble NB4
+# ApexTX Flasher for the Noble NB4 and NB4+
 
-Normal updates follow this flow:
+For the component wizard, RF catalog preparation, complete backup and
+recovery, see [Integrated update](INTEGRATED_UPDATE.md). Release packages
+carry the verified RF catalog as `rf/catalog.zip`; the flasher stores those
+images on the radio, and the radio installs the module and the latest
+verified receiver images itself (see [Integrated update](INTEGRATED_UPDATE.md)).
+Both radios get the same catalog: NB4 and NB4+ share their RF hardware. A
+catalog ZIP is never a transmitter image.
 
-1. On the radio, open **Settings > System > Update** and confirm.
-2. The radio keeps its display and power latch active and shows **ApexTX Update**.
-3. Connect USB, open the computer updater, and select the new `firmware.bin`.
-4. The updater transfers and verifies the image, requests installation, waits
-   for flash verification, and requests a restart.
+One-click updates follow this flow:
+
+1. Connect USB and choose **ApexTX Flasher** on the radio's USB menu. With the
+   cable already in Serial mode, **Menu > System > Update > Connect to ApexTX
+   Flasher** switches to the same connection. A radio plugged in as Joystick,
+   Mass Storage or plain Serial cannot be updated: unplug USB, plug it again
+   and choose ApexTX Flasher on the radio.
+2. ApexTX Flasher shows the radio and the latest compatible release. Click
+   **Update** once; nothing is written before that click.
+3. The flasher stores the release's verified RF images on the radio's card,
+   asks the radio to restart into **ApexTX Update**, waits for it to return,
+   then transfers and verifies the image, requests installation, waits for
+   flash verification, and requests a restart.
+
+The manual flow still works: on the radio open **Menu > System > Update >
+Update radio firmware**, then choose the release or a local `firmware.bin`.
 
 Menu entry, USB transfer, flash verification, and automatic restart were tested
 on an original NB4 from macOS on 2026-09-14. The final hardware run completed on
@@ -19,8 +36,8 @@ firmware packages.
 ## First installation
 
 If the radio still runs the official FlySky firmware, start with
-[Installing ApexTX from the FlySky firmware](FLASH.md). The desktop ApexTX
-Updater requires the ApexTX bootloader to be installed already; it cannot
+[Installing ApexTX from the FlySky firmware](FLASH.md). ApexTX Flasher
+requires the ApexTX bootloader to be installed already; it cannot
 perform that first installation through the official firmware's Update mode.
 FlySky Assistant is not an installer for the ApexTX image.
 
@@ -35,7 +52,7 @@ The first-installation guide covers these steps:
    application together.
 4. Complete storage setup, resource installation, calibration, and receiver
    checks as described in that guide.
-5. For subsequent application updates, use **Settings > System > Update** and
+5. For subsequent application updates, use **Menu > System > Update** and
    this updater.
 
 An older ApexTX image that jumps to the STM32 ROM from its Update menu also

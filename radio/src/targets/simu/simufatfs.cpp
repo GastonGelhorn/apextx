@@ -310,8 +310,14 @@ FRESULT f_open(FIL* fil, const TCHAR* name, BYTE flag)
     mode |= std::ios::in;
 
     std::error_code ec;
-    if (!fs::exists(realPath, ec) || ec) {
-      return FR_INVALID_NAME;
+    const bool exists = fs::exists(realPath, ec);
+    if (ec) return FR_DISK_ERR;
+    if (!exists) {
+      const bool parentExists = fs::is_directory(fs::path(realPath).parent_path(), ec);
+      if (ec == std::errc::no_such_file_or_directory || ec == std::errc::not_a_directory)
+        return FR_NO_PATH;
+      if (ec) return FR_DISK_ERR;
+      return parentExists ? FR_NO_FILE : FR_NO_PATH;
     }
 
     auto size = fs::file_size(realPath, ec);

@@ -1,0 +1,98 @@
+{
+  "reference_commit": "9a5c96da3f9d345697d5580219fe5a00af65b278",
+  "extractor_blob": "5150358e7e61fcee37be0b4dc2e7f0c6c4b7636c",
+  "source_comment": "https://github.com/GastonGelhorn/apextx/pull/33#issuecomment-6472880983",
+  "hardware_validation": false,
+  "no_usb": true,
+  "executed_source_packages": false,
+  "packages": [
+    {
+      "file": "Flysky_NB4_2.0.116_FCC.exe",
+      "profile": "nb4-2.0.116-fcc",
+      "source_sha256": "ddd46193f0abaeb8d11eb5f3e7998fb97d7b868c27ae7a44a9ce7cc22d619c02",
+      "resource_sha256": "37780d8512809d8fc3ec43764b1672d28f2758e6f9ca26a850bf8888b848a665",
+      "source_resource_catalog_verified": true,
+      "accepted_images": 8,
+      "fgr8b": {
+        "product": "0x00010107",
+        "version": "0x0114",
+        "bytes": 64464,
+        "sha256": "a3f55ca1b90d0e82b1302ea3004600431d79b62fc9231ca54af4ebbd10aeb8b5",
+        "crc32_verified": true
+      },
+      "independent_extractor": {
+        "resource_identical": true,
+        "error": "ValueError: Unexpected package format; this is not an NB4 updater."
+      }
+    },
+    {
+      "file": "Flysky_NB4_2.0.116_STD.exe",
+      "profile": "nb4-2.0.116-std",
+      "source_sha256": "662955adfa643dde4ec22a5bc57c01869e98aec38f21e4b580b5aa480b5a219c",
+      "resource_sha256": "37780d8512809d8fc3ec43764b1672d28f2758e6f9ca26a850bf8888b848a665",
+      "source_resource_catalog_verified": true,
+      "accepted_images": 8,
+      "fgr8b": {
+        "product": "0x00010107",
+        "version": "0x0114",
+        "bytes": 64464,
+        "sha256": "a3f55ca1b90d0e82b1302ea3004600431d79b62fc9231ca54af4ebbd10aeb8b5",
+        "crc32_verified": true
+      },
+      "independent_extractor": {
+        "resource_identical": true,
+        "error": "ValueError: Unexpected package format; this is not an NB4 updater."
+      }
+    },
+    {
+      "file": "Flysky_NB4plus_1.0.31_FCC.exe",
+      "profile": "nb4plus-1.0.31-eu-fcc",
+      "source_sha256": "5f5475055b7d4e19fc647f4180b30e478e72a68ef0987aefdbfe1d6f9fd6c248",
+      "resource_sha256": "71a09fb94b656de17028ee35441dcbd0ba1b37735330eea4ea8f3f1911dab825",
+      "source_resource_catalog_verified": true,
+      "accepted_images": 7,
+      "fgr8b": {
+        "product": "0x00010107",
+        "version": "0x0117",
+        "bytes": 88320,
+        "sha256": "f0f25179d309f90d2d33611cbbacae200457c058aee3d2255b558e5eaaa5a37a",
+        "crc32_verified": true
+      },
+      "independent_extractor": {
+        "parsed": 9,
+        "resource_identical": true,
+        "byte_identical": [
+          "RF module (PN 0x12340003)",
+          "FGr4 V2",
+          "FGr4S V2 (shared product ID)",
+          "FGr8B"
+        ]
+      }
+    },
+    {
+      "file": "Flysky_NB4plus_1.0.31_STD.exe",
+      "profile": "nb4plus-1.0.31-eu-std",
+      "source_sha256": "1b119de1e2a0efa9787f3db3fd9abe01cd16b4a7f4069d254dcf8b9e46b90b72",
+      "resource_sha256": "71a09fb94b656de17028ee35441dcbd0ba1b37735330eea4ea8f3f1911dab825",
+      "source_resource_catalog_verified": true,
+      "accepted_images": 7,
+      "fgr8b": {
+        "product": "0x00010107",
+        "version": "0x0117",
+        "bytes": 88320,
+        "sha256": "f0f25179d309f90d2d33611cbbacae200457c058aee3d2255b558e5eaaa5a37a",
+        "crc32_verified": true
+      },
+      "independent_extractor": {
+        "parsed": 9,
+        "resource_identical": true,
+        "byte_identical": [
+          "RF module (PN 0x12340003)",
+          "FGr4 V2",
+          "FGr4S V2 (shared product ID)",
+          "FGr8B"
+        ]
+      }
+    }
+  ]
+}

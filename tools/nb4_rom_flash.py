@@ -267,6 +267,30 @@ def run_install(image, progress, serial=None):
     """Write, verify and launch a complete image. `progress(message, percent)`."""
     validate_full_image(image)
     start_address = automatic_start_address(image)
+    return _write_verified_image(image, progress, serial, start_address)
+
+
+def restore_internal_backup(backup, progress, serial, *, confirmed=False):
+    from nb4_backup_agent import verify
+    metadata=verify(backup)
+    if not confirmed or metadata['identity']['serial']!=serial:
+        raise RomFlashError('Confirm a complete backup belonging to this exact transmitter.')
+    if discover_rom_dfu(serial)!=serial:
+        raise RomFlashError('Reconnect this transmitter in ROM DFU before restoring internal firmware.')
+    # Read the hardware UID, not option bytes or OTP. Never use a shared USB
+    # PID or the selected image name as authorization to restore a unit.
+    with tempfile.TemporaryDirectory(prefix='apextx-restore-uid-') as directory:
+        output=Path(directory)/'uid.bin'
+        result=_run([dfu_util_path(),*_device_args(serial),'-a','0','-s','0x1fff7a10:12:force','-U',str(output)])
+        if (result.returncode or not output.is_file() or output.read_bytes()!=struct.pack('<3I',*metadata['identity']['uid'])):
+            raise RomFlashError('The ROM hardware identity does not match the private backup. Nothing was restored.')
+    image=(Path(backup)/'internal.bin').read_bytes()
+    if hashlib.sha256(image).hexdigest()!=metadata['files']['internal.bin']['sha256']:
+        raise RomFlashError('The internal backup changed before restoration.')
+    return _write_verified_image(image,progress,serial,None)
+
+
+def _write_verified_image(image, progress, serial, start_address):
     exe = dfu_util_path()
     serial = discover_rom_dfu(serial)
     if serial is None:

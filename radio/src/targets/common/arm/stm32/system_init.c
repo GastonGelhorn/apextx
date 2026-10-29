@@ -46,9 +46,34 @@ extern uint32_t _sisr_vector;
 
 NAKED BOOTSTRAP void Reset_Handler()
 {
+#if defined(NB4_BACKUP_AGENT)
+  // ROM DFU may leave USB interrupts pending. The RAM agent installs its
+  // vector table and handlers before enabling interrupts in main().
+  asm volatile (
+    "cpsid i\n"
+    "movs r0, #0\n"
+    "msr control, r0\n"
+    "isb\n"
+  );
+#endif
   asm inline (
     "ldr sp, =_estack \n"
   );
+#if defined(NB4_BACKUP_AGENT)
+  asm inline (
+    "bl nb4BackupAgentEarlyInit \n"
+    "mrs r0, ipsr \n"
+    "ldr r1, =nb4BackupEntryIpsr \n"
+    "str r0, [r1] \n"
+    "cmp r0, #0 \n"
+    "beq AgentThreadStart \n"
+    // A non-thread entry is unsupported. Let the already armed watchdog
+    // restart the installed firmware rather than fabricate exception frames.
+    "AgentUnsupportedContext: \n"
+    "b AgentUnsupportedContext \n"
+    "AgentThreadStart: \n"
+  );
+#endif
 
 #if defined(BOOT)
   asm inline (

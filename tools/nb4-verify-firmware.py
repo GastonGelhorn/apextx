@@ -50,6 +50,8 @@ def main() -> None:
 
     if not args.elf.is_file() or not args.bin.is_file():
         fail("firmware.elf or firmware.bin is missing")
+    if args.public and b"APXRFTEST1" in args.bin.read_bytes():
+        fail("unit-bound RF bench builds cannot be published")
     try:
         symbols = subprocess.run(
             [args.nm, "--defined-only", str(args.elf)],

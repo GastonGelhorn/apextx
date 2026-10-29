@@ -191,7 +191,12 @@ class ReleaseClient:
                     if not asset or not sums:
                         continue
                     metadata = by_name.get(f'apextx-{hardware}-{version.text}.update.json')
-                    for item in (asset, sums, *([metadata] if metadata else [])):
+                    package_asset=by_name.get(f'apextx-{hardware}-{version.text}.zip')
+                    audio_assets={language:by_name[f'apextx-audio-{language}-{version.text}.zip'] for language in ('en','es','de','cn')
+                                  if f'apextx-audio-{language}-{version.text}.zip' in by_name}
+                    for item in audio_assets.values():
+                        if not 0<item.get('size',0)<=12*1024*1024: raise ReleaseError('Invalid voice-pack download size.')
+                    for item in (asset, sums, *([metadata] if metadata else []), *([package_asset] if package_asset else []), *audio_assets.values()):
                         expected = ('https://github.com/' + REPOSITORY + '/releases/download/' +
                                     urllib.parse.quote(tag, safe='') + '/' + urllib.parse.quote(item['name'], safe=''))
                         if item.get('browser_download_url') != expected:
@@ -203,6 +208,8 @@ class ReleaseClient:
                     candidates.append((version, dict(id=row['id'], version=version.text,
                         prerelease=prerelease, target=target, asset=asset, checksums=sums,
                         metadata=metadata,
+                        package_asset=package_asset,
+                        audio_assets=audio_assets,
                         url=f'https://github.com/{REPOSITORY}/releases/tag/{urllib.parse.quote(tag, safe="")}')))
                 if len(rows) < 100:
                     break
@@ -238,6 +245,24 @@ class ReleaseClient:
 
     def download(self, release, progress):
         asset = release['asset']
+        data=self.download_asset(release,asset,progress)
+        image = self._unpack(data, asset['name'], release) if asset['name'].endswith('.zip') else data
+        validate_full_image_auth(image)
+        if (image_bootloader_generation(image) != release.get('bootloader', 0) or
+                (release.get('image_sha256') and hashlib.sha256(image).hexdigest() != release['image_sha256'])):
+            raise ReleaseError('The firmware does not match the release bootloader requirements. Nothing was written.')
+        if package_target(update_package(image)) != release['target']:
+            raise ReleaseError('The downloaded firmware is for another radio. Nothing was written.')
+        stamps = re.findall(rb'apextx-nb4-[^\x00]{1,110}\x00', image[BOOT_SIZE:BOOT_SIZE + 1024])
+        identities = [firmware_identity(s[:-1].decode('ascii', errors='replace')) for s in stamps]
+        if not any(i['version'] == release['version'] and not i['development'] for i in identities):
+            raise ReleaseError('The firmware version does not match the release. Nothing was written.')
+        progress('Firmware download verified.', 8)
+        return image
+
+    def download_asset(self, release, asset, progress=lambda *_: None):
+        if not isinstance(asset,dict) or not 0<asset.get('size',0)<=128*1024*1024:
+            raise ReleaseError('The selected release asset exceeds its size limit.')
         sums = self.fetch(release['checksums']['browser_download_url'], 128 * 1024)
         self._digest(sums, release['checksums'].get('digest'))
         expected = []
@@ -247,25 +272,11 @@ class ReleaseClient:
                 expected.append(match[1].lower())
         if len(expected) != 1:
             raise ReleaseError('The release has no unique checksum for this firmware.')
-        data = self.fetch(asset['browser_download_url'], min(asset['size'], 32 * 1024 * 1024), progress)
+        data = self.fetch(asset['browser_download_url'], asset['size'], progress)
         if len(data) != asset['size'] or hashlib.sha256(data).hexdigest() != expected[0]:
             raise ReleaseError('The release checksum does not match. Nothing was written.')
         self._digest(data, asset.get('digest'))
-        image = self._unpack(data, asset['name'], release) if asset['name'].endswith('.zip') else data
-        validate_full_image_auth(image)
-        if (image_bootloader_generation(image) != release.get('bootloader', 0) or
-                (release.get('image_sha256') and hashlib.sha256(image).hexdigest() != release['image_sha256'])):
-            raise ReleaseError('The firmware does not match the release bootloader requirements. Nothing was written.')
-        if package_target(update_package(image)) != release['target']:
-            raise ReleaseError('The downloaded firmware is for another radio. Nothing was written.')
-        # Read only the linker-kept application stamp, not a string elsewhere
-        # in the bootloader, resources, or source metadata.
-        stamps = re.findall(rb'apextx-nb4-[^\x00]{1,110}\x00', image[BOOT_SIZE:BOOT_SIZE + 1024])
-        identities = [firmware_identity(s[:-1].decode('ascii', errors='replace')) for s in stamps]
-        if not any(i['version'] == release['version'] and not i['development'] for i in identities):
-            raise ReleaseError('The firmware version does not match the release. Nothing was written.')
-        progress('Firmware download verified.', 8)
-        return image
+        return data
 
     @staticmethod
     def _digest(data, digest):

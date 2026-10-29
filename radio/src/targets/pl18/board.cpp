@@ -503,6 +503,14 @@ static bool _nb4UsbStarted = false;
 static bool _nb4UsbEnumerated = false;
 static bool _nb4UsbQuietArmed = false;
 
+void nb4UsbRetryConnection()
+{
+  _nb4UsbBurnRaw = 0xff;
+  _nb4UsbStarted = false;
+  _nb4UsbQuietArmed = false;
+  _nb4UsbLinesAt = nb4Tick10ms() - NB4_USB_PROBE_EVERY_10MS;
+}
+
 static uint8_t nb4UsbConnected()
 {
   uint32_t now = nb4Tick10ms();

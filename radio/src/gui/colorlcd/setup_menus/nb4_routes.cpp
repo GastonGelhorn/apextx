@@ -44,6 +44,9 @@
 #include "view_channels.h"
 #include "view_main.h"
 #include "nb4_menu_pages.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 #include "nb4_help.h"
 #include "model_setup.h"
 
@@ -386,7 +389,11 @@ const Nb4Route routes[] = {
       });
     }, Recovery, "system/storage", UX_HELP_SYSTEM, true),
 
+#if defined(RADIO_NB4)
+    AV("settings/system/update", NB4_STR(UPDATE), nb4OpenUpdate, Recovery, "system/update", UX_HELP_UPDATE, false),
+#else
     AV("settings/system/update", NB4_STR(UPDATE), nb4RequestUpdateMode, Recovery, "system/update", UX_HELP_UPDATE, false),
+#endif
 #if defined(RADIO_NB4) && !defined(RTCLOCK)
     AV("settings/system/date_time_location", NB4_STR(LOCATION), openDateTime, RadioOnly, "system/date_time_location", UX_HELP_SYSTEM, true),
 #else
@@ -863,6 +870,10 @@ class Nb4GridModal : public BaseDialog
                 title.c_str(),
                 reason && *reason
                     ? reason
+#if defined(RADIO_NB4)
+                    : nb4RfUpdateNeedsRecovery()
+                    ? STR_NB4_UPDATE_RF_RECOVERY
+#endif
                     : STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
           }
           return 0;
@@ -1306,6 +1317,14 @@ Nb4RouteAccess nb4RouteAccessOf(const char* path)
 
 bool nb4RouteIsOpenable(const Nb4Route& route)
 {
+#if defined(RADIO_NB4)
+  // While an RF operation owns the storage only update and help stay open. A
+  // pending recovery also keeps the receiver page open: the receiver may need
+  // a new bind before it can report the installed version that closes it.
+  if (nb4RfUpdateStorageOwned() && (!route.destination ||
+      (strcmp(route.destination, "system/update") && strcmp(route.destination, "system/help") &&
+       (!nb4RfUpdateNeedsRecovery() || strcmp(route.destination, "receiver_rf/module"))))) return false;
+#endif
   if (route.state != Nb4RouteState::Available || !route.open) return false;
   if (nb4ModelBlocked() && nb4RouteAccessOf(route.path) == Nb4RouteAccess::ModelData)
     return false;

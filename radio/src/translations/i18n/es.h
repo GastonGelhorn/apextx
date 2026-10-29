@@ -1740,7 +1740,7 @@
 #define TR_NB4_LOCATION              "Ubicación"
 #define TR_NB4_DATE_LOCATION         "Fecha y ubicación"
 #define TR_NB4_UPDATE                "Actualizar"
-#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "La emisora se reinicia en modo actualización. Conecta el USB y abre ApexTX Updater en el ordenador."
+#define TR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE "La emisora se reinicia en modo actualización. Conecta el USB y abre ApexTX Flasher en el ordenador."
 #define TR_NB4_MODEL_VARIABLES       "Variables del modelo"
 #define TR_NB4_USE_VARIABLES         "Usar variables"
 #define TR_NB4_OPEN_THE_VARIABLE_EDITOR "Abrir el editor de variables"
@@ -2001,7 +2001,7 @@
 #define TR_NB4_UX_HELP_TIMERS "Configura los temporizadores y el canal usado para medir tiempo por aceleración. Boxes usa el temporizador 2 y las carreras el 1."
 #define TR_NB4_UX_HELP_LAPS "Inicia una carrera, marca vueltas y finalízala. Asigna Marcar vuelta a un control físico accesible antes de conducir. Ver resultado abre la carrera cuando se confirma el guardado."
 #define TR_NB4_UX_HELP_INDEX "Elige una categoría y un ajuste para leer qué cambia y abrir su editor."
-#define TR_NB4_UX_HELP_UPDATE "Reinicia en modo de actualización. Confirma cuando estés listo para conectar la radio al ordenador y actualizarla."
+#define TR_NB4_UX_HELP_UPDATE "Revisa los componentes de la emisora y el receptor antes de actualizar."
 #define TR_NB4_UX_HELP_INPUTS "Las entradas transforman los controles físicos mediante peso, curvas y condiciones antes de las mezclas."
 #define TR_NB4_UX_HELP_MIXES "Las mezclas combinan entradas en canales de salida. Desde una mezcla puedes crear o reutilizar una curva; sus otros usos se muestran antes de editarla."
 #define TR_NB4_UX_HELP_OUTPUTS "Las salidas fijan límites, sentido y centro de cada servo después de las mezclas. Son los mismos límites que muestran los editores de dirección y acelerador."
@@ -2193,3 +2193,41 @@
 #define TR_NB4_RF_RECEIVER_VERSION "Firmware receptor"
 #define TR_NB4_RF_RECEIVER_MODEL "Modelo receptor"
 #define TR_NB4_RF_VERSION_UNAVAILABLE "No disponible"
+#define TR_NB4_UPDATE_COMPONENTS_HELP "Revisa los componentes de la emisora y el receptor antes de actualizar."
+#define TR_NB4_UPDATE_FIRMWARE "Actualizar firmware"
+#define TR_NB4_UPDATE_USB_INVENTORY "Conectar con ApexTX Flasher"
+#define TR_NB4_UPDATE_USB_ACTIVE "Modo Flasher activo"
+#define TR_NB4_UPDATE_USB_INFO "Revisa componentes y prepara las actualizaciones en ApexTX Flasher. Conectar el USB no instala nada automáticamente."
+#define TR_NB4_UPDATE_RF_UNQUALIFIED "La instalación RF aún no está habilitada en esta versión experimental."
+#define TR_NB4_UPDATE_USB_BUSY "Desconecta USB primero y vuelve a conectarlo desde esta pantalla."
+#define TR_NB4_UPDATE_RECEIVER_PENDING "Receptor desconectado. Falta comprobar su versión."
+
+#define TR_NB4_UPDATE_BENCH_INFO "Prueba RF experimental. Desconecta el motor. Este build solo funciona en una emisora; falta validar la transferencia y recuperación en hardware."
+
+#define TR_NB4_UPDATE_RF_REINSTALL "Reinstalar imagen RF preparada"
+
+#define TR_NB4_UPDATE_RF_RECOVER "Recuperar actualización RF"
+
+#define TR_NB4_UPDATE_RF_RECOVERY "El mantenimiento RF está pendiente. Conducción desactivada. Conserva los archivos y utiliza la recuperación RF."
+
+#define TR_NB4_UPDATE_RF_PROGRESS "Actualización RF: %u%%"
+
+#define TR_NB4_RECOVERY_RESTART "Reiniciar normalmente"
+
+#define TR_NB4_RECOVERY_RESTART_INFO "Se borrará el fallo guardado y se reiniciará con scripts activados. Los coches y la calibración se conservan. Si el fallo se repite, volverá el modo de recuperación."
+
+#define TR_NB4_UPDATE_BENCH_LABEL "Prueba RF experimental"
+#define TR_NB4_USB_FLASHER "ApexTX Flasher"
+#define TR_NB4_UPDATE_RF_INSTALL "Instalar actualización RF"
+#define TR_NB4_UPDATE_RF_INSTALL_INFO "La imagen RF de la tarjeta se instala en el componente conectado. Mantén la emisora y el receptor encendidos; la conducción queda desactivada hasta terminar."
+#define TR_NB4_UPDATE_RF_AVAILABLE "Actualización RF lista para instalar"
+#define TR_NB4_UPDATE_RF_IDLE "Sin actualizaciones RF pendientes"
+
+#define TR_NB4_UPDATE_AVAILABLE "Actualización RF"
+#define TR_NB4_UPDATE_AVAILABLE_INFO "Hay una imagen preparada más reciente que el componente conectado. Revisa las versiones y el plan. La instalación requiere confirmación."
+#define TR_NB4_UPDATE_REVIEW "Revisar actualización"
+#define TR_NB4_UPDATE_LATER "Más tarde"
+#define TR_NB4_UPDATE_DEFER_FAILED "No se pudo guardar la decisión. Puedes volver a aplazarla más tarde."
+
+#define TR_NB4_UPDATE_AUDIO "Voz"
+#define TR_NB4_UPDATE_AUDIO_PENDING "pendiente"

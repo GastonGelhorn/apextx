@@ -53,7 +53,11 @@ def main():
     version = (ROOT / 'FLASHER_VERSION').read_text().strip()
     sources = ['flasher_app_update.py', 'flasher_app_installer.py', 'flasher-update-keys.json', 'apextx-updater.py', 'apextx-updater.html', 'nb4_usb_update.py',
                'nb4_update_image.py', 'nb4_rom_flash.py', 'nb4_releases.py',
-               'nb4_flasher_session.py']
+               'nb4_flasher_session.py', 'nb4_rf_catalog.py',
+               'nb4_maintenance.py', 'nb4_audio_install.py', 'nb4_storage_backup.py',
+               'nb4_rf_transfer.py', 'nb4_backup_agent.py', 'nb4_nor_restore.py',
+               'nb4_integrated_update.py', 'nb4_resource_install.py',
+               'rf-catalog/nb4.zip', 'rf-catalog/nb4plus.zip']
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = work / 'apextx-flasher-build.json'
     metadata.write_text(json.dumps({
@@ -69,13 +73,18 @@ def main():
         '--icon', str(icon), '--paths', str(ROOT / 'tools'),
         '--add-data', str(ROOT / 'tools/apextx-updater.html') + ':.',
         '--add-data', str(ROOT / 'tools/apextx-updater-logo.png') + ':.',
+        # Verified RF catalogs for the one-click update without a release package.
+        '--add-data', str(ROOT / 'tools/rf-catalog') + ':rf-catalog',
         '--add-data', str(ROOT / 'LICENSE') + ':licenses',
         '--add-data', str(ROOT / 'tools/flasher-update-keys.json') + ':.',
         '--collect-all', 'cryptography',
         '--add-data', str(metadata) + ':.',
         '--add-binary', str(libusb) + ':.',
         '--add-binary', str(dfu) + ':dfu',
-        '--hidden-import', 'usb.backend.libusb1', '--collect-all', 'webview',
+        '--hidden-import', 'usb.backend.libusb1', '--hidden-import', 'serial',
+        '--hidden-import', 'nb4_rf_transfer', '--hidden-import', 'nb4_backup_agent',
+        '--hidden-import', 'nb4_integrated_update', '--hidden-import', 'nb4_nor_restore', '--hidden-import', 'nb4_resource_install',
+        '--collect-all', 'webview',
         '--workpath', str(work / 'pyinstaller'), '--specpath', str(work),
         '--distpath', str(ROOT / 'dist'), '--noconfirm', '--clean',
     ]

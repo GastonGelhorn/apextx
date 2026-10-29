@@ -496,7 +496,9 @@ set(SRC
   )
 
 if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
-  list(APPEND SRC targets/pl18/nb4_rf_controller.cpp)
+  list(APPEND SRC targets/pl18/nb4_rf_controller.cpp
+       nb4_maintenance_protocol.cpp nb4_maintenance.cpp nb4_rf_update_core.cpp
+       nb4_rf_update.cpp nb4_rf_notice.cpp nb4_audio_identity.cpp nb4_sha256.cpp)
 endif()
 
 if(NB4_CAR_ONLY)

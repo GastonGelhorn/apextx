@@ -31,6 +31,11 @@
 #include "nb4_ui_perf.h"
 #endif
 #include "nb4_history.h"
+#if defined(RADIO_NB4)
+#include "nb4_maintenance.h"
+#include "nb4_rf_update.h"
+#include "nb4_rf_notice.h"
+#endif
 
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_racing.h"
@@ -109,6 +114,14 @@ void openUsbMenu()
   _usbMenu->addLine(STR_USB_SERIAL, [] {
     TRACE("USB serial");
     setSelectedUsbMode(USB_SERIAL_MODE);
+  });
+#endif
+#if defined(RADIO_NB4)
+  // Maintenance link for the desktop flasher: a serial session that the
+  // flasher protocol owns. Nothing is installed without a confirmation there.
+  _usbMenu->addLine(STR_NB4_USB_FLASHER, [] {
+    TRACE("USB ApexTX Flasher");
+    nb4MaintenanceEnable();
   });
 #endif
 }
@@ -202,6 +215,7 @@ void handleUsbConnection()
     if (getSelectedUsbMode() != USB_UNSELECTED_MODE) {
       if (getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
 #if defined(RADIO_NB4)
+        if (nb4RfUpdateStorageOwned() || nb4RfNoticeStorageOwned()) return;
         if (!audioQueue.pauseFiles()) return;
 #endif
 #if defined(RADIO_NB4_FAMILY)
@@ -216,6 +230,10 @@ void handleUsbConnection()
       }
 #if defined(USB_SERIAL)
       else if (getSelectedUsbMode() == USB_SERIAL_MODE) {
+#if defined(RADIO_NB4)
+        if (nb4MaintenanceEnabled()) nb4MaintenanceStartUsb();
+        else
+#endif
         serialInit(SP_VCP, serialGetMode(SP_VCP));
       }
 #endif
@@ -250,6 +268,10 @@ void handleUsbConnection()
 #endif
 #endif
     } else if (disconnectedMode == USB_SERIAL_MODE) {
+#if defined(RADIO_NB4)
+      if (nb4MaintenanceEnabled()) nb4MaintenanceStopUsb();
+      else
+#endif
       serialStop(SP_VCP);
     }
     TRACE("reset selected USB mode");
@@ -606,6 +628,11 @@ __attribute__((weak)) void customUIActions() {}
 
 void perMain()
 {
+#if defined(RADIO_NB4)
+  nb4RfUpdateService();
+  nb4MaintenanceService();
+  nb4RfNoticeService();
+#endif
 #if defined(RADIO_NB4_FAMILY)
   nb4RacingPerMain();
 #endif

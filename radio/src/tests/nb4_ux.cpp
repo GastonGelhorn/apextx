@@ -334,6 +334,50 @@ struct Scene {
 
 }  // namespace
 
+namespace { bool clickLabel(lv_obj_t* obj, const char* text); }
+
+TEST(Nb4Ux, RecoveryRetryIsExplicitFitsBothOrientationsAndPreservesDrivingData)
+{
+  Scene scene; nb4AcceptNewCarModel();
+  const auto savedRadio = g_eeGeneral;
+  const auto savedModel = g_model;
+  nb4HealthFault(NB4_FAULT_UI_STALL, 5071);
+  nb4HealthInit(); ASSERT_TRUE(nb4HealthRecovery());
+  for (const bool landscape : {false, true}) {
+    scene.orient(landscape);
+    for (const auto locale : NB4_UI_LANGUAGES) {
+      memcpy(g_eeGeneral.uiLanguage, locale, 2); nb4TestApplyUiLanguage();
+      const int w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
+      auto home = new Nb4HomeScreen(scene.root, {0, 0, (coord_t)w, (coord_t)h});
+      render(scene.root);
+      unsigned found = 0;
+      std::function<void(lv_obj_t*)> inspect = [&](lv_obj_t* obj) {
+        if (lv_obj_check_type(obj, &lv_label_class) &&
+            !strcmp(lv_label_get_text(obj), STR_NB4_RECOVERY_RESTART)) {
+          lv_area_t bounds; lv_obj_get_coords(lv_obj_get_parent(obj), &bounds);
+          EXPECT_GE(bounds.y1, 0); EXPECT_LT(bounds.y2, h); ++found;
+        }
+        for (unsigned i = 0; i < lv_obj_get_child_cnt(obj); ++i) inspect(lv_obj_get_child(obj, i));
+      };
+      inspect(home->getLvObj()); ASSERT_EQ(found, 1u);
+      char capture[64];
+      snprintf(capture, sizeof(capture), "recovery-%s-%s", locale, landscape ? "landscape" : "portrait");
+      saveFrame(capture, w, h);
+      ASSERT_TRUE(clickLabel(home->getLvObj(), STR_NB4_RECOVERY_RESTART)); render(scene.root);
+      ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_NO)); render(scene.root);
+      EXPECT_TRUE(nb4HealthRecovery());
+      if (landscape && !strcmp(locale, "cn")) {
+        ASSERT_TRUE(clickLabel(home->getLvObj(), STR_NB4_RECOVERY_RESTART)); render(scene.root);
+        ASSERT_TRUE(clickLabel(Layer::back()->getLvObj(), STR_YES)); render(scene.root);
+        nb4HealthInit(); EXPECT_FALSE(nb4HealthRecovery());
+        EXPECT_EQ(memcmp(savedRadio.calib, g_eeGeneral.calib, sizeof(savedRadio.calib)), 0);
+        EXPECT_EQ(memcmp(savedModel.moduleData, g_model.moduleData, sizeof(savedModel.moduleData)), 0);
+      }
+      home->deleteLater(); render(scene.root);
+    }
+  }
+}
+
 TEST(Nb4CarState, DefaultModelDrivesSteeringAndThrottle)
 {
   SYSTEM_RESET();

@@ -95,6 +95,7 @@
 #define USBD_CDC_VID                        USBD_VID_STM
 #define USBD_CDC_PID                        0x5740     // do not change, this ID is used by the ST USB driver for Windows
 #define USBD_CDC_PRODUCT_FS_STRING          USB_NAME " Serial Port"
+#define USBD_CDC_MAINTENANCE_FS_STRING      USB_NAME " Maintenance"
 #define USBD_CDC_CONFIGURATION_FS_STRING    "VSP Config"
 #define USBD_CDC_INTERFACE_FS_STRING        "VSP Interface"
 
@@ -390,7 +391,13 @@ uint8_t * USBD_FS_ProductStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length
       USBD_GetString ((uint8_t*)USBD_HID_PRODUCT_FS_STRING, USBD_StrDesc, length);
       break;
     case USB_SERIAL_MODE:
+#if defined(RADIO_NB4) && !defined(BOOT)
+      USBD_GetString ((uint8_t*)(nb4MaintenanceUsbSelected()
+          ? USBD_CDC_MAINTENANCE_FS_STRING : USBD_CDC_PRODUCT_FS_STRING),
+          USBD_StrDesc, length);
+#else
       USBD_GetString ((uint8_t*)USBD_CDC_PRODUCT_FS_STRING, USBD_StrDesc, length);
+#endif
       break;
     case USB_MASS_STORAGE_MODE:
       USBD_GetString ((uint8_t*)USBD_MSC_PRODUCT_FS_STRING, USBD_StrDesc, length);

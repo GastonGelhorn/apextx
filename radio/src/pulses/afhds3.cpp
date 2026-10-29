@@ -20,6 +20,9 @@
  */
 
 #include "afhds3.h"
+#if defined(RADIO_NB4)
+#include "nb4_rf_update.h"
+#endif
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_latency.h"
 #endif
@@ -317,6 +320,13 @@ class ProtoState
    }
    void resetVersions();
    Nb4ReceiverTelemetry receiverTelemetry;
+   bool nb4MaintenanceOwned = false;
+#if defined(NB4_RF_UPDATE_BENCH)
+   uint32_t maintenanceDiagnostics() const {
+     return uint32_t(nb4Stage) | uint32_t(nb4Pending) << 8 | uint32_t(state) << 16 |
+         uint32_t(hardFaulted) << 24 | uint32_t(nb4::Nb4RfController::getFault()) << 25;
+   }
+#endif
 #endif
    uint16_t RFCurrentPower;
 
@@ -344,9 +354,9 @@ class ProtoState
 
     inline int16_t convert(int channelValue);
 
-    void sendChannelsData();
+    void sendChannelsData(bool neutral = false);
 
-    void clearFrameData();
+    void clearFrameData(bool preserveAcknowledgements = false);
 
     bool hasTelemetry();
 
@@ -470,6 +480,9 @@ static const uint16_t AFHDS3_POWER[] = {56, 68, 80, 96, 108, 120, 132};
 
 //Static collection of afhds3 object instances by module
 static ProtoState protoState[MAX_MODULES];
+#if defined(RADIO_NB4)
+static uint32_t versionEpoch = 0;
+#endif
 bool containsData(FRAME_TYPE frameType);
 
 void getStatusString(uint8_t module, char* buffer)
@@ -514,6 +527,12 @@ Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module)
 {
   return module < MAX_MODULES ? protoState[module].receiverTelemetry : Nb4ReceiverTelemetry{};
 }
+#if defined(NB4_RF_UPDATE_BENCH)
+uint32_t getMaintenanceDiagnostics(uint8_t module)
+{
+  return module < MAX_MODULES ? protoState[module].maintenanceDiagnostics() : 0;
+}
+#endif
 
 void resetReceiverTelemetry()
 {
@@ -530,9 +549,11 @@ Nb4ModuleVersion ProtoState::getModuleVersionInfo() const
     v.replyLen = nb4VersionLen;
     v.productNumber = version.productNumber;
     v.hardwareVersion = version.hardwareVersion;
-    v.bootloaderVersion = version.bootloaderVersion;
-    v.firmwareVersion = version.firmwareVersion;
-    v.rfVersion = version.rfVersion;
+    v.firmwareKnown = nb4VersionLen == 26;
+    if (v.firmwareKnown) {
+      v.firmwareVersion = version.bootloaderVersion;
+      v.rfVersion = version.firmwareVersion;
+    }
   }
   return v;
 }
@@ -548,6 +569,11 @@ void requestVersionInfo(uint8_t module)
   if (module == INTERNAL_MODULE) protoState[module].armVersionRead();
 }
 
+uint32_t getVersionEpoch(uint8_t module)
+{
+  return module == INTERNAL_MODULE ? versionEpoch : 0;
+}
+
 Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
 {
   Nb4ReceiverVersion v;
@@ -558,11 +584,10 @@ Nb4ReceiverVersion ProtoState::getReceiverVersionInfo() const
       getModuleMode(module_index) != MODULE_MODE_BIND) {
     v.valid = true;
     v.productNumber = rx_version.ProductNumber;
-    v.mainboardVersion = rx_version.MainboardVersion;
-    v.rfModuleVersion = rx_version.RFModuleVersion;
-    v.bootloaderVersion = rx_version.BootloaderVersion;
-    v.firmwareVersion = rx_version.FirmwareVersion;
-    v.rfLibraryVersion = rx_version.RFLibraryVersion;
+    const auto words = reinterpret_cast<const uint8_t*>(&rx_version) + 4;
+    for (unsigned i = 0; i < 5; ++i)
+      v.identityWords[i] = words[i * 2] | (uint16_t(words[i * 2 + 1]) << 8);
+    v.firmwareVersion = v.identityWords[3];
   }
   return v;
 }
@@ -847,6 +872,8 @@ void ProtoState::setupFrame()
 #if defined(RADIO_NB4)
 void ProtoState::resetReceiverVersion()
 {
+  if (nb4HaveRxVersion || nb4RxVersionTries || nb4ConnSettling)
+    ++versionEpoch;
   nb4HaveRxVersion = false;
   nb4RxVersionTries = 0;
   nb4ConnSettling = false;
@@ -858,6 +885,7 @@ void ProtoState::resetReceiverVersion()
 
 void ProtoState::resetVersions()
 {
+  ++versionEpoch;
   nb4HaveVersion = false;
   nb4VersionTries = nb4VersionLen = 0;
   nb4VersionRead = VersionRead::None;
@@ -886,7 +914,12 @@ bool ProtoState::setupVersionRead(tmr10ms_t now)
     nb4VersionRead = VersionRead::None;
     trsp.cancelReadOnlyFrame();
   }
-  if (!nb4VersionWanted || nb4Binding ||
+  // One bounded check per module/link epoch. UI demand must not be needed:
+  // a new bind finishes before the receiver page may ever become visible.
+  const bool automatic = (!nb4HaveVersion && nb4VersionTries < 3) ||
+      (isConnected() && moduleData->afhds3.telemetry &&
+       !nb4HaveRxVersion && nb4RxVersionTries < 3);
+  if ((!nb4VersionWanted && !automatic) || nb4Binding ||
       !trsp.canSendReadOnlyFrame() ||
       nb4VersionRead != VersionRead::None ||
       (tmr10ms_t)(now - nb4ActiveSince) < SETTLE ||
@@ -931,6 +964,27 @@ void ProtoState::nb4Fail(Nb4Str message)
 
 void ProtoState::setupNb4Frame()
 {
+  if (nb4RfUpdateFrame(trsp)) {
+    if (!nb4MaintenanceOwned) {
+      nb4MaintenanceOwned = true;
+      resetVersions();
+    }
+    return;
+  }
+  if (nb4MaintenanceOwned) {
+    nb4MaintenanceOwned = false;
+    // The final update notification can still need its peer-sequence ACK.
+    // Reset our requests without discarding that pending confirmation.
+    clearFrameData(true);
+    // A receiver update leaves the already-running module in update mode.
+    // Explicit standby ends that mode before applying the saved car settings;
+    // waiting for MODULE_READY first can wait on that very transition.
+    nb4Stage = Nb4Stage::Standby;
+    nb4Pending = nb4Page = nb4ReadyTries = 0;
+    nb4ReceivedConfig = false;
+    nb4Error = nullptr;
+    state = STATE_NOT_READY;
+  }
   const auto now = get_tmr10ms();
   const bool bind = getModuleMode(module_index) == MODULE_MODE_BIND;
   if (cfg.version != (Nb4RfConfig::enhanced() ? 1 : 0)) {
@@ -1080,7 +1134,12 @@ void ProtoState::setupNb4Frame()
       failsafe[0] = (channels << 8) | CHANNELS_DATA_MODE::FAIL_SAFE;
       trsp.putFrame(CHANNELS_FAILSAFE_DATA, REQUEST_SET_NO_RESP,
                     (uint8_t*)failsafe, 2 + channels * 2);
-    } else sendChannelsData();
+    }
+    // The module only keeps the RF link up while it receives channel frames.
+    // A pending RF recovery must not stop the receiver from reconnecting, so
+    // the stream continues with every channel at neutral instead of the
+    // control positions until the operation is verified or abandoned.
+    else sendChannelsData(nb4RfUpdateDrivingLocked());
   } else if (!nb4Binding && setupVersionRead(now)) return;
   else trsp.skipFrame();
 }
@@ -1333,6 +1392,7 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
   trsp.init(buffer, mod_st, fAddr);
 #if defined(RADIO_NB4)
   hardFaulted = false;
+  nb4MaintenanceOwned = false;
   receiverTelemetry = {};
   resetVersions();
   nb4Stage = Nb4Stage::Ready;
@@ -1356,9 +1416,9 @@ void ProtoState::init(uint8_t moduleIndex, void* buffer,
   clearFrameData();
 }
 
-void ProtoState::clearFrameData()
+void ProtoState::clearFrameData(bool preserveAcknowledgements)
 {
-  trsp.clear();
+  trsp.clear(preserveAcknowledgements);
 #if defined(RADIO_NB4)
   resetVersions();
 #endif
@@ -1795,11 +1855,11 @@ bool ProtoState::syncSettings()
   return false;
 }
 
-void ProtoState::sendChannelsData()
+void ProtoState::sendChannelsData(bool neutral)
 {
 #if defined(RADIO_NB4_FAMILY)
   // Whatever else this cycle queued, it is carrying control positions.
-  nb4LatencyCarriesChannels();
+  if (!neutral) nb4LatencyCarriesChannels();
 #endif
 #if defined(RADIO_NB4)
   uint8_t channels_start = 0;
@@ -1825,8 +1885,7 @@ void ProtoState::sendChannelsData()
 
   for (uint8_t channel = channels_start, index = 1; channel < channels_last && channel < MAX_OUTPUT_CHANNELS && index <= AFHDS3_MAX_CHANNELS;
        channel++, index++) {
-    int16_t channelValue = convert(::getChannelValue(channel));
-    buffer[index] = channelValue;
+    buffer[index] = neutral ? 0 : convert(::getChannelValue(channel));
   }
 
   trsp.putFrame(COMMAND::CHANNELS_FAILSAFE_DATA, FRAME_TYPE::REQUEST_SET_NO_RESP,

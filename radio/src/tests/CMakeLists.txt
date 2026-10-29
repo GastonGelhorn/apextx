@@ -50,7 +50,8 @@ add_executable(gtests-radio EXCLUDE_FROM_ALL
   ${TEST_SRC_FILES}
 )
 if(PCB STREQUAL "PL18" AND PCBREV STREQUAL "NB4")
-  target_sources(gtests-radio PRIVATE ${RADIO_SRC_DIR}/drivers/frftl.cpp)
+  target_sources(gtests-radio PRIVATE ${RADIO_SRC_DIR}/drivers/frftl.cpp
+    ${RADIO_SRC_DIR}/bootloader/nb4_nor_restore_core.cpp)
 endif()
 target_compile_options(gtests-radio PRIVATE ${SIMU_SRC_OPTIONS})
 

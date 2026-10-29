@@ -88,6 +88,9 @@ struct Nb4ReceiverTelemetry {
 };
 Nb4ReceiverTelemetry getReceiverTelemetry(uint8_t module);
 void resetReceiverTelemetry();
+#if defined(NB4_RF_UPDATE_BENCH)
+uint32_t getMaintenanceDiagnostics(uint8_t module);
+#endif
 // Read-only version information reported by the internal RF module. `valid` is
 // false until the module has answered the version request at least once.
 struct Nb4ModuleVersion {
@@ -96,24 +99,24 @@ struct Nb4ModuleVersion {
   uint8_t replyLen = 0;
   uint32_t productNumber = 0;
   uint32_t hardwareVersion = 0;
-  uint32_t bootloaderVersion = 0;
   uint32_t firmwareVersion = 0;
   uint32_t rfVersion = 0;
+  bool firmwareKnown = false;
 };
 Nb4ModuleVersion getModuleVersionInfo(uint8_t module);
-// Refresh demand only while the receiver page is visible. Getters are passive.
+// Page demand remains optional; connection checks also run without a visible UI.
+// Getters are passive. The epoch invalidates inventories after rebind/reconnect.
 void requestVersionInfo(uint8_t module);
+uint32_t getVersionEpoch(uint8_t module);
 // Read-only version information reported by a connected AFHDS3 receiver.
 // `valid` is false until a bound receiver has answered the version request.
 struct Nb4ReceiverVersion {
   bool valid = false;
   bool unavailable = false;
   uint32_t productNumber = 0;
-  uint16_t mainboardVersion = 0;
-  uint16_t rfModuleVersion = 0;
-  uint16_t bootloaderVersion = 0;
+  // Preserve all five wire words without assigning unverified semantics.
+  uint16_t identityWords[5] = {};
   uint16_t firmwareVersion = 0;
-  uint16_t rfLibraryVersion = 0;
 };
 Nb4ReceiverVersion getReceiverVersionInfo(uint8_t module);
 // Human-readable FlySky model name for a receiver product number, or nullptr

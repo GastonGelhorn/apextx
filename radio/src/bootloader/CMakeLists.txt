@@ -129,3 +129,45 @@ if(Python3_FOUND)
 endif()
 
 PrintTargetReport("bootloader")
+
+if(PCBREV STREQUAL NB4)
+ foreach(NB4_AGENT nb4-backup-agent nb4-nor-restore-agent)
+  add_executable(${NB4_AGENT} EXCLUDE_FROM_ALL nb4_backup_agent.cpp
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32/usbd_conf.c
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32/delays_driver.cpp
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32/stm32_dma.cpp
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32/stm32_gpio.cpp
+    ${RADIO_SRC_DIR}/targets/common/arm/stm32/stm32_spi.cpp
+    $<TARGET_OBJECTS:stm32cube_ll>
+    $<TARGET_OBJECTS:stm32usb>)
+  target_compile_definitions(${NB4_AGENT} PRIVATE BOOT NB4_BACKUP_AGENT)
+  if(NB4_AGENT STREQUAL nb4-nor-restore-agent)
+    target_compile_definitions(${NB4_AGENT} PRIVATE NB4_NOR_RESTORE_AGENT)
+    target_sources(${NB4_AGENT} PRIVATE nb4_nor_restore_core.cpp ${RADIO_SRC_DIR}/nb4_sha256.cpp)
+  endif()
+  target_link_options(${NB4_AGENT} PRIVATE
+    -Wl,--undefined=HAL_PCD_MspInit,--undefined=HAL_PCD_SetupStageCallback
+    -Wl,--undefined=HAL_PCD_DataInStageCallback,--undefined=HAL_PCD_DataOutStageCallback,--undefined=HAL_PCD_ResetCallback)
+  if(NOT NO_LTO)
+    # Keep HAL callback overrides in the same LTO unit as the USB libraries.
+    target_compile_options(${NB4_AGENT} PRIVATE -flto)
+    target_link_options(${NB4_AGENT} PRIVATE -flto
+      # These startup calls are made by inline assembly.
+      -Wl,--undefined=SystemInit,--undefined=SystemClock_Config,--undefined=SystemCoreClockUpdate)
+  endif()
+  target_include_directories(${NB4_AGENT} PRIVATE
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Core/Inc
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Class/DFU/Inc
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Class/CDC/Inc
+    ${RADIO_SRC_DIR}/thirdparty/STM32_USB_Device_Library/Class/MSC/Inc)
+  target_link_libraries(${NB4_AGENT} PRIVATE cmsis)
+  set_property(TARGET ${NB4_AGENT} APPEND PROPERTY LINK_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/nb4_backup_agent.ld)
+  target_link_options(${NB4_AGENT} PRIVATE
+    -T${CMAKE_CURRENT_SOURCE_DIR}/nb4_backup_agent.ld
+    -Wl,--gc-sections,-Map=${NB4_AGENT}.map
+    --specs=nano.specs --specs=nosys.specs)
+  add_custom_command(TARGET ${NB4_AGENT} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary ${NB4_AGENT}.elf ${CMAKE_BINARY_DIR}/${NB4_AGENT}.bin)
+ endforeach()
+endif()

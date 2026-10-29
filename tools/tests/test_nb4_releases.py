@@ -76,6 +76,16 @@ class Versions(unittest.TestCase):
 
 
 class Releases(unittest.TestCase):
+    def test_voice_downloads_are_limited_to_named_assets_of_the_same_release(self):
+        release=row(); voice=asset('apextx-audio-es-0.1.0-alpha.4.zip',size=1234)
+        release['assets'].append(voice)
+        offer=self.client([release]).latest(1)
+        self.assertEqual(offer['audio_assets'],{'es':voice})
+        voice['browser_download_url']='https://github.com/other/repo/audio.zip'
+        with self.assertRaisesRegex(ReleaseError,'unexpected download URL'): self.client([release]).latest(1)
+        voice['browser_download_url']=asset(voice['name'])['browser_download_url']; voice['size']=13*1024*1024
+        with self.assertRaisesRegex(ReleaseError,'voice-pack'): self.client([release]).latest(1)
+
     def client(self, rows):
         client = ReleaseClient(opener=Mock())
         def fetch(url, *_args):

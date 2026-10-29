@@ -27,6 +27,17 @@ if(PCBREV STREQUAL NB4)
                UNQUALIFIED CANDIDATE_USART3 CANDIDATE_USART6
                RECOVERED_USART6)
   option(APEXTX_PUBLIC_RELEASE "Mark the image as a published build" OFF)
+  option(NB4_RF_UPDATE_BENCH "Enable unit-bound experimental RF maintenance" OFF)
+  set(NB4_RF_UPDATE_BENCH_SERIAL "" CACHE STRING "Exact USB serial for RF bench testing")
+  if(NB4_RF_UPDATE_BENCH)
+    string(LENGTH "${NB4_RF_UPDATE_BENCH_SERIAL}" NB4_RF_UPDATE_SERIAL_LENGTH)
+    if(APEXTX_PUBLIC_RELEASE OR NOT NB4_RF_UPDATE_SERIAL_LENGTH EQUAL 12 OR
+       NOT NB4_RF_UPDATE_BENCH_SERIAL MATCHES "^[0-9A-F]+$")
+      message(FATAL_ERROR "RF bench builds require one 12-digit unit serial and cannot be public releases")
+    endif()
+    add_definitions(-DNB4_RF_UPDATE_BENCH
+      -DNB4_RF_UPDATE_BENCH_SERIAL=\"${NB4_RF_UPDATE_BENCH_SERIAL}\")
+  endif()
 
   set(NB4_RF_PROFILE_VALUES
       UNQUALIFIED CANDIDATE_USART3 CANDIDATE_USART6

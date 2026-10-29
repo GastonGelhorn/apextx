@@ -74,7 +74,7 @@ jobs:
       - name: Build and verify firmware
         run: |
           cmake --build build/nb4-release --target arm-none-eabi-configure -j4
-          cmake --build build/nb4-release/arm-none-eabi --target firmware-size -j4
+          cmake --build build/nb4-release/arm-none-eabi --target firmware-size nb4-backup-agent nb4-nor-restore-agent -j4
 
       - name: Verify ROM automatic-start machine code
         run: |
@@ -95,13 +95,15 @@ jobs:
           version="$(cat APEXTX_VERSION)"
           package="apextx-${{ matrix.model }}-$version"
           mkdir -p dist
-          # --model makes the packager refuse an image built for another radio.
+          # --model makes the packager refuse an image built for another radio,
+          # and the committed RF catalog is verified and pinned to that radio.
           python3 tools/nb4-package.py \
             --build build/nb4-release/arm-none-eabi \
             --output "dist/$package" \
             --tests build/nb4-release/native/tests.xml \
             --release "$version" \
-            --model ${{ matrix.model }}
+            --model ${{ matrix.model }} \
+            --rf-bundle tools/rf-catalog/${{ matrix.model }}.zip
           # Expose the exact validated image as a direct download as well.
           cp "dist/$package/firmware.bin" "dist/$package.bin"
           python3 tools/nb4-release-metadata.py \
@@ -266,12 +268,18 @@ jobs:
           cat > release-notes.md <<EOF
           ## What's new
 
-          - Complete Simplified Chinese interface, with fonts and screenshots
-            checked in portrait and landscape.
-          - Four audio packs: English, Spanish, German and Mandarin Chinese,
-            each with the ApexTX welcome prompt.
-          - Guided bootloader upgrades when required by a new firmware version.
-          - Corrected battery indicators and live charging-status LED updates.
+          - RF module and receiver firmware updates from the radio. The
+            verified images from the official FlySky packages (RF module,
+            FGr4 V2, FGr4S V2, FGr8B, FGr4B, FGr12B, Mini-Z, INr4-GYB) ship
+            with the flasher and in \`rf/catalog.zip\`. After binding an older
+            receiver the radio offers the update; System > Update shows
+            progress and offers Recover after an interrupted write.
+          - One-click updates: choose **ApexTX Flasher** on the radio's USB
+            menu, then run the flasher. It stores the RF catalog on the card,
+            restarts the radio into update mode and flashes the firmware.
+          - RF module, receiver firmware and receiver model readouts on the
+            receiver page.
+          - Resumable audio installation with a verified filesystem backup.
 
           ## Choose your radio
 

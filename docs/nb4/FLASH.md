@@ -7,15 +7,15 @@ Read the backup and recovery sections before writing anything.
 ## First installation and later updates
 
 The first installation replaces FlySky firmware with ApexTX and installs the
-ApexTX bootloader. The desktop ApexTX Updater cannot do this while the radio
+ApexTX bootloader. The desktop ApexTX Flasher cannot do this while the radio
 still runs the official firmware. Follow the complete procedure on this page;
-after setup, use the [ApexTX Updater](UPDATE.md) for normal application updates.
+after setup, use the [ApexTX Flasher](UPDATE.md) for normal application updates.
 
 | Radio mode | How to identify it | Use |
 | --- | --- | --- |
-| Official FlySky Update | Entered from the FlySky firmware; not identified as ApexTX Update | Not supported by the ApexTX Updater |
+| Official FlySky Update | Entered from the FlySky firmware; not identified as ApexTX Update | Not supported by the ApexTX Flasher |
 | STM32 ROM DFU | `dfu-util -l` lists internal flash, option bytes, and OTP | First installation, bootloader replacement, or recovery using this guide |
-| ApexTX Update | Display shows **ApexTX Update**; USB product is **ApexTX NB4 Update** with a staging interface | Normal application updates using the desktop ApexTX Updater |
+| ApexTX Update | Display shows **ApexTX Update**; USB product is **ApexTX NB4 Update** with a staging interface | Normal application updates using the desktop ApexTX Flasher |
 
 The screen may be black in more than one mode, and ROM DFU and ApexTX Update
 share USB ID `0483:df11`. Confirm the listed interfaces before choosing a tool.
@@ -48,7 +48,7 @@ the calibration performed in its own System > Calibration page. The factory
 records still matter if the radio may later be returned to FlySky software.
 
 For normal updates after installing an ApexTX Update-capable bootloader, use
-the menu-driven [ApexTX Updater](UPDATE.md). The ROM DFU procedure below is for
+the menu-driven [ApexTX Flasher](UPDATE.md). The ROM DFU procedure below is for
 the first complete installation, bootloader replacement, and low-level recovery.
 
 ## Requirements

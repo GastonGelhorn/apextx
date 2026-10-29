@@ -245,7 +245,7 @@ class Transport
  public:
   void init(void* buffer, etx_module_state_t* mod_st, uint8_t fAddr);
 
-  void clear();
+  void clear(bool preserveAcknowledgements = false);
 
   void putFrame(COMMAND command, FRAME_TYPE frameType, uint8_t* data = nullptr,
                  uint8_t dataLength = 0);
@@ -267,6 +267,13 @@ class Transport
                         uint8_t size = 0);
   void cancelReadOnlyFrame() { readOnlyPending = false; }
   bool isReadOnlyReply() const { return readOnlyReply; }
+  void cancelPendingRequest() {
+    operationState = State::IDLE;
+    repeatCount = 0;
+    readOnlyPending = false;
+    trsp.clear();
+    ++frameIndex;
+  }
   bool canSendReadOnlyFrame() {
     return !waiting() && !acknowledgements.getCommand() && !responsePending;
   }

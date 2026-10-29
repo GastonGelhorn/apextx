@@ -56,10 +56,24 @@ included in every archive.
      apextx-audio-es-VERSION.zip "/Volumes/NO NAME" --yes
    ```
 
-The installer verifies the archive, copies the previous `SOUNDS` directory to
-a timestamped backup on the computer, replaces it with the selected language,
-verifies every installed file, and synchronizes pending writes. On Windows,
+The installer verifies the archive and a complete filesystem backup on the
+computer before replacing files. It installs one file at a time, verifies the
+result and leaves at least 256 KiB for settings and metadata. Personal or
+modified recordings are preserved; assignable tracks omitted from the new
+pack remain available. Previous managed language files are removed only after
+the backup has been verified. Backups default to **ApexTX-Backups** in your home
+directory; use **--backup-dir** to choose another private computer directory. On Windows,
 replace `/Volumes/NO NAME` with the mounted drive root, such as `E:\`.
+
+## Resume after an interruption
+
+Keep the exact package and its computer backup directory. Reconnect the same
+radio volume in USB Storage mode and run the helper with **--yes --resume**,
+using the same **--backup-dir**. A new installation refuses to overwrite an
+unfinished journal. Changes to personal files during the operation are
+reported as conflicts instead of overwritten. If filesystem damage prevents
+mounting the volume, retain the backup and use recovery; a journal alone
+cannot repair corrupted FAT metadata.
 
 ## Install manually
 
@@ -75,9 +89,17 @@ written.
 
 ## Select the voice independently
 
-After restarting the radio, open **Menu > System > General > Voice language**
-and select the language of the installed package. Changing **Text language**
-does not change or install voice files.
+The current helper and component wizard write a checked `APEXTX-AUDIO.ID`
+receipt after all audio files have been verified. On restarting, ApexTX uses
+that pack's voice language and reports its release in **System > Update**.
+The text language remains unchanged. An incomplete install/restore is reported
+as pending and does not select a new voice language.
+
+For files copied manually or older installations without a receipt, open
+**Menu > System > General > Voice language** and select the installed language.
+Changing **Text language** does not change or install voice files. If manually
+replacing a pack previously installed by the helper, remove the old
+`APEXTX-AUDIO.ID` receipt so it cannot reselect the previous voice.
 
 For Simplified Chinese, choose **Chinese** / **简体中文** as the text language.
 Install the `cn` audio ZIP and choose the same voice language to hear Mandarin.
@@ -89,10 +111,16 @@ audio, or Chinese text with an English voice pack, also works.
 
 Voice files live on the radio's USB storage, not in the firmware, so a
 firmware update never changes them. To switch language, install the package
-for the new language exactly as above: the helper replaces the whole `SOUNDS`
-directory and keeps a backup of the old one on the computer. Then select the
-new language under **Voice language**. Keep one language on the radio at a
-time.
+for the new language exactly as above: the helper replaces unmodified managed files and keeps a verified filesystem
+backup on the computer, preserving personal recordings. A verified receipt
+selects the new voice at the next start. Keep one language on the radio at a
+time. The component wizard keeps audio unselected unless you choose a new pack.
+
+In an integrated plan, **Restore previous audio** reverses a complete or
+interrupted installation from its verified private backup. It keeps later
+unrelated personal recordings and reports conflicting edits instead of
+overwriting them. Keep the original package and backup while an operation is
+incomplete; do not replace them with a different language archive to resume.
 
 ## When a voice file is missing
 

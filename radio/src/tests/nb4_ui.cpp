@@ -16,7 +16,11 @@
 #include "nb4_racing.h"
 #include "nb4_home.h"
 #include "nb4_health.h"
+#include "nb4_maintenance.h"
+#include "nb4_rf_update.h"
+#include "hal/usb_driver.h"
 #include "nb4_model_compat.h"
+#include "nb4_routes.h"
 #include "view_main.h"
 #include "layout.h"
 #include "location.h"
@@ -183,6 +187,125 @@ TEST(Nb4Ui, RacingHomeRendersAndPreservesDrivingState)
   driver->flush_cb = originalFlush;
   lcdSetFlushCb(nullptr);
   currentLangStrings = originalLanguage;
+}
+
+TEST(Nb4Ui, UpdateComponentsRenderInEveryLanguageAndReturnToTheirCaller)
+{
+#if defined(RADIO_NB4)
+  nb4MaintenanceStopUsb();
+  const auto usbMode = getSelectedUsbMode();
+#endif
+  SYSTEM_RESET(); MODEL_RESET(); nb4AcceptNewCarModel();
+  nb4HealthClearPrevious(); nb4HealthInit(); nb4VisualDefaults();
+  const auto language = currentLangStrings;
+  auto root = MainWindow::instance();
+  const auto screen = lv_scr_act();
+  const auto rect = root->getRect();
+  auto driver = lv_disp_get_default()->driver;
+  const auto flush = driver->flush_cb;
+  root->setActiveScreen();
+  lcdSetFlushCb(captureNb4Presentation);
+  ViewMain::instance();
+  root->run();
+  auto home = new Nb4HomeScreen(root, {0, 0, LCD_W, LCD_H});
+  for (unsigned orientation = 0; orientation < 2; ++orientation) {
+    ASSERT_TRUE(lcdSetOrientation(orientation));
+    const int w = lv_disp_get_hor_res(nullptr), h = lv_disp_get_ver_res(nullptr);
+    root->setRect({0, 0, w, h}); home->setRect({0, 0, w, h});
+    for (const auto locale : NB4_UI_LANGUAGES) {
+      memcpy(g_eeGeneral.uiLanguage, locale, 2);
+      nb4TestApplyUiLanguage();
+      const auto caller = Layer::back();
+      ASSERT_TRUE(nb4OpenRoute("settings/system/update"));
+      root->run();
+      lv_obj_update_layout(root->getLvObj());
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      char name[64];
+      snprintf(name, sizeof(name), "update-%s-%s", locale, orientation ? "landscape" : "portrait");
+      saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"), name, w, h);
+      unsigned firmwareButtons = 0, connectButtons = 0, activeButtons = 0;
+      std::function<void(lv_obj_t*)> checkButton = [&](lv_obj_t* object) {
+        if (lv_obj_check_type(object, &lv_label_class)) {
+          const auto text = lv_label_get_text(object);
+          if (!strcmp(text, STR_NB4_UPDATE_USB_INVENTORY)) ++connectButtons;
+          if (!strcmp(text, STR_NB4_UPDATE_USB_ACTIVE)) {
+            ++activeButtons;
+            EXPECT_TRUE(lv_obj_has_state(lv_obj_get_parent(object), LV_STATE_DISABLED));
+            lv_area_t area; lv_obj_get_coords(lv_obj_get_parent(object), &area);
+            EXPECT_GE(area.y1, 0); EXPECT_LT(area.y2, h);
+          }
+        }
+        if (lv_obj_check_type(object, &lv_label_class) &&
+            !strcmp(lv_label_get_text(object), STR_NB4_UPDATE_FIRMWARE)) {
+          lv_area_t area;
+          lv_obj_get_coords(lv_obj_get_parent(object), &area);
+          EXPECT_GE(area.y1, 0);
+          EXPECT_LT(area.y2, h);
+          ++firmwareButtons;
+        }
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(object); ++i)
+          checkButton(lv_obj_get_child(object, i));
+      };
+      checkButton(Layer::back()->getLvObj());
+      EXPECT_EQ(firmwareButtons, 1u);
+#if defined(RADIO_NB4)
+      EXPECT_EQ(connectButtons, 1u); EXPECT_EQ(activeButtons, 0u);
+      ASSERT_TRUE(nb4MaintenanceEnable());
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      lv_obj_update_layout(root->getLvObj());
+      firmwareButtons = connectButtons = activeButtons = 0;
+      checkButton(Layer::back()->getLvObj());
+      EXPECT_EQ(connectButtons, 0u); EXPECT_EQ(activeButtons, 1u);
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      snprintf(name, sizeof(name), "update-connected-%s-%s", locale, orientation ? "landscape" : "portrait");
+      saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"), name, w, h);
+      nb4MaintenanceStopUsb();
+      nb4RfUpdateTestRequireRecovery();
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      lv_obj_update_layout(root->getLvObj());
+      firmwareButtons = connectButtons = activeButtons = 0;
+      checkButton(Layer::back()->getLvObj());
+      EXPECT_EQ(firmwareButtons, 1u) << "Radio firmware Update must remain a separate action during RF recovery";
+      // A receiver may need a new bind before it can prove the installed image.
+      EXPECT_TRUE(nb4RouteIsOpenable(*nb4RouteByPath("settings/receiver_rf/module")));
+      EXPECT_TRUE(nb4RouteIsOpenable(*nb4RouteByPath("settings/system/update")));
+      EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/system/calibration")));
+      EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/models/management")));
+      nb4RfUpdateTestReset();
+#endif
+      Layer::back()->onCancel(); root->run();
+      EXPECT_EQ(Layer::back(), caller);
+#if defined(RADIO_NB4)
+      nb4OpenRfUpdateNotice(); root->run();
+      lv_obj_update_layout(root->getLvObj());
+      lv_tick_inc(50); lv_timer_handler(); root->run();
+      snprintf(name,sizeof(name),"rf-update-notice-%s-%s",locale,orientation?"landscape":"portrait");
+      saveNb4Frame(getenv("NB4_SCREENSHOT_DIR"),name,w,h);
+      unsigned noticeActions=0;
+      std::function<void(lv_obj_t*)> checkNotice=[&](lv_obj_t* object) {
+        if (lv_obj_check_type(object,&lv_label_class) &&
+            (!strcmp(lv_label_get_text(object),STR_NB4_UPDATE_REVIEW) || !strcmp(lv_label_get_text(object),STR_NB4_UPDATE_LATER))) {
+          lv_area_t area; lv_obj_get_coords(lv_obj_get_parent(object),&area);
+          EXPECT_GE(area.x1,0); EXPECT_GE(area.y1,0); EXPECT_LT(area.x2,w); EXPECT_LT(area.y2,h); ++noticeActions;
+        }
+        for (uint32_t i=0;i<lv_obj_get_child_cnt(object);++i) checkNotice(lv_obj_get_child(object,i));
+      };
+      checkNotice(Layer::back()->getLvObj()); EXPECT_EQ(noticeActions,2u);
+      Layer::back()->deleteLater(); root->run(); EXPECT_EQ(Layer::back(),caller);
+#endif
+      EXPECT_EQ(lv_mem_test(), LV_RES_OK);
+    }
+  }
+  home->deleteLater(); root->run();
+  ASSERT_TRUE(lcdSetOrientation(false));
+  root->setRect(rect); lv_scr_load(screen);
+  lv_tick_inc(50); lv_timer_handler();
+  driver->flush_cb = flush;
+  lcdSetFlushCb(nullptr);
+  currentLangStrings = language;
+#if defined(RADIO_NB4)
+  setSelectedUsbMode(usbMode);
+#endif
 }
 
 TEST(Nb4Ui, RotationClosesEditorsAndPreservesPersistedScreens)

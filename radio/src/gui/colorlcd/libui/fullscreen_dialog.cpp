@@ -32,6 +32,7 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_routes.h"
 #include "nb4_ui.h"
+#include "nb4_health.h"
 #endif
 
 FullScreenDialog::FullScreenDialog(
@@ -361,6 +362,11 @@ static void run_ui_manually()
   sleep_ms(10);
   LvglWrapper::runNested();
   MainWindow::instance()->run(false);
+#if defined(RADIO_NB4_FAMILY)
+  // A responsive modal is a completed UI iteration, including boot warnings
+  // waiting for a user's decision. Beat only after both UI calls return.
+  nb4HealthBeat(NB4_TASK_UI);
+#endif
 }
 
 void FullScreenDialog::runForever(bool checkPwr)

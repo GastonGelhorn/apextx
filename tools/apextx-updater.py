@@ -51,7 +51,31 @@ def package_self_test():
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     for value in trusted_keys().values():
         Ed25519PublicKey.from_public_bytes(base64.b64decode(value, validate=True))
-    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True, release_client=True, app_updates=True)
+    from nb4_rf_catalog import PROFILES, manifest
+    import serial
+    from nb4_maintenance import Decoder, encode
+    from nb4_audio_install import JOURNAL_FORMAT
+    from nb4_rf_transfer import TransferClient
+    from nb4_backup_agent import RAM, RAM_CAPACITY, validate_agent
+    from nb4_integrated_update import IntegratedUpdate
+    from nb4_nor_restore import STATUS as NOR_STATUS
+    if not callable(IntegratedUpdate.load) or NOR_STATUS.size!=32:
+        raise RuntimeError('The integrated component/restoration runtime is incomplete.')
+    if (18 not in TransferClient.allowed_commands or RAM != 0x20010000 or
+            RAM + RAM_CAPACITY != 0x2002fe00 or not callable(validate_agent)):
+        raise RuntimeError('The experimental RF/backup runtime is incomplete.')
+    if Decoder().feed(encode(1, 123)) != [(1, 123, b'')] or not JOURNAL_FORMAT:
+        raise RuntimeError('The shared maintenance/audio runtime is incomplete.')
+    if not PROFILES or any(manifest(profile)['rf_write_supported'] for profile in PROFILES):
+        raise RuntimeError('The read-only RF package preparer is missing or unsafe.')
+    from nb4_rf_catalog import MAX_BUNDLE, verify_bundle
+    for radio in ('nb4', 'nb4plus'):
+        bundle = folder / 'rf-catalog' / f'{radio}.zip'
+        if not bundle.is_file() or bundle.stat().st_size > MAX_BUNDLE or verify_bundle(bundle.read_bytes())[0]['radio'] != radio:
+            raise RuntimeError('The embedded RF catalog is missing or targets the wrong radio.')
+    return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
+                release_client=True, rf_catalog=True, maintenance=True, audio_installer=True,
+                rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True)
 
 
 def _enable_bundled_libusb():
@@ -88,6 +112,7 @@ def _logo_data_uri():
 def serve(port=0, open_browser=True, startup_health=None):
     token = secrets.token_urlsafe(32)
     session = FlasherSession()
+    session.resume_components()
     lock, status = session.lock, session.status
     window = None
     restarting = threading.Event()
@@ -169,6 +194,8 @@ def serve(port=0, open_browser=True, startup_health=None):
             metadata = nb4_rom_flash.write_backup_metadata(backup, radio_variant, serial)
             # 2) Detect the current firmware and cross-check the image's model.
             current = nb4_rom_flash.inspect_flash(backup.read_bytes())
+            if current['firmware']!='ApexTX':
+                raise nb4_rom_flash.RomFlashError('First installation requires a complete verified internal/NOR backup. Use the Components wizard; first-installation rollback remains experimental.')
             if (current['firmware'] == 'ApexTX' and
                     current['variant'] != radio_variant):
                 raise nb4_rom_flash.RomFlashError(
@@ -276,8 +303,29 @@ def serve(port=0, open_browser=True, startup_health=None):
                 except (OSError, ValueError, RuntimeError) as error:
                     self.reply(409, {'error': str(error)})
                 return
-            if request_path in ('/api/refresh' , '/api/channel', '/api/upgrade',
-                                '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel'):
+            if request_path in ('/api/components/package','/api/components/audio'):
+                try:
+                    size=int(self.headers.get('Content-Length','0'))
+                    if not 1<=size<=(12 if request_path.endswith('/audio') else 128)*1024*1024:
+                        raise ValueError('The selected package exceeds its size limit.')
+                    self.connection.settimeout(30)
+                    data=self.rfile.read(size)
+                    if len(data)!=size: raise ValueError('The complete-package upload was interrupted.')
+                    serial=self.headers.get('X-ApexTX-Serial')
+                    with lock:
+                        if not serial or serial!=session.device.get('serial'): raise ValueError('The selected transmitter changed.')
+                        if session.bootloader_install: raise ValueError('Finish or cancel the pending bootloader installation first.')
+                        session.begin('components')
+                        audio=request_path.endswith('/audio')
+                        threading.Thread(target=session.component_audio if audio else session.prepare_components,
+                            args=(data,self.headers.get('X-ApexTX-Plan') if audio else serial),daemon=False).start()
+                    self.reply(202,{'ok':True})
+                except (ValueError,OSError,RuntimeError) as error: self.reply(409,{'error':str(error)})
+                return
+            if request_path in ('/api/refresh', '/api/channel', '/api/upgrade',
+                                '/api/bootloader/prepare', '/api/bootloader/install', '/api/bootloader/cancel',
+                                '/api/components/read','/api/components/action','/api/components/open',
+                                '/api/components/pick','/api/components/download','/api/components/download-audio'):
                 try:
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 <= size <= 2048:
@@ -286,8 +334,46 @@ def serve(port=0, open_browser=True, startup_health=None):
                     data = json.loads(self.rfile.read(size) or b'{}')
                     if not isinstance(data, dict):
                         raise ValueError('Invalid request.')
+                    if request_path=='/api/components/pick':
+                        if window is None: raise ValueError('Paste the folder path, or use the desktop app to browse.')
+                        import webview
+                        with lock: session.begin('components')
+                        try:
+                            paths=window.create_file_dialog(webview.FileDialog.OPEN if data.get('kind')=='audio' else webview.FileDialog.FOLDER)
+                        finally: session.finish()
+                        self.reply(200,{'path':paths[0] if paths else None}); return
                     with lock:
-                        if request_path in ('/api/upgrade', '/api/bootloader/prepare'):
+                        if request_path in ('/api/components/action','/api/components/open','/api/components/download','/api/components/download-audio'):
+                            if session.bootloader_install: raise ValueError('Finish or cancel the pending bootloader installation first.')
+                            if request_path=='/api/components/action':
+                                action=data.get('action')
+                                if action in ('approve','install','recover','restore-nor','restore-application','restore-audio') and data.get('confirmed') is not True:
+                                    raise ValueError('Review and confirm the selected component action.')
+                                if type(data.get('reinstall',False)) is not bool: raise ValueError('Invalid reinstallation choice.')
+                                worker=session.component_action
+                                args=(data.get('id'),action,data.get('component'),data.get('path'),data.get('selected'),data.get('reinstall',False))
+                            elif request_path=='/api/components/open':
+                                worker=session.open_components; args=(data.get('path'),)
+                            else:
+                                device=dict(session.device); offer=session.offer
+                                if (not offer or data.get('release_id')!=offer['id'] or
+                                        data.get('serial')!=device.get('serial') or data.get('target')!=device.get('target')):
+                                    raise ValueError('The selected radio or release changed.')
+                                if request_path.endswith('/download-audio'):
+                                    language=data.get('language'); plan=session.integrated
+                                    if (language not in offer.get('audio_assets',{}) or not plan or plan.record['id']!=data.get('id') or
+                                            plan.package.manifest['release']!=offer['version']):
+                                        raise ValueError('Select a voice pack from the same release as this component plan.')
+                                    worker=session.download_component_audio; args=(device,dict(offer),data['id'],language)
+                                else: worker=session.download_components; args=(device,dict(offer))
+                            session.begin('components')
+                            threading.Thread(target=worker,args=args,daemon=False).start()
+                        elif request_path == '/api/components/read':
+                            device = session.inventory_choice(data.get('serial'), data.get('target'))
+                            session.begin('inventory')
+                            threading.Thread(target=session.read_inventory,
+                                             args=(device,), daemon=False).start()
+                        elif request_path in ('/api/upgrade', '/api/bootloader/prepare'):
                             preparing = request_path.endswith('/prepare')
                             device, offer = session.choice(data.get('serial'), data.get('target'), data.get('release_id'), bootloader=preparing)
                             session.begin('prepare_bootloader' if preparing else 'upgrade')
@@ -409,16 +495,71 @@ def main():
     parser.add_argument('firmware', type=Path, nargs='?', help='Update from the terminal. Omit the file to open the local interface.')
     parser.add_argument('--check', action='store_true', help='Validate the image or detect an update interface without writing firmware.')
     parser.add_argument('--serial')
+    parser.add_argument('--inventory', action='store_true',
+                        help='Read component versions over the explicitly selected maintenance connection.')
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--self-test', type=Path, metavar='REPORT.json',
                         help='Check the packaged app without accessing a radio and write a report.')
+    rf = parser.add_mutually_exclusive_group()
+    rf.add_argument('--rf-source', type=Path, help='Inspect a reviewed installation package; never accesses USB.')
+    rf.add_argument('--rf-bundle', type=Path, help='Verify a prepared RF catalog ZIP; never accesses USB.')
+    rf.add_argument('--backup-storage', type=Path, metavar='VOLUME',
+                    help='Back up an explicitly selected mounted ApexTX filesystem; never changes the radio.')
+    rf.add_argument('--verify-backup', type=Path, metavar='DIRECTORY',
+                    help='Verify a private filesystem backup without accessing a radio.')
+    parser.add_argument('--backup-output', type=Path, metavar='NEW_DIRECTORY')
+    parser.add_argument('--rf-output', type=Path, help='With --rf-source, create a new local RF ZIP without overwriting files.')
+    parser.add_argument('--rf-inventory', type=Path, help='With --rf-bundle, assess a read-only receiver inventory JSON.')
     parser.add_argument('--apply-app-update', type=Path, nargs=2, metavar=('TRANSACTION', 'NONCE'), help=argparse.SUPPRESS)
     parser.add_argument('--app-update-start', type=Path, nargs=2, metavar=('TRANSACTION', 'NONCE'), help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.apply_app_update:
         from flasher_app_installer import run_helper
         run_helper(args.apply_app_update[0], str(args.apply_app_update[1]))
+        return
+    if args.backup_storage or args.verify_backup:
+        if (args.firmware or args.check or args.self_test or args.inventory or
+                args.rf_output or args.rf_inventory or
+                bool(args.backup_storage) != bool(args.backup_output)):
+            parser.error('Filesystem backup cannot be combined with update/recovery; use --backup-output with --backup-storage.')
+        from nb4_storage_backup import backup_storage, verify_backup
+        try:
+            result = (backup_storage(args.backup_storage, args.backup_output)
+                      if args.backup_storage else verify_backup(args.verify_backup))
+            print(json.dumps(dict(format=result['format'], raw_nor=False,
+                                  verified_files=len(result['files']), device_writes=False), indent=2))
+        except (OSError, ValueError, RuntimeError) as error:
+            parser.exit(1, f'Error: {error}\n')
+        return
+    if args.backup_output:
+        parser.error('--backup-output requires --backup-storage.')
+    if ((args.rf_source or args.rf_bundle) and (args.firmware or args.check or args.self_test or args.inventory) or
+            args.inventory and (args.firmware or args.check or args.self_test) or
+            args.rf_output and not args.rf_source or args.rf_inventory and not args.rf_bundle):
+        parser.error('RF preparation cannot be combined with radio update/recovery or self-test.')
+    if args.rf_source or args.rf_bundle:
+        # Return before USB runtime setup/discovery: package preparation must
+        # remain safe even with a radio already connected in Update/ROM DFU.
+        from nb4_rf_catalog import (MAX_BUNDLE, assess_receiver, inspect_source_file,
+                                    prepare, verify_bundle)
+        try:
+            if args.rf_source:
+                description = (prepare(args.rf_source, args.rf_output) if args.rf_output
+                               else inspect_source_file(args.rf_source)[0])
+            else:
+                with args.rf_bundle.open('rb') as stream:
+                    description, _ = verify_bundle(stream.read(MAX_BUNDLE + 1))
+            result = dict(catalog=description, status='verified-catalog-only', device_writes=False)
+            if args.rf_inventory:
+                with args.rf_inventory.open('rb') as stream:
+                    raw = stream.read(16385)
+                if len(raw) > 16384:
+                    raise ValueError('Receiver inventory exceeds the permitted size.')
+                result['receiver_assessment'] = assess_receiver(description, json.loads(raw))
+            print(json.dumps(result, indent=2))
+        except (OSError, ValueError) as error:
+            parser.exit(1, f'Error: {error}\n')
         return
     lease = None
     startup_health = None
@@ -437,7 +578,16 @@ def main():
                 return
     _enable_bundled_libusb()
     try:
-        if args.self_test:
+        if args.inventory:
+            from nb4_usb_update import probe
+            from nb4_maintenance import TARGETS, read_inventory
+            device = probe()
+            if (device.get('state') != 'normal' or device.get('maintenance') is not True or device.get('target') not in TARGETS or
+                    args.serial and args.serial != device.get('serial')):
+                raise RuntimeError('Connect one identified radio from System > Update > Connect to ApexTX Flasher.')
+            inventory = read_inventory(device['serial'], TARGETS[device['target']], verified=True)
+            print(json.dumps(inventory, indent=2))
+        elif args.self_test:
             args.self_test.write_text(json.dumps(package_self_test(), indent=2) + '\n', encoding='utf-8')
         elif args.firmware:
             image = args.firmware.read_bytes()

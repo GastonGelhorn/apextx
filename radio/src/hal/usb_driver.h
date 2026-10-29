@@ -64,7 +64,12 @@ void setSelectedUsbMode(int mode);
 
 // USB CDC
 uint32_t usbSerialFreeSpace();
+void usbSerialPutc(void* context, uint8_t byte);
+void usbSerialSetReceiveDataCb(void* context, void (*callback)(uint8_t*, uint32_t));
 extern const etx_serial_port_t UsbSerialPort;
+#if defined(RADIO_NB4) && !defined(BOOT)
+EXTERN_C(bool nb4MaintenanceUsbSelected());
+#endif
 
 // USB HID
 #if defined(USBJ_EX)

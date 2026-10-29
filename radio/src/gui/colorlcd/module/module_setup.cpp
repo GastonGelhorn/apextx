@@ -27,6 +27,7 @@
 #include "dialog.h"
 #include "pulses/afhds3.h"
 #include "mainview/nb4_help.h"
+#include "nb4_routes.h"
 #endif
 
 #include "bind_menu_d16.h"
@@ -350,13 +351,11 @@ class ModuleWindow : public Window
         // must not trigger RF traffic from those parked screens.
         if (lv_obj_is_visible(lvobj)) afhds3::requestVersionInfo(INTERNAL_MODULE);
         const auto v = afhds3::getModuleVersionInfo(INTERNAL_MODULE);
-        if (!v.valid)
+        if (!v.valid || !v.firmwareKnown)
           return std::string(v.unavailable ? STR_NB4_RF_VERSION_UNAVAILABLE : STR_NB4_LOADING);
-        // Keep the NB4 module's reported word in hexadecimal, as on stock.
-        // Its short reply does not follow every field of the legacy struct;
-        // this readout is informational, not an image-compatibility decision.
+        // Normalize the 26-byte layout before displaying its application word.
         char b[16];
-        snprintf(b, sizeof(b), "0x%lX", (unsigned long)v.bootloaderVersion);
+        snprintf(b, sizeof(b), "0x%lX", (unsigned long)v.firmwareVersion);
         return std::string(b);
       });
       auto modelLine = newLine(grid);
@@ -383,6 +382,11 @@ class ModuleWindow : public Window
         char b[16];
         snprintf(b, sizeof(b), "0x%X", unsigned(v.firmwareVersion));
         return std::string(b);
+      });
+      auto updateLine = newLine(grid);
+      new TextButton(updateLine, rect_t{}, STR_NB4_UPDATE, [] {
+        nb4OpenRoute("settings/system/update");
+        return 0;
       });
     }
 #endif

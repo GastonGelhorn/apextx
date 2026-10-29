@@ -17,6 +17,14 @@
 #include "nb4_help.h"
 #include "timer_setup.h"
 #include "model_nb4_axis.h"
+#if defined(RADIO_NB4)
+#include "nb4_maintenance.h"
+#include "nb4_audio_identity.h"
+#include "nb4_rf_update.h"
+#include "hal/abnormal_reboot.h"
+#include "pulses/afhds3.h"
+#include "fw_version.h"
+#endif
 
 namespace {
 class MenuPage : public BaseDialog {
@@ -34,10 +42,11 @@ class MenuPage : public BaseDialog {
                                 COLOR_THEME_PRIMARY3_INDEX);
     lv_label_set_long_mode(label->getLvObj(), LV_LABEL_LONG_WRAP);
   }
-  void button(const char* text, std::function<void()> action) {
+  TextButton* button(const char* text, std::function<void()> action) {
     auto b = new TextButton(form, {0, 0, LV_PCT(100), 44}, text,
       [action] { action(); return 0; });
     b->setWrap();
+    return b;
   }
 };
 
@@ -49,6 +58,111 @@ class HelpPage : public MenuPage {
   }
   bool isHelpPage() const override { return true; }
 };
+
+#if defined(RADIO_NB4)
+class UpdatePage : public MenuPage {
+ public:
+  UpdatePage() : MenuPage(STR_NB4_UPDATE) {
+    setRouteIcon(ICON_NB4_UPDATE);
+#if !defined(NB4_RF_UPDATE_BENCH)
+    auto audio=new DynamicText(content(),{0,0,LV_PCT(100),0},[] {
+      const auto& installed=nb4AudioIdentity();
+      std::string text="ApexTX " APEXTX_VERSION " / "; text+=STR_NB4_UPDATE_AUDIO; text+=" ";
+      if (installed.pending) text+=STR_NB4_UPDATE_AUDIO_PENDING;
+      else if (installed.installed) { text+=installed.language; text+=" "; text+=installed.release; }
+      else text+=STR_NB4_RF_VERSION_UNAVAILABLE;
+      return text;
+    });
+    lv_label_set_long_mode(audio->getLvObj(),LV_LABEL_LONG_WRAP);
+#endif
+    auto module = new DynamicText(content(), {0, 0, LV_PCT(100), 0}, [] {
+      const auto value = afhds3::getModuleVersionInfo(0);
+      const std::string prefix = std::string(STR_NB4_RF_MODULE_VERSION) + ": ";
+      if (!value.valid || !value.firmwareKnown) return prefix + (value.unavailable || !modulePortPowered(0)
+          ? STR_NB4_RF_VERSION_UNAVAILABLE : STR_NB4_LOADING);
+      char text[20];
+      snprintf(text, sizeof(text), "0x%lX", static_cast<unsigned long>(value.firmwareVersion));
+      return prefix + text;
+    });
+    lv_label_set_long_mode(module->getLvObj(), LV_LABEL_LONG_WRAP);
+    auto receiver = new DynamicText(content(), {0, 0, LV_PCT(100), 0}, [] {
+      if (!afhds3::isConnected(0)) return std::string(STR_NB4_UPDATE_RECEIVER_PENDING);
+      const std::string prefix = std::string(STR_NB4_RF_RECEIVER_VERSION) + ": ";
+      const auto value = afhds3::getReceiverVersionInfo(0);
+      if (!value.valid) return prefix + (value.unavailable
+          ? STR_NB4_RF_VERSION_UNAVAILABLE : STR_NB4_LOADING);
+      char text[20];
+      snprintf(text, sizeof(text), "0x%X", unsigned(value.firmwareVersion));
+      return prefix + text;
+    });
+    lv_label_set_long_mode(receiver->getLvObj(), LV_LABEL_LONG_WRAP);
+    auto progress = new DynamicText(content(), {0, 0, LV_PCT(100), 0}, [] {
+      if (nb4RfUpdateNeedsRecovery()) return std::string(STR_NB4_UPDATE_RF_RECOVERY);
+      const int percent = nb4RfUpdatePercent();
+      if (percent >= 0) {
+        char text[64]; snprintf(text, sizeof(text), STR_NB4_UPDATE_RF_PROGRESS, unsigned(percent));
+        return std::string(text);
+      }
+      if (nb4RfUpdateInstallable() >= 0) return std::string(STR_NB4_UPDATE_RF_AVAILABLE);
+#if defined(NB4_RF_UPDATE_BENCH)
+      return std::string(STR_NB4_UPDATE_BENCH_LABEL);
+#else
+      return std::string(STR_NB4_UPDATE_RF_IDLE);
+#endif
+    });
+    lv_label_set_long_mode(progress->getLvObj(), LV_LABEL_LONG_WRAP);
+    auto connect = button(STR_NB4_UPDATE_USB_INVENTORY, [] {
+      new ConfirmDialog(STR_NB4_UPDATE,
+#if defined(NB4_RF_UPDATE_BENCH)
+                        STR_NB4_UPDATE_BENCH_INFO,
+#else
+                        STR_NB4_UPDATE_USB_INFO,
+#endif
+                        [] {
+        if (!nb4MaintenanceEnable())
+          new MessageDialog(STR_NB4_UPDATE, STR_NB4_UPDATE_USB_BUSY);
+#if defined(NB4_RF_UPDATE_BENCH)
+        else nb4RfUpdateArmBench();
+#endif
+      });
+    });
+    // This disabled button reports an active mode; retain readable status ink.
+    lv_obj_set_style_color_filter_opa(connect->getLvObj(), LV_OPA_TRANSP, LV_STATE_DISABLED);
+    connect->setCheckHandler([connect] {
+      const bool selected = nb4MaintenanceEnabled();
+      connect->setText(selected ? STR_NB4_UPDATE_USB_ACTIVE : STR_NB4_UPDATE_USB_INVENTORY);
+      connect->check(selected);
+      connect->enable(!selected);
+    });
+    button(STR_NB4_UPDATE_FIRMWARE, [] {
+      if (nb4RfUpdateStorageOwned() && !nb4RfUpdateNeedsRecovery()) {
+        new MessageDialog(STR_NB4_UPDATE, STR_NB4_UPDATE_RF_RECOVERY); return;
+      }
+      new ConfirmDialog(STR_NB4_UPDATE, STR_NB4_THE_RADIO_RESTARTS_INTO_UPDATE_MODE, [] {
+        nb4RebootIntoUpdateMode();
+      });
+    });
+    // One action for the RF image on the card: install it on the connected
+    // component, or recover an interrupted installation.
+    auto rfAction = button(STR_NB4_UPDATE_RF_INSTALL, [] {
+      const bool recovery = nb4RfUpdateNeedsRecovery();
+      new ConfirmDialog(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_INSTALL,
+                        STR_NB4_UPDATE_RF_INSTALL_INFO, [recovery] {
+        if (!(recovery ? nb4RfUpdateLocalStart(true) : nb4RfUpdateLocalInstall()))
+          new MessageDialog(STR_NB4_UPDATE, STR_NB4_NOT_AVAILABLE_WITH_THE_CURRENT_RADIO);
+      });
+    });
+    rfAction->setCheckHandler([rfAction] {
+      const bool recovery = nb4RfUpdateNeedsRecovery();
+      const bool installable = !recovery && nb4RfUpdateInstallable() >= 0 && nb4RfUpdatePercent() < 0;
+      rfAction->setText(recovery ? STR_NB4_UPDATE_RF_RECOVER : STR_NB4_UPDATE_RF_INSTALL);
+      if (recovery || installable) lv_obj_clear_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
+      else lv_obj_add_flag(rfAction->getLvObj(), LV_OBJ_FLAG_HIDDEN);
+      rfAction->enable(recovery ? nb4RfUpdateRecoverySupported() : installable);
+    });
+  }
+};
+#endif
 
 class QuickAccessSetup : public MenuPage {
  public:
@@ -188,6 +302,12 @@ void nb4OpenSessionResets() {
 void nb4OpenScreens() {
   if (!customScreens[0]) LayoutFactory::loadCustomScreens();
   new ScreensPage();
+}
+
+void nb4OpenUpdate() {
+#if defined(RADIO_NB4)
+  new UpdatePage();
+#endif
 }
 void nb4OpenAppearance() {
   auto page = new MenuPage(STR_NB4_UX_APPEARANCE);

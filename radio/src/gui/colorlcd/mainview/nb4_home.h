@@ -25,6 +25,9 @@ void nb4SetRacingHomeData(unsigned index);
 bool nb4MigrateHome(const char* modelPath);
 void nb4RequestOrientation(bool landscape, bool reopenAppearance = true);
 void nb4ProcessOrientation();
+#if defined(RADIO_NB4)
+void nb4OpenRfUpdateNotice();
+#endif
 
 // True while an orientation change is still waiting for the open pages to
 // close. The request is dropped after a bounded number of attempts, so this
