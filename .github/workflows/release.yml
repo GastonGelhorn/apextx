@@ -268,18 +268,17 @@ jobs:
           cat > release-notes.md <<EOF
           ## What's new
 
-          - RF module and receiver firmware updates from the radio. The
-            verified images from the official FlySky packages (RF module,
-            FGr4 V2, FGr4S V2, FGr8B, FGr4B, FGr12B, Mini-Z, INr4-GYB) ship
-            with the flasher and in \`rf/catalog.zip\`. After binding an older
-            receiver the radio offers the update; System > Update shows
-            progress and offers Recover after an interrupted write.
-          - One-click updates: choose **ApexTX Flasher** on the radio's USB
-            menu, then run the flasher. It stores the RF catalog on the card,
-            restarts the radio into update mode and flashes the firmware.
-          - RF module, receiver firmware and receiver model readouts on the
-            receiver page.
-          - Resumable audio installation with a verified filesystem backup.
+          - A refreshed ApexTX Flasher desktop app: a cleaner interface that
+            follows your system's light or dark appearance, plain-language
+            guidance in English, Spanish, German and Chinese, and a new icon
+            that is visible in the Dock and taskbar. Every flow is unchanged:
+            one-click updates from the radio's **ApexTX Flasher** USB mode,
+            install / recovery, the Components wizard and voice packs.
+          - The desktop app now updates itself: ApexTX Flasher 1.4.0-alpha.2
+            is the first signed app release, and installed copies of
+            1.4.0-alpha.1 can install it from **App updates**.
+          - RF module and receiver firmware updates from the radio, one-click
+            updates and receiver readouts from 0.1.0-alpha.7 are included.
 
           ## Choose your radio
 

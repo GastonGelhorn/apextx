@@ -1,14 +1,14 @@
-ApexTX Flasher can now check for its own updates and install them after you click
-**Update and restart**. Desktop updates use an independent version and are
-verified with ApexTX's Ed25519 signature before installation.
+ApexTX Flasher 1.4.0-alpha.2 refreshes the app: a cleaner interface that
+follows your system's light or dark appearance, plain-language guidance in
+English, Spanish, German and Chinese, and a new icon that is easy to find in
+the Dock or taskbar. Updating, install / recovery, the Components wizard and
+voice packs work exactly as before.
 
-The app cannot restart or replace itself during a radio transfer, verification,
-backup or recovery. App updates and radio firmware updates have separate controls.
+This is the first ApexTX Flasher release that installed copies can download
+and install from **App updates**. Updates are signed by ApexTX and checked
+before installation; the app never restarts while a radio update, backup or
+recovery is in progress.
 
-Windows and macOS packages still use community distribution: Windows SmartScreen
-or macOS Gatekeeper may require an explicit first-open permission. No paid
-publisher certificate or Apple Developer account is required by the updater.
-
-Existing apps without self-update support need one manual installation of this
-version. The macOS auto-update channel currently requires macOS 15 or later;
-Windows packages require x64 Windows 10 build 17763 or later.
+Windows may show a SmartScreen prompt and macOS a Gatekeeper prompt the first
+time the new version opens. The app requires macOS 15 or later, or 64-bit
+Windows 10 build 17763 or later.
