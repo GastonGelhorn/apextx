@@ -31,6 +31,6 @@ const char* nb4RfUpdateBuildKind();
 void nb4RfUpdateTestReset();
 void nb4RfUpdateTestBeginValidation(bool recovery);
 bool nb4RfUpdateTestEntryProbeActive();
-void nb4RfUpdateTestRequireRecovery();
+void nb4RfUpdateTestRequireRecovery(bool allowInventory = false);
 void nb4RfUpdateTestStartModule();
 #endif

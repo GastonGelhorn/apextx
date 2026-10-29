@@ -267,6 +267,11 @@ TEST(Nb4Ui, UpdateComponentsRenderInEveryLanguageAndReturnToTheirCaller)
       firmwareButtons = connectButtons = activeButtons = 0;
       checkButton(Layer::back()->getLvObj());
       EXPECT_EQ(firmwareButtons, 1u) << "Radio firmware Update must remain a separate action during RF recovery";
+      // A receiver may need a new bind before it can prove the installed image.
+      EXPECT_TRUE(nb4RouteIsOpenable(*nb4RouteByPath("settings/receiver_rf/module")));
+      EXPECT_TRUE(nb4RouteIsOpenable(*nb4RouteByPath("settings/system/update")));
+      EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/system/calibration")));
+      EXPECT_FALSE(nb4RouteIsOpenable(*nb4RouteByPath("settings/models/management")));
       nb4RfUpdateTestReset();
 #endif
 #endif

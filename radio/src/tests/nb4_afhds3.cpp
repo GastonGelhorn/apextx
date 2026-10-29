@@ -537,6 +537,24 @@ TEST_F(Nb4Afhds3Bind, MaintenanceHandoverPreservesTheFinalReceiverAckBeforeTheNo
   receive(MODULE_STATE,{4},91,REQUEST_SET_NO_RESP);
   EXPECT_TRUE(afhds3::isConnected(0));
 }
+TEST_F(Nb4Afhds3Bind, DrivingLockKeepsTheLinkStreamingWithEveryChannelNeutral) {
+  connectNormal();
+  channelOutputs[0] = 1024; channelOutputs[1] = -1024;
+  nb4RfUpdateTestReset();
+  struct Reset { ~Reset() { nb4RfUpdateTestReset(); } } reset;
+  nb4RfUpdateTestRequireRecovery(true);
+  for (unsigned i = 0; i < 3; ++i) {
+    const auto locked = next(); ASSERT_EQ(locked.command, CHANNELS_FAILSAFE_DATA);
+    EXPECT_EQ(locked.value, 1); ASSERT_EQ(last[6], 2);
+    for (unsigned c = 0; c < 2; ++c)
+      EXPECT_EQ(int16_t(last[7 + c * 2] | uint16_t(last[8 + c * 2]) << 8), 0) << "channel " << c;
+  }
+  nb4RfUpdateTestReset();
+  const auto live = next(); ASSERT_EQ(live.command, CHANNELS_FAILSAFE_DATA);
+  EXPECT_EQ(live.value, 1);
+  EXPECT_EQ(int16_t(last[7] | uint16_t(last[8]) << 8), 10240);
+  EXPECT_EQ(int16_t(last[9] | uint16_t(last[10]) << 8), -10240);
+}
 
 TEST(Nb4Afhds3, DiagnosticReplyCannotCompleteAnotherCommandWithTheSameOpcode) {
   uint8_t buffer[MODULE_BUFFER_SIZE]{};

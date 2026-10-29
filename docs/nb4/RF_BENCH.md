@@ -10,7 +10,19 @@ image through both normal installation and recovery from an interrupted
 entry. A later live inventory confirmed the module version and receiver
 reconnection. The normal test exposed a cached-version verification race;
 the corrected fresh-inventory check still requires its hardware rerun.
-Receiver writes, power-cut recovery and NB4+ qualification remain pending.
+The FGr4S V2 has received its complete 50,596-byte image once; the module
+returned to normal operation and the receiver reconnected after a new bind.
+
+While an operation keeps driving locked, the radio keeps streaming channel
+frames with every channel at neutral instead of the control positions: the
+module only maintains the RF link while it receives channel frames, and the
+receiver must be able to report the installed version. The receiver page
+stays open during a pending recovery, since a receiver may need a new bind
+before it can report anything. A fresh normal reading that matches the
+image's product, hardware and version then closes the operation without
+writing the image again; a reinstall of the same version is recorded as an
+untouched application. Power-cut recovery and NB4+ qualification remain
+pending.
 
 ## Identity and versions
 

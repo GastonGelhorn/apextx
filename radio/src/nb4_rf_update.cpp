@@ -595,6 +595,14 @@ void nb4RfUpdateService() {
       if (journal(RfUpdatePhase::Cancelled)) {
         validated = false; drivingLocked = linkOwned = false;
       } else engine.requireRecovery(RfUpdateError::Storage);
+    } else if (!entryProbeFinished && engine.completeInstalledImage(snapshot(rfImages[imageIndex].receiver), entryProbeEpoch)) {
+      // The component came back running the intended image: close the
+      // operation on that evidence instead of writing the image again.
+      entryProbeFinished = true;
+      if (journal(RfUpdatePhase::Complete)) {
+        validated = false; uploaded = rfImages[imageIndex].size;
+        drivingLocked = linkOwned = false;
+      } else engine.requireRecovery(RfUpdateError::Storage);
     }
   }
   const auto now = uint32_t(get_tmr10ms()) * 10;
@@ -668,9 +676,10 @@ void nb4RfUpdateService() {
 void nb4RfUpdateUsbDisconnected() { disconnected = true; }
 #if defined(SIMU)
 bool nb4RfUpdateTestEntryProbeActive() { return entryProbeStarted && !entryProbeFinished; }
-void nb4RfUpdateTestRequireRecovery() {
+void nb4RfUpdateTestRequireRecovery(bool allowInventory) {
   initializing = false; journalValid = false;
-  engine.requireRecovery(RfUpdateError::Timeout); drivingLocked = linkOwned = true;
+  engine.requireRecovery(RfUpdateError::Timeout); drivingLocked = true;
+  linkOwned = !allowInventory;
 }
 void nb4RfUpdateTestReset() {
   closeImage();

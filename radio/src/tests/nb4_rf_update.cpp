@@ -317,6 +317,25 @@ TEST(Nb4RfUpdate, PinnedModuleRecoveryCanRepeatMetadataAfterAWarmRadioRestart) {
   EXPECT_EQ(changed.error(), RfUpdateError::IdentityChanged);
   EXPECT_EQ(changed.transferred(), 0u);
 }
+TEST(Nb4RfUpdate, AComponentReportingTheInstalledImageFreshCompletesAnInterruptedVerification) {
+  Peer peer; RfUpdateCore core;
+  ASSERT_TRUE(core.prepare(image, identity, 3)); ASSERT_TRUE(core.start(identity, 0));
+  core.service(0, peer.io()); core.fail(RfUpdateError::Timeout);
+  ASSERT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  // The receiver needed a new bind, so its binding key changed: that must not
+  // keep a receiver that runs the intended image locked out.
+  auto installed = identity; installed.version = image.version; installed.car = 99;
+  EXPECT_FALSE(core.completeInstalledImage(installed, identity.epoch)) << "a cached reading is no proof";
+  auto fresh = installed; ++fresh.epoch;
+  auto wrong = fresh; wrong.version = identity.version; EXPECT_FALSE(core.completeInstalledImage(wrong, identity.epoch));
+  wrong = fresh; wrong.hardware = 8; EXPECT_FALSE(core.completeInstalledImage(wrong, identity.epoch));
+  wrong = fresh; wrong.product = 0; EXPECT_FALSE(core.completeInstalledImage(wrong, identity.epoch));
+  EXPECT_EQ(core.phase(), RfUpdatePhase::RecoveryRequired);
+  EXPECT_TRUE(core.completeInstalledImage(fresh, identity.epoch));
+  EXPECT_EQ(core.phase(), RfUpdatePhase::Complete); EXPECT_EQ(core.error(), RfUpdateError::None);
+  EXPECT_EQ(core.transferred(), image.size);
+  EXPECT_FALSE(core.completeInstalledImage(fresh, identity.epoch));
+}
 TEST(Nb4RfUpdate, NoImageByteIsSentBeforeBootIdentityIsDurablyPinned) {
   RfUpdateCore core; Peer peer;
   ASSERT_TRUE(core.prepare(image, identity, 1)); ASSERT_TRUE(core.start(identity, 0));

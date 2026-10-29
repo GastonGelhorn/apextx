@@ -57,6 +57,20 @@ bool RfUpdateCore::cancelUntouchedApplication(const RfUpdateIdentity& running, u
   phase_ = RfUpdatePhase::Cancelled; error_ = RfUpdateError::None; sent_ = false;
   return true;
 }
+bool RfUpdateCore::completeInstalledImage(const RfUpdateIdentity& running, uint32_t probeEpoch) {
+  // A fresh normal handshake that reports the image's own product, hardware
+  // and version is the proof the interrupted verification was waiting for:
+  // the component runs the intended image, whatever happened in between. The
+  // binding key is not required, since a receiver may have needed a new bind
+  // before it could report anything at all.
+  if (phase_ != RfUpdatePhase::RecoveryRequired || !operation_ ||
+      !running.product || running.epoch == probeEpoch) return false;
+  if (running.product != (image_.reportedProduct ? image_.reportedProduct : image_.product) ||
+      running.hardware != identity_.hardware || running.version != image_.version) return false;
+  phase_ = RfUpdatePhase::Complete; error_ = RfUpdateError::None; sent_ = false;
+  covered_ = image_.size;
+  return true;
+}
 bool RfUpdateCore::restoreResult(const RfUpdateImage& image, const RfUpdateIdentity& identity,
                                 uint32_t operation, RfUpdatePhase phase) {
   if ((phase != RfUpdatePhase::Complete && phase != RfUpdatePhase::Cancelled) ||

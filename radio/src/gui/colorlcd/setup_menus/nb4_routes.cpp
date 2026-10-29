@@ -1318,8 +1318,12 @@ Nb4RouteAccess nb4RouteAccessOf(const char* path)
 bool nb4RouteIsOpenable(const Nb4Route& route)
 {
 #if defined(RADIO_NB4)
+  // While an RF operation owns the storage only update and help stay open. A
+  // pending recovery also keeps the receiver page open: the receiver may need
+  // a new bind before it can report the installed version that closes it.
   if (nb4RfUpdateStorageOwned() && (!route.destination ||
-      (strcmp(route.destination, "system/update") && strcmp(route.destination, "system/help")))) return false;
+      (strcmp(route.destination, "system/update") && strcmp(route.destination, "system/help") &&
+       (!nb4RfUpdateNeedsRecovery() || strcmp(route.destination, "receiver_rf/module"))))) return false;
 #endif
   if (route.state != Nb4RouteState::Available || !route.open) return false;
   if (nb4ModelBlocked() && nb4RouteAccessOf(route.path) == Nb4RouteAccess::ModelData)

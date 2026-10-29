@@ -354,7 +354,7 @@ class ProtoState
 
     inline int16_t convert(int channelValue);
 
-    void sendChannelsData();
+    void sendChannelsData(bool neutral = false);
 
     void clearFrameData(bool preserveAcknowledgements = false);
 
@@ -1127,7 +1127,6 @@ void ProtoState::setupNb4Frame()
     nb4Request(MODULE_STATE);
   } else if (nb4Config.bound && !nb4Binding) {
     if (setupVersionRead(now)) return;
-    if (nb4RfUpdateDrivingLocked()) { trsp.skipFrame(); return; }
     if (++cmdCount >= 500) {
       cmdCount = 0;
       int16_t failsafe[AFHDS3_MAX_CHANNELS + 1]{};
@@ -1135,7 +1134,12 @@ void ProtoState::setupNb4Frame()
       failsafe[0] = (channels << 8) | CHANNELS_DATA_MODE::FAIL_SAFE;
       trsp.putFrame(CHANNELS_FAILSAFE_DATA, REQUEST_SET_NO_RESP,
                     (uint8_t*)failsafe, 2 + channels * 2);
-    } else sendChannelsData();
+    }
+    // The module only keeps the RF link up while it receives channel frames.
+    // A pending RF recovery must not stop the receiver from reconnecting, so
+    // the stream continues with every channel at neutral instead of the
+    // control positions until the operation is verified or abandoned.
+    else sendChannelsData(nb4RfUpdateDrivingLocked());
   } else if (!nb4Binding && setupVersionRead(now)) return;
   else trsp.skipFrame();
 }
@@ -1851,11 +1855,11 @@ bool ProtoState::syncSettings()
   return false;
 }
 
-void ProtoState::sendChannelsData()
+void ProtoState::sendChannelsData(bool neutral)
 {
 #if defined(RADIO_NB4_FAMILY)
   // Whatever else this cycle queued, it is carrying control positions.
-  nb4LatencyCarriesChannels();
+  if (!neutral) nb4LatencyCarriesChannels();
 #endif
 #if defined(RADIO_NB4)
   uint8_t channels_start = 0;
@@ -1881,8 +1885,7 @@ void ProtoState::sendChannelsData()
 
   for (uint8_t channel = channels_start, index = 1; channel < channels_last && channel < MAX_OUTPUT_CHANNELS && index <= AFHDS3_MAX_CHANNELS;
        channel++, index++) {
-    int16_t channelValue = convert(::getChannelValue(channel));
-    buffer[index] = channelValue;
+    buffer[index] = neutral ? 0 : convert(::getChannelValue(channel));
   }
 
   trsp.putFrame(COMMAND::CHANNELS_FAILSAFE_DATA, FRAME_TYPE::REQUEST_SET_NO_RESP,
