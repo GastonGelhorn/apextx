@@ -6,6 +6,10 @@ on top of a separately identified EdgeTX base release.
 
 ## [Unreleased]
 
+- ApexTX Flasher 1.4.0-alpha.4 (build 14004): **Check for updates** opens the
+  update dialog immediately and shows the check in progress, then the new
+  version, "You're up to date" or a failure with **Try again**. The footer
+  sentence about firmware never leaving the computer was removed.
 - ApexTX Flasher 1.4.0-alpha.3 (build 14003): the desktop app now checks for
   its own updates at every launch and presents a new version in a dialog with
   the release notes, **Update and restart**, **Remind me later** and **Skip

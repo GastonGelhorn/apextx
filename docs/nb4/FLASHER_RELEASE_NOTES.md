@@ -1,17 +1,12 @@
-ApexTX Flasher 1.4.0-alpha.3 makes app updates effortless. The app checks for
-a new version every time it opens and shows it in a dialog with the release
-notes, an **Update and restart** button and a link to the full release notes.
-You can also check at any time with **Check for updates** at the top of the
-window; a blue **Update available** badge appears there whenever a new version
-is waiting.
+ApexTX Flasher 1.4.0-alpha.4 makes **Check for updates** answer right away:
+the button now opens a dialog that shows the check in progress and then either
+the new version, "You're up to date" or, if the check failed, what to do next
+with a **Try again** button. The footer no longer carries the status on its
+own, and the sentence about firmware never leaving your computer is gone.
 
-If the app cannot replace itself where it is (for example when it runs from a
-disk image or a folder you cannot write to), it installs the update in your
-user folder automatically and tells you where it went.
-
-Updating, install / recovery, the Components wizard and voice packs are
-unchanged. Updates are signed by ApexTX and checked before installation; the
-app never restarts while a radio update, backup or recovery is in progress.
+As in 1.4.0-alpha.3, the app checks for updates every time it opens and shows
+a new version in a dialog with the release notes. Updating, install /
+recovery, the Components wizard and voice packs are unchanged.
 
 Windows may show a SmartScreen prompt and macOS a Gatekeeper prompt the first
 time the new version opens. The app requires macOS 15 or later, or 64-bit
