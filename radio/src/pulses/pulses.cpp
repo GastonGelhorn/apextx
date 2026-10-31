@@ -22,6 +22,9 @@
 // #include "hal.h"
 #include "edgetx.h"
 #include "nb4_model_compat.h"
+#if defined(NB4_LED_DIAGNOSTIC)
+#include "nb4_led_diagnostic.h"
+#endif
 
 #include "mixer_scheduler.h"
 #include "heartbeat_driver.h"
@@ -294,6 +297,10 @@ uint8_t getRequiredProtocol(uint8_t module)
 {
 #if defined(RADIO_NB4_FAMILY)
   if (nb4ModelBlocked()) return PROTOCOL_CHANNELS_NONE;
+#endif
+#if defined(NB4_LED_DIAGNOSTIC)
+  // Quiet LED test: the module is de-initialised and unpowered until it ends.
+  if (nb4LedDiagQuiet()) return PROTOCOL_CHANNELS_NONE;
 #endif
   uint8_t protocol = PROTOCOL_CHANNELS_UNINITIALIZED;
 

@@ -30,6 +30,7 @@
 #include "debug.h"
 #include "lcd.h"
 #include "lcd_driver.h"
+#include "nb4_led_diagnostic.h"
 
 uint8_t TouchControllerType = 0;  //0:cst340; 1 ft6236
 static volatile uint16_t lcd_phys_w = LCD_PHYS_W;
@@ -37,6 +38,29 @@ static volatile uint16_t lcd_phys_h = LCD_PHYS_H;
 
 static LTDC_HandleTypeDef hltdc;
 static void* initialFrameBuffer = nullptr;
+
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+static bool diagnosticLcdPaused = false;
+bool nb4LedDiagLcdPaused() { return diagnosticLcdPaused; }
+void nb4LedDiagPauseLcd(bool pause)
+{
+  if (pause == diagnosticLcdPaused) return;
+  diagnosticLcdPaused = pause;
+  if (pause) {
+    NVIC_DisableIRQ(LTDC_IRQn);
+    __HAL_LTDC_DISABLE_IT(&hltdc, LTDC_IT_LI);
+    __HAL_LTDC_DISABLE(&hltdc);
+    __HAL_LTDC_CLEAR_FLAG(&hltdc, LTDC_FLAG_LI);
+    NVIC_ClearPendingIRQ(LTDC_IRQn);
+    // Release any present waiting for a line interrupt that can no longer fire.
+    lcdFlushed();
+  } else {
+    LTDC->SRCR = LTDC_SRCR_IMR;
+    __HAL_LTDC_ENABLE(&hltdc);
+    NVIC_EnableIRQ(LTDC_IRQn);
+  }
+}
+#endif
 
 #define GPIO_AF_LTDC GPIO_AF14
 
@@ -47,6 +71,15 @@ static void startLcdRefresh(lv_disp_drv_t *disp_drv, uint16_t *buffer,
   (void)copy_area;
 
   LTDC_Layer1->CFBAR = (uint32_t)buffer;
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  if (diagnosticLcdPaused) {
+    // Rendering continues with the same workload in the OFF phase. Only
+    // physical scanout is stopped; LVGL must not wait for its line interrupt.
+    LTDC->SRCR = LTDC_SRCR_IMR;
+    lcdFlushed();
+    return;
+  }
+#endif
   // reload shadow registers on vertical blank
   LTDC->SRCR = LTDC_SRCR_VBR;
 
@@ -2797,6 +2830,16 @@ void lcdSetInitalFrameBuffer(void* fbAddress)
 
 const char* boardLcdType = "";
 
+#if defined(RADIO_NB4_FAMILY)
+  // The FlySky NB4 and NB4+ panel tables both clock the ST7796S at 13.5 MHz;
+  // 14.5 MHz is the PL18 value and 12 MHz the generic fallback.
+  #define LCD_ST7796S_PIXEL_CLOCK 13500000
+  #define LCD_ST7796S_DEFAULT_PIXEL_CLOCK 13500000
+#else
+  #define LCD_ST7796S_PIXEL_CLOCK 14500000
+  #define LCD_ST7796S_DEFAULT_PIXEL_CLOCK 12000000
+#endif
+
 extern "C"
 void lcdInit(void)
 {
@@ -2846,7 +2889,7 @@ void lcdInit(void)
     lcdInitFunction = LCD_ST7796S_Init;
     lcdOffFunction = LCD_ST7796S_Off;
     lcdOnFunction = LCD_ST7796S_On;
-    lcdPixelClock = 14500000;
+    lcdPixelClock = LCD_ST7796S_PIXEL_CLOCK;
   }
 #if defined(RADIO_NB4) && !defined(RADIO_NB4PLUS_HW)
   else {
@@ -2865,7 +2908,7 @@ void lcdInit(void)
     lcdInitFunction = LCD_ST7796S_Init;
     lcdOffFunction = LCD_ST7796S_Off;
     lcdOnFunction = LCD_ST7796S_On;
-    lcdPixelClock = 12000000;
+    lcdPixelClock = LCD_ST7796S_DEFAULT_PIXEL_CLOCK;
   }
 #endif
 

@@ -23,7 +23,8 @@ class LedRefresh(unittest.TestCase):
 #define RADIO_NB4_FAMILY
 #define LED_STRIP_GPIO 1
 #define LED_STRIP_LENGTH 4
-struct Settings { uint8_t nb4LedMode, nb4LedColor; };
+// Brightness 100 % keeps the palette colours comparable byte for byte.
+struct Settings { uint8_t nb4LedMode, nb4LedColor, nb4LedBrightness; };
 extern Settings g_eeGeneral;
 extern uint16_t g_vbat100mV;
 uint32_t timersGetMsTick();
@@ -49,14 +50,16 @@ void expect(Nb4LedRgb colour) {
   for (const auto pixel:pixels) assert(pixel==colour);
 }
 int main() {
+  // The strip blinks blue until boot completes; this test runs afterwards.
+  nb4LedBootComplete();
   // 4.1 V must show a healthy battery rather than breathing red at 0%.
-  source(0); g_eeGeneral={NB4_LED_BATTERY,NB4_LED_BLUE};
+  source(0); g_eeGeneral={NB4_LED_BATTERY,NB4_LED_BLUE,100};
   nb4LedRefresh(); expect(nb4LedPalette(NB4_LED_GREEN));
   g_vbat100mV=36; nb4LedRefresh(); expect(nb4LedPalette(NB4_LED_ORANGE));
   g_vbat100mV=33; nb4LedRefresh();
   for(const auto pixel:pixels) assert(pixel.r>0 && pixel.g==0 && pixel.b==0);
   // Plug/unplug USB or the base repeatedly: the user colour returns at once.
-  g_vbat100mV=41; g_eeGeneral={NB4_LED_FIXED,NB4_LED_BLUE};
+  g_vbat100mV=41; g_eeGeneral={NB4_LED_FIXED,NB4_LED_BLUE,100};
   for(uint8_t connection:{2,0,1,0,2,0}) {
     source(connection); nb4LedRefresh();
     if(connection) {

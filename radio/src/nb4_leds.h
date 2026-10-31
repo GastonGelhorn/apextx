@@ -35,11 +35,32 @@ struct Nb4LedRgb {
   }
 };
 
+// Strip intensity, as a percentage of the palette value. FlySky scales the
+// strip the same way; full-scale white on four pixels draws far more current
+// than the NB4+ strip supply likes at its far end.
+constexpr uint8_t NB4_LED_BRIGHTNESS_MIN = 10;
+constexpr uint8_t NB4_LED_BRIGHTNESS_MAX = 100;
+constexpr uint8_t NB4_LED_BRIGHTNESS_DEFAULT = 80;
+
+// A stored value outside the range (0 on settings written before the field
+// existed) reads as the default.
+uint8_t nb4LedBrightnessOrDefault(uint8_t stored);
+
 Nb4LedRgb nb4LedPalette(uint8_t color);
 
 Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
-                         uint8_t batteryPercent, uint32_t ms);
+                         uint8_t batteryPercent, uint32_t ms,
+                         uint8_t brightness = NB4_LED_BRIGHTNESS_MAX);
 
 void nb4LedRefresh();
+
+// Boot indication: fast blue blink from the power press until the splash
+// appears (the press may be released), solid blue until the settings are
+// loaded, then the user colour.
+Nb4LedRgb nb4LedBootColor(uint32_t ms);
+void nb4LedBootRefresh(uint32_t ms);
+void nb4LedBootSplash();
+void nb4LedBootComplete();
+bool nb4LedBootIsComplete();
 
 #endif  // RADIO_NB4_FAMILY

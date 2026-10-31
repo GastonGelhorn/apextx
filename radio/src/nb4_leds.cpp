@@ -5,6 +5,7 @@
 #include "edgetx.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_leds.h"
+#include "nb4_led_diagnostic.h"
 
 #if defined(LED_STRIP_GPIO)
 #include "boards/generic_stm32/rgb_leds.h"
@@ -60,8 +61,15 @@ Nb4LedRgb nb4LedPalette(uint8_t color)
   return kPalette[color];
 }
 
-Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
-                         uint8_t batteryPercent, uint32_t ms)
+uint8_t nb4LedBrightnessOrDefault(uint8_t stored)
+{
+  if (stored < NB4_LED_BRIGHTNESS_MIN || stored > NB4_LED_BRIGHTNESS_MAX)
+    return NB4_LED_BRIGHTNESS_DEFAULT;
+  return stored;
+}
+
+static Nb4LedRgb nb4LedColorFull(uint8_t mode, uint8_t color, bool charging,
+                                 uint8_t batteryPercent, uint32_t ms)
 {
 
   if (mode == NB4_LED_OFF) return {0, 0, 0};
@@ -87,6 +95,48 @@ Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
   return base;
 }
 
+Nb4LedRgb nb4LedColorNow(uint8_t mode, uint8_t color, bool charging,
+                         uint8_t batteryPercent, uint32_t ms,
+                         uint8_t brightness)
+{
+  const Nb4LedRgb c = nb4LedColorFull(mode, color, charging, batteryPercent, ms);
+  return scale(c, nb4LedBrightnessOrDefault(brightness), 100);
+}
+
+enum Nb4BootStage : uint8_t { NB4_BOOT_BLINK, NB4_BOOT_SPLASH, NB4_BOOT_DONE };
+static Nb4BootStage _bootStage = NB4_BOOT_BLINK;
+
+static const Nb4LedRgb kBootBlue = {0, 0, 50};
+
+Nb4LedRgb nb4LedBootColor(uint32_t ms)
+{
+  // 4 Hz: 125 ms blue, 125 ms off.
+  if ((ms / 125) & 1) return {0, 0, 0};
+  return kBootBlue;
+}
+
+void nb4LedBootSplash()
+{
+  if (_bootStage == NB4_BOOT_BLINK) _bootStage = NB4_BOOT_SPLASH;
+}
+
+void nb4LedBootComplete() { _bootStage = NB4_BOOT_DONE; }
+
+bool nb4LedBootIsComplete() { return _bootStage == NB4_BOOT_DONE; }
+
+void nb4LedBootRefresh(uint32_t ms)
+{
+#if defined(LED_STRIP_GPIO)
+  const Nb4LedRgb c =
+      _bootStage == NB4_BOOT_SPLASH ? kBootBlue : nb4LedBootColor(ms);
+  for (uint8_t i = 0; i < LED_STRIP_LENGTH; i += 1)
+    rgbSetLedColor(i, c.r, c.g, c.b);
+  rgbLedColorApply();
+#else
+  (void)ms;
+#endif
+}
+
 #if defined(LED_STRIP_GPIO)
 
 void rgbLedOnUpdate() { nb4LedRefresh(); }
@@ -96,13 +146,23 @@ void nb4LedRefresh()
 {
 #if defined(LED_STRIP_GPIO)
 
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  if (nb4LedDiagWritePattern()) return;
+#endif
+
+  if (_bootStage != NB4_BOOT_DONE) {
+    nb4LedBootRefresh(timersGetMsTick());
+    return;
+  }
+
   extern uint8_t nb4BatteryPercent(uint16_t cellMv);
   // The battery curve expects mV; the measured voltage is in 100 mV units.
   const uint8_t percent = nb4BatteryPercent((uint16_t)(g_vbat100mV * 100));
 
   const Nb4LedRgb c =
       nb4LedColorNow(g_eeGeneral.nb4LedMode, g_eeGeneral.nb4LedColor,
-                     nb4LedChargerActive(), percent, timersGetMsTick());
+                     nb4LedChargerActive(), percent, timersGetMsTick(),
+                     g_eeGeneral.nb4LedBrightness);
 
   for (uint8_t i = 0; i < LED_STRIP_LENGTH; i += 1)
     rgbSetLedColor(i, c.r, c.g, c.b);

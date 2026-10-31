@@ -7,6 +7,7 @@
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_model_compat.h"
 #include "nb4_car_state.h"
+#include "nb4_leds.h"
 #include "nb4_racing.h"
 #include "nb4_home.h"
 #include "nb4_routes.h"
@@ -57,6 +58,7 @@ TEST(Nb4Compatibility, RadioMigrationBacksUpRawYamlAndPreservesCalibration)
   auto path = root.string(); simuFatfsSetPaths(path.c_str(), nullptr);
   SYSTEM_RESET();
   g_eeGeneral.nb4UiVersion = 0;
+  g_eeGeneral.nb4LedBrightness = 0;  // field absent in older settings
   g_eeGeneral.templateSetup = 1;
   g_eeGeneral.calib[0].mid = 1789;
   strAppend(g_eeGeneral.currModelFilename, "my-car.yml", LEN_MODEL_FILENAME);
@@ -66,6 +68,7 @@ TEST(Nb4Compatibility, RadioMigrationBacksUpRawYamlAndPreservesCalibration)
   EXPECT_EQ(g_eeGeneral.nb4UiVersion, NB4_UI_VERSION);
   EXPECT_EQ(g_eeGeneral.nb4Home, NB4_HOME_INSTRUMENTS);
   EXPECT_EQ(g_eeGeneral.nb4Orientation, 0);
+  EXPECT_EQ(g_eeGeneral.nb4LedBrightness, NB4_LED_BRIGHTNESS_DEFAULT);
   EXPECT_EQ(g_eeGeneral.templateSetup, 0);
   EXPECT_EQ(g_eeGeneral.calib[0].mid, 1789);
   EXPECT_STREQ(g_eeGeneral.currModelFilename, "my-car.yml");

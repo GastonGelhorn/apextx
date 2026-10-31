@@ -609,9 +609,14 @@
 // Telemetry
 #define TELEMETRY_RCC_AHB1Periph        (RCC_AHB1Periph_GPIOD | RCC_AHB1Periph_GPIOJ | RCC_AHB1Periph_DMA1)
 #define TELEMETRY_RCC_APB1Periph        RCC_APB1Periph_USART2
+#if !defined(RADIO_NB4_FAMILY)
+// PL18 telemetry inverter and direction controls. Neither FlySky NB4 image
+// touches PJ7, PJ8 or PJ13 (they sit among the LTDC pins on the Noble
+// boards), so the NB4 family leaves them as reset-state inputs.
 #define TELEMETRY_RX_REV_GPIO           GPIO_PIN(GPIOJ, 8)  // PJ.08
 #define TELEMETRY_TX_REV_GPIO           GPIO_PIN(GPIOJ, 7)  // PJ.07
 #define TELEMETRY_DIR_GPIO              GPIO_PIN(GPIOJ, 13) // PJ.13
+#endif
 #define TELEMETRY_SET_INPUT             1
 #define TELEMETRY_TX_GPIO               GPIO_PIN(GPIOD, 5)  // PD.05
 #define TELEMETRY_RX_GPIO               GPIO_PIN(GPIOD, 6)  // PD.06
@@ -1018,8 +1023,12 @@
 #define EXTMODULE_TIMER_DMA_STREAM_IRQn    DMA2_Stream1_IRQn
 #define EXTMODULE_TIMER_DMA_IRQHandler     DMA2_Stream1_IRQHandler
 
+#if !defined(RADIO_NB4_FAMILY)
+// PL18 external-module inverter controls; untouched by both FlySky NB4
+// images, so not driven on the NB4 family.
 #define EXTMODULE_TX_INVERT_GPIO           GPIO_PIN(GPIOE, 3)  // PE.03
 #define EXTMODULE_RX_INVERT_GPIO           GPIO_PIN(GPIOI, 15) // PI.15
+#endif
 
 #define EXTMODULE_TX_NORMAL()              EXTMODULE_TX_INVERT_GPIO->BSRRH = EXTMODULE_TX_INVERT_GPIO_PIN
 #define EXTMODULE_TX_INVERTED()            EXTMODULE_TX_INVERT_GPIO->BSRRL = EXTMODULE_TX_INVERT_GPIO_PIN

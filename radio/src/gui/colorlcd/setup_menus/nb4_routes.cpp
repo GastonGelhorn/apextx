@@ -23,6 +23,8 @@
 #include "module_setup.h"
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
+#include "nb4_led_diagnostic.h"
+#include "nb4_params.h"
 #include "nb4_home.h"
 #include "nb4_home_templates.h"
 #include "layer.h"
@@ -177,6 +179,110 @@ class Nb4VariablesDialog : public BaseDialog
   }
 };
 
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+class Nb4LedDiagnosticDialog : public BaseDialog
+{
+ public:
+  Nb4LedDiagnosticDialog() : BaseDialog("LED diagnostic D1", false,
+      lv_disp_get_hor_res(nullptr) - 12, lv_disp_get_ver_res(nullptr) - 12)
+  {
+    form->padAll(PAD_SMALL);
+    new StaticText(form, {0, 0, LV_PCT(100), 0},
+        "Bench test: receiver off.\nON 6s / screen OFF 6s / ON 6s.\n"
+        "Left to right: white, blue, green, red.", COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+    auto quietLine = new Window(form, {0, 0, LV_PCT(100), 0});
+    quietLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM);
+    lv_obj_set_style_flex_cross_place(quietLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
+    new StaticText(quietLine, {0, 0, 0, 0},
+        "Quiet: RF off, amp + DAC off, haptic off,\nADC, touch and storage paused",
+        COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+    new ToggleSwitch(quietLine, {0, 0, 0, 0},
+        [this] { return (uint8_t)quiet; }, [this](uint8_t on) { quiet = on; });
+    auto buttons = new Window(form, {0, 0, LV_PCT(100), 0});
+    // The width stays at the constructor's 100 %; passing LV_SIZE_CONTENT here
+    // collapsed the row and the two 48 % buttons with it.
+    buttons->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_SMALL);
+    new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 50%", [this] { start(128); return 0; });
+    new TextButton(buttons, {0, 0, LV_PCT(48), 0}, "Run 100%", [this] { start(255); return 0; });
+    status = new StaticText(form, {0, 0, LV_PCT(100), 0}, "Ready", COLOR_THEME_PRIMARY1_INDEX);
+    stimulus = new Window(form, {0, 0, LV_PCT(100), 48});
+    lv_obj_set_style_bg_opa(stimulus->getLvObj(), LV_OPA_COVER, 0);
+    report = new StaticText(form, {0, 0, LV_PCT(100), 0},
+        "Results appear here after the test.\nNo settings are saved.", COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
+  }
+
+  ~Nb4LedDiagnosticDialog() override { nb4LedDiagStop(); }
+  void deleteLater(bool detach = true, bool trash = true) override
+  {
+    nb4LedDiagStop();
+    BaseDialog::deleteLater(detach, trash);
+  }
+  void checkEvents() override
+  {
+    BaseDialog::checkEvents();
+    if (deleted() || !running) return;
+    const uint32_t now = timersGetMsTick();
+    nb4LedDiagTick(now);
+    if (!nb4LedDiagActive()) {
+      running = false;
+      status->setText(quietRun ? "Done - quiet run, all restored"
+                               : "Done - screen restored");
+      char text[512];
+      size_t used = snprintf(text, sizeof(text), "Quiet peripherals: %s\n",
+                             !quietRun ? "off"
+                             : quietStorage ? "ON (storage paused)"
+                                            : "ON (storage was busy)");
+      for (unsigned p = 0; p < NB4_LED_DIAG_PHASES; ++p) {
+        const auto r = nb4LedDiagResult(p);
+        used += snprintf(text + used, sizeof(text) - used,
+            "%c %s: TX %lu / TC %lu\nTE %lu DME %lu FE %lu TO %lu\n",
+            'A' + p, p == 1 ? "OFF" : "ON", (unsigned long)r.sent,
+            (unsigned long)r.complete, (unsigned long)r.transferErrors,
+            (unsigned long)r.directErrors, (unsigned long)r.fifoErrors,
+            (unsigned long)r.timeouts);
+      }
+      const auto r = nb4LedDiagDmaStats();
+      snprintf(text + used, sizeof(text) - used,
+          "DMA buf %08lx\nLast error flags %08lx / NDTR %lu",
+          (unsigned long)nb4LedDiagDmaBuffer(), (unsigned long)r.lastFlags,
+          (unsigned long)r.lastRemaining);
+      report->setText(text);
+    } else if (now - lastDraw >= 100) {
+      lastDraw = now;
+      const unsigned p = nb4LedDiagPhase();
+      char text[48];
+      snprintf(text, sizeof(text), "Phase %c: LTDC %s%s", 'A' + p,
+               p == 1 ? "OFF" : "ON", quietRun ? " (quiet)" : "");
+      status->setText(text);
+      // Identical bounded GUI redraw stimulus while physical scanout is ON/OFF.
+      lv_obj_set_style_bg_color(stimulus->getLvObj(),
+          lv_color_hex((now / 100) & 1 ? 0x245EA0 : 0xC08020), 0);
+    }
+  }
+
+ private:
+  bool running = false;
+  bool quiet = false;
+  bool quietRun = false;
+  bool quietStorage = false;
+  uint32_t lastDraw = 0;
+  StaticText* status;
+  StaticText* report;
+  Window* stimulus;
+  void start(uint8_t intensity)
+  {
+    if (running) return;
+    quietRun = quiet;
+    nb4LedDiagStart(timersGetMsTick(), intensity, quietRun);
+    quietStorage = nb4LedDiagStoragePaused();
+    running = true;
+    report->setText(quietRun
+        ? "Running at 20 LED frames/s, quiet.\nRF, audio, haptic, ADC, touch and storage\nare off until the end (18 s)."
+        : "Running at 20 LED frames/s.\nWatch the physical strip in all three phases.");
+  }
+};
+#endif
+
 class Nb4LedsDialog : public BaseDialog
 {
  public:
@@ -233,11 +339,42 @@ class Nb4LedsDialog : public BaseDialog
     });
     updateColorRow();
 
+    auto brightLine = new Window(form, {0, 0, LV_PCT(100), 0});
+    brightLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM, LV_SIZE_CONTENT);
+    lv_obj_set_style_flex_cross_place(brightLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
+    new StaticText(brightLine, {0, 0, 0, 0}, STR_NB4_BRIGHTNESS,
+                   COLOR_THEME_PRIMARY1_INDEX);
+    // [-] value [+], as on the model parameter rows.
+    auto getBright = []() {
+      return (int)nb4LedBrightnessOrDefault(g_eeGeneral.nb4LedBrightness);
+    };
+    auto setBright = [](int v) {
+      g_eeGeneral.nb4LedBrightness =
+          (uint8_t)limit<int>(NB4_LED_BRIGHTNESS_MIN, v, NB4_LED_BRIGHTNESS_MAX);
+      storageDirty(EE_GENERAL);
+    };
+    auto nudge = [getBright, setBright](int32_t delta) {
+      setBright(getBright() + delta);
+    };
+    const rect_t btnRect{0, 0, EdgeTxStyles::UI_ELEMENT_HEIGHT + PAD_LARGE, 0};
+    nb4StepButton(brightLine, btnRect, LV_SYMBOL_MINUS, nudge, -5);
+    auto bright = new NumberEdit(
+        brightLine, {0, 0, EdgeTxStyles::EDIT_FLD_WIDTH_NARROW, 0},
+        NB4_LED_BRIGHTNESS_MIN, NB4_LED_BRIGHTNESS_MAX, getBright, setBright);
+    bright->setStep(5);
+    bright->setDefault(NB4_LED_BRIGHTNESS_DEFAULT);
+    bright->setSuffix("%");
+    nb4StepButton(brightLine, btnRect, LV_SYMBOL_PLUS, nudge, 5);
+
     auto note = new StaticText(
         form, {0, 0, LV_PCT(100), 0},
         STR_NB4_WHILE_THE_RADIO_IS_CHARGING_THE,
         COLOR_THEME_PRIMARY3_INDEX);
     lv_obj_set_style_pad_top(note->getLvObj(), PAD_MEDIUM, LV_PART_MAIN);
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+    new TextButton(form, {0, 0, LV_PCT(100), 0}, "LED diagnostic D1",
+                   [] { new Nb4LedDiagnosticDialog(); return 0; });
+#endif
   }
 
  private:
