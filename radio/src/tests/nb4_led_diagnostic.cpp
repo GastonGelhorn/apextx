@@ -4,6 +4,7 @@
 #include "gtests.h"
 #include "nb4_led_diagnostic.h"
 #include "nb4_leds.h"
+#include "nb4_history.h"
 #include "boards/generic_stm32/rgb_leds.h"
 
 #if defined(NB4_LED_DIAGNOSTIC)
@@ -84,5 +85,29 @@ TEST(Nb4LedDiagnostic, QuietRunDropsTheModuleProtocolOnlyWhileItRuns)
   nb4LedDiagStop();
   EXPECT_FALSE(nb4LedDiagQuiet());
   EXPECT_EQ(getRequiredProtocol(INTERNAL_MODULE), before);
+}
+
+TEST(Nb4LedDiagnostic, QuietRunPausesTheStorageTaskAndResumesItAfterwards)
+{
+  nb4StorageResume();
+  EXPECT_FALSE(nb4StoragePaused());
+  nb4LedDiagStart(100, 128);
+  EXPECT_FALSE(nb4StoragePaused());
+  EXPECT_FALSE(nb4LedDiagStoragePaused());
+  nb4LedDiagStop();
+
+  nb4LedDiagStart(200, 128, true);
+  EXPECT_TRUE(nb4StoragePaused());
+  EXPECT_TRUE(nb4LedDiagStoragePaused());
+  for (unsigned p = 1; p <= NB4_LED_DIAG_PHASES; ++p)
+    nb4LedDiagTick(200 + p * NB4_LED_DIAG_PHASE_MS);
+  EXPECT_FALSE(nb4LedDiagActive());
+  EXPECT_FALSE(nb4StoragePaused());
+  EXPECT_FALSE(nb4LedDiagStoragePaused());
+
+  nb4LedDiagStart(300, 128, true);
+  EXPECT_TRUE(nb4StoragePaused());
+  nb4LedDiagStop();
+  EXPECT_FALSE(nb4StoragePaused());
 }
 #endif

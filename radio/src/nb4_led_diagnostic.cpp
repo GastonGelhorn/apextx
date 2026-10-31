@@ -6,6 +6,7 @@
 
 #if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
 #include "boards/generic_stm32/rgb_leds.h"
+#include "nb4_history.h"
 #if !defined(SIMU)
 #include "hal/gpio.h"
 #include "stm32_gpio.h"
@@ -30,18 +31,37 @@ Nb4LedDiagStats delta(const Nb4LedDiagStats& now)
           now.timeouts - baseline.timeouts, now.lastFlags, now.lastRemaining};
 }
 
-#if defined(SIMU)
-void applyQuiet(bool) {}
-#else
+bool storagePaused = false;
+
 // The RF module is switched off by the mixer: getRequiredProtocol() reports
 // no protocol while nb4LedDiagQuiet() holds, which de-initialises the module
 // and drops its power through the module port. ADC sampling is skipped in
-// adcRead() for the same reason. Here only the amplifier and the haptic motor
-// are touched; the amplifier pin is put back exactly as it was found.
+// adcRead(), the DAC driver stops its DMA, the DAC and the trigger timer in
+// audioConsumeCurrentBuffer(), and the LVGL touch callback stops polling the
+// panel, all for the same reason. Here the storage task is paused, any queued
+// audio is dropped, and the amplifier and the haptic motor are touched; the
+// amplifier pin is put back exactly as it was found.
+void applyQuietCommon(bool on)
+{
+  if (on) {
+#if defined(AUDIO)
+    audioQueue.stopAll();
+#endif
+    storagePaused = nb4StorageQuiesce();
+  } else {
+    nb4StorageResume();
+    storagePaused = false;
+  }
+}
+
+#if defined(SIMU)
+void applyQuiet(bool on) { applyQuietCommon(on); }
+#else
 uint32_t savedMutePin = 0;
 
 void applyQuiet(bool on)
 {
+  applyQuietCommon(on);
 #if defined(AUDIO_MUTE_GPIO)
   if (on) {
     savedMutePin = gpio_read(AUDIO_MUTE_GPIO);
@@ -113,6 +133,7 @@ bool nb4LedDiagQuiet()
 {
   return nb4LedDiagActive() && quiet.load(std::memory_order_acquire);
 }
+bool nb4LedDiagStoragePaused() { return nb4LedDiagQuiet() && storagePaused; }
 unsigned nb4LedDiagPhase() { return phase; }
 Nb4LedDiagStats nb4LedDiagResult(unsigned p)
 {

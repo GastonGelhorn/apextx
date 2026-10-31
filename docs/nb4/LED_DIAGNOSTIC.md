@@ -43,21 +43,25 @@ an NB4+ image. Neither `bootloader.bin` nor `firmware.elf` is an update image.
    **Run 100%**. If useful, repeat with the base pack on and label that result.
 6. Switch **Quiet** on and run again at the same level. While a quiet run
    lasts, the internal RF module is de-initialised and unpowered, the audio
-   amplifier is muted, the haptic motor is off and ADC sampling is paused
-   (sticks, keys and the battery reading freeze; the touch screen keeps
-   working). All of it resumes by itself when the run ends or the dialog is
-   closed; the module rebinds without a restart. The report's first line says
-   whether the run was quiet.
+   amplifier is muted and the DAC with its DMA and trigger timer is stopped,
+   the haptic motor is off, ADC sampling is paused (sticks, keys and the
+   battery reading freeze), the touch panel is not polled (the screen does not
+   react for the 18 s; the run ends by itself) and the storage task is paused.
+   All of it resumes by itself when the run ends or the dialog is closed; the
+   module rebinds without a restart. The report's first line says whether the
+   run was quiet and whether the storage task accepted the pause.
 7. Close the dialog to return to the normal settings. After the test, the
    ordinary LED policy resumes. Install the matching `standard` artifact to
    remove the diagnostic completely.
 
 The quiet run separates the LED waveform from the rest of the board. If the
 last two LEDs are clean only in the quiet run, something the normal firmware
-powers (first suspect: the RF module and its supply bursts; then audio and
-haptic) disturbs them, and the next step is switching those back on one at a
-time. If they fail in the quiet run too, the cause is in the LED line or its
-supply and not in those peripherals.
+runs (RF module, audio path, haptic, ADC, touch polling or storage) disturbs
+them, and the next step is switching those back on one at a time. If they
+fail in the quiet run too, the cause is in the LED line or its supply and not
+in those peripherals. The backlight is left as configured in every run: at
+100 % screen brightness its PWM output is held constantly high, below that it
+switches at 1 kHz, so compare runs at 100 % and at a dimmed setting as well.
 
 All phases redraw the same small coloured panel at 10 Hz. Only LTDC scanout
 (its continuous framebuffer reads and line interrupts) is disabled in B.

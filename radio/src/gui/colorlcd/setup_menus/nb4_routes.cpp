@@ -194,7 +194,7 @@ class Nb4LedDiagnosticDialog : public BaseDialog
     quietLine->setFlexLayout(LV_FLEX_FLOW_ROW, PAD_MEDIUM);
     lv_obj_set_style_flex_cross_place(quietLine->getLvObj(), LV_FLEX_ALIGN_CENTER, 0);
     new StaticText(quietLine, {0, 0, 0, 0},
-        "Quiet: RF module off, amp muted,\nhaptic off, ADC paused",
+        "Quiet: RF off, amp + DAC off, haptic off,\nADC, touch and storage paused",
         COLOR_THEME_PRIMARY1_INDEX, FONT(XS));
     new ToggleSwitch(quietLine, {0, 0, 0, 0},
         [this] { return (uint8_t)quiet; }, [this](uint8_t on) { quiet = on; });
@@ -229,7 +229,9 @@ class Nb4LedDiagnosticDialog : public BaseDialog
                                : "Done - screen restored");
       char text[512];
       size_t used = snprintf(text, sizeof(text), "Quiet peripherals: %s\n",
-                             quietRun ? "ON" : "off");
+                             !quietRun ? "off"
+                             : quietStorage ? "ON (storage paused)"
+                                            : "ON (storage was busy)");
       for (unsigned p = 0; p < NB4_LED_DIAG_PHASES; ++p) {
         const auto r = nb4LedDiagResult(p);
         used += snprintf(text + used, sizeof(text) - used,
@@ -262,6 +264,7 @@ class Nb4LedDiagnosticDialog : public BaseDialog
   bool running = false;
   bool quiet = false;
   bool quietRun = false;
+  bool quietStorage = false;
   uint32_t lastDraw = 0;
   StaticText* status;
   StaticText* report;
@@ -271,9 +274,10 @@ class Nb4LedDiagnosticDialog : public BaseDialog
     if (running) return;
     quietRun = quiet;
     nb4LedDiagStart(timersGetMsTick(), intensity, quietRun);
+    quietStorage = nb4LedDiagStoragePaused();
     running = true;
     report->setText(quietRun
-        ? "Running at 20 LED frames/s, quiet.\nRF module, audio, haptic and ADC are off until the end."
+        ? "Running at 20 LED frames/s, quiet.\nRF, audio, haptic, ADC, touch and storage\nare off until the end (18 s)."
         : "Running at 20 LED frames/s.\nWatch the physical strip in all three phases.");
   }
 };
