@@ -28,6 +28,9 @@
 #include "stm32_dma.h"
 
 #include "edgetx.h"
+#if defined(NB4_LED_DIAGNOSTIC)
+#include "nb4_led_diagnostic.h"
+#endif
 
 #if defined(AUDIO_MUTE_GPIO)
 
@@ -363,6 +366,31 @@ static void dac_start_dma_request(const audio_data_t* data, uint16_t length)
 
 void audioConsumeCurrentBuffer()
 {
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  // LED diagnostic quiet run: stop the DAC DMA, the DAC itself and its trigger
+  // timer, and drop the buffer in flight. Playback resumes when the run ends;
+  // dac_start_dma_request() re-enables the DAC with the next buffer.
+  static bool quietStopped = false;
+  if (nb4LedDiagQuiet()) {
+    if (!quietStopped) {
+      quietStopped = true;
+      __disable_irq();
+      dac_close_dma_xfer();
+      if (nextBuffer) {
+        audioQueue.buffersFifo.freeNextFilledBuffer();
+        nextBuffer = nullptr;
+      }
+      AUDIO_DAC->CR &= ~(DAC_CR_EN1 | DAC_CR_DMAEN1);
+      AUDIO_TIMER->CR1 &= ~TIM_CR1_CEN;
+      __enable_irq();
+    }
+    return;
+  }
+  if (quietStopped) {
+    quietStopped = false;
+    AUDIO_TIMER->CR1 |= TIM_CR1_CEN;
+  }
+#endif
   if (!nextBuffer) {
     nextBuffer = audioQueue.buffersFifo.getNextFilledBuffer();
     if (nextBuffer) {

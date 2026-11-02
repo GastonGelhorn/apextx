@@ -29,6 +29,9 @@
 #endif
 
 #include "edgetx.h"
+#if defined(RADIO_NB4_FAMILY)
+#include "nb4_leds.h"
+#endif
 #include "nb4_history.h"
 #include "io/frsky_firmware_update.h"
 #include "hal/adc_driver.h"
@@ -1479,6 +1482,11 @@ void edgeTxInit()
   if (!(startOptions & OPENTX_START_NO_SPLASH))
     startSplash();
 
+#if defined(RADIO_NB4_FAMILY)
+  // The display is up (splash or not): the power button may be released.
+  nb4LedBootSplash();
+#endif
+
 #if defined(COLORLCD)
   initLvglTheme();
   // create ViewMain
@@ -1679,6 +1687,11 @@ void edgeTxInit()
 #endif
 
   resetBacklightTimeout();
+
+#if defined(RADIO_NB4_FAMILY)
+  // The radio is up: the LED strip leaves the boot blink for the user colour.
+  nb4LedBootComplete();
+#endif
 
   pulsesStart();
   WDG_ENABLE(WDG_DURATION);

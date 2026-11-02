@@ -133,15 +133,9 @@ bool Nb4RfController::prepare()
       trip(Nb4RfFault::InvalidElectricalSequence);
       return false;
     }
-#if !defined(SIMU)
-    // PE3 and PI15 are external UART inversion controls on this board: drive
-    // normal polarity explicitly before starting the UART and enabling
-    // module power.
-    for (gpio_t pin : {GPIO_PIN(GPIOE, 3), GPIO_PIN(GPIOI, 15)}) {
-      gpio_clear(pin);
-      gpio_init(pin, GPIO_OUT, GPIO_PIN_SPEED_VERY_HIGH);
-    }
-#endif
+    // PE3 and PI15 were driven low here as PL18-style UART inversion
+    // controls. Neither FlySky NB4 nor NB4+ image configures them, so they
+    // stay reset-state inputs like on the factory firmware.
     bootApplied = true;
   }
   prepared = true;

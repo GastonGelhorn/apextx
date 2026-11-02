@@ -5,6 +5,7 @@
 #include "gtests.h"
 #include "nb4_car_state.h"
 #include "nb4_leds.h"
+#include "boards/generic_stm32/rgb_leds.h"
 
 #if defined(RADIO_NB4_FAMILY)
 
@@ -560,6 +561,39 @@ TEST(Nb4Racing, FactoryResetIsThreeSeparatePromises)
   setModelDefaults();
 }
 
+TEST(Nb4Leds, TheBootBlinkIsBlueAtFourHertzUntilBootCompletes)
+{
+  const Nb4LedRgb off{0, 0, 0};
+  const Nb4LedRgb on = nb4LedBootColor(0);
+  EXPECT_EQ(on.r, 0); EXPECT_EQ(on.g, 0); EXPECT_GT((int)on.b, 0);
+  EXPECT_TRUE(nb4LedBootColor(100) == on);
+  EXPECT_TRUE(nb4LedBootColor(125) == off);
+  EXPECT_TRUE(nb4LedBootColor(249) == off);
+  EXPECT_TRUE(nb4LedBootColor(250) == on);
+  EXPECT_TRUE(nb4LedBootColor(1000) == on);
+  EXPECT_TRUE(nb4LedBootColor(1125) == off);
+}
+
+TEST(Nb4Leds, TheBrightnessScalesTheStripAndUnsetReadsAsDefault)
+{
+  EXPECT_EQ(nb4LedBrightnessOrDefault(0), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(5), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(101), NB4_LED_BRIGHTNESS_DEFAULT);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(10), 10);
+  EXPECT_EQ(nb4LedBrightnessOrDefault(100), 100);
+  EXPECT_EQ(NB4_LED_BRIGHTNESS_DEFAULT, 80);
+
+  const Nb4LedRgb full = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 100);
+  EXPECT_TRUE(full == nb4LedPalette(NB4_LED_WHITE));
+  const Nb4LedRgb half = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 50);
+  EXPECT_EQ(half.r, 127); EXPECT_EQ(half.g, 127); EXPECT_EQ(half.b, 127);
+  const Nb4LedRgb unset = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_WHITE, false, 80, 0, 0);
+  EXPECT_EQ(unset.r, 204);  // 255 * 80 / 100
+  // Charging green follows the same scale.
+  const Nb4LedRgb chg = nb4LedColorNow(NB4_LED_FIXED, NB4_LED_BLUE, true, 100, 0, 20);
+  EXPECT_EQ(chg.g, 51); EXPECT_EQ(chg.r, 0); EXPECT_EQ(chg.b, 0);
+}
+
 TEST(Nb4Leds, TheColourFollowsTheModeExceptWhenItMatters)
 {
   const Nb4LedRgb off{0, 0, 0};
@@ -596,6 +630,56 @@ TEST(Nb4Leds, TheColourFollowsTheModeExceptWhenItMatters)
   const Nb4LedRgb crit1 = nb4LedColorNow(NB4_LED_BATTERY, NB4_LED_BLUE, false, 5, 1200);
   EXPECT_EQ(crit0.g, 0); EXPECT_EQ(crit0.b, 0);      // Red
   EXPECT_FALSE(crit0 == crit1);
+}
+
+TEST(Nb4Leds, BatteryAndChargingFollowLiveRadioState)
+{
+  const auto oldMode = g_eeGeneral.nb4LedMode;
+  const auto oldColor = g_eeGeneral.nb4LedColor;
+  const auto oldBattery = g_vbat100mV;
+  const auto oldChargeSource = nb4SimuChargeSource;
+  const auto oldBrightness = g_eeGeneral.nb4LedBrightness;
+  g_eeGeneral.nb4LedBrightness = NB4_LED_BRIGHTNESS_MAX;
+
+  g_vbat100mV = 40;  // 4000 mV, not 400 mV.
+  g_eeGeneral.nb4LedMode = NB4_LED_BATTERY;
+  nb4SimuChargeSource = 0;
+
+  // Until boot completes the strip only shows the boot blink.
+  if (!nb4LedBootIsComplete()) {
+    nb4LedRefresh();
+    EXPECT_EQ(rgbGetLedColor(0) & 0xFFFF00u, 0u);
+    // Once the splash is up the strip holds solid blue.
+    nb4LedBootSplash();
+    nb4LedRefresh();
+    EXPECT_EQ(rgbGetLedColor(0), 0x000032u);
+    nb4LedBootComplete();
+  }
+
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x00FF00u);
+
+  g_eeGeneral.nb4LedMode = NB4_LED_FIXED;
+  g_eeGeneral.nb4LedColor = NB4_LED_BLUE;
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x0000FFu);
+
+  nb4SimuChargeSource = 2;  // USB attached during operation.
+  nb4LedRefresh();
+  const auto chargingColor = rgbGetLedColor(0);
+  EXPECT_NE(chargingColor, 0x0000FFu);
+  EXPECT_EQ(chargingColor & 0xFF00FFu, 0u);
+
+  nb4SimuChargeSource = 0;  // Unplugging restores the selected colour.
+  nb4LedRefresh();
+  EXPECT_EQ(rgbGetLedColor(0), 0x0000FFu);
+
+  g_eeGeneral.nb4LedMode = oldMode;
+  g_eeGeneral.nb4LedColor = oldColor;
+  g_vbat100mV = oldBattery;
+  nb4SimuChargeSource = oldChargeSource;
+  g_eeGeneral.nb4LedBrightness = oldBrightness;
+  nb4LedRefresh();
 }
 
 TEST(Nb4Racing, NitroPresetIdlesButStillBrakes)

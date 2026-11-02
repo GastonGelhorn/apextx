@@ -17,6 +17,14 @@ set(AFHDS3 ON CACHE BOOL "Original AFHDS3 module" FORCE)
 # build says otherwise.
 set(RADIO_LANG_SET EN ES DE CN)
 
+option(NB4_LED_DIAGNOSTIC "Include the opt-in LED/LTDC bench diagnostic" OFF)
+if(NB4_LED_DIAGNOSTIC)
+  if(NOT PCBREV STREQUAL NB4)
+    message(FATAL_ERROR "NB4_LED_DIAGNOSTIC requires PCBREV=NB4 (optional NB4_PLUS_HW)")
+  endif()
+  add_definitions(-DNB4_LED_DIAGNOSTIC)
+endif()
+
 if(PCBREV STREQUAL NB4)
   # RECOVERED_USART6 is the route this firmware ships and is the default.
   # The candidates stay available for compile-time coverage of the other

@@ -36,6 +36,7 @@ void nb4StorageStart();
 bool nb4StorageStarted();
 bool nb4StorageQuiesce();
 void nb4StorageResume();
+bool nb4StoragePaused();
 void nb4StorageRequestLog();
 // All FatFs work is here; also usable synchronously by host fault-injection tests.
 void nb4StorageProcess();

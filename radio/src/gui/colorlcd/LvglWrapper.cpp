@@ -21,6 +21,7 @@
 
 #include "edgetx.h"
 #include "nb4_health.h"
+#include "nb4_led_diagnostic.h"
 #include "hal/rotary_encoder.h"
 #include "os/time.h"
 
@@ -199,6 +200,15 @@ extern "C" void touchDriverRead(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
 #if defined(HARDWARE_TOUCH)
   static lv_indev_data_t touch_data_backup;
+
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+  // LED diagnostic quiet run: leave the touch controller alone (no I2C
+  // traffic) until the run ends; the dialog finishes by itself.
+  if (nb4LedDiagQuiet()) {
+    data->state = LV_INDEV_STATE_RELEASED;
+    return;
+  }
+#endif
 
   if(!touchPanelEventOccured()) {
     memcpy(data, &touch_data_backup, sizeof(lv_indev_data_t));

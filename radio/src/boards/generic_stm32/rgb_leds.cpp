@@ -23,6 +23,7 @@
 #include "rgb_leds.h"
 #include "hal.h"
 #include "edgetx.h"
+#include "nb4_led_diagnostic.h"
 
 #if defined(LED_STRIP_GPIO)
 
@@ -39,7 +40,8 @@
 // _flush_and_update() and only when DMA is idle.
 static uint8_t _led_colors[WS2812_BYTES_PER_LED * LED_STRIP_LENGTH];
 
-// Back buffer: written by rgbSetLedColor (menu task / pre-OS, single writer).
+// Back buffer: written by rgbSetLedColor. On NB4 the periodic LED refresh can
+// also publish while another task updates a diagnostic or Lua colour pattern.
 // Read only inside _flush_and_update() when a new frame has been published.
 static uint8_t _back_colors[WS2812_BYTES_PER_LED * LED_STRIP_LENGTH];
 
@@ -50,11 +52,17 @@ static uint8_t _back_colors[WS2812_BYTES_PER_LED * LED_STRIP_LENGTH];
 // rounds up to the next even value to publish the frame. The timer copies
 // only when seq is even AND differs from the last consumed value.
 //
-// All writes to _commit_seq come from the menu task (or pre-OS). The timer
-// task is the sole reader. 32-bit aligned access is atomic on Cortex-M;
-// no locks needed.
+// The timer task is the sole reader. 32-bit aligned access is atomic on
+// Cortex-M; the NB4 reader verifies the sequence after taking its snapshot.
 static volatile uint32_t _commit_seq = 0;
 static uint32_t _consumed_seq = 0;
+
+#if defined(RADIO_NB4_FAMILY)
+// The FlySky driver sends a frame only when its payload changes. Besides
+// avoiding needless DMA traffic, this prevents a static colour from repeatedly
+// exercising the first WS2812 pixel on NB4/NB4+ hardware.
+static bool _frame_sent = false;
+#endif
 
 // Compiler barrier: prevent the compiler from reordering plain memory
 // accesses around a seq update.
@@ -81,11 +89,36 @@ static void _flush_and_update()
     uint32_t seq = _commit_seq;
     // Skip if mid-batch (odd) or already consumed.
     if ((seq & 1u) == 0u && seq != _consumed_seq) {
+#if defined(RADIO_NB4_FAMILY)
+      // The LED refresh and other UI/Lua writers can run in different tasks.
+      // Keep the DMA-facing buffer untouched if a writer changes the published
+      // frame while we copy it; retry the next refresh instead.
+      uint8_t colors[sizeof(_back_colors)];
+      memcpy(colors, _back_colors, sizeof(colors));
+      _compiler_barrier();
+      if (_commit_seq != seq) return;
+      const bool changed =
+          !_frame_sent || memcmp(_led_colors, colors, sizeof(_led_colors)) != 0
+#if defined(NB4_LED_DIAGNOSTIC) && !defined(BOOT)
+          || nb4LedDiagActive() // fixed 20 Hz stimulus in every diagnostic phase
+#endif
+          ;
+      memcpy(_led_colors, colors, sizeof(_led_colors));
+#else
       memcpy(_led_colors, _back_colors, sizeof(_led_colors));
+#endif
       _consumed_seq = seq;
+#if defined(RADIO_NB4_FAMILY)
+      if (changed) {
+        ws2812_update(&_led_timer);
+        _frame_sent = true;
+      }
+#endif
     }
   }
+#if !defined(RADIO_NB4_FAMILY)
   ws2812_update(&_led_timer);
+#endif
 }
 
 void rgbSetLedColor(uint8_t led, uint8_t r, uint8_t g, uint8_t b)

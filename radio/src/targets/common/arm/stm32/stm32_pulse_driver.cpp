@@ -75,7 +75,8 @@ static void init_dma_arr_mode(const stm32_pulse_timer_t* tim)
   LL_DMA_Init(tim->DMAx, tim->DMA_Stream, &dmaInit);
 }
 
-int stm32_pulse_init(const stm32_pulse_timer_t* tim, uint32_t freq)
+int stm32_pulse_init(const stm32_pulse_timer_t* tim, uint32_t freq,
+                     bool init_gpio)
 {
   // check if timer is free first (clock disabled)
   // if (stm32_timer_is_clock_enabled(tim->TIMx)) return -1;
@@ -87,7 +88,9 @@ int stm32_pulse_init(const stm32_pulse_timer_t* tim, uint32_t freq)
     memset(tim->DMA_TC_CallbackPtr, 0, sizeof(stm32_pulse_dma_tc_cb_t));
   }
   
-  gpio_init_af(tim->GPIO, tim->GPIO_Alternate, GPIO_PIN_SPEED_MEDIUM);
+  if (init_gpio) {
+    gpio_init_af(tim->GPIO, tim->GPIO_Alternate, GPIO_PIN_SPEED_MEDIUM);
+  }
 
   LL_TIM_InitTypeDef timInit;
   LL_TIM_StructInit(&timInit);

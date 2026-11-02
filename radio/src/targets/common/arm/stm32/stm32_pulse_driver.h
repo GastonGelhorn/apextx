@@ -50,7 +50,8 @@ struct stm32_pulse_timer_t {
   stm32_pulse_dma_tc_cb_t*   DMA_TC_CallbackPtr;
 };
 
-int stm32_pulse_init(const stm32_pulse_timer_t* tim, uint32_t freq);
+int stm32_pulse_init(const stm32_pulse_timer_t* tim, uint32_t freq,
+                     bool init_gpio = true);
 void stm32_pulse_deinit(const stm32_pulse_timer_t* tim);
 
 void stm32_pulse_config_input(const stm32_pulse_timer_t* tim);

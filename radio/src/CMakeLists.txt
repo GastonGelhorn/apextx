@@ -474,6 +474,7 @@ set(SRC
   nb4_ui_perf.cpp
   nb4_fault_screen.cpp
   nb4_leds.cpp
+  nb4_led_diagnostic.cpp
   nb4_axis.cpp
   nb4_palettes.cpp
   nb4_pit.cpp

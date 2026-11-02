@@ -281,6 +281,7 @@ bool nb4StorageQuiesce() {
 }
 bool nb4StorageStarted() { return started; }
 void nb4StorageResume() { paused.store(false); }
+bool nb4StoragePaused() { return paused.load(); }
 void nb4StorageProcess() {
   busy.store(true);
   if (paused.load()) { busy.store(false); return; }

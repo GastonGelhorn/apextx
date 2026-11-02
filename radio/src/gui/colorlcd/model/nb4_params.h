@@ -59,6 +59,11 @@ struct Nb4ParamCtx {
 Window* nb4ParamControl(Window* parent, const rect_t& rect, Nb4Param p,
                         const Nb4ParamCtx& ctx = {});
 
+// The [-] / [+] button used beside numeric controls across the NB4 UI:
+// one step per tap, accelerating while held. `apply` receives the delta.
+Window* nb4StepButton(Window* parent, const rect_t& rect, const char* text,
+                      std::function<void(int32_t)> apply, int32_t step);
+
 enum class Nb4NumericKind : uint8_t { None, Plain, Gvar, Source };
 
 struct Nb4Numeric {

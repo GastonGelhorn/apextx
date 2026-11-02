@@ -28,6 +28,7 @@
 #include "sdcard_yaml.h"
 #include "modelslist.h"
 #include "nb4_car_state.h"
+#include "nb4_leds.h"
 #include "nb4_model_compat.h"
 
 #include "yaml/yaml_tree_walker.h"
@@ -376,6 +377,13 @@ const char * loadRadioSettingsYaml(bool checks)
     // at the NB4 compatibility boundary before another model can inherit it.
     if (!p && g_eeGeneral.templateSetup != 0) {
       g_eeGeneral.templateSetup = 0;
+      storageDirty(EE_GENERAL);
+    }
+    // Settings written before the strip had a brightness field read as 0.
+    if (!p && g_eeGeneral.nb4LedBrightness !=
+                  nb4LedBrightnessOrDefault(g_eeGeneral.nb4LedBrightness)) {
+      g_eeGeneral.nb4LedBrightness =
+          nb4LedBrightnessOrDefault(g_eeGeneral.nb4LedBrightness);
       storageDirty(EE_GENERAL);
     }
     #endif

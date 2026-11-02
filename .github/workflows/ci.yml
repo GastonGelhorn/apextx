@@ -26,13 +26,27 @@ jobs:
       matrix:
         include:
           - radio: Noble NB4
-            options: -DNB4_PLUS_HW=OFF
+            model: nb4
+            variant: standard
+            options: -DNB4_PLUS_HW=OFF -DNB4_LED_DIAGNOSTIC=OFF
           - radio: Noble NB4+
-            options: -DNB4_PLUS_HW=ON
+            model: nb4plus
+            variant: standard
+            options: -DNB4_PLUS_HW=ON -DNB4_LED_DIAGNOSTIC=OFF
+          - radio: Noble NB4 (LED diagnostic)
+            model: nb4
+            variant: led-diagnostic
+            options: -DNB4_PLUS_HW=OFF -DNB4_LED_DIAGNOSTIC=ON
+          - radio: Noble NB4+ (LED diagnostic)
+            model: nb4plus
+            variant: led-diagnostic
+            options: -DNB4_PLUS_HW=ON -DNB4_LED_DIAGNOSTIC=ON
     steps:
       - name: Check out source and submodules
         uses: actions/checkout@v7
         with:
+          # Build the precise PR head named on the downloadable artifact.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
 
       - name: Trust the container checkout
@@ -85,6 +99,41 @@ jobs:
         run: |
           cmake --build build/nb4-ci --target native-configure -j4
           cmake --build build/nb4-ci/native --target tests-radio -j4
+
+      - name: Package and validate the exact hardware image
+        env:
+          CI_MODEL: ${{ matrix.model }}
+          CI_VARIANT: ${{ matrix.variant }}
+        run: |
+          python3 tools/apextx-updater.py build/nb4-ci/arm-none-eabi/firmware.bin --check
+          python3 tools/nb4-package.py \
+            --build build/nb4-ci/arm-none-eabi \
+            --output dist/firmware --model "$CI_MODEL"
+          cp docs/nb4/LED_DIAGNOSTIC.md dist/firmware/LED_DIAGNOSTIC.md
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          out = pathlib.Path('dist/firmware')
+          image = out / 'firmware.bin'
+          info = {
+              'sourceCommit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'model': os.environ['CI_MODEL'],
+              'variant': os.environ['CI_VARIANT'],
+              'bytes': image.stat().st_size,
+              'sha256': hashlib.sha256(image.read_bytes()).hexdigest(),
+              'diagnosticVersion': 'D1' if os.environ['CI_VARIANT'] == 'led-diagnostic' else None,
+              'hardwareValidated': False,
+          }
+          (out / 'BUILD.json').write_text(json.dumps(info, indent=2) + '\n')
+          (out / 'SHA256SUMS').write_text(info['sha256'] + '  firmware.bin\n')
+          PY
+
+      - name: Upload verified firmware
+        uses: actions/upload-artifact@v7
+        with:
+          name: apextx-${{ matrix.model }}-${{ matrix.variant }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: dist/firmware/
+          if-no-files-found: error
+          retention-days: 30
 
   audio:
     name: Build and verify the four audio packs

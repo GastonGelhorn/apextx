@@ -632,6 +632,12 @@ void referenceHint(Window* form, FlexGridLayout& grid, const Nb4Numeric& spec)
 
 }  // namespace
 
+Window* nb4StepButton(Window* parent, const rect_t& rect, const char* text,
+                      std::function<void(int32_t)> apply, int32_t step)
+{
+  return new Nb4StepButton(parent, rect, text, std::move(apply), step);
+}
+
 void nb4ParamRow(Window* form, FlexGridLayout& grid, Nb4Param p,
                  const Nb4ParamCtx& ctx, const char* labelOverride)
 {
