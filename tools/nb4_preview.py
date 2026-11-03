@@ -247,20 +247,20 @@ class FirmwarePreview:
             shutil.rmtree(previous, ignore_errors=True)
             flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
             view = max(0, int(request.get('view') or 0))
-            key = secrets.token_bytes(32)
-            listener = Listener(('127.0.0.1', 0), authkey=key)
-            listener._listener._socket.settimeout(5)
             target = 'nb4'
             if radio_root and (radio_root/'APEXTX-EDITOR.json').is_file():
                 target=json.loads((radio_root/'APEXTX-EDITOR.json').read_bytes()).get('target','nb4')
             library=dll_path(target)
             if not library: raise ValueError('No firmware preview library for '+target)
-            env = dict(os.environ, APEXTX_PREVIEW_DLL=str(library.resolve()), APEXTX_PREVIEW_PORT=str(listener.address[1]), APEXTX_PREVIEW_KEY=key.hex())
-            process = subprocess.Popen(self._command() + [str(storage), str(view)], stdin=subprocess.DEVNULL,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
-                                       creationflags=flags)
-            self.process = process
+            key = secrets.token_bytes(32)
+            listener = Listener(('127.0.0.1', 0), authkey=key)
+            listener._listener._socket.settimeout(5)
             try:
+                env = dict(os.environ, APEXTX_PREVIEW_DLL=str(library.resolve()), APEXTX_PREVIEW_PORT=str(listener.address[1]), APEXTX_PREVIEW_KEY=key.hex())
+                process = subprocess.Popen(self._command() + [str(storage), str(view)], stdin=subprocess.DEVNULL,
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
+                                           creationflags=flags)
+                self.process = process
                 self.connection = listener.accept()
             except (OSError, EOFError) as error:
                 self._stop()
@@ -298,10 +298,10 @@ class FirmwarePreview:
                     if process is not self.process: return
                     self.seq += 1
                     self.frame = (self.seq, width, height, data, zones, shown)
-        except (OSError, EOFError, ValueError) as error:
+        except (OSError, EOFError, ValueError, struct.error) as error:
             with self.lock:
                 if process is self.process:
-                    self.error = str(error)
+                    self.error = str(error) or 'Firmware preview worker stopped.'
                     self.frame = None
 
     def latest(self, after):
