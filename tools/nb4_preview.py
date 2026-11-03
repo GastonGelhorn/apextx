@@ -183,7 +183,7 @@ class FirmwarePreview:
         # model actually uses a widget outside the built-in compiled catalogue.
         catalogue=json.loads(_resource('apextx-theme-editor-catalog.json').read_bytes())
         known={entry['id'] for entry in catalogue['widgets']}
-        has_custom=any(key=='widgetName' and radio_files.unquote(value.strip()) not in known for key,value in scalars)
+        has_custom=any(key=='widgetName' and bool(radio_files.unquote(value.strip())) and radio_files.unquote(value.strip()) not in known for key,value in scalars)
         if has_custom and (base/'SCRIPTS').is_dir():
             for source in (base/'SCRIPTS').rglob('*'):
                 if source.is_symlink():raise ValueError('Preview resources cannot contain symbolic links.')
