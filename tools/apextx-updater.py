@@ -224,7 +224,7 @@ def serve(port=0, open_browser=True, startup_health=None):
     editor_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(editor_module)
     editor_preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
-    editor_handler = editor_module.create_handler(token, editor_preview, lambda: window.destroy() if window is not None else None)
+    editor_handler = editor_module.create_handler(token, editor_preview, lambda: window.destroy() if window is not None else None, lambda dirty: setattr(session,'editor_dirty',dirty))
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):

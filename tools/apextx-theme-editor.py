@@ -267,7 +267,7 @@ def save_changes(request):
     return dict(ok=True,**result)
 
 
-def create_handler(token, preview, onclose=None):
+def create_handler(token, preview, onclose=None, draft_changed=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -371,7 +371,7 @@ def create_handler(token, preview, onclose=None):
                 self.reply(403, {'error': 'Invalid session. Reopen the theme editor.'})
                 return
             route = urlparse(self.path).path
-            if route not in ('/api/save', '/api/model', '/api/radio', '/api/preview', '/api/preview/input', '/api/recover', '/api/commit', '/api/close', '/api/target'):
+            if route not in ('/api/save', '/api/model', '/api/radio', '/api/preview', '/api/preview/input', '/api/recover', '/api/commit', '/api/close', '/api/target', '/api/draft'):
                 self.reply(404, {'error': 'Not found.'})
                 return
             try:
@@ -383,7 +383,11 @@ def create_handler(token, preview, onclose=None):
                 if not isinstance(request,dict): raise ValueError('Invalid editor request.')
                 if route in ('/api/model','/api/radio'):
                     writable_identity(request.get('target',''))
-                if route == '/api/target':
+                if route == '/api/draft':
+                    if type(request.get('dirty')) is not bool: raise ValueError('Invalid draft state.')
+                    if draft_changed: draft_changed(request['dirty'])
+                    result = {'ok':True}
+                elif route == '/api/target':
                     root = radio_files.safe_path(Path(request.get('path',''))).resolve()
                     if not root.is_dir() or not (root/'RADIO/radio.yml').is_file(): raise ValueError('Select the radio storage folder containing RADIO/radio.yml.')
                     if root not in EXTRA_ROOTS: EXTRA_ROOTS.append(root)

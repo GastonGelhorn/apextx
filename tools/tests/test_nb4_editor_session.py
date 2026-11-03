@@ -26,6 +26,13 @@ class EditorSessionTest(unittest.TestCase):
         self.backup=patch.object(editor,'BACKUP_ROOT',pathlib.Path(self.tmp.name)/'backup');self.backup.start()
     def tearDown(self):
         self.patch.stop();self.backup.stop();editor.EXTRA_ROOTS[:]=self.roots;self.tmp.cleanup()
+    def test_app_update_cannot_restart_with_pending_editor_drafts(self):
+        from nb4_flasher_session import FlasherSession
+        from nb4_usb_update import UpdateError
+        session=FlasherSession(client=object());session.editor_dirty=True
+        with self.assertRaises(UpdateError):session.reserve_app_update()
+        self.assertFalse(session.app_updating)
+        session.editor_dirty=False;session.reserve_app_update();self.assertTrue(session.app_updating)
     def test_legacy_and_other_radio_are_read_only(self):
         self.marker.unlink()
         with self.assertRaises(ValueError):editor.writable_identity(str(self.root))

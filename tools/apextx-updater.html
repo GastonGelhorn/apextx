@@ -1569,5 +1569,7 @@ async function poll(){try{const r=await fetch('/api/status',{headers:{'X-ApexTX-
  setTimeout(poll,800);
 }
 applyLang(pick());poll();
+
+globalThis.editorBusy=()=>!!(running||snapshot?.app_updating);
 </script>
 </html>

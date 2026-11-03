@@ -2015,7 +2015,7 @@ async function editorLeaveCar(all=false) {
   const d=document.createElement('dialog'),text=document.createElement('p');
   const labels={en:['Unsaved changes','Save','Discard','Cancel'],es:['Cambios sin guardar','Guardar','Descartar','Cancelar'],de:['Ungespeicherte Ansichten','Speichern','Verwerfen','Abbrechen'],cn:['未保存的屏幕','保存','放弃','取消']}[lang]||['Unsaved changes','Save','Discard','Cancel'];
   text.textContent=labels[0];d.append(text);
-  labels.slice(1).forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{if(i===0){await $(all?'saveRadio':'carSave').onclick();if(carDirty||(all&&(themeHistory.dirty||appearanceHistory.dirty)))return;}if(i===1){carDirty=false;if(all){themeHistory.reset(themeValue());appearanceHistory.reset(appearanceValue());}}d.close();d.remove();resolve(i!==2);};d.append(b);});
+  labels.slice(1).forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{if(i===0){await $(all?'saveRadio':'carSave').onclick();if(carDirty||(all&&(themeHistory.dirty||appearanceHistory.dirty)))return;}if(i===1){carDirty=false;const current=editorHistories.get(editorHistoryKey);if(current){car.screenData=JSON.parse(current.saved);current.reset(car.screenData);}if(all){themeHistory.reset(themeValue());appearanceHistory.reset(appearanceValue());}}d.close();d.remove();resolve(i!==2);};d.append(b);});
   d.oncancel=()=>{d.remove();resolve(false);};document.body.append(d);d.showModal();
  });
 }
@@ -2029,6 +2029,15 @@ $('openVolume').onclick=async()=>{try{const r=await api('/api/target',{path:$('m
 if(window.parent!==window){document.querySelector('header').style.display='none';document.querySelector('h1').style.display='none';document.querySelector('.intro').style.display='none';}
 
 const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);perfButton.onclick=async()=>{try{const data=await api('/api/perf?target='+q(radioRoot()));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='APEXTX-UI-PERF.json';a.click();}catch(e){status('themeStatus',e.message,true);}};
+
+let sentDraft=null,draftReporting=false;
+setInterval(async()=>{
+ if(window.parent===window)return;
+ const locked=window.parent.editorBusy?.()||false;
+ document.querySelector('main').inert=locked;
+ const dirty=carDirty||themeHistory.dirty||appearanceHistory.dirty;
+ if(!draftReporting&&sentDraft!==dirty){draftReporting=true;try{await api('/api/draft',{dirty});sentDraft=dirty;}catch(e){}finally{draftReporting=false;}}
+},250);
 </script>
 </body>
 </html>

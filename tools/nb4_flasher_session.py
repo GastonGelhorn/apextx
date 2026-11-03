@@ -32,6 +32,7 @@ class FlasherSession:
         self.integrated_view = None
         self.bootloader_install = None
         self.app_updating = False
+        self.editor_dirty = False
         self.radio_unconfirmed = False
         self.preview = True  # ApexTX is currently an alpha; clearly labelled in the UI.
         self.release_error = None
@@ -155,6 +156,8 @@ class FlasherSession:
 
     def reserve_app_update(self):
         with self.lock:
+            if self.editor_dirty:
+                raise UpdateError('Save or discard the Editor drafts before updating ApexTX Flasher.')
             if self.app_updating or self.app_restart_blocked():
                 raise UpdateError('Finish the radio operation or recovery before updating ApexTX Flasher.')
             self.app_updating = True
