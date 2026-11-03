@@ -614,14 +614,17 @@ static std::string editorJson(const char* text)
   return out + "\"";
 }
 // Snapshot registered capabilities before USB takes ownership of FatFs.
-void nb4PrepareEditorStorage()
+std::string nb4EditorMetadata()
 {
-#if !defined(SIMU)
   std::string text = "{\"format\":\"apextx-editor-1\",\"protocol\":1,\"target\":\"";
   text += NB4_HARDWARE_ID;
+#if defined(SIMU)
+  const char serial[]="000000000001";
+#else
   const auto uid = reinterpret_cast<const uint32_t*>(UID_BASE);
   char serial[13];
   snprintf(serial,sizeof(serial),"%08lX%04lX",(unsigned long)(uid[0]+uid[2]),(unsigned long)(uid[1]>>16));
+#endif
   text += "\",\"serial\":\""; text += serial;
   text += "\",\"widgets\":[";
   bool first = true;
@@ -661,7 +664,22 @@ void nb4PrepareEditorStorage()
     if (!first) text += ","; first = false;
     text += editorJson(factory->getId());
   }
+  text += "],\"colorCount\":"+std::to_string(THEME_COLOR_COUNT)+",\"fonts\":[";
+  for(unsigned i=0;i<FONTS_COUNT;++i){
+    if(i)text+=",";
+    text+="{\"id\":"+std::to_string(i)+",\"height\":"+std::to_string(getFontHeight(i<<8))+"}";
+  }
   text += "]}";
+  return text;
+}
+
+void nb4PrepareEditorStorage()
+{
+#if !defined(SIMU)
+  const auto text=nb4EditorMetadata();
+  const auto uid = reinterpret_cast<const uint32_t*>(UID_BASE);
+  char serial[13];
+  snprintf(serial,sizeof(serial),"%08lX%04lX",(unsigned long)(uid[0]+uid[2]),(unsigned long)(uid[1]>>16));
   Nb4UiPerf samples[30];
   const auto count=nb4UiPerfSamples(samples,30);
   std::string stats="{\"format\":\"apextx-ui-perf-1\",\"serial\":"+editorJson(serial)+",\"firmware\":"+editorJson(GIT_STR)+",\"samples\":[";

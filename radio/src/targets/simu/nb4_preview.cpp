@@ -12,6 +12,7 @@
 #include "hal/adc_driver.h"
 
 #include "mainview/layout.h"
+#include "mainview/nb4_home.h"
 #include "mainview/view_main.h"
 
 #include <lvgl/lvgl.h>
@@ -167,3 +168,12 @@ NB4P_EXPORT void nb4p_key(int key, int down)
 }
 
 NB4P_EXPORT const char* nb4p_error() { return main_thread_error; }
+
+NB4P_EXPORT const char* nb4p_catalog()
+{
+  std::lock_guard<std::recursive_mutex> guard(simuUiMutex);
+  static std::string snapshot;
+  if(!customScreens[0])return nullptr;
+  snapshot=nb4EditorMetadata();
+  return snapshot.c_str();
+}

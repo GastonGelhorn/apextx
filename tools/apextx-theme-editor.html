@@ -1337,7 +1337,7 @@ async function fwStage() {
     if (car) body.screenData = car.screenData;
     if (car && car.file && radioRoot()) { body.model = car.file; body.target = radioRoot(); }
     await api('/api/preview', body);
-    fw.key = key; fw.sent = ''; fw.error = '';
+    fw.key = key; fw.sent = ''; fw.error = ''; fw.catalogKey='';
     $('fwBadge').textContent = t('fwLive')+(car&&car.firmware&&car.firmware!==EDITOR_REVISION?' · different firmware build':'');
     document.querySelector('[data-t="previewNote"]').style.display = 'none';
   } catch (e) {
@@ -1353,6 +1353,7 @@ async function fwFrames() {
       const r = await fetch('/api/preview/frame?after=' + fw.seq, {headers: {'X-ApexTX-Token': TOKEN}});
       if(r.status===503){const error=await r.json();fw.error=error.error;$('fwBadge').textContent=t('fwFailed')+fw.error;}
       if (r.status === 200) {
+        if(fw.catalogKey!==fw.key){const caps=await api('/api/preview/catalog');if(caps.protocol===1){fw.catalogKey=fw.key;if(!car?.firmware&&BUNDLED_CATALOG){CATALOG={...BUNDLED_CATALOG,widgets:caps.catalog.map(w=>({...BUNDLED_CATALOG.widgets.find(b=>b.id===w.id),...w,label:BUNDLED_CATALOG.widgets.find(b=>b.id===w.id)?.label||{en:w.id}}))};editorSources=caps.sources||[];buildScreens();}}}
         const [seq, w, h, shown] = r.headers.get('X-Frame').split(' ').map(Number);
         const px = new Uint16Array(await r.arrayBuffer());
         if (fw.canvas.width !== w || fw.canvas.height !== h) { fw.canvas.width = w; fw.canvas.height = h; }
@@ -1576,7 +1577,15 @@ function buildZones() {
         if (o.type === 'Bool') { input = document.createElement('input'); input.type = 'checkbox'; input.checked = !!optionValue(s, i, idx, o); input.onchange = () => setOption(i, idx, o, input.checked); }
         else if (o.type === 'Integer') { input = document.createElement('input'); input.type = 'number'; input.value = optionValue(s, i, idx, o); if (typeof o.min === 'number') input.min = o.min; if (typeof o.max === 'number') input.max = o.max; input.onchange = () => setOption(i, idx, o, Math.max(o.min ?? -30000, Math.min(o.max ?? 30000, +input.value || 0))); }
         else if(o.type==='Source'){input=document.createElement('select');for(const v of new Set([optionValue(s,i,idx,o),...editorSources])){const el=document.createElement('option');el.value=v;el.textContent=v;input.append(el);}input.value=optionValue(s,i,idx,o);input.onchange=()=>setOption(i,idx,o,input.value);}
-        else if(o.type==='Color'){input=document.createElement('input');input.type='color';input.value=String(optionValue(s,i,idx,o)).replace('0x','#');input.oninput=()=>setOption(i,idx,o,input.value);}
+        else if(o.type==='Color'){
+          input=document.createElement('span');const select=document.createElement('select'),picker=document.createElement('input');picker.type='color';
+          const current=String(optionValue(s,i,idx,o));
+          for(const [index,entry] of COLOR_KEYS.entries()){const option=document.createElement('option');option.value='COLIDX'+index;option.textContent=entry[0];select.append(option);}
+          if(current.startsWith('COLIDX')&&!Array.from(select.options).some(o=>o.value===current)){const option=document.createElement('option');option.value=current;option.textContent=current;select.append(option);}
+          const rgb=document.createElement('option');rgb.value='rgb';rgb.textContent='RGB';select.append(rgb);
+          select.value=current.startsWith('COLIDX')?current:'rgb';picker.value=current.startsWith('0x')?current.replace('0x','#'):'#ffffff';picker.hidden=select.value!=='rgb';
+          select.onchange=()=>{picker.hidden=select.value!=='rgb';setOption(i,idx,o,select.value==='rgb'?picker.value:select.value);};picker.oninput=()=>setOption(i,idx,o,picker.value);input.append(select,picker);
+        }
         else if(['TextSize','Timer','Align','Slider','Switch','Choice'].includes(o.type)){input=document.createElement('input');input.type='number';input.min=['Slider','Switch','Choice'].includes(o.type)?o.min:0;input.max=['Slider','Switch','Choice'].includes(o.type)?o.max:o.type==='TextSize'?7:2;input.value=optionValue(s,i,idx,o);input.onchange=()=>setOption(i,idx,o,Math.max(0,Math.min(+input.max,+input.value)));}
         else { input = document.createElement('input'); input.type = 'text'; input.maxLength = o.type==='File'?128:12; input.value = optionValue(s, i, idx, o) || ''; input.oninput = () => setOption(i, idx, o, input.value); }
         input.id='zone-'+i+'-option-'+idx;lab.append(span, input); opts.appendChild(lab);

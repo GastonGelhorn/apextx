@@ -70,3 +70,5 @@ class Nb4HomeScreen : public WidgetsContainer
 #endif
 
 void nb4PrepareEditorStorage();
+
+std::string nb4EditorMetadata();

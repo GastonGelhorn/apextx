@@ -226,6 +226,7 @@ def validate_model_capabilities(root, model):
                     if kind in ('Timer','Align'):low,high=0,2
                     if kind=='Switch' and number>=32768:number=(number&65535)-65536
                     if not low<=number<=high:raise ValueError('Widget option is out of range.')
+                if kind=='Color' and value.get('color','').startswith('COLIDX') and int(value['color'][6:])>=caps.get('colorCount',13):raise ValueError('Palette colour is out of range.')
                 if kind=='Color' and not re.fullmatch(r'(0x[0-9a-fA-F]{6}|COLIDX[0-9]{1,3})',value.get('color','')):raise ValueError('Invalid widget colour.')
                 if opt.get('type')=='Source' and value.get('source') not in caps.get('sources',[]):raise ValueError('Unsupported source.')
                 if opt.get('type')=='String' and '..' in Path(radio_files.unquote(value.get('stringValue',''))).parts:raise ValueError('Parent paths are not allowed in file options.')
@@ -309,6 +310,8 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 self.reply(200, theme_targets())
             elif self.path == '/api/preview/status':
                 self.reply(200, {'available': preview is not None})
+            elif self.path == '/api/preview/catalog':
+                self.reply(200,preview.catalog if preview and preview.catalog else {})
             elif urlparse(self.path).path == '/api/preview/frame':
                 after = int(parse_qs(urlparse(self.path).query).get('after', ['0'])[0] or 0)
                 if preview and preview.error:

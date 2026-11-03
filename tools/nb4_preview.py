@@ -62,6 +62,7 @@ def worker_main(storage, view=0):
     path = dll_path()
     os.add_dll_directory(str(path.parent)) if hasattr(os, 'add_dll_directory') else None
     lib = ctypes.CDLL(str(path))
+    lib.nb4p_catalog.restype = ctypes.c_char_p
     lib.nb4p_start.argtypes = [ctypes.c_char_p]
     lib.nb4p_frame.argtypes = [ctypes.POINTER(ctypes.c_uint16), ctypes.c_int,
                                ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
@@ -90,6 +91,7 @@ def worker_main(storage, view=0):
     buf = (ctypes.c_uint16 * MAX_PIXELS)()
     zones = (ctypes.c_int16 * (MAX_ZONES * 4))()
     w, h = ctypes.c_int(), ctypes.c_int()
+    sent_catalog=False
     started, asked, heartbeat = time.time(), 0.0, time.time()
     while True:
         with lock:
@@ -100,6 +102,11 @@ def worker_main(storage, view=0):
             if shown != view and time.time() - started < 5 and time.time() - asked > 0.2:
                 lib.nb4p_show_view(view)
                 asked = time.time()
+        if fresh and not sent_catalog:
+            metadata=lib.nb4p_catalog()
+            if metadata:
+                connection.send_bytes(b'NB4M'+metadata)
+                sent_catalog=True
         if fresh:
             size = w.value * h.value * 2
             connection.send_bytes(FRAME_HEADER.pack(FRAME_MAGIC, w.value, h.value, size, count, shown) + ctypes.string_at(buf, size) + ctypes.string_at(zones, count * 8))
@@ -123,6 +130,7 @@ class FirmwarePreview:
         self.inputs = {}
         self.connection = None
         self.error = None
+        self.catalog = None
 
     @staticmethod
     def available():
@@ -138,6 +146,7 @@ class FirmwarePreview:
             self.connection.close()
             self.connection = None
         self.frame = None
+        self.catalog = None
         if process and process.poll() is None:
             process.kill()
             try:
@@ -154,13 +163,11 @@ class FirmwarePreview:
     # is connected, otherwise the firmware's factory files.
     def _assets(self, base, storage, model):
         """Copy referenced media; the simulator never opens the mounted volume."""
-        tree = radio_files.parse_yaml(model.decode('utf-8').splitlines())
-        values=[]
-        def walk(node):
-            for value in node.values():
-                if isinstance(value,dict):walk(value)
-                elif isinstance(value,str):values.append(radio_files.unquote(value))
-        walk(tree)
+        # Model YAML also contains sequences outside screenData. Inspect only
+        # scalar resource fields; the screen editor's indentation parser is
+        # intentionally not a general model-file parser.
+        scalars=re.findall(r'^\s*([A-Za-z_][A-Za-z0-9_]*):[ \t]*(.+)$',model.decode('utf-8'),re.M)
+        values=[radio_files.unquote(value.strip()) for _,value in scalars]
         names=set()
         for value in values:
             path=PurePosixPath(value)
@@ -169,17 +176,15 @@ class FirmwarePreview:
             relative=value.lstrip('/')
             if '/' not in relative:relative='IMAGES/'+relative
             if relative.split('/')[0] in ('IMAGES','SCRIPTS','THEMES'):names.add(relative)
-        bitmap=radio_files.unquote(tree.get('header',{}).get('bitmap',''))
+        bitmap=next((radio_files.unquote(value.strip()) for key,value in scalars if key=='bitmap'),'')
         if bitmap and '/' not in bitmap and bitmap not in ('.','..'):
             for suffix in ('.png','.bmp'):names.add('IMAGES/'+bitmap+suffix)
         # Existing Lua widgets may require adjacent modules. Copy only when the
         # model actually uses a widget outside the built-in compiled catalogue.
         catalogue=json.loads(_resource('apextx-theme-editor-catalog.json').read_bytes())
         known={entry['id'] for entry in catalogue['widgets']}
-        def custom(node):
-            return any((key=='widgetName' and radio_files.unquote(value) not in known) or
-                       (isinstance(value,dict) and custom(value)) for key,value in node.items())
-        if custom(tree) and (base/'SCRIPTS').is_dir():
+        has_custom=any(key=='widgetName' and radio_files.unquote(value.strip()) not in known for key,value in scalars)
+        if has_custom and (base/'SCRIPTS').is_dir():
             for source in (base/'SCRIPTS').rglob('*'):
                 if source.is_symlink():raise ValueError('Preview resources cannot contain symbolic links.')
                 if source.is_file():names.add(source.relative_to(base).as_posix())
@@ -275,6 +280,12 @@ class FirmwarePreview:
                     raise OSError('Firmware preview timed out.')
                 packet = connection.recv_bytes(MAX_PIXELS * 2 + MAX_ZONES * 8 + FRAME_HEADER.size)
                 if not packet: continue
+                if packet.startswith(b'NB4M'):
+                    value=json.loads(packet[4:])
+                    with self.lock:
+                        if process is not self.process:return
+                        self.catalog=value
+                    continue
                 magic, width, height, size, count, shown = FRAME_HEADER.unpack(packet[:FRAME_HEADER.size])
                 if (magic != FRAME_MAGIC or not 0 < width * height <= MAX_PIXELS or
                         size != width * height * 2 or count > MAX_ZONES or
