@@ -850,6 +850,7 @@ const demoCar = () => ({file: '', name: t('demoCar'), editable: true, hash: '', 
   1: {LayoutId: 'Layout2x2', layoutData: {zones: {0: {widgetName: qt('NB4SteerWheel')}, 1: {widgetName: qt('NB4ThrRing')},
     2: {widgetName: qt('NB4Link')}, 3: {widgetName: qt('NB4Aux')}}}},
 }});
+let carLoadGeneration=0;
 let car = null, selScreen = '0', selZone = 0;
 
 const screenKeys = () => Object.keys(car.screenData).sort((a, b) => a - b);
@@ -1726,7 +1727,7 @@ async function loadTargets() {
   onTargetChanged();
 }
 async function onTargetChanged() {
-  if (carDirty && car && car.file && !await editorLeaveCar()) return;
+  if (carDirty && car && !await editorLeaveCar()) return;
   const root = radioRoot();
   $('connDot').classList.toggle('on', !!root);
   $('connText').innerHTML = '';
@@ -1759,11 +1760,13 @@ async function loadCars() {
   await openCar(sel.value);
 }
 async function openCar(file) {
-  if (carDirty && car && car.file && !await editorLeaveCar()) return;
+  if (carDirty && car && !await editorLeaveCar()) return;
+  const generation=++carLoadGeneration, openedRoot=radioRoot();
   $('carWarn').style.display = 'none';
   if (!file) { CATALOG=BUNDLED_CATALOG;editorSources=[];car = demoCar(); }
   else {
-    const m = await api(`/api/model?target=${q(radioRoot())}&file=${q(file)}`);
+    const m = await api(`/api/model?target=${q(openedRoot)}&file=${q(file)}`);
+    if(generation!==carLoadGeneration||openedRoot!==radioRoot())return;
     if (m.capabilities && m.capabilities.protocol===1 && BUNDLED_CATALOG) {
       const caps=m.capabilities;
       CATALOG={...BUNDLED_CATALOG,layouts:BUNDLED_CATALOG.layouts.filter(l=>caps.layouts.includes(l.id)),widgets:BUNDLED_CATALOG.widgets.filter(w=>caps.widgets.includes(w.id)).map(w=>({...w,options:(caps.catalog||[]).find(c=>c.id===w.id)?.options||w.options}))};
@@ -2015,7 +2018,7 @@ async function editorLeaveCar(all=false) {
   const d=document.createElement('dialog'),text=document.createElement('p');
   const labels={en:['Unsaved changes','Save','Discard','Cancel'],es:['Cambios sin guardar','Guardar','Descartar','Cancelar'],de:['Ungespeicherte Ansichten','Speichern','Verwerfen','Abbrechen'],cn:['未保存的屏幕','保存','放弃','取消']}[lang]||['Unsaved changes','Save','Discard','Cancel'];
   text.textContent=labels[0];d.append(text);
-  labels.slice(1).forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{if(i===0){await $(all?'saveRadio':'carSave').onclick();if(carDirty||(all&&(themeHistory.dirty||appearanceHistory.dirty)))return;}if(i===1){carDirty=false;const current=editorHistories.get(editorHistoryKey);if(current){car.screenData=JSON.parse(current.saved);current.reset(car.screenData);}if(all){themeHistory.reset(themeValue());appearanceHistory.reset(appearanceValue());}}d.close();d.remove();resolve(i!==2);};d.append(b);});
+  labels.slice(1).forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{if(i===0){if(!radioRoot()||!car.file)await saveEditorDraft();else await $(all?'saveRadio':'carSave').onclick();if(carDirty||(all&&(themeHistory.dirty||appearanceHistory.dirty)))return;}if(i===1){carDirty=false;const current=editorHistories.get(editorHistoryKey);if(current){car.screenData=JSON.parse(current.saved);current.reset(car.screenData);}if(all){themeHistory.reset(themeValue());appearanceHistory.reset(appearanceValue());}}d.close();d.remove();resolve(i!==2);};d.append(b);});
   d.oncancel=()=>{d.remove();resolve(false);};document.body.append(d);d.showModal();
  });
 }
@@ -2038,6 +2041,33 @@ setInterval(async()=>{
  const dirty=carDirty||themeHistory.dirty||appearanceHistory.dirty;
  if(!draftReporting&&sentDraft!==dirty){draftReporting=true;try{await api('/api/draft',{dirty});sentDraft=dirty;}catch(e){}finally{draftReporting=false;}}
 },250);
+
+async function saveEditorDraft(){
+ const document={format:'apextx-editor-draft-1',model:{file:car.file,name:car.name,screenData:car.screenData},appearance:appearanceValue(),theme:themeValue(),files:(await themeFiles()).map(f=>({name:f.name,data:bytesB64(f.data)}))};
+ if(inApp){const result=await api('/api/export',{document});status('themeStatus',t('saved')+' '+result.path);}
+ else{const a=window.document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(document)],{type:'application/json'}));a.download='APEXTX-EDITOR-DRAFT.json';a.click();}
+ carDirty=false;themeHistory.markSaved();appearanceHistory.markSaved();showUnsaved();
+}
+const saveDraftButton=document.createElement('button');saveDraftButton.textContent='Save draft';saveDraftButton.onclick=()=>saveEditorDraft().catch(e=>status('themeStatus',e.message,true));toolbar.append(saveDraftButton);
+const draftInput=document.createElement('input');draftInput.type='file';draftInput.accept='.json';draftInput.hidden=true;document.body.append(draftInput);
+const openDraftButton=document.createElement('button');openDraftButton.textContent='Open draft';openDraftButton.onclick=()=>draftInput.click();toolbar.append(openDraftButton);
+draftInput.onchange=async()=>{try{
+ const file=draftInput.files[0];if(!file||file.size>8*1024*1024)throw Error('Invalid draft size.');
+ const d=JSON.parse(await file.text());if(d.format!=='apextx-editor-draft-1'||!d.model?.screenData||!d.theme)throw Error('Invalid editor draft.');
+ if((carDirty||themeHistory.dirty||appearanceHistory.dirty)&&!await editorLeaveCar(true))return;
+ if(radioRoot()&&models.some(m=>m.file===d.model.file))await openCar(d.model.file);else car=demoCar();
+ car.screenData=d.model.screenData;car.name=d.model.name||car.name;carDirty=true;
+ for(const k of ['name','author','info','colors','nb4','bgPattern','bgFit','bgDim','cardOpacity'])if(d.theme[k]!==undefined)state[k]=d.theme[k];
+ const bg=(d.files||[]).find(f=>f.name.endsWith('/background.png'));if(bg){await setImage('data:image/png;base64,'+bg.data);state.bgDim=0;state.bgFit='fill';}
+ for(const [id,v] of Object.entries(d.appearance||{}))if(['rTheme','rAccent','rOrient','rLedMode','rLedColor'].includes(id))$(id).value=v;
+ state.landscape=$('rOrient').value==='1';selScreen='0';selZone=0;refreshAll();showUnsaved();
+ }catch(e){status('themeStatus',e.message,true);}finally{draftInput.value='';}};
+
+function localizeEditorControls(){
+ const words={en:['Undo','Redo','Performance JSON','Save draft','Open draft','Storage folder','Open folder'],es:['Deshacer','Rehacer','Rendimiento JSON','Guardar borrador','Abrir borrador','Carpeta de almacenamiento','Abrir carpeta'],de:['Rückgängig','Wiederholen','Leistung JSON','Entwurf speichern','Entwurf öffnen','Speicherordner','Ordner öffnen'],cn:['撤销','重做','性能 JSON','保存草稿','打开草稿','存储目录','打开目录']}[lang]||['Undo','Redo','Performance JSON','Save draft','Open draft','Storage folder','Open folder'];
+ undoButton.textContent='↶ '+words[0];redoButton.textContent='↷ '+words[1];perfButton.textContent=words[2];saveDraftButton.textContent=words[3];openDraftButton.textContent=words[4];$('manualVolume').placeholder=words[5];$('openVolume').textContent=words[6];
+}
+localizeEditorControls();setInterval(localizeEditorControls,500);
 </script>
 </body>
 </html>

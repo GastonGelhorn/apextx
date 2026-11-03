@@ -115,7 +115,9 @@ supplies the layout maps and translated labels. Unknown options are preserved.
 Use the storage-folder field for a mount point that automatic discovery misses.
 
 Theme, model and appearance changes are drafts. Undo/redo retains up to 100
-steps per document. Switching cars with pending screen edits offers Save,
+steps per document. Save draft writes an offline project under
+`~/ApexTX-Themes/drafts/`; Open draft restores its themes, screens and appearance
+without writing the radio. Switching cars with pending screen edits offers Save,
 Discard or Cancel. A native-window close checks pending drafts after the
 existing firmware-update close guard. Theme Save commits pending screens and
 appearance together. Backups and transaction journals live on the computer in

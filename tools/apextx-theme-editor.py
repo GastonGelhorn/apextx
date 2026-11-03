@@ -12,6 +12,7 @@ import string
 import sys
 import threading
 import subprocess
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
@@ -371,7 +372,7 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 self.reply(403, {'error': 'Invalid session. Reopen the theme editor.'})
                 return
             route = urlparse(self.path).path
-            if route not in ('/api/save', '/api/model', '/api/radio', '/api/preview', '/api/preview/input', '/api/recover', '/api/commit', '/api/close', '/api/target', '/api/draft'):
+            if route not in ('/api/save', '/api/model', '/api/radio', '/api/preview', '/api/preview/input', '/api/recover', '/api/commit', '/api/close', '/api/target', '/api/draft', '/api/export'):
                 self.reply(404, {'error': 'Not found.'})
                 return
             try:
@@ -383,7 +384,15 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 if not isinstance(request,dict): raise ValueError('Invalid editor request.')
                 if route in ('/api/model','/api/radio'):
                     writable_identity(request.get('target',''))
-                if route == '/api/draft':
+                if route == '/api/export':
+                    value=request.get('document')
+                    if not isinstance(value,dict) or value.get('format')!='apextx-editor-draft-1':raise ValueError('Invalid editor draft.')
+                    folder=Path.home()/'ApexTX-Themes'/'drafts'
+                    folder.mkdir(parents=True,exist_ok=True)
+                    path=folder/(uuid.uuid4().hex+'.json')
+                    radio_files.write_durable(path,json.dumps(value).encode())
+                    result={'ok':True,'path':str(path)}
+                elif route == '/api/draft':
                     if type(request.get('dirty')) is not bool: raise ValueError('Invalid draft state.')
                     if draft_changed: draft_changed(request['dirty'])
                     result = {'ok':True}
