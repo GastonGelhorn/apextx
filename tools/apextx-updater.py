@@ -26,6 +26,32 @@ from flasher_app_update import app_version, AppUpdateController, InstanceLease
 APP_VERSION = app_version()
 
 
+class EditorWindowClose:
+    """Never wait for WebKit from its native window-closing callback."""
+    def __init__(self, window):
+        self.window = window
+        self.approved = threading.Event()
+        self.pending = threading.Lock()
+
+    def __call__(self):
+        if self.approved.is_set():
+            return True
+        if self.pending.acquire(blocking=False):
+            threading.Thread(target=self.check, daemon=True).start()
+        return False
+
+    def check(self):
+        try:
+            answer = self.window.evaluate_js("!document.getElementById('editorFrame').src || (document.getElementById('editorFrame').contentWindow.editorRequestClose?.() ?? true)")
+            if answer is not False:
+                self.approved.set()
+                self.window.destroy()
+        except Exception:
+            pass  # Keep the window open if its draft state cannot be checked.
+        finally:
+            self.pending.release()
+
+
 def package_self_test():
     """Check the packaged dependencies without discovering or writing a radio."""
     from nb4_usb_update import usb_modules
@@ -248,6 +274,7 @@ def serve(port=0, open_browser=True, startup_health=None):
     spec.loader.exec_module(editor_module)
     editor_preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
     editor_handler = editor_module.create_handler(token, editor_preview, lambda: window.destroy() if window is not None else None, lambda dirty: setattr(session,'editor_dirty',dirty))
+    editor_loaded = threading.Event()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -276,6 +303,8 @@ def serve(port=0, open_browser=True, startup_health=None):
 
         def do_GET(self):
             if urlparse(self.path).path == '/editor' or self.path.startswith('/api/editor/'):
+                if urlparse(self.path).path == '/editor' and self.authorized():
+                    editor_loaded.set()
                 self.path = self.path.replace('/api/editor/', '/api/', 1)
                 with session.usb_lock:
                     return editor_handler.do_GET(self)
@@ -510,14 +539,17 @@ def serve(port=0, open_browser=True, startup_health=None):
             import webview
             window = webview.create_window('ApexTX Flasher', address,
                                            width=860, height=940, min_size=(560, 680))
+            editor_close = EditorWindowClose(window)
             def can_close():
                 with lock:
                     allowed = (restarting.is_set() or
                             startup_failed.is_set() and not status['running'] or
                             not (session.app_updating or session.app_restart_blocked()))
-                if not allowed: return False
+                if not allowed:
+                    editor_close.approved.clear()
+                    return False
                 if restarting.is_set() or startup_failed.is_set(): return True
-                return window.evaluate_js("!document.getElementById('editorFrame').src || (document.getElementById('editorFrame').contentWindow.editorRequestClose?.() ?? true)") is not False
+                return not editor_loaded.is_set() or editor_close()
             window.events.closing += can_close
             webview.start()
         except Exception:

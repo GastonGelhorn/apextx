@@ -23,6 +23,41 @@ flasher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(flasher)
 
 
+class EditorClosing(unittest.TestCase):
+    def test_webkit_check_does_not_block_the_native_closing_callback(self):
+        entered, finish, destroyed = threading.Event(), threading.Event(), threading.Event()
+        def evaluate(_script):
+            entered.set()
+            finish.wait(2)
+            return True
+        window = types.SimpleNamespace(evaluate_js=evaluate, destroy=destroyed.set)
+        close = flasher.EditorWindowClose(window)
+        try:
+            self.assertFalse(close())
+            self.assertTrue(entered.wait(1))
+            self.assertFalse(close())
+            self.assertFalse(destroyed.is_set())
+        finally:
+            finish.set()
+        self.assertTrue(destroyed.wait(1))
+        self.assertTrue(close())
+
+    def test_cancel_keeps_window_open_and_a_later_close_can_retry(self):
+        window = types.SimpleNamespace(evaluate_js=Mock(return_value=False), destroy=Mock())
+        close = flasher.EditorWindowClose(window)
+        self.assertFalse(close())
+        with close.pending:
+            pass
+        self.assertFalse(close.approved.is_set())
+        window.destroy.assert_not_called()
+        window.evaluate_js.return_value=True
+        self.assertFalse(close())
+        with close.pending:
+            pass
+        window.destroy.assert_called_once()
+        self.assertTrue(close())
+
+
 class BundledUsb(unittest.TestCase):
     def modules(self):
         usb = types.ModuleType('usb')
