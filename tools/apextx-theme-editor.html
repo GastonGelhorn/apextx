@@ -319,7 +319,7 @@ const T = {
     subtitle: 'Themes, screens and widgets for your FlySky Noble NB4 or NB4+, exactly as on the transmitter, just easier. With a live preview.',
     footer: 'ApexTX Theme Editor · runs entirely locally, no data is sent anywhere. Before every change on the transmitter a backup is stored in ApexTX-Backups.',
     tabTheme: 'Theme', tabScreens: 'Screens', tabRadio: 'Transmitter',
-    fwLive: 'Drawn by the ApexTX firmware itself: exactly what the transmitter shows.', fwStarting: 'Starting the firmware…', fwFailed: 'Firmware preview unavailable, showing an approximation. ',
+    fwLive: 'Drawn by the ApexTX firmware itself.', fwDifferent: 'Firmware preview · approximation: different firmware build.', fwStarting: 'Starting the firmware…', fwFailed: 'Firmware preview unavailable, showing an approximation. ',
     connNone: 'No transmitter found. On the transmitter: Display > Editor, then plug in the USB cable.',
     connOk: 'Transmitter connected:', connLocal: 'Without transmitter: themes are saved to', refresh: 'Search again',
     secTheme: 'Theme', hintTheme: 'Name, author and description appear in the theme selector of the transmitter.',
@@ -366,7 +366,7 @@ const T = {
     subtitle: 'Themes, Bildschirme und Widgets für deine FlySky Noble NB4 oder NB4+, genau wie auf der Fernbedienung, nur bequemer. Mit Live-Vorschau.',
     footer: 'ApexTX Theme Editor · läuft komplett lokal, es werden keine Daten gesendet. Vor jeder Änderung auf der Fernbedienung wird eine Sicherung in ApexTX-Backups abgelegt.',
     tabTheme: 'Theme', tabScreens: 'Bildschirme', tabRadio: 'Fernbedienung',
-    fwLive: 'Gezeichnet von der ApexTX-Firmware selbst: genau das, was die Fernbedienung zeigt.', fwStarting: 'Firmware startet …', fwFailed: 'Firmware-Vorschau nicht verfügbar, angezeigt wird eine Näherung. ',
+    fwLive: 'Gezeichnet von der ApexTX-Firmware selbst.', fwDifferent: 'Firmware-Vorschau · Näherung: andere Firmware-Version.', fwStarting: 'Firmware startet …', fwFailed: 'Firmware-Vorschau nicht verfügbar, angezeigt wird eine Näherung. ',
     connNone: 'Keine Fernbedienung gefunden. An der Fernbedienung: Anzeige > Editor, dann USB-Kabel einstecken.',
     connOk: 'Fernbedienung verbunden:', connLocal: 'Ohne Fernbedienung: Themes werden gespeichert unter', refresh: 'Neu suchen',
     secTheme: 'Theme', hintTheme: 'Name, Autor und Beschreibung erscheinen im Theme-Auswahlmenü der Fernbedienung.',
@@ -413,7 +413,7 @@ const T = {
     subtitle: 'Temas, pantallas y widgets para tu FlySky Noble NB4 o NB4+, igual que en la emisora, pero más cómodo. Con vista previa en vivo.',
     footer: 'ApexTX Theme Editor · funciona totalmente en local, no se envía ningún dato. Antes de cada cambio en la emisora se guarda una copia en ApexTX-Backups.',
     tabTheme: 'Tema', tabScreens: 'Pantallas', tabRadio: 'Emisora',
-    fwLive: 'Dibujado por el propio firmware ApexTX: exactamente lo que muestra la emisora.', fwStarting: 'Iniciando el firmware…', fwFailed: 'Vista previa del firmware no disponible, se muestra una aproximación. ',
+    fwLive: 'Dibujado por el propio firmware ApexTX.', fwDifferent: 'Preview del firmware · aproximación: distinta revisión del firmware.', fwStarting: 'Iniciando el firmware…', fwFailed: 'Vista previa del firmware no disponible, se muestra una aproximación. ',
     connNone: 'No se encontró ninguna emisora. En la emisora: Pantalla e interfaz > Apariencia > Conectar con el editor de temas y conecta el cable USB.',
     connOk: 'Emisora conectada:', connLocal: 'Sin emisora: los temas se guardan en', refresh: 'Buscar de nuevo',
     secTheme: 'Tema', hintTheme: 'El nombre, el autor y la descripción aparecen en el selector de temas de la emisora.',
@@ -1310,7 +1310,6 @@ function render() {
 // Firmware preview: the ApexTX firmware, built for the PC, draws the screen
 // from the same files the transmitter would get (tools/nb4_preview.py).
 // ---------------------------------------------------------------------------
-const EDITOR_REVISION='__EDITOR_REVISION__';
 const FW_THEME = 'Editor Preview', FW_FOLDER = 'EditorPreview';
 const fw = {on: false, canvas: document.createElement('canvas'), w: 0, h: 0, seq: 0, key: '', due: 0, busy: false, sent: '', error: ''};
 function fwShown(Wd, Hd) { return fw.on && fw.w === Wd && fw.h === Hd && !fw.error; }
@@ -1338,7 +1337,7 @@ async function fwStage() {
     if (car && car.file && radioRoot()) { body.model = car.file; body.target = radioRoot(); }
     await api('/api/preview', body);
     fw.key = key; fw.sent = ''; fw.error = ''; fw.catalogKey='';
-    $('fwBadge').textContent = t('fwLive')+(car&&car.firmware&&car.firmware!==EDITOR_REVISION?' · different firmware build':'');
+    $('fwBadge').textContent = t('fwStarting');
     document.querySelector('[data-t="previewNote"]').style.display = 'none';
   } catch (e) {
     fw.key = key; fw.error = e.message;
@@ -1353,7 +1352,7 @@ async function fwFrames() {
       const r = await fetch('/api/preview/frame?after=' + fw.seq, {headers: {'X-ApexTX-Token': TOKEN}});
       if(r.status===503){const error=await r.json();fw.error=error.error;$('fwBadge').textContent=t('fwFailed')+fw.error;}
       if (r.status === 200) {
-        if(fw.catalogKey!==fw.key){const caps=await api('/api/preview/catalog');if(caps.protocol===1){fw.catalogKey=fw.key;if(!car?.firmware&&BUNDLED_CATALOG){CATALOG={...BUNDLED_CATALOG,widgets:caps.catalog.map(w=>({...BUNDLED_CATALOG.widgets.find(b=>b.id===w.id),...w,label:BUNDLED_CATALOG.widgets.find(b=>b.id===w.id)?.label||{en:w.id}}))};editorSources=caps.sources||[];buildScreens();}}}
+        if(fw.catalogKey!==fw.key){const caps=await api('/api/preview/catalog');if(caps.protocol===1){fw.catalogKey=fw.key;$('fwBadge').textContent=t(car?.firmware&&car.firmware!==caps.firmware?'fwDifferent':'fwLive');if(!car?.firmware&&BUNDLED_CATALOG){CATALOG={...BUNDLED_CATALOG,widgets:caps.catalog.map(w=>({...BUNDLED_CATALOG.widgets.find(b=>b.id===w.id),...w,label:BUNDLED_CATALOG.widgets.find(b=>b.id===w.id)?.label||{en:w.id}}))};editorSources=caps.sources||[];buildScreens();}}}
         const [seq, w, h, shown] = r.headers.get('X-Frame').split(' ').map(Number);
         const px = new Uint16Array(await r.arrayBuffer());
         if (fw.canvas.width !== w || fw.canvas.height !== h) { fw.canvas.width = w; fw.canvas.height = h; }
