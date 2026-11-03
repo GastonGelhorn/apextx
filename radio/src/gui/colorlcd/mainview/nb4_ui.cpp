@@ -5,6 +5,8 @@
 #include "edgetx.h"
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_ui.h"
+#include "nb4_palettes.h"
+#include "mainwindow.h"
 #include "nb4_home.h"
 #include "nb4_help.h"
 #include "page.h"
@@ -25,9 +27,40 @@ namespace Nb4Ui {
 lv_color_t color(LcdColorIndex i) { return makeLvColor(COLOR(i)); }
 static bool light() { return lv_color_brightness(color(COLOR_THEME_PRIMARY2_INDEX)) > 150; }
 
-lv_color_t throttleColor() { return lv_color_hex(light() ? 0x1B7A34 : 0x3FD956); }
-lv_color_t steeringColor() { return lv_color_hex(light() ? 0x0A5FA8 : 0x35A7F0); }
-lv_color_t brakeColor()    { return lv_color_hex(light() ? 0xB02A18 : 0xFF5A3C); }
+// An external theme may override the instrument inks (theme.yml "nb4:").
+static lv_color_t themeInk(uint32_t value, uint32_t fallback)
+{
+  return lv_color_hex(value ? value & 0xFFFFFF : fallback);
+}
+
+lv_color_t throttleColor() { return themeInk(nb4ThemeExt().throttle, light() ? 0x1B7A34 : 0x3FD956); }
+lv_color_t steeringColor() { return themeInk(nb4ThemeExt().steering, light() ? 0x0A5FA8 : 0x35A7F0); }
+lv_color_t brakeColor()    { return themeInk(nb4ThemeExt().brake, light() ? 0xB02A18 : 0xFF5A3C); }
+lv_color_t auxColor()
+{
+  const auto aux = nb4ThemeExt().aux;
+  return aux ? lv_color_hex(aux & 0xFFFFFF) : color(COLOR_THEME_PRIMARY3_INDEX);
+}
+
+bool backgroundShown() { return MainWindow::instance()->backgroundFits(); }
+
+// Only the main views sit directly on the background image. Menus and dialogs
+// stay opaque, so scrolling them never blends the full-screen bitmap.
+static bool onMainView(lv_obj_t* o)
+{
+  const auto main = ViewMain::instance()->getLvObj();
+  for (auto p = lv_obj_get_parent(o); p; p = lv_obj_get_parent(p))
+    if (p == main) return true;
+  return false;
+}
+
+// Over a theme background, main-view surfaces use the theme's card opacity.
+static bool translucent(lv_obj_t* o)
+{
+  if (!backgroundShown() || !onMainView(o)) return false;
+  lv_obj_set_style_bg_opa(o, (lv_opa_t)(nb4ThemeExt().cardOpacity * 255 / 100), 0);
+  return true;
+}
 
 static void surface(lv_obj_t* o, coord_t radius)
 {
@@ -45,6 +78,7 @@ void card(lv_obj_t* o)
 {
   surface(o, CardRadius);
   etx_solid_bg(o, COLOR_THEME_PRIMARY2_INDEX);
+  translucent(o);
 }
 
 Window* card(Window* parent, rect_t rect)
@@ -58,6 +92,7 @@ void well(lv_obj_t* o)
 {
   surface(o, ControlRadius);
   etx_solid_bg(o, COLOR_THEME_SECONDARY3_INDEX);
+  translucent(o);
 }
 
 void chip(lv_obj_t* o, LcdColorIndex outline)

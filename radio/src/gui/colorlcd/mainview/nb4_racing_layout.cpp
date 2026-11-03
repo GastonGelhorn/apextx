@@ -43,6 +43,8 @@ class RacingLayout : public Layout {
     lv_obj_clear_flag(getLvObj(), LV_OBJ_FLAG_SCROLLABLE);
   }
   bool hasTopbar() const override { return false; }
+  // The home chrome already carries the header with the menu buttons.
+  bool hasScreenHeader() const override { return false; }
   bool hasFlightMode() const override { return false; }
   bool hasSliders() const override { return false; }
   bool hasTrims() const override { return false; }

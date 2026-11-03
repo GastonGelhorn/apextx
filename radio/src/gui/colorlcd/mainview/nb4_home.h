@@ -20,6 +20,11 @@ void nb4OpenRaceRecord(uint32_t id);
 void nb4OpenSection(Nb4Section section);
 void nb4Navigate(Nb4Section section);
 void nb4BuildAppearance(Window* parent);
+void nb4ConnectThemeEditor();
+// Car name and the two menu buttons, as on the home screen. Returns the name.
+StaticText* nb4ScreenHeader(Window* parent, rect_t rect);
+// Height a screen header takes from the top of a custom screen.
+constexpr coord_t NB4_SCREEN_HEADER_H = 52;
 void nb4BuildCards(Window* parent);
 void nb4SetRacingHomeData(unsigned index);
 bool nb4MigrateHome(const char* modelPath);

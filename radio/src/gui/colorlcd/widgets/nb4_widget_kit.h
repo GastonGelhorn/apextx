@@ -268,6 +268,48 @@ struct RangeBar {
   }
 };
 
+// Plain arc (no knob, not clickable) centred on cx/cy. Angles follow LVGL:
+// 0 is 3 o'clock, 270 is 12 o'clock.
+inline lv_obj_t* ring(lv_obj_t* parent, coord_t cx, coord_t cy, coord_t r,
+                      coord_t width, lv_color_t color)
+{
+  auto a = lv_arc_create(parent);
+  lv_obj_clear_flag(a, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_pos(a, cx - r, cy - r);
+  lv_obj_set_size(a, 2 * r, 2 * r);
+  lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(a, 0, 0);
+  lv_obj_set_style_pad_all(a, 0, 0);
+  lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, LV_PART_KNOB);
+  lv_obj_set_style_pad_all(a, 0, LV_PART_KNOB);
+  lv_obj_set_style_arc_width(a, width, LV_PART_MAIN);
+  lv_obj_set_style_arc_color(a, color, LV_PART_MAIN);
+  lv_obj_set_style_arc_rounded(a, false, LV_PART_MAIN);
+  lv_obj_set_style_arc_opa(a, LV_OPA_TRANSP, LV_PART_INDICATOR);
+  lv_arc_set_rotation(a, 0);
+  lv_arc_set_bg_angles(a, 0, 360);
+  return a;
+}
+
+// Straight or bent line whose points the caller keeps alive and updates.
+inline lv_obj_t* stroke(lv_obj_t* parent, coord_t width, lv_color_t color)
+{
+  auto l = lv_line_create(parent);
+  lv_obj_clear_flag(l, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_pos(l, 0, 0);
+  lv_obj_set_style_line_width(l, width, 0);
+  lv_obj_set_style_line_rounded(l, true, 0);
+  lv_obj_set_style_line_color(l, color, 0);
+  return l;
+}
+
+// Point at distance len from (cx, cy) in direction deg (LVGL angles).
+inline lv_point_t polar(coord_t cx, coord_t cy, double deg, coord_t len)
+{
+  const double a = deg * M_PI / 180.0;
+  return {(lv_coord_t)(cx + cos(a) * len), (lv_coord_t)(cy + sin(a) * len)};
+}
+
 }  // namespace nb4w
 
 // A widget factory whose name in the picker follows the interface language.
