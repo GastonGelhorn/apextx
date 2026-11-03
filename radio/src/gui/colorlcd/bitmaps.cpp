@@ -420,6 +420,9 @@ static const uint8_t mask_nb4_usb[] __FLASH = {
 static const uint8_t mask_nb4_keys[] __FLASH = {
 #include "mask_nb4_keys.lbm"
 };
+static const uint8_t mask_nb4_editor[] __FLASH = {
+#include "mask_nb4_editor.lbm"
+};
 static const uint8_t mask_nb4_toggle[] __FLASH = {
 #include "mask_nb4_toggle.lbm"
 };
@@ -641,7 +644,7 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_NB4_BRIGHTNESS, mask_nb4_brightness),
     BI(ICON_NB4_LIGHTS, mask_nb4_lights),
     BI(ICON_NB4_USB, mask_nb4_usb),
-    BI(ICON_NB4_EDITOR, mask_nb4_keys),
+    BI(ICON_NB4_EDITOR, mask_nb4_editor),
     BI(ICON_NB4_KEYS, mask_nb4_keys),
     BI(ICON_NB4_TOGGLE, mask_nb4_toggle),
     BI(ICON_NB4_FILTER, mask_nb4_filter),

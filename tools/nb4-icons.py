@@ -285,6 +285,12 @@ def screens(pen: Pen) -> None:
     pen.line((15, 18), (27, 18))
 
 
+def editor(pen: Pen) -> None:
+    pen.line((15, 5), (4, 5), (4, 26), (25, 26), (25, 16))
+    pen.poly((11, 16), (22, 5), (26, 9), (15, 20), (10, 21), fill=False)
+    pen.line((20, 7), (24, 11))
+
+
 GLYPHS = {
     "brightness": brightness, "lights": lights, "throttle": throttle,
     "usb": usb, "keys": keys, "toggle": toggle, "filter": filter_,
@@ -293,7 +299,7 @@ GLYPHS = {
     "backup": backup, "template": template, "channels": channels,
     "button": button, "update": update, "restart": restart,
     "speaker": speaker, "vibrate": vibrate, "bluetooth": bluetooth,
-    "help": help_, "screens": screens,
+    "help": help_, "screens": screens, "editor": editor,
 }
 
 
