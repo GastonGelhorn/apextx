@@ -2033,7 +2033,7 @@ async function editorLeaveCar(all=false) {
 
 setInterval(()=>{if(window.parent!==window){const l=window.parent.document.documentElement.lang;if(l && l!==lang){lang=l;document.documentElement.lang=l;document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));buildScreens();}}},500);
 
-window.editorRequestClose=()=>{if(!carDirty&&!themeHistory.dirty&&!appearanceHistory.dirty)return true;editorLeaveCar(true).then(ok=>{if(ok)api('/api/close',{}).catch(()=>{});});return false;};
+window.editorRequestClose=()=>{if(window.editorClosePrompt)return false;if(!carDirty&&!themeHistory.dirty&&!appearanceHistory.dirty)return true;window.editorClosePrompt=true;editorLeaveCar(true).then(ok=>{window.editorClosePrompt=false;if(ok)api('/api/close',{}).catch(()=>{});});return false;};
 
 $('openVolume').onclick=async()=>{try{const r=await api('/api/target',{path:$('manualVolume').value});await loadTargets();$('target').value=r.path;await onTargetChanged();}catch(e){status('themeStatus',e.message,true);}};
 

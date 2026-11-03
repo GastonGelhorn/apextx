@@ -26,11 +26,10 @@ spec.loader.exec_module(flasher)
 class EditorClosing(unittest.TestCase):
     def test_webkit_check_does_not_block_the_native_closing_callback(self):
         entered, finish, destroyed = threading.Event(), threading.Event(), threading.Event()
-        def evaluate(_script):
+        def run(_script):
             entered.set()
             finish.wait(2)
-            return True
-        window = types.SimpleNamespace(evaluate_js=evaluate, destroy=destroyed.set)
+        window = types.SimpleNamespace(run_js=run, destroy=destroyed.set)
         close = flasher.EditorWindowClose(window)
         try:
             self.assertFalse(close())
@@ -39,21 +38,28 @@ class EditorClosing(unittest.TestCase):
             self.assertFalse(destroyed.is_set())
         finally:
             finish.set()
-        self.assertTrue(destroyed.wait(1))
+        with close.pending:
+            pass
+        self.assertFalse(destroyed.is_set())
+        close.approve()
+        self.assertTrue(destroyed.is_set())
         self.assertTrue(close())
 
     def test_cancel_keeps_window_open_and_a_later_close_can_retry(self):
-        window = types.SimpleNamespace(evaluate_js=Mock(return_value=False), destroy=Mock())
+        window = types.SimpleNamespace(run_js=Mock(), destroy=Mock())
         close = flasher.EditorWindowClose(window)
         self.assertFalse(close())
         with close.pending:
             pass
         self.assertFalse(close.approved.is_set())
         window.destroy.assert_not_called()
-        window.evaluate_js.return_value=True
         self.assertFalse(close())
         with close.pending:
             pass
+        self.assertEqual(window.run_js.call_count, 2)
+        self.assertNotIn('eval(', window.run_js.call_args.args[0])
+        self.assertIn('X-ApexTX-Token', window.run_js.call_args.args[0])
+        close.approve()
         window.destroy.assert_called_once()
         self.assertTrue(close())
 

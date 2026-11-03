@@ -42,14 +42,25 @@ class EditorWindowClose:
 
     def check(self):
         try:
-            answer = self.window.evaluate_js("!document.getElementById('editorFrame').src || (document.getElementById('editorFrame').contentWindow.editorRequestClose?.() ?? true)")
-            if answer is not False:
-                self.approved.set()
-                self.window.destroy()
+            # run_js avoids eval(), which the local page's CSP forbids. The
+            # authenticated close endpoint acknowledges clean/discarded drafts.
+            self.window.run_js("""(() => {
+              const frame = document.getElementById('editorFrame');
+              if (!frame?.src || (frame.contentWindow.editorRequestClose?.() ?? true)) {
+                fetch('/api/editor/close', {method:'POST', body:'{}', headers:{
+                  'Content-Type':'application/json',
+                  'X-ApexTX-Token':new URLSearchParams(location.search).get('token')
+                }});
+              }
+            })();""")
         except Exception:
             pass  # Keep the window open if its draft state cannot be checked.
         finally:
             self.pending.release()
+
+    def approve(self):
+        self.approved.set()
+        self.window.destroy()
 
 
 def package_self_test():
@@ -273,7 +284,13 @@ def serve(port=0, open_browser=True, startup_health=None):
     editor_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(editor_module)
     editor_preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
-    editor_handler = editor_module.create_handler(token, editor_preview, lambda: window.destroy() if window is not None else None, lambda dirty: setattr(session,'editor_dirty',dirty))
+    editor_close = None
+    def close_editor_window():
+        if editor_close is not None:
+            editor_close.approve()
+        elif window is not None:
+            window.destroy()
+    editor_handler = editor_module.create_handler(token, editor_preview, close_editor_window, lambda dirty: setattr(session,'editor_dirty',dirty))
     editor_loaded = threading.Event()
 
     class Handler(BaseHTTPRequestHandler):
