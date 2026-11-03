@@ -2077,6 +2077,18 @@ function localizeEditorControls(){
  undoButton.textContent='↶ '+words[0];redoButton.textContent='↷ '+words[1];perfButton.textContent=words[2];saveDraftButton.textContent=words[3];openDraftButton.textContent=words[4];$('manualVolume').placeholder=words[5];$('openVolume').textContent=words[6];
 }
 localizeEditorControls();setInterval(localizeEditorControls,500);
+
+const recovery=document.createElement('details'), recoveryTitle=document.createElement('summary'),recoveryFolder=document.createElement('input'),resumeButton=document.createElement('button'),restoreButton=document.createElement('button');
+recoveryFolder.type='text';recoveryFolder.style.width='100%';recovery.append(recoveryTitle,recoveryFolder,resumeButton,restoreButton);$('view-theme').append(recovery);
+async function recoverEditor(restore){try{
+ busy();busyStep(30,t('stepWrite'));await api('/api/recover',{target:radioRoot(),backup:recoveryFolder.value,restore});
+ if(car?.file){const fresh=await api('/api/model?target='+q(radioRoot())+'&file='+q(car.file));car.hash=fresh.hash;}
+ if(radio)radio=await api('/api/radio?target='+q(radioRoot()));
+ if(loadedFolder){try{const fresh=await api('/api/theme?target='+q(target())+'&folder='+q(loadedFolder));loadedThemeHashes=fresh.hashes;}catch(e){}}
+ busyDone(t('busyDone'));
+ }catch(e){busyFail(e.message);}}
+resumeButton.onclick=()=>recoverEditor(false);restoreButton.onclick=()=>recoverEditor(true);
+setInterval(()=>{const words={en:['Recover an interrupted save','Backup folder','Resume save','Restore backup'],es:['Recuperar un guardado interrumpido','Carpeta del backup','Reanudar guardado','Restaurar backup'],de:['Unterbrochenes Speichern wiederherstellen','Sicherungsordner','Fortsetzen','Sicherung wiederherstellen'],cn:['恢复中断的保存','备份目录','继续保存','恢复备份']}[lang]||['Recover an interrupted save','Backup folder','Resume save','Restore backup'];recoveryTitle.textContent=words[0];recoveryFolder.placeholder=words[1];resumeButton.textContent=words[2];restoreButton.textContent=words[3];},500);
 </script>
 </body>
 </html>

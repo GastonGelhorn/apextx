@@ -415,7 +415,7 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                     identity = writable_identity(str(root))
                     folder = Path(request.get('backup','')).resolve()
                     if BACKUP_ROOT.resolve() not in folder.parents: raise ValueError('Unknown recovery backup.')
-                    recover(root, folder, identity, request.get('restore') is True)
+                    recover(root, folder, identity, request.get('restore') is True,check=lambda:writable_identity(str(root)))
                     result = {'ok':True}
                 elif route == '/api/preview/input':
                     if preview:
@@ -430,13 +430,13 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 elif route == '/api/save':
                     result = save_theme(request.get('target', ''), request.get('files', []), request.get('hashes'))
                 elif route == '/api/model':
-                    validate_model_capabilities(_radio_root(request.get('target','')),request)
-                    result = radio_files.write_model(_radio_root(request.get('target', '')), request.get('file', ''),
-                                                     request.get('hash', ''), request.get('screenData'), BACKUP_ROOT)
+                    result = save_changes({'target':request.get('target',''),'model':{
+                        'file':request.get('file',''),'hash':request.get('hash',''),'screenData':request.get('screenData')}})
+                    result['hash']=result['hashes']['MODELS/'+request['file']]
                 else:
-                    result = radio_files.write_radio(_radio_root(request.get('target', '')), request.get('hash', ''),
-                                                     request.get('settings', {}), BACKUP_ROOT)
-            except (ValueError, OSError, json.JSONDecodeError, radio_files.EditorFileError) as error:
+                    result = save_changes({'target':request.get('target',''),'settings':request.get('settings',{}),'radioHash':request.get('hash','')})
+                    result['hash']=result['hashes']['RADIO/radio.yml']
+            except (ValueError, OSError, TypeError, KeyError, AttributeError) as error:
                 self.reply(400, {'error': str(error)})
                 return
             self.reply(200, result)

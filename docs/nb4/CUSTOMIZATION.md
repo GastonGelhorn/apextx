@@ -124,7 +124,8 @@ appearance together. Backups and transaction journals live on the computer in
 `~/ApexTX-Backups/theme-editor/<transaction-id>/`. Each replacement is staged,
 flushed and verified before replacing its old file. This is per-file replacement,
 not a claim of filesystem-wide atomicity on FAT. A partial transaction reports
-its backup folder; `/api/editor/recover` accepts that folder, target volume and
+its backup folder. The Recover an interrupted save panel can resume or restore
+it without discarding the current draft. `/api/editor/recover` accepts that folder, target volume and
 `restore: true` to restore, or `false` to resume, after identity/hash checks.
 A removed managed background is backed up and deleted; unrelated theme files
 are retained. Conflicting folder names or externally changed files are refused.
