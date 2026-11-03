@@ -73,9 +73,32 @@ def package_self_test():
         bundle = folder / 'rf-catalog' / f'{radio}.zip'
         if not bundle.is_file() or bundle.stat().st_size > MAX_BUNDLE or verify_bundle(bundle.read_bytes())[0]['radio'] != radio:
             raise RuntimeError('The embedded RF catalog is missing or targets the wrong radio.')
+    # Use the frozen executable itself as the worker, including windowed builds.
+    import nb4_preview
+    import tempfile
+    import time
+    preview_models = []
+    for radio in ('nb4', 'nb4plus'):
+        preview = nb4_preview.FirmwarePreview()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'APEXTX-EDITOR.json').write_text(json.dumps({'target': radio}))
+                preview.restart({}, root)
+                deadline = time.monotonic() + 10
+                while not (preview.latest(0) and preview.catalog):
+                    if preview.error or time.monotonic() > deadline:
+                        raise RuntimeError('The packaged '+radio+' preview failed: '+str(preview.error))
+                    time.sleep(.05)
+                if preview.catalog.get('target') != radio:
+                    raise RuntimeError('The packaged preview targets the wrong radio.')
+                preview_models.append(radio)
+        finally:
+            preview.close()
     return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
                 release_client=True, rf_catalog=True, maintenance=True, audio_installer=True,
-                rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True)
+                rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True,
+                preview_models=preview_models)
 
 
 def _enable_bundled_libusb():

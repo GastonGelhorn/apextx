@@ -50,6 +50,7 @@ def main():
     assert result['rf_catalog']
     assert result['maintenance'] and result['audio_installer']
     assert result['rf_transfer'] and result['backup_agent']
+    assert result['preview_models'] == ['nb4', 'nb4plus']
     assert result['release_client'] and result['app_updates']
     assert result['app_version'] == (ROOT / 'FLASHER_VERSION').read_text().strip()
     assert result['app_build'] == int((ROOT / 'FLASHER_BUILD').read_text())
