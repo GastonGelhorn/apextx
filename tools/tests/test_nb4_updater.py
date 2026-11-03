@@ -617,6 +617,7 @@ class FlashEngine(unittest.TestCase):
 constexpr uint32_t APP_START_ADDRESS=0x08020000;
 constexpr int USB_DFU_MODE=4;
 uint32_t _reboot_cmd=0;bool watchdog=false,usb=true,jumped=false;int usbMode=0;
+void _init_reboot_cause(){} void LL_RCC_ClearResetFlags(){}
 void boardBLEarlyInit(){} void pwrInit(){} void pwrOff(){} void pwrOn(){}
 uint32_t abnormalRebootGetCmd(){return _reboot_cmd;}
 void abnormalRebootResetCmd(){_reboot_cmd=0;}

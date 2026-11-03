@@ -641,6 +641,7 @@ static const _BuiltinIcon _builtinIcons[EDGETX_ICONS_COUNT] __FLASH = {
     BI(ICON_NB4_BRIGHTNESS, mask_nb4_brightness),
     BI(ICON_NB4_LIGHTS, mask_nb4_lights),
     BI(ICON_NB4_USB, mask_nb4_usb),
+    BI(ICON_NB4_EDITOR, mask_nb4_keys),
     BI(ICON_NB4_KEYS, mask_nb4_keys),
     BI(ICON_NB4_TOGGLE, mask_nb4_toggle),
     BI(ICON_NB4_FILTER, mask_nb4_filter),

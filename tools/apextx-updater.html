@@ -219,9 +219,11 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <div class="tabs" id="tabs">
   <button data-mode="update" class="on" data-k="tabUpdate">Update</button>
   <button data-mode="components" data-k="componentsTitle">Components</button>
+  <button data-mode="editor" id="editorTab">Editor</button>
   <button data-mode="recover" data-k="tabRecover">Install or recover</button>
 </div>
 
+<section class="panel hide" id="editorPanel"><iframe id="editorFrame" title="ApexTX Editor" style="width:100%;height:85vh;border:0"></iframe></section>
 <!-- UPDATE -->
 <section class="panel" id="updatePanel">
   <div class="device-head"><span class="device-dot" id="deviceDot" aria-hidden="true"></span><strong id="deviceTitle"></strong><button class="quiet" id="refresh" data-k="refresh">Check again</button></div>
@@ -1299,7 +1301,7 @@ const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('
 let running=false,lang='en',mode='update',rVariant=null,snapshot=null,requesting=false,localError=null;
 const IMG=2097152;
 function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const raw=(navigator.language||'en').slice(0,2).toLowerCase(),n=raw==='zh'?'cn':raw;return T[n]?n:'en';}
-function setMode(m){if(running)return;mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');$('#componentPanel').classList.toggle('hide',m!=='components');}
+function setMode(m){if(running)return;$('#editorPanel').classList.toggle('hide',m!=='editor');if(m==='editor'&&!$('#editorFrame').src)$('#editorFrame').src='/editor?token='+encodeURIComponent('__SESSION_TOKEN__');mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');$('#componentPanel').classList.toggle('hide',m!=='components');}
 function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l==='cn'?'zh-CN':l;
  document.querySelectorAll('[data-k]').forEach(el=>{if(d[el.dataset.k]!=null)el.textContent=d[el.dataset.k];});
  document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));

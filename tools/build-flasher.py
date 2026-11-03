@@ -9,6 +9,7 @@ import platform
 import plistlib
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,14 +30,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dfu-dir', type=Path, required=True)
     parser.add_argument('--libusb', type=Path, required=True)
+    parser.add_argument('--preview-dir', type=Path, default=ROOT / 'build/nb4-customization/native')
     args = parser.parse_args()
-    if sys.platform not in ('win32', 'darwin'):
+    if sys.platform not in ('win32', 'darwin', 'linux'):
         parser.error('Build on Windows or macOS for that operating system.')
     mac = sys.platform == 'darwin'
+    linux = sys.platform == 'linux'
     arch = platform.machine().lower()
-    work = ROOT / 'build/flasher' / ('macos-' + arch if mac else 'windows')
+    work = ROOT / 'build/flasher' / ('macos-' + arch if mac else 'linux-' + arch if linux else 'windows')
     work.mkdir(parents=True, exist_ok=True)
-    dfu = args.dfu_dir.resolve() / ('dfu-util' if mac else 'dfu-util.exe')
+    dfu = args.dfu_dir.resolve() / ('dfu-util' if mac or linux else 'dfu-util.exe')
     libusb = args.libusb.resolve()
     if not dfu.is_file() or not libusb.is_file():
         parser.error('Both dfu-util and libusb must exist before packaging.')
@@ -44,7 +47,7 @@ def main():
     app_icon(icon)
 
     version = (ROOT / 'FLASHER_VERSION').read_text().strip()
-    sources = ['flasher_app_update.py', 'flasher_app_installer.py', 'flasher-update-keys.json', 'apextx-updater.py', 'apextx-updater.html', 'nb4_usb_update.py',
+    sources = ['apextx-theme-editor.py', 'apextx-theme-editor.html', 'apextx-theme-editor-catalog.json', 'nb4_editor_files.py', 'nb4_editor_transaction.py', 'nb4_preview.py','flasher_app_update.py', 'flasher_app_installer.py', 'flasher-update-keys.json', 'apextx-updater.py', 'apextx-updater.html', 'nb4_usb_update.py',
                'nb4_update_image.py', 'nb4_rom_flash.py', 'nb4_releases.py',
                'nb4_flasher_session.py', 'nb4_rf_catalog.py',
                'nb4_maintenance.py', 'nb4_audio_install.py', 'nb4_storage_backup.py',
@@ -62,7 +65,7 @@ def main():
 
     # One entry point, one HTML UI, one dependency list, on both platforms.
     options = [
-        '--onedir' if mac else '--onefile', '--windowed', '--name', 'ApexTX-Flasher',
+        '--onedir' if mac or linux else '--onefile', '--windowed', '--name', 'ApexTX-Flasher',
         '--icon', str(icon), '--paths', str(ROOT / 'tools'),
         '--add-data', str(ROOT / 'tools/apextx-updater.html') + ':.',
         '--add-data', str(ROOT / 'tools/apextx-updater-logo.png') + ':.',
@@ -81,6 +84,20 @@ def main():
         '--workpath', str(work / 'pyinstaller'), '--specpath', str(work),
         '--distpath', str(ROOT / 'dist'), '--noconfirm', '--clean',
     ]
+    for name in ('apextx-theme-editor.py', 'apextx-theme-editor.html', 'apextx-theme-editor-catalog.json'):
+        options += ['--add-data', str(ROOT / 'tools' / name) + ':.']
+    options += ['--add-data', str(ROOT / 'tools/nb4-preview-defaults') + ':nb4-preview-defaults',
+                '--hidden-import', 'nb4_editor_files', '--hidden-import', 'nb4_editor_transaction', '--hidden-import', 'nb4_preview']
+    extension = '.dylib' if mac else '.so' if linux else '.dll'
+    preview = args.preview_dir / ('nb4-preview' + extension)
+    if not preview.is_file(): parser.error('Build the nb4-preview target for this platform before packaging.')
+    options += ['--add-binary', str(preview.resolve()) + ':.']
+    plus_source = ROOT / 'build/nb4plus-preview/native' / ('nb4-preview' + extension)
+    if not plus_source.is_file(): parser.error('Build the NB4+ preview in build/nb4plus-preview/native first.')
+    plus = work / ('nb4plus-preview'+extension)
+    import shutil
+    shutil.copy2(plus_source,plus)
+    options += ['--add-binary', str(plus.resolve())+':.']
     certifi = importlib.metadata.distribution('certifi')
     ca_license = next((certifi.locate_file(f) for f in certifi.files
                        if str(f).endswith('/LICENSE')), None)
@@ -104,9 +121,9 @@ def main():
             if not license_file.is_file():
                 parser.error(f'Missing {name} license: {license_file}')
             options += ['--add-data', str(license_file) + ':licenses/' + name]
-    else:
+    elif not linux:
         options += ['--add-binary', str(args.dfu_dir.resolve() / 'libusb-1.0.dll') + ':dfu']
-    if not mac:
+    if not mac and not linux:
         numbers = tuple(map(int, version.split('-')[0].split('.'))) + (int((ROOT / 'FLASHER_BUILD').read_text()),)
         version_file = work / 'version.txt'
         version_file.write_text("VSVersionInfo(ffi=FixedFileInfo(filevers=" + repr(numbers) +
@@ -132,6 +149,10 @@ def main():
         archive = ROOT / f'dist/ApexTX-Flasher-macOS-{arch}.zip'
         subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent',
                         str(app), str(archive)], check=True)
+    elif linux:
+        archive = ROOT / f'dist/ApexTX-Flasher-Linux-{arch}.tar.gz'
+        with tarfile.open(archive, 'w:gz') as bundle:
+            bundle.add(ROOT / 'dist/ApexTX-Flasher', arcname='ApexTX-Flasher')
     else:
         archive = ROOT / 'dist/ApexTX-Flasher.exe'
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()

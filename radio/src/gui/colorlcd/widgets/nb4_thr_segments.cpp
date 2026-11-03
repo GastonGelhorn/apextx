@@ -23,6 +23,8 @@ class Nb4ThrSegmentsWidget : public Nb4TrimWidget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_COVER, 0);
+    if (minimalDisplay(g_model.nb4Racing.throttleChannel)) return;
     // Everything below lays out in the height the trim row leaves.
     const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_TH, Nb4Ui::throttleColor());
     gasInk = Nb4Ui::throttleColor();
@@ -30,7 +32,7 @@ class Nb4ThrSegmentsWidget : public Nb4TrimWidget
     const coord_t T = titleRow(STR_NB4_THR_BRAKE, textColor());
 
     const coord_t top = T + 4, bottom = h - PAD, gap = 3;
-    const coord_t segH = (bottom - top - gap * (SEGMENTS - 1)) / SEGMENTS;
+    const coord_t segH = (bottom - top - gap * ((int)SEGMENTS - 1)) / (int)SEGMENTS;
     const coord_t segW = w * 2 / 5;
     for (unsigned i = 0; i < SEGMENTS; ++i) {
       const coord_t y = bottom - (coord_t)(i + 1) * segH - (coord_t)i * gap;
@@ -50,6 +52,8 @@ class Nb4ThrSegmentsWidget : public Nb4TrimWidget
   void checkEvents() override
   {
     if (!loaded) return;
+    Nb4TrimWidget::update();
+    if (minimal) return;
     Widget::checkEvents();
     trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.throttleChannel);

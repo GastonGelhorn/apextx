@@ -123,6 +123,7 @@ struct Bench {
 
 const char* const kWidgets[] = {
     "NB4Trims", "NB4Lap", "NB4Link", "NB4Battery", "NB4Session", "NB4Sensor",
+    "NB4SteerWheel", "NB4SteerCar", "NB4SteerBig", "NB4ThrRing", "NB4ThrSegments", "NB4ThrSplit", "NB4ThrBar", "NB4ThrGauge", "NB4SteerThr", "NB4CarSetup", "NB4Aux",
     "NB4SteerDial", "NB4SteerBar", "NB4ThrColumn", "NB4ThrDial",
 };
 
@@ -171,6 +172,37 @@ TEST(Nb4Widgets, EveryCarWidgetRendersInBothZoneShapes)
     }
   }
   EXPECT_EQ(lv_mem_test(), LV_RES_OK);
+}
+
+
+TEST(Nb4Widgets, NewWidgetsStayWithinSmallZones)
+{
+  Bench bench;
+  const char* ids[] = {"NB4SteerWheel","NB4SteerCar","NB4SteerBig","NB4ThrRing","NB4ThrSegments","NB4ThrSplit","NB4ThrBar","NB4ThrGauge","NB4SteerThr","NB4Aux","NB4CarSetup"};
+  const rect_t sizes[] = {{0,0,74,60},{0,0,148,75},{0,0,148,125},{0,0,300,100}};
+  for (auto r : sizes) for (auto id : ids) {
+    auto factory = WidgetFactory::getWidgetFactory(id);
+    ASSERT_NE(factory,nullptr);
+    auto host = new Window(bench.root,{0,0,320,480});
+    auto widget = factory->create(host,r,0,0);
+    for (int i=0;i<3;++i) {render(bench.root);host->checkEvents();}
+    auto object=widget->getLvObj();
+    for (unsigned i=0;i<lv_obj_get_child_cnt(object);++i) {
+      auto child=lv_obj_get_child(object,i);
+      if (lv_obj_has_flag(child,LV_OBJ_FLAG_HIDDEN)) continue;
+      // A half-circle LVGL arc keeps a square object for its undrawn lower
+      // half; only the visible upper arc belongs to this geometry check.
+      if (lv_obj_check_type(child,&lv_arc_class) &&
+          lv_arc_get_bg_angle_start(child)>=180 &&
+          (lv_arc_get_bg_angle_end(child)==0 || lv_arc_get_bg_angle_end(child)>=lv_arc_get_bg_angle_start(child))) continue;
+      EXPECT_GE(lv_obj_get_x(child),-2) << id;
+      EXPECT_GE(lv_obj_get_y(child),-2) << id;
+      EXPECT_LE(lv_obj_get_x(child)+lv_obj_get_width(child),r.w+2) << id;
+      EXPECT_LE(lv_obj_get_y(child)+lv_obj_get_height(child),r.h+2) << id;
+    }
+    host->deleteLater();render(bench.root);
+  }
+  EXPECT_EQ(lv_mem_test(),LV_RES_OK);
 }
 
 #endif

@@ -698,7 +698,7 @@ uint8_t routeIcon(const Nb4Route& route, uint8_t fallback)
     {"settings/display/appearance", ICON_RADIO_EDIT_THEME},
     {"settings/display/screens", ICON_NB4_SCREENS},
     {"settings/display/top_bar", ICON_THEME_SETUP},
-    {"settings/display/theme_editor", ICON_NB4_USB},
+    {"settings/display/theme_editor", ICON_NB4_EDITOR},
     {"settings/sound_alerts/lights", ICON_NB4_LIGHTS},
     {"settings/sound_alerts/alerts", ICON_NB4_BELL},
     {"settings/sound_alerts/sound", ICON_NB4_SPEAKER},

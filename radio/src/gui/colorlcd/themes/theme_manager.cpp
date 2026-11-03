@@ -113,6 +113,7 @@ static uint32_t r_nb4_color(const YamlNode* node, const char* val, uint8_t val_l
 static bool w_nb4_color(const YamlNode* node, uint32_t val, yaml_writer_func wf,
                         void* opaque)
 {
+  if (!(val & NB4_THEME_COLOR_SET)) return wf(opaque, "auto", 4);
   if (!wf(opaque, "0x", 2)) return false;
   return wf(opaque, yaml_rgb2hex(val & 0xFFFFFF), 3 * 2);
 }
@@ -169,6 +170,9 @@ static const struct YamlNode w_struct_YAMLTheme[] = {
                 struct_YAMLThemeSummary, NULL),
     YAML_STRUCT("colors", (THEME_COLOR_COUNT - 1) * 32, struct_YAMLThemeColors,
                 NULL),
+#if defined(RADIO_NB4_FAMILY)
+    YAML_STRUCT("nb4", (4 * 32 + 8), struct_YAMLThemeNb4, NULL),
+#endif
     YAML_END};
 static const struct YamlNode r_struct_YAMLTheme[] = {
     YAML_STRUCT("summary",
@@ -250,6 +254,9 @@ void ThemeFile::serialize()
     yt.colors.colors[colorEntry.colorNumber] = colorEntry.colorValue;
   }
 
+#if defined(RADIO_NB4_FAMILY)
+  yt.nb4 = {nb4Ext.steering, nb4Ext.throttle, nb4Ext.brake, nb4Ext.aux, nb4Ext.cardOpacity};
+#endif
   auto err = writeFileYaml(path.c_str(), &themeRootNode, (uint8_t*)&yt, 0);
   if (err != nullptr) {
     ALERT(STR_WARNING, err, AU_WARNING1);

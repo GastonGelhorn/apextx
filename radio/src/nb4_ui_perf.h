@@ -17,6 +17,8 @@
 // handler, before the view is built) to the first frame presented after it:
 // building, layout, rendering, copying and the wait for vertical blank.
 struct Nb4UiPerf {
+  uint32_t pixels;
+  uint32_t areas;
   uint32_t fps;            // Frames presented per second
   uint32_t loopAvgUs;      // UI task iteration: window pass + LVGL
   uint32_t loopMaxUs;
@@ -31,6 +33,7 @@ struct Nb4UiPerf {
 };
 
 void nb4UiPerfLoop(uint32_t windowUs, uint32_t lvglUs);
+void nb4UiPerfArea(uint32_t pixels);
 void nb4UiPerfCopy(uint32_t us);
 void nb4UiPerfWait(uint32_t us);
 void nb4UiPerfFrameQueued();
@@ -41,6 +44,8 @@ void nb4UiPerfQuiet(bool quiet);
 
 Nb4UiPerf nb4UiPerfRead();
 void nb4UiPerfReset();
+// Last thirty one-second windows, including idle windows with zero frames.
+unsigned nb4UiPerfSamples(Nb4UiPerf* out, unsigned capacity);
 
 uint32_t nb4UiPerfNowUs();
 

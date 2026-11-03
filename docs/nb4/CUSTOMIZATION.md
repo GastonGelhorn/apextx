@@ -97,35 +97,91 @@ The section is read only; saving a theme on the radio does not write it.
   `NB4SteerWheel`, `NB4SteerCar`, `NB4SteerBig`, `NB4ThrRing`,
   `NB4ThrSegments`, `NB4ThrSplit`, `NB4ThrBar` and `NB4Aux` (CH3/CH4).
 
-## Theme editor
+## Editor in ApexTX Flasher
 
-`tools/apextx-theme-editor.py` (Windows app: `tools/build-windows-theme-editor.ps1`)
-edits themes, the screens of each car and the radio-wide appearance and light
-settings. Display & interface > Appearance > Connect to Theme Editor selects USB
-storage, so the radio appears as a drive as soon as the cable is in.
+The Editor is a tab in ApexTX Flasher, sharing the local authenticated server,
+USB identity, operation lock and application lifecycle. It works offline for
+preview and ZIP export. On the radio open **Display > Editor** to enter USB
+storage, including when the cable is already connected. Selecting a preview
+orientation never writes `radio.yml`; use Save changes to apply it.
 
-- Layouts and widgets come from `tools/apextx-theme-editor-catalog.json`,
-  generated from the sources by `tools/nb4-editor-catalog.py`. Regenerate it
-  after adding a layout or widget.
-- `tools/nb4_editor_files.py` rewrites only `screenData` of a model and single
-  keys of `radio.yml`, refuses files changed since they were read, refuses
-  cars without `nb4ScreenVersion: 1`, and stores a backup under
-  `~/ApexTX-Backups/theme-editor/` before every write.
-- The preview is drawn by the firmware itself: `nb4-preview.dll` is the NB4
-  firmware built for the PC (`radio/src/targets/simu`, target `nb4-preview`,
-  no Qt or SDL). `tools/nb4_preview.py` runs it in a worker process on a
-  private copy of the storage (the connected radio's `radio.yml` and car, or
-  `tools/nb4-preview-defaults/`, the firmware's own factory files) and restarts
-  it on every change. Steering, throttle and CH3/CH4 of the simulated drive go
-  to its analog inputs; the zones it reports are the grid the editor outlines.
-  Build it with MinGW-w64 (w64devkit) and pass it to the app build:
+The radio exports `APEXTX-EDITOR.json` before storage handover. Protocol 1
+contains the USB serial, hardware target, firmware revision, registered layout
+and widget IDs, widget option descriptors from their actual factories,
+canonical source tokens and current model filename. The app checks these
+against the connected mass-storage device before saving; a legacy or stale
+volume remains readable but cannot authorize writes. The packaged catalogue
+supplies the layout maps and translated labels. Unknown options are preserved.
+Use the storage-folder field for a mount point that automatic discovery misses.
 
-  ```
-  cmake -S . -B build/nb4-preview -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake     -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 -DNB4_PLUS_HW=ON     -DCMAKE_BUILD_TYPE=Release -DDISABLE_COMPANION=ON     -DCMAKE_C_FLAGS=-mno-ms-bitfields -DCMAKE_CXX_FLAGS=-mno-ms-bitfields
-  cmake --build build/nb4-preview --target nb4-preview
-  strip -s build/nb4-preview/nb4-preview.dll
-  pwsh tools/build-windows-theme-editor.ps1 -PreviewDll build/nb4-preview/nb4-preview.dll
-  ```
+Theme, model and appearance changes are drafts. Undo/redo retains up to 100
+steps per document. Switching cars with pending screen edits offers Save,
+Discard or Cancel. A native-window close checks pending drafts after the
+existing firmware-update close guard. Theme Save commits pending screens and
+appearance together. Backups and transaction journals live on the computer in
+`~/ApexTX-Backups/theme-editor/<transaction-id>/`. Each replacement is staged,
+flushed and verified before replacing its old file. This is per-file replacement,
+not a claim of filesystem-wide atomicity on FAT. A partial transaction reports
+its backup folder; `/api/editor/recover` accepts that folder, target volume and
+`restore: true` to restore, or `false` to resume, after identity/hash checks.
+A removed managed background is backed up and deleted; unrelated theme files
+are retained. Conflicting folder names or externally changed files are refused.
 
-  `-mno-ms-bitfields` keeps the persistent structures at their radio size.
-  Without the DLL the editor draws an approximation.
+The native firmware preview runs in an isolated worker with authenticated
+loopback IPC, independently of stdin/stdout or a console. LVGL access shares
+the simulator interface mutex. Frames from replaced workers are discarded;
+worker failure exposes the approximation with an error badge. NB4 and NB4+
+use separate preview builds. A revision mismatch is labelled in the editor.
+Instrument cards are opaque; static surfaces retain theme opacity.
+
+### Local builds
+
+Build from the repository root. The device build must follow `AGENTS.md`, use
+Arm GNU 14.2.Rel1 and explicitly select original NB4 hardware. NB4 enables
+firmware LTO to fit the complete four-language UI in internal flash.
+
+For each native preview use the native toolchain and matching host compiler:
+
+```sh
+cmake -S . -B build/nb4-customization/native \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake \
+  -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 \
+  -DNB4_PLUS_HW=OFF -DDISABLE_COMPANION=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build/nb4-customization/native --target nb4-preview -j8
+cmake -S . -B build/nb4plus-preview/native \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake \
+  -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 \
+  -DNB4_PLUS_HW=ON -DDISABLE_COMPANION=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build/nb4plus-preview/native --target nb4-preview -j8
+```
+
+Then use `tools/build-macos-flasher.sh`, `tools/build-windows-flasher.ps1` or
+`tools/build-linux-flasher.sh`. The former standalone Windows editor build
+entry point forwards to the shared Flasher. Linux packages are portable tarballs;
+GTK/WebKit, libusb and the appropriate USB device permissions remain host
+requirements. Automatic app updates remain supported on Windows and macOS.
+CI builds preview libraries and packages on each target OS; host builds do not
+substitute for running those platform checks.
+
+### Physical performance check
+
+No hardware result is implied by a native render or packaged-app self-test.
+Use the original NB4, the verified normal-update image and the workflow in
+`AGENTS.md`. Confirm the Home screen after installation.
+
+For portrait and landscape separately, use the same screen and 30 seconds of
+the same steering/throttle motion with (1) no background, (2) background with
+opaque instruments and (3) translucent static surfaces. Also capture 30 seconds
+at rest with timers stopped. Opening Editor exports the last thirty one-second
+windows to `APEXTX-UI-PERF.json`; the Performance JSON button downloads it.
+Save each capture separately on the computer. Compare the same serial/build:
+
+```sh
+.venv/bin/python tools/nb4-editor-perf.py no-background.json opaque.json
+.venv/bin/python tools/nb4-editor-perf.py idle.json --idle
+```
+
+The comparator omits two windows at each end for navigation. It requires zero
+repainted pixels/areas in the idle sample and at most 10% median UI-loop overhead
+for the background case. Keep the captures with the firmware SHA-256 and note
+any physical restart/theme issue; simulator timing is not a hardware measurement.

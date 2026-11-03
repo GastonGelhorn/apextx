@@ -7,21 +7,29 @@
 using namespace nb4w;
 
 // Outputs CH3 and CH4 (lights, winch, 2-speed, ...) as centred bars.
-class Nb4AuxWidget : public Widget
+class Nb4AuxWidget : public Nb4AdaptiveWidget
 {
  public:
   Nb4AuxWidget(const WidgetFactory* factory, Window* parent,
                const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4AdaptiveWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
 
   void delayedInit() override
   {
+    rememberGeometry();
     Nb4Ui::card(lvobj);
     const coord_t w = width(), h = height();
     const lv_color_t color = Nb4Ui::auxColor();
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_COVER, 0);
+    if (w < 240 || h < 88) {
+      const auto font = fontForChars(w - 8, 9, h / 2);
+      new DynamicNumber<int16_t>(this,{0,0,w,h/2},[](){return channelPct(2);},COLOR_THEME_PRIMARY1_INDEX,font|CENTERED,"CH3 ","%");
+      new DynamicNumber<int16_t>(this,{0,h/2,w,h/2},[](){return channelPct(3);},COLOR_THEME_PRIMARY1_INDEX,font|CENTERED,"CH4 ","%");
+      return;
+    }
     // Side by side in a short zone, stacked otherwise.
     const bool row = h < 2 * 44;
     for (unsigned i = 0; i < 2; ++i) {
@@ -46,6 +54,7 @@ class Nb4AuxWidget : public Widget
   void checkEvents() override
   {
     if (!loaded) return;
+    Nb4AdaptiveWidget::update();
     Widget::checkEvents();
     bars[0].set(channelPct(2));
     bars[1].set(channelPct(3));

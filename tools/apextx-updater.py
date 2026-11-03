@@ -218,6 +218,14 @@ def serve(port=0, open_browser=True, startup_health=None):
                 status['running'] = False
             session.wake.set()
 
+    import importlib.util
+    import nb4_preview
+    spec = importlib.util.spec_from_file_location('apextx_editor', Path(__file__).with_name('apextx-theme-editor.py'))
+    editor_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(editor_module)
+    editor_preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
+    editor_handler = editor_module.create_handler(token, editor_preview, lambda: window.destroy() if window is not None else None)
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -225,7 +233,7 @@ def serve(port=0, open_browser=True, startup_health=None):
         def authorized(self):
             parsed = urlparse(self.path)
             supplied = self.headers.get('X-ApexTX-Token', '')
-            if parsed.path == '/':
+            if parsed.path in ('/', '/editor'):
                 supplied = parse_qs(parsed.query).get('token', [''])[0]
             return (self.headers.get('Host') == f'127.0.0.1:{self.server.server_port}' and
                     secrets.compare_digest(supplied, token))
@@ -239,11 +247,15 @@ def serve(port=0, open_browser=True, startup_health=None):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'")
             self.end_headers()
             self.wfile.write(data)
 
         def do_GET(self):
+            if urlparse(self.path).path == '/editor' or self.path.startswith('/api/editor/'):
+                self.path = self.path.replace('/api/editor/', '/api/', 1)
+                with session.usb_lock:
+                    return editor_handler.do_GET(self)
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
             elif urlparse(self.path).path == '/':
@@ -272,6 +284,22 @@ def serve(port=0, open_browser=True, startup_health=None):
                 self.reply(404, {'error': 'Not found.'})
 
         def do_POST(self):
+            if self.path.startswith('/api/editor/'):
+                if not self.authorized():
+                    self.reply(403,{'error':'Invalid editor session.'})
+                    return
+                with session.usb_lock:
+                    saving = urlparse(self.path).path.rsplit('/',1)[-1] in ('save','model','radio','commit','recover')
+                    with session.lock:
+                        if session.status['running'] or session.app_updating or session.bootloader_install:
+                            self.reply(409, {'error':'Finish the current Flasher operation first.'})
+                            return
+                        if saving: session.begin('editor')
+                    try:
+                        self.path = self.path.replace('/api/editor/', '/api/', 1)
+                        return editor_handler.do_POST(self)
+                    finally:
+                        if saving: session.finish()
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
@@ -461,9 +489,12 @@ def serve(port=0, open_browser=True, startup_health=None):
                                            width=860, height=940, min_size=(560, 680))
             def can_close():
                 with lock:
-                    return (restarting.is_set() or
+                    allowed = (restarting.is_set() or
                             startup_failed.is_set() and not status['running'] or
                             not (session.app_updating or session.app_restart_blocked()))
+                if not allowed: return False
+                if restarting.is_set() or startup_failed.is_set(): return True
+                return window.evaluate_js("!document.getElementById('editorFrame').src || (document.getElementById('editorFrame').contentWindow.editorRequestClose?.() ?? true)") is not False
             window.events.closing += can_close
             webview.start()
         except Exception:
@@ -473,6 +504,7 @@ def serve(port=0, open_browser=True, startup_health=None):
             except KeyboardInterrupt:
                 pass
         finally:
+            if editor_preview: editor_preview.close()
             session.stop.set()
             app_updates.stopped.set()
             server.shutdown()
@@ -487,10 +519,15 @@ def serve(port=0, open_browser=True, startup_health=None):
     finally:
         session.stop.set()
         app_updates.stopped.set()
+        if editor_preview: editor_preview.close()
         server.server_close()
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == '--preview-worker':
+        import nb4_preview
+        nb4_preview.worker_main(sys.argv[2], int(sys.argv[3]))
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('firmware', type=Path, nargs='?', help='Update from the terminal. Omit the file to open the local interface.')
     parser.add_argument('--check', action='store_true', help='Validate the image or detect an update interface without writing firmware.')

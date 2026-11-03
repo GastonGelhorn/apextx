@@ -73,7 +73,7 @@ class SharedWindow(unittest.TestCase):
                 self.callback = callback
                 return self
 
-        window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+        window = types.SimpleNamespace(evaluate_js=lambda script: True, events=types.SimpleNamespace(closing=Closing()))
 
         def transfer(_image, _progress):
             entered.set()
@@ -140,7 +140,7 @@ class AutomaticWindow(unittest.TestCase):
             def __iadd__(self, callback):
                 self.callback = callback
                 return self
-        window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+        window = types.SimpleNamespace(evaluate_js=lambda script: True, events=types.SimpleNamespace(closing=Closing()))
 
         def automatic(device, offer):
             self.assertEqual((device['serial'],offer['id']),('A',42))
@@ -212,7 +212,7 @@ class GuidedBootloaderWindow(unittest.TestCase):
                     def __iadd__(self, callback):
                         self.callback = callback
                         return self
-                window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+                window = types.SimpleNamespace(evaluate_js=lambda script: True, events=types.SimpleNamespace(closing=Closing()))
                 def install(data, progress, serial):
                     self.assertEqual((data,serial),(firmware,'A'))
                     entered.set()
@@ -297,7 +297,7 @@ class UpdatedAppStartup(unittest.TestCase):
             def __iadd__(self, callback):
                 self.callback=callback
                 return self
-        window=types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()))
+        window=types.SimpleNamespace(evaluate_js=lambda script: True, events=types.SimpleNamespace(closing=Closing()))
         def start():
             try:
                 url=webview.create_window.call_args.args[1]

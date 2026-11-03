@@ -12,6 +12,14 @@ import hashlib
 import os
 import re
 import shutil
+import tempfile
+import uuid
+import threading
+import functools
+from nb4_storage_backup import sync_directory
+
+WRITE_LOCK = threading.RLock()
+_UNCHECKED = object()
 from pathlib import Path
 
 MODEL_FILE = re.compile(r'^[A-Za-z0-9_-]{1,32}\.yml$')
@@ -114,20 +122,43 @@ def _scalar(lines, key):
     return None
 
 
-def write_durable(path, data):
-    """Write and flush to the device before reporting success: the radio is
-    often unplugged right after saving, and buffered data would be lost."""
-    with open(path, 'wb') as f:
-        f.write(data)
-        f.flush()
-        os.fsync(f.fileno())
+def safe_path(path):
+    path = Path(path)
+    if any(p.is_symlink() and str(p) not in ('/var', '/tmp', '/etc') for p in (path, *path.parents)):
+        raise EditorFileError('Symbolic links are not editable.')
+    return path
+
+
+def write_durable(path, data, expected_hash=_UNCHECKED):
+    """Verify a sibling temporary before replacing the previous file."""
+    path = safe_path(path)
+    fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '-', dir=path.parent)
+    temporary = Path(temporary)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            if stream.write(data) != len(data):
+                raise EditorFileError('Incomplete file write.')
+            stream.flush()
+            os.fsync(stream.fileno())
+        if temporary.read_bytes() != data:
+            raise EditorFileError('Temporary file verification failed.')
+        if expected_hash is not _UNCHECKED:
+            current = digest(path.read_bytes()) if path.exists() else None
+            if current != expected_hash: raise EditorFileError('The file changed during saving.')
+        os.replace(temporary, path)
+        sync_directory(path.parent)
+        if path.read_bytes() != data:
+            raise EditorFileError('Installed file verification failed.')
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def backup(path, backup_root):
-    stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    dest = Path(backup_root) / stamp / Path(path).parent.name / Path(path).name
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(path, dest)
+    path = safe_path(path)
+    stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f') + '-' + uuid.uuid4().hex
+    dest = Path(backup_root) / stamp / path.parent.name / path.name
+    dest.parent.mkdir(parents=True, exist_ok=False)
+    write_durable(dest, path.read_bytes())
     return dest
 
 
@@ -152,7 +183,7 @@ def list_models(root):
 def _model_path(root, file):
     if not MODEL_FILE.match(file):
         raise EditorFileError('Invalid model file name.')
-    path = Path(root) / 'MODELS' / file
+    path = safe_path(Path(root) / 'MODELS' / file)
     if not path.is_file():
         raise EditorFileError('The model file no longer exists.')
     return path
@@ -178,7 +209,7 @@ def _check_screens(screens):
         if not re.fullmatch(r'\w{1,24}', unquote(screen.get('LayoutId', ''))):
             raise EditorFileError('Every screen needs a layout.')
         zones = screen.get('layoutData', {}).get('zones', {})
-        if len(zones) > MAX_ZONES or any(not z.isdigit() for z in zones):
+        if len(zones) > MAX_ZONES or any(not z.isdigit() or int(z) >= MAX_ZONES for z in zones):
             raise EditorFileError('Invalid zone list.')
 
 
@@ -217,6 +248,14 @@ def model_with_screens(raw, screens, view=None):
     return newline.join(lines).encode('utf-8')
 
 
+def synchronized(function):
+    @functools.wraps(function)
+    def call(*args, **kwargs):
+        with WRITE_LOCK: return function(*args, **kwargs)
+    return call
+
+
+@synchronized
 def write_model(root, file, expected_hash, screens, backup_root):
     path = _model_path(root, file)
     raw = path.read_bytes()
@@ -224,12 +263,12 @@ def write_model(root, file, expected_hash, screens, backup_root):
         raise EditorFileError('The model was changed on the radio meanwhile. Load it again.')
     data = model_with_screens(raw, screens)
     saved = backup(path, backup_root)
-    write_durable(path, data)
+    write_durable(path, data, expected_hash=expected_hash)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}
 
 
 def read_radio(root):
-    path = Path(root) / 'RADIO' / 'radio.yml'
+    path = safe_path(Path(root) / 'RADIO' / 'radio.yml')
     raw = path.read_bytes()
     lines, _ = _split_lines(raw)
     settings = {}
@@ -262,10 +301,10 @@ def radio_with_settings(raw, settings):
             raise EditorFileError(f'Setting not editable: {key}')
         if key in ('selectedTheme', 'currModelFilename'):
             text = str(value)
-            if not text or len(text) > 26 or not re.fullmatch(r'[\w .,()+\-/]+', text):
+            if not text or len(text.encode('utf-8')) > 26 or not re.fullmatch(r'[\w .,()+\-/]+', text):
                 raise EditorFileError('Invalid theme name.')
             value = quote(text)
-        elif not (isinstance(value, int) and 0 <= value <= 15):
+        elif not (type(value) is int and 0 <= value <= {'nb4Accent':8,'nb4Orientation':1,'nb4LedMode':3,'nb4LedColor':7}[key]):
             raise EditorFileError(f'Invalid value for {key}')
         line = f'{key}: {value}'
         for i, old in enumerate(lines):
@@ -281,8 +320,9 @@ def radio_with_settings(raw, settings):
     return body
 
 
+@synchronized
 def write_radio(root, expected_hash, settings, backup_root):
-    path = Path(root) / 'RADIO' / 'radio.yml'
+    path = safe_path(Path(root) / 'RADIO' / 'radio.yml')
     raw = path.read_bytes()
     if digest(raw) != expected_hash:
         raise EditorFileError('The radio settings changed meanwhile. Load them again.')
@@ -290,5 +330,5 @@ def write_radio(root, expected_hash, settings, backup_root):
         raise EditorFileError('Setting not editable.')
     data = radio_with_settings(raw, settings)
     saved = backup(path, backup_root)
-    write_durable(path, data)
+    write_durable(path, data, expected_hash=expected_hash)
     return {'backup': str(saved), 'hash': digest(path.read_bytes())}

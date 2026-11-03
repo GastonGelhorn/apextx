@@ -21,6 +21,8 @@ class Nb4SteerThrWidget : public Nb4TrimWidget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_COVER, 0);
+    if (minimalDisplay(g_model.nb4Racing.steeringChannel)) return;
     const coord_t w = width(), h = height();
     trim.shown = TrimRow::wanted(this);
     titleShown = titled();
@@ -65,6 +67,8 @@ class Nb4SteerThrWidget : public Nb4TrimWidget
   void checkEvents() override
   {
     if (!loaded) return;
+    Nb4TrimWidget::update();
+    if (minimal) return;
     Widget::checkEvents();
     const uint8_t inputs[2] = {ADC_MAIN_ST, ADC_MAIN_TH};
     for (unsigned i = 0; i < 2; ++i) {

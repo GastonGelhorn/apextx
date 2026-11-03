@@ -37,7 +37,7 @@ struct TrimRow {
     value = nullptr;
     bar = CentreBar();
     last = INT32_MIN;
-    if (!shown) return 0;
+    if (!shown || w->width() < 150 || w->height() < 110) return 0;
     input = trimInput;
     const coord_t y = w->height() - H, width = w->width();
     caption(w, {PAD, (coord_t)(y + 3), 40, 16}, STR_NB4_TRIM_CAPTION);
@@ -69,7 +69,7 @@ class Nb4TrimWidget : public Widget
 
   void update() override
   {
-    if (loaded && (trim.shown != TrimRow::wanted(this) || titleShown != titled())) {
+    if (loaded && (trim.shown != TrimRow::wanted(this) || titleShown != titled() || builtW != width() || builtH != height() || builtTheme != nb4ThemeKey() || language != currentLangStrings)) {
       clear();
       // clear() also removed the focus outline; enableFocus() recreates it.
       focusBorder = nullptr;
@@ -78,6 +78,28 @@ class Nb4TrimWidget : public Widget
   }
 
  protected:
+  coord_t builtW = 0, builtH = 0;
+  uint32_t builtTheme = 0;
+  const void* language = nullptr;
+  bool minimal = false;
+  bool minimalDisplay(uint8_t channel)
+  {
+    builtW = width(); builtH = height(); builtTheme = nb4ThemeKey(); language = currentLangStrings;
+    trim.shown = TrimRow::wanted(this); titleShown = titled();
+    minimal = height() < 120 + (trim.shown ? TrimRow::H : 0) || width() < 100;
+    if (!minimal) return false;
+    if (!strcmp(getFactory()->getName(), "NB4SteerThr")) {
+      const coord_t h = height() / 2;
+      const auto f = fontForChars(max<coord_t>(0,width()-8),8,h);
+      new DynamicNumber<int16_t>(this,{0,0,width(),h},[](){return channelPct(g_model.nb4Racing.steeringChannel);},COLOR_THEME_PRIMARY1_INDEX,f|CENTERED,"ST ","%");
+      new DynamicNumber<int16_t>(this,{0,h,width(),h},[](){return channelPct(g_model.nb4Racing.throttleChannel);},COLOR_THEME_PRIMARY1_INDEX,f|CENTERED,"TH ","%");
+      return true;
+    }
+    const auto f = fontForChars(max<coord_t>(0, width() - 8), 5, height());
+    new DynamicNumber<int16_t>(this, {0, max<coord_t>(0, (height() - fontHeight(f))/2), width(), min<coord_t>(height(),fontHeight(f))},
+        [channel]() { return channelPct(channel); }, COLOR_THEME_PRIMARY1_INDEX, f | CENTERED, nullptr, "%");
+    return true;
+  }
   TrimRow trim;
   bool titleShown = true;
 

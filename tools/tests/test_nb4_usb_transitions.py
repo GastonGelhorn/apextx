@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Exercise firmware USB transitions with host-side class/IRQ and task models."""
 import pathlib
+import re
 import subprocess
 import tempfile
 import unittest
@@ -25,6 +26,28 @@ def run_cpp(source):
 
 
 class Nb4UsbTransitions(unittest.TestCase):
+    def test_expected_resume_does_not_inherit_stale_watchdog_flags(self):
+        source=(ROOT/'radio/src/targets/common/arm/stm32/abnormal_reboot.cpp').read_text()
+        source=re.sub(r'#ifdef STM32H7\n.*?#else\n(.*?)#endif',r'\1',source,flags=re.S)
+        firmware=function(source,'void _init_reboot_cause()')+function(source,'void abnormalRebootRequestResume()')
+        model=r"""
+constexpr uint32_t ARC_None=0, ARC_Watchdog=1, ARC_Software=2;
+constexpr uint32_t _REBOOT_CAUSE_DEFAULT=0xffffffff, REBOOT_CMD_RESUME=0x52534d45;
+uint32_t _reboot_cause=_REBOOT_CAUSE_DEFAULT, _reboot_cmd=0, flags=3;
+bool LL_RCC_IsActiveFlag_IWDGRST(){return flags&1;}
+bool LL_RCC_IsActiveFlag_SFTRST(){return flags&2;}
+void LL_RCC_ClearResetFlags(){flags=0;}
+"""
+        scenario=r"""
+int main(){
+ abnormalRebootRequestResume();assert(flags==0 && _reboot_cmd==REBOOT_CMD_RESUME);
+ flags=2;_reboot_cause=_REBOOT_CAUSE_DEFAULT;_init_reboot_cause();assert(_reboot_cause==ARC_Software);
+ abnormalRebootRequestResume();flags=1;_reboot_cause=_REBOOT_CAUSE_DEFAULT;
+ _init_reboot_cause();assert(_reboot_cause==ARC_Watchdog);
+}
+"""
+        run_cpp(model+firmware+scenario)
+
     def test_base_pack_uses_host_data_lines_and_reprobes_after_disconnect(self):
         source = (ROOT / 'radio/src/targets/pl18/board.cpp').read_text()
         probe = source[source.index('static volatile uint8_t _nb4UsbLines ='):
@@ -83,7 +106,7 @@ int main(){
  started=false;chargeRaw=0;assert(nb4UsbConnected());
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
     def test_nb4_host_session_tracks_usb_frames(self):
         firmware = actual(
@@ -107,7 +130,7 @@ int main(){
  assert(usbHostSessionAlive());assert(!usbHostSessionAlive());
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
         usb_conf = (ROOT / 'radio/src/targets/common/arm/stm32/usbd_conf.c').read_text()
         sof_callback = function(usb_conf, 'void HAL_PCD_SOFCallback(PCD_HandleTypeDef *hpcd)')
@@ -130,7 +153,7 @@ int main(){
  paused=false;busy=true;assert(!nb4StorageQuiesce());assert(paused.load());
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
     def test_full_nor_format_erases_old_ftl_before_mkfs(self):
         firmware = actual('sdcard.cpp', 'bool nb4RequestFilesystemCreation(')
@@ -225,7 +248,7 @@ int main(){
  handleUsbConnection();assert(powerOns==2 && resets==2);
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
     def test_nb4_storage_io_uses_bounded_watchdog_grace(self):
         read = actual('targets/common/arm/stm32/usbd_storage_msd.cpp',
@@ -280,7 +303,7 @@ int main(){
  }
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
     def test_bus_reset_preserves_cli_callbacks_and_sof_tolerates_freed_class(self):
         firmware = actual('targets/common/arm/stm32/usbd_cdc.cpp', 'static int8_t VCP_DeInit_FS(void)\n{', 'static int8_t VCP_StartOfFrame_FS()\n{')
@@ -303,7 +326,7 @@ int main(){
  hUsbDevice.pClassData=nullptr;VCP_DeInit_FS();for(int i=0;i<10;++i)VCP_StartOfFrame_FS();assert(transfers==1);
 }
 '''
-        run_cpp(model + firmware + scenario)
+        run_cpp(model + '\nvoid nb4PrepareEditorStorage() {}\n' + firmware + scenario)
 
 
 if __name__ == '__main__':

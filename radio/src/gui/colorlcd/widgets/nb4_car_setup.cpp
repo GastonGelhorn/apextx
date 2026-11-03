@@ -9,18 +9,19 @@ using namespace nb4w;
 
 // The car's brake and steering setup at a glance, formatted exactly as the
 // settings pages show it (nb4ParamNumeric()).
-class Nb4CarSetupWidget : public Widget
+class Nb4CarSetupWidget : public Nb4AdaptiveWidget
 {
  public:
   Nb4CarSetupWidget(const WidgetFactory* factory, Window* parent,
                     const rect_t& rect, int screenNum, int zoneNum) :
-      Widget(factory, parent, rect, screenNum, zoneNum)
+      Nb4AdaptiveWidget(factory, parent, rect, screenNum, zoneNum)
   {
     delayLoad();
   }
 
   void delayedInit() override
   {
+    rememberGeometry();
     Nb4Ui::card(lvobj);
     const coord_t w = width(), h = height();
     nb4Label(this, {PAD, 6, (coord_t)(w - PAD * 2), 20}, STR_NB4_WIDGET_CAR_SETUP, FONT(BOLD));
@@ -42,6 +43,7 @@ class Nb4CarSetupWidget : public Widget
   void checkEvents() override
   {
     if (!loaded) return;
+    Nb4AdaptiveWidget::update();
     Widget::checkEvents();
     for (unsigned i = 0; i < count; ++i) {
       const std::string text = valueText(rows[i]);

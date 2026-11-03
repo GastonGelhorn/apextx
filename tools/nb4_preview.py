@@ -19,11 +19,14 @@ import sys
 import tempfile
 import threading
 import time
+import secrets
+import socket
+from multiprocessing.connection import Listener, Client
 from pathlib import Path, PurePosixPath
 
 import nb4_editor_files as radio_files
 
-DLL_NAME = 'nb4-preview.dll' if os.name == 'nt' else 'nb4-preview.so'
+DLL_NAME = 'nb4-preview.dll' if os.name == 'nt' else 'nb4-preview.dylib' if sys.platform == 'darwin' else 'nb4-preview.so'
 FRAME_MAGIC = b'NB4F'
 # Magic, width, height, pixel bytes, zone count, screen shown; then the
 # RGB565 pixels and x, y, w, h (int16) per zone of that screen.
@@ -40,31 +43,37 @@ def _resource(name):
     return (Path(base) if base else Path(__file__).resolve().parent) / name
 
 
-def dll_path():
+def dll_path(target="nb4"):
+    name = DLL_NAME if target == "nb4" else DLL_NAME.replace("nb4-preview", "nb4plus-preview")
     override = os.environ.get('APEXTX_PREVIEW_DLL')
-    path = Path(override) if override else _resource(DLL_NAME)
-    return path if path.is_file() else None
+    path = Path(override) if override else _resource(name)
+    if path.is_file(): return path
+    if not getattr(sys,'frozen',False) and not override:
+        build=Path(__file__).resolve().parent.parent/'build'/('nb4-customization' if target=='nb4' else 'nb4plus-preview')/'native'/DLL_NAME
+        if build.is_file(): return build
+    return None
 
 
 # ---------------------------------------------------------------------------
 # Worker process: loads the firmware and streams its frames.
 # ---------------------------------------------------------------------------
 def worker_main(storage, view=0):
+    connection = Client(('127.0.0.1', int(os.environ['APEXTX_PREVIEW_PORT'])), authkey=bytes.fromhex(os.environ['APEXTX_PREVIEW_KEY']))
     path = dll_path()
     os.add_dll_directory(str(path.parent)) if hasattr(os, 'add_dll_directory') else None
     lib = ctypes.CDLL(str(path))
     lib.nb4p_start.argtypes = [ctypes.c_char_p]
     lib.nb4p_frame.argtypes = [ctypes.POINTER(ctypes.c_uint16), ctypes.c_int,
                                ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
-    out = sys.stdout.buffer
+
     lock = threading.Lock()
 
     def commands():
-        for line in sys.stdin:
+        while True:
             try:
-                cmd = json.loads(line)
-            except ValueError:
-                continue
+                cmd = json.loads(connection.recv_bytes(65536))
+            except (EOFError, OSError):
+                os._exit(0)
             with lock:
                 if cmd.get('analog'):
                     for index, value in cmd['analog']:
@@ -74,10 +83,6 @@ def worker_main(storage, view=0):
                     lib.nb4p_touch(int(down), int(x), int(y))
         os._exit(0)  # editor gone
 
-    # The firmware prints its trace on stdout; frames need that channel.
-    stdout_fd = os.dup(1)
-    os.dup2(os.open(os.devnull, os.O_WRONLY), 1)
-    out = os.fdopen(stdout_fd, 'wb')
     threading.Thread(target=commands, daemon=True).start()
     if not lib.nb4p_start(storage.encode('utf-8')):
         os._exit(2)
@@ -85,7 +90,7 @@ def worker_main(storage, view=0):
     buf = (ctypes.c_uint16 * MAX_PIXELS)()
     zones = (ctypes.c_int16 * (MAX_ZONES * 4))()
     w, h = ctypes.c_int(), ctypes.c_int()
-    started, asked = time.time(), 0.0
+    started, asked, heartbeat = time.time(), 0.0, time.time()
     while True:
         with lock:
             fresh = lib.nb4p_frame(buf, MAX_PIXELS, ctypes.byref(w), ctypes.byref(h))
@@ -97,10 +102,10 @@ def worker_main(storage, view=0):
                 asked = time.time()
         if fresh:
             size = w.value * h.value * 2
-            out.write(FRAME_HEADER.pack(FRAME_MAGIC, w.value, h.value, size, count, shown))
-            out.write(ctypes.string_at(buf, size))
-            out.write(ctypes.string_at(zones, count * 8))
-            out.flush()
+            connection.send_bytes(FRAME_HEADER.pack(FRAME_MAGIC, w.value, h.value, size, count, shown) + ctypes.string_at(buf, size) + ctypes.string_at(zones, count * 8))
+        if time.time()-heartbeat > 1:
+            connection.send_bytes(b'')
+            heartbeat=time.time()
         time.sleep(0.015)
 
 
@@ -116,6 +121,8 @@ class FirmwarePreview:
         self.seq = 0
         self.generation = 0
         self.inputs = {}
+        self.connection = None
+        self.error = None
 
     @staticmethod
     def available():
@@ -127,6 +134,10 @@ class FirmwarePreview:
 
     def _stop(self):
         process, self.process = self.process, None
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+        self.frame = None
         if process and process.poll() is None:
             process.kill()
             try:
@@ -137,7 +148,7 @@ class FirmwarePreview:
     def _command(self):
         if getattr(sys, 'frozen', False):
             return [sys.executable, '--preview-worker']
-        return [sys.executable, str(Path(__file__).resolve().parent / 'apextx-theme-editor.py'), '--preview-worker']
+        return [sys.executable, str(Path(__file__).resolve().parent / 'apextx-updater.py'), '--preview-worker']
 
     # Storage the firmware starts from: the transmitter's own files when one
     # is connected, otherwise the firmware's factory files.
@@ -190,35 +201,56 @@ class FirmwarePreview:
             shutil.rmtree(previous, ignore_errors=True)
             flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
             view = max(0, int(request.get('view') or 0))
-            process = subprocess.Popen(self._command() + [str(storage), str(view)], stdin=subprocess.PIPE,
-                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            key = secrets.token_bytes(32)
+            listener = Listener(('127.0.0.1', 0), authkey=key)
+            listener._listener._socket.settimeout(5)
+            target = 'nb4'
+            if radio_root and (radio_root/'APEXTX-EDITOR.json').is_file():
+                target=json.loads((radio_root/'APEXTX-EDITOR.json').read_bytes()).get('target','nb4')
+            library=dll_path(target)
+            if not library: raise ValueError('No firmware preview library for '+target)
+            env = dict(os.environ, APEXTX_PREVIEW_DLL=str(library.resolve()), APEXTX_PREVIEW_PORT=str(listener.address[1]), APEXTX_PREVIEW_KEY=key.hex())
+            process = subprocess.Popen(self._command() + [str(storage), str(view)], stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
                                        creationflags=flags)
             self.process = process
-            threading.Thread(target=self._read, args=(process,), daemon=True).start()
+            try:
+                self.connection = listener.accept()
+            except (OSError, EOFError) as error:
+                self._stop()
+                raise ValueError('Firmware preview worker did not start.') from error
+            finally:
+                listener.close()
+            self.error = None
+            threading.Thread(target=self._read, args=(process, self.connection), daemon=True).start()
             if self.inputs:
                 self._send({'analog': self._analog(self.inputs)})
         return {'ok': True}
 
-    def _read(self, process):
-        stream = process.stdout
-        while True:
-            header = stream.read(FRAME_HEADER.size)
-            if len(header) < FRAME_HEADER.size:
-                return
-            magic, width, height, size, count, shown = FRAME_HEADER.unpack(header)
-            if magic != FRAME_MAGIC or size != width * height * 2 or count > MAX_ZONES:
-                return
-            data = stream.read(size)
-            raw = stream.read(count * 8)
-            if len(data) < size or len(raw) < count * 8:
-                return
-            values = struct.unpack(f'<{count * 4}h', raw)
-            zones = [values[i:i + 4] for i in range(0, len(values), 4)]
+    def _read(self, process, connection):
+        try:
+            while True:
+                if not connection.poll(5):
+                    raise OSError('Firmware preview timed out.')
+                packet = connection.recv_bytes(MAX_PIXELS * 2 + MAX_ZONES * 8 + FRAME_HEADER.size)
+                if not packet: continue
+                magic, width, height, size, count, shown = FRAME_HEADER.unpack(packet[:FRAME_HEADER.size])
+                if (magic != FRAME_MAGIC or not 0 < width * height <= MAX_PIXELS or
+                        size != width * height * 2 or count > MAX_ZONES or
+                        len(packet) != FRAME_HEADER.size + size + count * 8):
+                    raise ValueError('Invalid preview frame.')
+                data = packet[FRAME_HEADER.size:FRAME_HEADER.size+size]
+                values = struct.unpack(f'<{count * 4}h', packet[FRAME_HEADER.size+size:])
+                zones = [values[i:i+4] for i in range(0,len(values),4)]
+                with self.lock:
+                    if process is not self.process: return
+                    self.seq += 1
+                    self.frame = (self.seq, width, height, data, zones, shown)
+        except (OSError, EOFError, ValueError) as error:
             with self.lock:
-                if process is not self.process:
-                    return
-                self.seq += 1
-                self.frame = (self.seq, width, height, data, zones, shown)
+                if process is self.process:
+                    self.error = str(error)
+                    self.frame = None
 
     def latest(self, after):
         with self.lock:
@@ -242,8 +274,7 @@ class FirmwarePreview:
         process = self.process
         if process and process.poll() is None:
             try:
-                process.stdin.write((json.dumps(message) + '\n').encode())
-                process.stdin.flush()
+                self.connection.send_bytes(json.dumps(message).encode())
             except OSError:
                 pass
 

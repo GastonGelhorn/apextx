@@ -702,6 +702,18 @@ static bool set_color(uint32_t val, yaml_writer_func wf, void* opaque)
   }
 }
 
+// Reuse canonical YAML tokens in the desktop editor instead of duplicating IDs.
+std::string nb4EditorOptionToken(uint32_t value, bool color)
+{
+  std::string result;
+  auto writer = [](void* context, const char* text, size_t size) -> bool {
+    static_cast<std::string*>(context)->append(text, size); return true;
+  };
+  if (color) set_color(value, writer, &result);
+  else w_mixSrcRaw(nullptr, value, writer, &result);
+  return result;
+}
+
 static uint8_t select_wov(void* user, uint8_t* data, uint32_t bitoffs)
 {
   uint16_t option;

@@ -3613,7 +3613,8 @@ const RouteDestination kDestinations[] = {
     {"settings/models/management", "Coche actual"},
     {"settings/models/templates", "Plantillas"},
     {"settings/display/top_bar", "Config. widgets"},
-    {"settings/display/screens", "Inicio"},
+    {"settings/display/theme_editor", "Editor de temas"},
+  {"settings/display/screens", "Inicio"},
     {"settings/display/appearance", "PALETA"},
     {"settings/display/theme", "TEMAS"},
 

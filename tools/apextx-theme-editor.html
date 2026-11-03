@@ -126,6 +126,7 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
 <div class="conn" id="conn">
   <span class="dot" id="connDot"></span>
   <span id="connText"></span>
+  <input id="manualVolume" type="text" placeholder="Storage folder" style="max-width:180px"><button class="btn" id="openVolume">Open folder</button>
   <select id="target" style="display:none;min-width:200px"></select>
   <button class="btn" id="refresh" data-t="refresh"></button>
 </div>
@@ -286,6 +287,27 @@ footer{font-size:12px;color:var(--muted2);margin:26px 2px 0;border-top:1px solid
 </div>
 
 <script>
+/* SPDX-License-Identifier: GPL-2.0-only */
+class EditorHistory {
+  constructor(value, limit = 100) { this.limit=limit; this.reset(value); }
+  reset(value) { this.entries=[JSON.stringify(value)]; this.index=0; this.saved=this.entries[0]; this.at=0; }
+  push(value, group='', now=Date.now()) {
+    const text=JSON.stringify(value); if(text===this.entries[this.index]) return;
+    this.entries.splice(this.index+1);
+    if(group && group===this.group && now-this.at<600 && this.index>0 && this.entries[this.index]!==this.saved) this.entries[this.index]=text;
+    else { this.entries.push(text); this.index++; }
+    if(this.entries.length>this.limit+1) {this.entries.shift();this.index--;}
+    this.group=group;this.at=now;
+  }
+  undo() {if(this.index>0)this.index--;this.group='';return JSON.parse(this.entries[this.index]);}
+  redo() {if(this.index+1<this.entries.length)this.index++;this.group='';return JSON.parse(this.entries[this.index]);}
+  markSaved() {this.saved=this.entries[this.index];}
+  get dirty() {return this.entries[this.index]!==this.saved;}
+}
+if(typeof module!=='undefined')module.exports=EditorHistory;
+
+</script>
+<script>
 'use strict';
 
 // ---------------------------------------------------------------------------
@@ -298,7 +320,7 @@ const T = {
     footer: 'ApexTX Theme Editor · runs entirely locally, no data is sent anywhere. Before every change on the transmitter a backup is stored in ApexTX-Backups.',
     tabTheme: 'Theme', tabScreens: 'Screens', tabRadio: 'Transmitter',
     fwLive: 'Drawn by the ApexTX firmware itself: exactly what the transmitter shows.', fwStarting: 'Starting the firmware…', fwFailed: 'Firmware preview unavailable, showing an approximation. ',
-    connNone: 'No transmitter found. On the transmitter: Display & interface > Appearance > Connect to Theme Editor, then plug in the USB cable.',
+    connNone: 'No transmitter found. On the transmitter: Display > Editor, then plug in the USB cable.',
     connOk: 'Transmitter connected:', connLocal: 'Without transmitter: themes are saved to', refresh: 'Search again',
     secTheme: 'Theme', hintTheme: 'Name, author and description appear in the theme selector of the transmitter.',
     name: 'Name', author: 'Author', info: 'Description',
@@ -345,7 +367,7 @@ const T = {
     footer: 'ApexTX Theme Editor · läuft komplett lokal, es werden keine Daten gesendet. Vor jeder Änderung auf der Fernbedienung wird eine Sicherung in ApexTX-Backups abgelegt.',
     tabTheme: 'Theme', tabScreens: 'Bildschirme', tabRadio: 'Fernbedienung',
     fwLive: 'Gezeichnet von der ApexTX-Firmware selbst: genau das, was die Fernbedienung zeigt.', fwStarting: 'Firmware startet …', fwFailed: 'Firmware-Vorschau nicht verfügbar, angezeigt wird eine Näherung. ',
-    connNone: 'Keine Fernbedienung gefunden. An der Fernbedienung: Anzeige & Bedienung > Erscheinungsbild > Mit Theme-Editor verbinden, dann USB-Kabel einstecken.',
+    connNone: 'Keine Fernbedienung gefunden. An der Fernbedienung: Anzeige > Editor, dann USB-Kabel einstecken.',
     connOk: 'Fernbedienung verbunden:', connLocal: 'Ohne Fernbedienung: Themes werden gespeichert unter', refresh: 'Neu suchen',
     secTheme: 'Theme', hintTheme: 'Name, Autor und Beschreibung erscheinen im Theme-Auswahlmenü der Fernbedienung.',
     name: 'Name', author: 'Autor', info: 'Beschreibung',
@@ -442,6 +464,8 @@ const $ = id => document.getElementById(id);
 // Firmware catalogue (tools/nb4-editor-catalog.py), filled in by the app
 // ---------------------------------------------------------------------------
 let CATALOG = /*__CATALOG__*/null;
+const BUNDLED_CATALOG = CATALOG;
+let editorSources = [];
 const FALLBACK_CATALOG = {
   layouts: [{id: 'ApexTXRacing', name: 'ApexTX Racing', zones: [], options: [], racing: true},
     {id: 'Layout1x1', name: '1 x 1', zones: [[0, 0, 60, 60]], options: []},
@@ -861,9 +885,10 @@ function setWidget(zi, id) {
 function widgetIn(s, zi) { const z = zonesOf(s)[zi]; return z ? unq(z.widgetName) : ''; }
 function optionValue(s, zi, idx, opt) {
   const v = ((((zonesOf(s)[zi] || {}).widgetData || {}).options || {})[idx] || {}).value || {};
-  const raw = v.signedValue ?? v.unsignedValue ?? v.boolValue ?? v.stringValue;
+  const raw = v.source ?? v.color ?? v.signedValue ?? v.unsignedValue ?? v.boolValue ?? v.stringValue;
   if (raw === undefined) return opt.default;
-  return opt.type === 'String' ? unq(raw) : +raw;
+  if(opt.type==='Switch')return (+raw<<16)>>16;
+  return ['String','File','Source','Color'].includes(opt.type) ? unq(raw) : +raw;
 }
 function setOption(zi, idx, opt, value) {
   const z = zonesOf(curScreen())[zi];
@@ -871,6 +896,10 @@ function setOption(zi, idx, opt, value) {
   if (opt.type === 'Integer') opts[idx] = {type: 'Signed', value: {signedValue: String(Math.round(value))}};
   else if (opt.type === 'Bool') opts[idx] = {type: 'Bool', value: {boolValue: String(value ? 1 : 0)}};
   else if (opt.type === 'String') opts[idx] = {type: 'String', value: {stringValue: qt(String(value).slice(0, 12))}};
+  else if (opt.type === 'Source') opts[idx] = {type:'Source',value:{source:String(value)}};
+  else if (opt.type === 'Color') opts[idx] = {type:'Color',value:{color:String(value).replace('#','0x')}};
+  else if (opt.type === 'File') opts[idx] = {type:'String',value:{stringValue:qt(value)}};
+  else opts[idx] = {type:'Unsigned',value:{unsignedValue:String(opt.type==='Switch'?(Math.round(value)>>>0):Math.round(value))}};
   dirtyCar();
 }
 function addScreen() {
@@ -1280,6 +1309,7 @@ function render() {
 // Firmware preview: the ApexTX firmware, built for the PC, draws the screen
 // from the same files the transmitter would get (tools/nb4_preview.py).
 // ---------------------------------------------------------------------------
+const EDITOR_REVISION='__EDITOR_REVISION__';
 const FW_THEME = 'Editor Preview', FW_FOLDER = 'EditorPreview';
 const fw = {on: false, canvas: document.createElement('canvas'), w: 0, h: 0, seq: 0, key: '', due: 0, busy: false, sent: '', error: ''};
 function fwShown(Wd, Hd) { return fw.on && fw.w === Wd && fw.h === Hd && !fw.error; }
@@ -1307,7 +1337,7 @@ async function fwStage() {
     if (car && car.file && radioRoot()) { body.model = car.file; body.target = radioRoot(); }
     await api('/api/preview', body);
     fw.key = key; fw.sent = ''; fw.error = '';
-    $('fwBadge').textContent = t('fwLive');
+    $('fwBadge').textContent = t('fwLive')+(car&&car.firmware&&car.firmware!==EDITOR_REVISION?' · different firmware build':'');
     document.querySelector('[data-t="previewNote"]').style.display = 'none';
   } catch (e) {
     fw.key = key; fw.error = e.message;
@@ -1320,6 +1350,7 @@ async function fwFrames() {
   for (;;) {
     try {
       const r = await fetch('/api/preview/frame?after=' + fw.seq, {headers: {'X-ApexTX-Token': TOKEN}});
+      if(r.status===503){const error=await r.json();fw.error=error.error;$('fwBadge').textContent=t('fwFailed')+fw.error;}
       if (r.status === 200) {
         const [seq, w, h, shown] = r.headers.get('X-Frame').split(' ').map(Number);
         const px = new Uint16Array(await r.arrayBuffer());
@@ -1537,14 +1568,17 @@ function buildZones() {
       const opts = document.createElement('div'); opts.className = 'opts';
       let hidden = false;
       w.options.forEach((o, idx) => {
-        if (!['Integer', 'Bool', 'String'].includes(o.type) || (o.type === 'Integer' && typeof o.default !== 'number')) { hidden = true; return; }
+        if (!['Integer', 'Bool', 'String','Source','Color','File','TextSize','Timer','Align','Slider','Switch','Choice'].includes(o.type) || (o.type === 'Integer' && typeof o.default !== 'number')) { hidden = true; return; }
         const lab = document.createElement('label'); lab.className = 'f';
         const span = document.createElement('span'); span.textContent = optLabel(o);
         let input;
         if (o.type === 'Bool') { input = document.createElement('input'); input.type = 'checkbox'; input.checked = !!optionValue(s, i, idx, o); input.onchange = () => setOption(i, idx, o, input.checked); }
         else if (o.type === 'Integer') { input = document.createElement('input'); input.type = 'number'; input.value = optionValue(s, i, idx, o); if (typeof o.min === 'number') input.min = o.min; if (typeof o.max === 'number') input.max = o.max; input.onchange = () => setOption(i, idx, o, Math.max(o.min ?? -30000, Math.min(o.max ?? 30000, +input.value || 0))); }
-        else { input = document.createElement('input'); input.type = 'text'; input.maxLength = 12; input.value = optionValue(s, i, idx, o) || ''; input.oninput = () => setOption(i, idx, o, input.value); }
-        lab.append(span, input); opts.appendChild(lab);
+        else if(o.type==='Source'){input=document.createElement('select');for(const v of new Set([optionValue(s,i,idx,o),...editorSources])){const el=document.createElement('option');el.value=v;el.textContent=v;input.append(el);}input.value=optionValue(s,i,idx,o);input.onchange=()=>setOption(i,idx,o,input.value);}
+        else if(o.type==='Color'){input=document.createElement('input');input.type='color';input.value=String(optionValue(s,i,idx,o)).replace('0x','#');input.oninput=()=>setOption(i,idx,o,input.value);}
+        else if(['TextSize','Timer','Align','Slider','Switch','Choice'].includes(o.type)){input=document.createElement('input');input.type='number';input.min=['Slider','Switch','Choice'].includes(o.type)?o.min:0;input.max=['Slider','Switch','Choice'].includes(o.type)?o.max:o.type==='TextSize'?7:2;input.value=optionValue(s,i,idx,o);input.onchange=()=>setOption(i,idx,o,Math.max(0,Math.min(+input.max,+input.value)));}
+        else { input = document.createElement('input'); input.type = 'text'; input.maxLength = o.type==='File'?128:12; input.value = optionValue(s, i, idx, o) || ''; input.oninput = () => setOption(i, idx, o, input.value); }
+        input.id='zone-'+i+'-option-'+idx;lab.append(span, input); opts.appendChild(lab);
       });
       div.appendChild(opts);
       if (hidden) { const n = document.createElement('div'); n.className = 'note'; n.textContent = t('optOnRadio'); div.appendChild(n); }
@@ -1556,7 +1590,8 @@ function buildZones() {
 // ---------------------------------------------------------------------------
 // theme.yml + background.png
 // ---------------------------------------------------------------------------
-function folderName() { return (state.name || 'MyTheme').replace(/[^A-Za-z0-9]+/g, '').slice(0, 26) || 'MyTheme'; }
+let loadedFolder = null, loadedThemeHashes = {};
+function folderName() { if (loadedFolder) return loadedFolder; return (state.name || 'MyTheme').replace(/[^A-Za-z0-9]+/g, '').slice(0, 26) || 'MyTheme'; }
 function yamlStr(s) { return /^[\w .,()+\-/]*$/.test(s) && s.trim() === s && s ? s : JSON.stringify(s); }
 function themeYml() {
   const L = ['# SPDX-License-Identifier: GPL-2.0-only', '---', 'summary:',
@@ -1691,6 +1726,7 @@ async function loadTargets() {
   onTargetChanged();
 }
 async function onTargetChanged() {
+  if (carDirty && car && car.file && !await editorLeaveCar()) return;
   const root = radioRoot();
   $('connDot').classList.toggle('on', !!root);
   $('connText').innerHTML = '';
@@ -1723,11 +1759,17 @@ async function loadCars() {
   await openCar(sel.value);
 }
 async function openCar(file) {
+  if (carDirty && car && car.file && !await editorLeaveCar()) return;
   $('carWarn').style.display = 'none';
-  if (!file) { car = demoCar(); }
+  if (!file) { CATALOG=BUNDLED_CATALOG;editorSources=[];car = demoCar(); }
   else {
     const m = await api(`/api/model?target=${q(radioRoot())}&file=${q(file)}`);
-    car = {file, name: (models.find(x => x.file === file) || {}).name || file, editable: m.editable, hash: m.hash,
+    if (m.capabilities && m.capabilities.protocol===1 && BUNDLED_CATALOG) {
+      const caps=m.capabilities;
+      CATALOG={...BUNDLED_CATALOG,layouts:BUNDLED_CATALOG.layouts.filter(l=>caps.layouts.includes(l.id)),widgets:BUNDLED_CATALOG.widgets.filter(w=>caps.widgets.includes(w.id)).map(w=>({...w,options:(caps.catalog||[]).find(c=>c.id===w.id)?.options||w.options}))};
+      editorSources=caps.sources||[];
+    }
+    car = {file, firmware:m.capabilities&&m.capabilities.firmware, name: (models.find(x => x.file === file) || {}).name || file, editable: m.editable, hash: m.hash,
       screenData: Object.keys(m.screenData).length ? m.screenData : {0: racingScreen()}};
     if (!m.editable) { $('carWarn').textContent = t('notEditable'); $('carWarn').style.display = 'block'; }
   }
@@ -1778,6 +1820,7 @@ async function loadRadio() {
   state.landscape = +(s.nb4Orientation || 0) === 1;
   buildCommon();
   status('radioStatus', '');
+  appearanceHistory.reset(appearanceValue());
 }
 $('rOrient').onchange = () => setOrientation($('rOrient').value === '1');
 
@@ -1786,14 +1829,8 @@ $('rOrient').onchange = () => setOrientation($('rOrient').value === '1');
 async function setOrientation(landscape) {
   state.landscape = landscape;
   buildCommon();
-  if (!radioRoot() || !radio || +radio.settings.nb4Orientation === (landscape ? 1 : 0)) return;
-  try {
-    const fresh = await api('/api/radio?target=' + q(radioRoot()));
-    const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {nb4Orientation: landscape ? 1 : 0}});
-    radio = {hash: done.hash, settings: {...fresh.settings, nb4Orientation: landscape ? '1' : '0'}};
-    $('rOrient').value = landscape ? 1 : 0;
-    status('previewStatus', t('orientSaved'));
-  } catch (e) { status('previewStatus', e.message, true); }
+  if (radio) $('rOrient').value = landscape ? 1 : 0;
+
 }
 $('radioReload').onclick = () => loadRadio().then(() => status('radioStatus', t('loaded'))).catch(e => status('radioStatus', e.message, true));
 $('radioSave').onclick = async () => {
@@ -1803,7 +1840,7 @@ $('radioSave').onclick = async () => {
     busy();
     busyStep(40, t('stepSettings'));
     const res = await api('/api/radio', {target: radioRoot(), hash: radio.hash, settings});
-    radio.hash = res.hash;
+    radio.hash = res.hash; Object.assign(radio.settings,settings); appearanceHistory.reset(appearanceValue());
     status('radioStatus', t('saved') + t('backupAt') + res.backup);
     busyDone(t('busyDone'));
   } catch (e) { status('radioStatus', e.message, true); busyFail(e.message); }
@@ -1840,40 +1877,31 @@ $('loadRadio').onclick = async () => {
   if (!$('radioThemes').value) return;
   try {
     const res = await api(`/api/theme?target=${q(target())}&folder=${q($('radioThemes').value)}`);
+    loadedFolder = $('radioThemes').value; loadedThemeHashes = res.hashes || {};
     parseYml(res.yml);
     if (res.background) { await setImage('data:image/png;base64,' + res.background); state.bgDim = 0; state.bgFit = 'fill'; }
-    refreshAll(); status('themeStatus', t('loaded'));
+    refreshAll(); themeHistory.reset(themeValue()); status('themeStatus', t('loaded'));
   } catch (e) { status('themeStatus', e.message, true); }
 };
 function bytesB64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); }
 $('saveRadio').onclick = async () => {
   try {
-    busy();
-    busyStep(10, t('stepImages'));
-    const files = (await themeFiles()).map(f => ({name: f.name, data: bytesB64(f.data)}));
-    busyStep(45, t('stepWrite'));
-    const res = await api('/api/save', {target: target(), files});
-    let msg = t('saved') + res.folder;
-    // Same setting as the Transmitter tab: the radio uses the theme from its next start.
-    if ($('activateTheme').checked && radioRoot()) {
-      busyStep(80, t('stepActivate'));
-      const fresh = await api('/api/radio?target=' + q(radioRoot()));
-      const done = await api('/api/radio', {target: radioRoot(), hash: fresh.hash, settings: {selectedTheme: state.name.trim()}});
-      radio = {hash: done.hash, settings: {...fresh.settings, selectedTheme: state.name.trim()}};
-      fillRadioThemes();
-      msg += '  ·  ' + t('activated');
-    }
-    // Pending screen changes go along, so one save brings everything over.
-    if (carDirty && car.file && car.editable && radioRoot() && target() === radioRoot()) {
-      busyStep(90, t('stepScreens'));
-      const res2 = await api('/api/model', {target: radioRoot(), file: car.file, hash: car.hash, screenData: car.screenData});
-      car.hash = res2.hash; carDirty = false; $('carSave').classList.add('off'); showUnsaved();
-      msg += '  ·  ' + t('screensSaved').replace('%s', car.name);
-    }
-    status('themeStatus', msg);
-    busyDone(msg);
-    loadThemeList().catch(() => {});
-  } catch (e) { status('themeStatus', e.message, true); busyFail(e.message); }
+    busy(); busyStep(10,t('stepImages'));
+    const files=(await themeFiles()).map(f=>({name:f.name,data:bytesB64(f.data)}));
+    const settings={};
+    if(radio){for(const [key,id] of [['selectedTheme','rTheme'],['nb4Accent','rAccent'],['nb4Orientation','rOrient'],['nb4LedMode','rLedMode'],['nb4LedColor','rLedColor']]){const value=$(id).value;if(String(value)!==String(radio.settings[key]??0))settings[key]=key==='selectedTheme'?value:+value;}}
+    if($('activateTheme').checked&&radio)settings.selectedTheme=state.name.trim();
+    const body={target:target(),files,hashes:loadedThemeHashes,settings,radioHash:radio&&radio.hash};
+    if(carDirty&&car.file&&car.editable)body.model={file:car.file,hash:car.hash,screenData:car.screenData};
+    busyStep(40,t('stepWrite'));
+    const res=radioRoot()?await api('/api/commit',body):await api('/api/save',body);
+    loadedThemeHashes=Object.fromEntries(Object.entries(res.hashes).filter(([n])=>n.startsWith('THEMES/')));
+    if(body.model){car.hash=res.hashes['MODELS/'+car.file];carDirty=false;showUnsaved();}
+    if(radio&&res.hashes['RADIO/radio.yml']){radio.hash=res.hashes['RADIO/radio.yml'];Object.assign(radio.settings,settings);}
+    themeHistory.markSaved();appearanceHistory.markSaved();
+    status('themeStatus',t('saved')+' '+res.backup);busyDone(t('saved'));
+    loadThemeList().catch(()=>{});
+  }catch(e){status('themeStatus',e.message,true);busyFail(e.message);}
 };
 $('dlZip').onclick = async () => {
   try {
@@ -1950,6 +1978,57 @@ if ($('logo').getAttribute('src').startsWith('__')) $('logo').src = 'apextx-upda
   if (inApp) fwInit();
   requestAnimationFrame(loop);
 })();
+
+const themeValue=()=>Object.fromEntries(['name','author','info','colors','nb4','bgPattern','bgFit','bgDim','cardOpacity'].map(k=>[k,state[k]]).concat([['bgImageSrc',state.bgImage&&state.bgImage.src]]));
+const appearanceValue=()=>Object.fromEntries(['rTheme','rAccent','rOrient','rLedMode','rLedColor'].map(id=>[id,$(id).value]));
+const themeHistory=new EditorHistory(themeValue()), appearanceHistory=new EditorHistory(appearanceValue());
+function applyThemeHistory(value){const src=value.bgImageSrc;delete value.bgImageSrc;Object.assign(state,value);if(src){const image=new Image();image.onload=()=>{state.bgImage=image;refreshAll();};state.bgImage=null;image.src=src;}refreshAll();}
+const editorHistories = new Map();
+let editorHistoryKey = '', editorApplying = false;
+const toolbar = document.createElement('div');
+toolbar.style.cssText='position:fixed;bottom:12px;right:12px;z-index:1000;display:flex;gap:8px';
+const undoButton = document.createElement('button'), redoButton = document.createElement('button');
+undoButton.textContent='↶ Undo'; redoButton.textContent='↷ Redo'; toolbar.append(undoButton,redoButton);document.body.append(toolbar);
+function historySample() {
+ if (!car || editorApplying) return;
+ themeHistory.push(themeValue(),document.activeElement.id||'theme');appearanceHistory.push(appearanceValue(),document.activeElement.id||'appearance');
+ const key=radioRoot()+'|'+car.file;
+ const value=car.screenData;
+ if(!editorHistories.has(key))editorHistories.set(key,new EditorHistory(value));
+ const h=editorHistories.get(key); h.push(value,document.activeElement.id||'edit'); editorHistoryKey=key;
+ if(!carDirty) h.markSaved();
+ const active=state.view==='theme'?themeHistory:state.view==='radio'?appearanceHistory:h;undoButton.disabled=active.index===0;redoButton.disabled=active.index+1===active.entries.length;
+}
+function historyMove(redo) {
+ historySample(); const h=state.view==='theme'?themeHistory:state.view==='radio'?appearanceHistory:editorHistories.get(editorHistoryKey);if(!h)return;
+ if(h===themeHistory){applyThemeHistory(redo?h.redo():h.undo());return;}
+ if(h===appearanceHistory){for(const [id,v] of Object.entries(redo?h.redo():h.undo()))$(id).value=v;state.landscape=$('rOrient').value==='1';buildCommon();return;}
+ editorApplying=true;car.screenData=redo?h.redo():h.undo();carDirty=h.dirty;
+ buildScreens();showUnsaved();editorApplying=false;
+}
+undoButton.onclick=()=>historyMove(false);redoButton.onclick=()=>historyMove(true);
+setInterval(historySample,100);
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();historyMove(e.shiftKey);}});
+window.addEventListener('beforeunload',e=>{if(carDirty||themeHistory.dirty||appearanceHistory.dirty){e.preventDefault();e.returnValue='';}});
+async function editorLeaveCar(all=false) {
+ return new Promise(resolve=>{
+  const d=document.createElement('dialog'),text=document.createElement('p');
+  const labels={en:['Unsaved changes','Save','Discard','Cancel'],es:['Cambios sin guardar','Guardar','Descartar','Cancelar'],de:['Ungespeicherte Ansichten','Speichern','Verwerfen','Abbrechen'],cn:['未保存的屏幕','保存','放弃','取消']}[lang]||['Unsaved changes','Save','Discard','Cancel'];
+  text.textContent=labels[0];d.append(text);
+  labels.slice(1).forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{if(i===0){await $(all?'saveRadio':'carSave').onclick();if(carDirty||(all&&(themeHistory.dirty||appearanceHistory.dirty)))return;}if(i===1){carDirty=false;if(all){themeHistory.reset(themeValue());appearanceHistory.reset(appearanceValue());}}d.close();d.remove();resolve(i!==2);};d.append(b);});
+  d.oncancel=()=>{d.remove();resolve(false);};document.body.append(d);d.showModal();
+ });
+}
+
+setInterval(()=>{if(window.parent!==window){const l=window.parent.document.documentElement.lang;if(l && l!==lang){lang=l;document.documentElement.lang=l;document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));buildScreens();}}},500);
+
+window.editorRequestClose=()=>{if(!carDirty&&!themeHistory.dirty&&!appearanceHistory.dirty)return true;editorLeaveCar(true).then(ok=>{if(ok)api('/api/close',{}).catch(()=>{});});return false;};
+
+$('openVolume').onclick=async()=>{try{const r=await api('/api/target',{path:$('manualVolume').value});await loadTargets();$('target').value=r.path;await onTargetChanged();}catch(e){status('themeStatus',e.message,true);}};
+
+if(window.parent!==window){document.querySelector('header').style.display='none';document.querySelector('h1').style.display='none';document.querySelector('.intro').style.display='none';}
+
+const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);perfButton.onclick=async()=>{try{const data=await api('/api/perf?target='+q(radioRoot()));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='APEXTX-UI-PERF.json';a.click();}catch(e){status('themeStatus',e.message,true);}};
 </script>
 </body>
 </html>

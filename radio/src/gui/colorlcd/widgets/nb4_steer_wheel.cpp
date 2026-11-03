@@ -20,6 +20,8 @@ class Nb4SteerWheelWidget : public Nb4TrimWidget
   void delayedInit() override
   {
     Nb4Ui::card(lvobj);
+    lv_obj_set_style_bg_opa(lvobj, LV_OPA_COVER, 0);
+    if (minimalDisplay(g_model.nb4Racing.steeringChannel)) return;
     // Everything below lays out in the height the trim row leaves.
     const coord_t w = width(), h = height() - trim.build(this, ADC_MAIN_ST, Nb4Ui::steeringColor());
     const lv_color_t color = Nb4Ui::steeringColor();
@@ -71,6 +73,8 @@ class Nb4SteerWheelWidget : public Nb4TrimWidget
   void checkEvents() override
   {
     if (!loaded) return;
+    Nb4TrimWidget::update();
+    if (minimal) return;
     Widget::checkEvents();
     trim.update();
     const int16_t v = channelPct(g_model.nb4Racing.steeringChannel);

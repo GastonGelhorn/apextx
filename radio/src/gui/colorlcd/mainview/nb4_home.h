@@ -68,3 +68,5 @@ class Nb4HomeScreen : public WidgetsContainer
   Nb4Stats* stats = nullptr;
 };
 #endif
+
+void nb4PrepareEditorStorage();

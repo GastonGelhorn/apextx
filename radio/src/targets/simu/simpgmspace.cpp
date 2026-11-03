@@ -1,3 +1,5 @@
+#include "simu_ui_lock.h"
+std::recursive_mutex simuUiMutex;
 /*
  * Copyright (C) EdgeTX
  *

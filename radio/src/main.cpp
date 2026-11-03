@@ -27,8 +27,12 @@
 #include "hal/audio_driver.h"
 
 #include "edgetx.h"
+#if defined(SIMU)
+#include "targets/simu/simu_ui_lock.h"
+#endif
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_ui_perf.h"
+#include "nb4_home.h"
 #endif
 #include "nb4_history.h"
 #if defined(RADIO_NB4)
@@ -245,6 +249,9 @@ void handleUsbConnection()
         // Defer the transition, keeping the UI responsive while an in-flight
         // transaction closes. No raw USB access races an open FatFs file.
         if (!nb4StorageQuiesce()) return;
+#endif
+#if defined(RADIO_NB4_FAMILY)
+        nb4PrepareEditorStorage();
 #endif
         edgeTxClose(false);
 #if defined(COLORLCD)

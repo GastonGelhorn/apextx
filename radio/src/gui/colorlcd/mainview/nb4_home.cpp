@@ -36,6 +36,9 @@
 #include "nb4_menu_pages.h"
 #endif
 #include "hal/usb_driver.h"
+#include "bootloader/nb4_update_id.h"
+#include "fw_version.h"
+#include "nb4_ui_perf.h"
 
 namespace {
 int pendingOrientation = -1;
@@ -597,3 +600,85 @@ void Nb4HomeScreen::checkEvents()
   else refresh(state);
 }
 #endif
+
+#if defined(RADIO_NB4_FAMILY)
+extern std::string nb4EditorOptionToken(uint32_t value, bool color);
+static std::string editorJson(const char* text)
+{
+  std::string out = "\"";
+  for (auto p = text; p && *p; ++p) {
+    const unsigned char c = *p;
+    if (c == '"' || c == '\\') out += '\\';
+    if (c >= 32) out += *p;
+  }
+  return out + "\"";
+}
+// Snapshot registered capabilities before USB takes ownership of FatFs.
+void nb4PrepareEditorStorage()
+{
+#if !defined(SIMU)
+  std::string text = "{\"format\":\"apextx-editor-1\",\"protocol\":1,\"target\":\"";
+  text += NB4_HARDWARE_ID;
+  const auto uid = reinterpret_cast<const uint32_t*>(UID_BASE);
+  char serial[13];
+  snprintf(serial,sizeof(serial),"%08lX%04lX",(unsigned long)(uid[0]+uid[2]),(unsigned long)(uid[1]>>16));
+  text += "\",\"serial\":\""; text += serial;
+  text += "\",\"widgets\":[";
+  bool first = true;
+  for (const auto factory : WidgetFactory::getRegisteredWidgets()) {
+    if (!first) text += ","; first = false;
+    text += editorJson(factory->getName());
+  }
+  text += "],\"catalog\":["; first = true;
+  const char* types[] = {"Integer","Source","Bool","String","TextSize","Timer","Switch","Color","Align","Slider","Choice","File"};
+  for (const auto factory : WidgetFactory::getRegisteredWidgets()) {
+    if (!first) text += ","; first = false;
+    text += "{\"id\":" + editorJson(factory->getName()) + ",\"options\":[";
+    factory->parseOptionDefaults();
+    auto opt = factory->getDefaultOptions(); bool firstOpt = true;
+    for (; opt && opt->name; ++opt) {
+      if (!firstOpt) text += ","; firstOpt = false;
+      text += "{\"name\":" + editorJson(opt->name) + ",\"type\":" + editorJson(types[opt->type]) + ",\"default\":";
+      if (opt->type == WidgetOption::String || opt->type == WidgetOption::File)
+        text += editorJson(opt->deflt.stringValue.c_str());
+      else if (opt->type == WidgetOption::Source || opt->type == WidgetOption::Color)
+        text += editorJson(nb4EditorOptionToken(opt->deflt.unsignedValue, opt->type == WidgetOption::Color).c_str());
+      else text += std::to_string(opt->deflt.signedValue);
+      text += ",\"min\":" + std::to_string(opt->min.signedValue) + ",\"max\":" + std::to_string(opt->max.signedValue) + "}";
+    }
+    text += "]}";
+  }
+  text += "],\"sources\":["; first = true;
+  for (unsigned i = 0; i <= MIXSRC_LAST_TELEM; ++i) {
+    const auto token = nb4EditorOptionToken(i, false);
+    if (token.empty()) continue;
+    if (!first) text += ","; first = false;
+    text += editorJson(token.c_str());
+  }
+  text += "],\"firmware\":" + editorJson(GIT_STR) + ",\"model\":" + editorJson(g_eeGeneral.currModelFilename);
+  text += ",\"layouts\":["; first = true;
+  for (const auto factory : LayoutFactory::getRegisteredLayouts()) {
+    if (!first) text += ","; first = false;
+    text += editorJson(factory->getId());
+  }
+  text += "]}";
+  Nb4UiPerf samples[30];
+  const auto count=nb4UiPerfSamples(samples,30);
+  std::string stats="{\"format\":\"apextx-ui-perf-1\",\"serial\":"+editorJson(serial)+",\"firmware\":"+editorJson(GIT_STR)+",\"samples\":[";
+  char row[256];
+  for(unsigned i=0;i<count;++i){
+    if(i)stats+=",";
+    const auto& p=samples[i];
+    snprintf(row,sizeof(row),"{\"fps\":%lu,\"pixels\":%lu,\"areas\":%lu,\"loopAvgUs\":%lu,\"loopMaxUs\":%lu,\"lvglAvgUs\":%lu}",(unsigned long)p.fps,(unsigned long)p.pixels,(unsigned long)p.areas,(unsigned long)p.loopAvgUs,(unsigned long)p.loopMaxUs,(unsigned long)p.lvglAvgUs);
+    stats+=row;
+  }
+  stats+="]}";
+  FIL file; UINT written=0;
+  if(f_open(&file,"/APEXTX-UI-PERF.json",FA_CREATE_ALWAYS|FA_WRITE)==FR_OK){f_write(&file,stats.data(),stats.size(),&written);f_sync(&file);f_close(&file);}
+  if (f_open(&file, "/APEXTX-EDITOR.json", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+    f_write(&file, text.data(), text.size(), &written); f_sync(&file); f_close(&file);
+  }
+#endif
+}
+
+#endif // RADIO_NB4_FAMILY

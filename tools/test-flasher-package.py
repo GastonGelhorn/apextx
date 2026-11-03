@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,10 @@ def main():
             executable = Path(folder) / 'ApexTX-Flasher.app/Contents/MacOS/ApexTX-Flasher'
             subprocess.run(['codesign', '--verify', '--deep', '--strict',
                             str(Path(folder) / 'ApexTX-Flasher.app')], check=True)
+        elif sys.platform == 'linux':
+            archive = ROOT / f'dist/ApexTX-Flasher-Linux-{platform.machine().lower()}.tar.gz'
+            with tarfile.open(archive) as bundle: bundle.extractall(folder, filter='data')
+            executable = Path(folder) / 'ApexTX-Flasher/ApexTX-Flasher'
         else:
             executable = Path(folder) / 'ApexTX-Flasher.exe'
             shutil.copy2(ROOT / 'dist/ApexTX-Flasher.exe', executable)
