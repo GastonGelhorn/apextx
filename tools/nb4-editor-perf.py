@@ -31,12 +31,16 @@ def main():
             other,next_rows=read(args.candidate)
             if (base['serial'],base['firmware'])!=(other['serial'],other['firmware']):
                 raise ValueError('Compare the same transmitter and firmware build.')
-            baseline=statistics.median(row['loopAvgUs'] for row in rows)
-            candidate=statistics.median(row['loopAvgUs'] for row in next_rows)
-            if baseline<=0:raise ValueError('The baseline has no UI timing samples.')
-            overhead=candidate/baseline-1
-            passed=overhead<=.10
-            report=dict(passed=passed,baselineMedianUs=baseline,candidateMedianUs=candidate,overhead=overhead,limit=.10,serial=base['serial'])
+            timings={}
+            passed=True
+            for name,field in (('ui','loopAvgUs'),('lvgl','lvglAvgUs')):
+                baseline=statistics.fmean(row[field] for row in rows)
+                candidate=statistics.fmean(row[field] for row in next_rows)
+                if baseline<=0:raise ValueError('The baseline has no '+name+' timing samples.')
+                overhead=candidate/baseline-1
+                passed=passed and overhead<=.10
+                timings[name]=dict(baselineMeanUs=baseline,candidateMeanUs=candidate,overhead=overhead)
+            report=dict(passed=passed,timings=timings,limit=.10,serial=base['serial'],samples=len(rows))
         print(json.dumps(report,indent=2))
         raise SystemExit(0 if passed else 1)
     except (ValueError,KeyError,OSError) as error:parser.error(str(error))

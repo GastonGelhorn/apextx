@@ -5,7 +5,7 @@ The editor's preview is drawn by the firmware itself: nb4-preview.dll is the
 NB4 firmware built for the PC (radio/src/targets/simu, target nb4-preview).
 It runs in a worker process on a private copy of the transmitter's storage,
 so every change restarts it from a clean state and a crash cannot take the
-editor down. Frames come back over the worker's stdout.
+editor down. Frames come back over an authenticated local connection.
 """
 import base64
 import ctypes

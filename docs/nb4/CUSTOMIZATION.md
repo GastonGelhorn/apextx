@@ -185,6 +185,6 @@ Save each capture separately on the computer. Compare the same serial/build:
 ```
 
 The comparator omits two windows at each end for navigation. It requires zero
-repainted pixels/areas in the idle sample and at most 10% median UI-loop overhead
+repainted pixels/areas in the idle sample and at most 10% mean UI-loop and LVGL overhead
 for the background case. Keep the captures with the firmware SHA-256 and note
 any physical restart/theme issue; simulator timing is not a hardware measurement.

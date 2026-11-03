@@ -683,11 +683,15 @@ void nb4PrepareEditorStorage()
   Nb4UiPerf samples[30];
   const auto count=nb4UiPerfSamples(samples,30);
   std::string stats="{\"format\":\"apextx-ui-perf-1\",\"serial\":"+editorJson(serial)+",\"firmware\":"+editorJson(GIT_STR)+",\"samples\":[";
-  char row[256];
+  char row[512];
   for(unsigned i=0;i<count;++i){
     if(i)stats+=",";
     const auto& p=samples[i];
-    snprintf(row,sizeof(row),"{\"fps\":%lu,\"pixels\":%lu,\"areas\":%lu,\"loopAvgUs\":%lu,\"loopMaxUs\":%lu,\"lvglAvgUs\":%lu}",(unsigned long)p.fps,(unsigned long)p.pixels,(unsigned long)p.areas,(unsigned long)p.loopAvgUs,(unsigned long)p.loopMaxUs,(unsigned long)p.lvglAvgUs);
+    snprintf(row,sizeof(row),"{\"fps\":%lu,\"pixels\":%lu,\"areas\":%lu,\"loopAvgUs\":%lu,\"loopMaxUs\":%lu,\"lvglAvgUs\":%lu,\"lvglMaxUs\":%lu,\"windowAvgUs\":%lu,\"copyAvgUs\":%lu,\"waitAvgUs\":%lu,\"viewLastUs\":%lu,\"viewMaxUs\":%lu,\"views\":%lu}",
+      (unsigned long)p.fps,(unsigned long)p.pixels,(unsigned long)p.areas,
+      (unsigned long)p.loopAvgUs,(unsigned long)p.loopMaxUs,(unsigned long)p.lvglAvgUs,
+      (unsigned long)p.lvglMaxUs,(unsigned long)p.windowAvgUs,(unsigned long)p.copyAvgUs,
+      (unsigned long)p.waitAvgUs,(unsigned long)p.viewLastUs,(unsigned long)p.viewMaxUs,(unsigned long)p.views);
     stats+=row;
   }
   stats+="]}";
