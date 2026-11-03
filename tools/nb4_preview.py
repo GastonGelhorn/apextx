@@ -152,6 +152,46 @@ class FirmwarePreview:
 
     # Storage the firmware starts from: the transmitter's own files when one
     # is connected, otherwise the firmware's factory files.
+    def _assets(self, base, storage, model):
+        """Copy referenced media; the simulator never opens the mounted volume."""
+        tree = radio_files.parse_yaml(model.decode('utf-8').splitlines())
+        values=[]
+        def walk(node):
+            for value in node.values():
+                if isinstance(value,dict):walk(value)
+                elif isinstance(value,str):values.append(radio_files.unquote(value))
+        walk(tree)
+        names=set()
+        for value in values:
+            path=PurePosixPath(value)
+            if path.suffix.lower() not in ('.png','.bmp','.jpg','.jpeg','.lua','.txt'):continue
+            if '..' in path.parts or '\\' in value:raise ValueError('Invalid preview resource path.')
+            relative=value.lstrip('/')
+            if '/' not in relative:relative='IMAGES/'+relative
+            if relative.split('/')[0] in ('IMAGES','SCRIPTS','THEMES'):names.add(relative)
+        bitmap=radio_files.unquote(tree.get('header',{}).get('bitmap',''))
+        if bitmap and '/' not in bitmap and bitmap not in ('.','..'):
+            for suffix in ('.png','.bmp'):names.add('IMAGES/'+bitmap+suffix)
+        # Existing Lua widgets may require adjacent modules. Copy only when the
+        # model actually uses a widget outside the built-in compiled catalogue.
+        catalogue=json.loads(_resource('apextx-theme-editor-catalog.json').read_bytes())
+        known={entry['id'] for entry in catalogue['widgets']}
+        def custom(node):
+            return any((key=='widgetName' and radio_files.unquote(value) not in known) or
+                       (isinstance(value,dict) and custom(value)) for key,value in node.items())
+        if custom(tree) and (base/'SCRIPTS').is_dir():
+            for source in (base/'SCRIPTS').rglob('*'):
+                if source.is_symlink():raise ValueError('Preview resources cannot contain symbolic links.')
+                if source.is_file():names.add(source.relative_to(base).as_posix())
+        total=0
+        for name in sorted(names):
+            source=radio_files.safe_path(base/name)
+            if not source.is_file():continue
+            total+=source.stat().st_size
+            if total>4*1024*1024 or len(names)>512:raise ValueError('Preview resources exceed the size limit.')
+            target=storage/name;target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(source,target)
+
     def _stage(self, request, radio_root):
         self.generation += 1
         storage = self.root / str(self.generation)
@@ -170,6 +210,7 @@ class FirmwarePreview:
         # Under its own name: the firmware opens the selected model by the
         # file name the radio uses and starts a new one for anything else.
         (storage / 'MODELS' / model_src.name).write_bytes(model)
+        self._assets(base,storage,model)
 
         settings = {'currModelFilename': model_src.name}
         for key in ('selectedTheme', 'nb4Orientation', 'nb4Accent'):
