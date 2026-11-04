@@ -555,7 +555,7 @@ def serve(port=0, open_browser=True, startup_health=None):
         try:
             import webview
             window = webview.create_window('ApexTX Flasher', address,
-                                           width=860, height=940, min_size=(560, 680))
+                                           width=1200, height=860, min_size=(560, 680))
             editor_close = EditorWindowClose(window)
             def can_close():
                 with lock:
