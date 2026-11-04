@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Exercise the actual colour row event handlers without waiting for browser blur.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const html = fs.readFileSync(path.join(__dirname, '../apextx-theme-editor.html'), 'utf8');
+const source = html.slice(html.indexOf('function colorRow('), html.indexOf('function segment('));
+const control = () => ({value:'', listeners:{}, attributes:{}, setAttribute(k,v){this.attributes[k]=v;},addEventListener(k,v){this.listeners[k]=v;}});
+const picker=control(), hex=control(), name={}, description={};
+const row={querySelector(selector){return {'input':picker,'.hex':hex,'b':name,'span':description}[selector];}};
+let created, value='F2F4FF', repaint=0;
+const document={activeElement:hex,createElement(tag){created=tag;return row;}};
+const context=vm.createContext({document,bgCache:{old:true},drawTiles(){repaint++;}});
+vm.runInContext(source,context);
+context.colorRow('PRIMARY1','Text',()=>value,next=>value=next);
+assert.equal(created,'div','Two controls must not share one implicit label');
+assert.equal(picker.attributes['aria-label'],'PRIMARY1 colour');
+hex.value='#112233';hex.listeners.input();
+assert.equal(value,'112233','A complete pasted value applies immediately');
+assert.equal(picker.value,'#112233');
+assert.equal(context.bgCache,null);
+assert.equal(repaint,1);
+hex.value='#12';hex.listeners.input();
+assert.equal(value,'112233','Partial typing must not alter the theme');
+assert.equal(hex.value,'#12','Partial input stays editable until blur');
+hex.listeners.blur();assert.equal(hex.value,'#112233');
+hex.value='abcdef';hex.listeners.input();assert.equal(value,'ABCDEF');
+hex.value='#000000';hex.listeners.input();assert.equal(value,'000000','Explicit black is a valid colour');
+document.activeElement=picker;picker.value='#FEDCBA';picker.listeners.input();assert.equal(value,'FEDCBA');assert.equal(hex.value,'#FEDCBA');
+console.log('Editor colours: immediate valid hex input, partial entry, blur recovery, explicit black and accessible controls passed.');

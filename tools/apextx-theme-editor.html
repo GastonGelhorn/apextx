@@ -1485,15 +1485,19 @@ cv.addEventListener('click', e => {
 // Theme controls
 // ---------------------------------------------------------------------------
 function colorRow(key, desc, get, set) {
-  const row = document.createElement('label');
+  const row = document.createElement('div');
   row.className = 'color';
   row.innerHTML = '<input type="color"><div><b></b><span></span></div><input class="hex" type="text" maxlength="7" pattern="#?[0-9a-fA-F]{6}" aria-label="Hex colour">';
-  const input = row.querySelector('input');
+  const input = row.querySelector('input');input.setAttribute('aria-label',key+' colour');
   row.querySelector('b').textContent = key;
   row.querySelector('span').textContent = desc;
   const code = row.querySelector('.hex'); code.setAttribute('aria-label',key+' hex');
   row.sync = () => { input.value = '#' + get(); if(document.activeElement!==code)code.value = '#'+get(); };
-  code.addEventListener('change',()=>{const value=code.value.replace(/^#|^0x/i,'');if(/^[0-9a-f]{6}$/i.test(value)){set(value.toUpperCase());row.sync();bgCache=null;drawTiles();}else{code.value='#'+get();}});
+  code.addEventListener('input',()=>{
+    const value=code.value.replace(/^#|^0x/i,'');
+    if(/^[0-9a-f]{6}$/i.test(value)){set(value.toUpperCase());row.sync();bgCache=null;drawTiles();}
+  });
+  code.addEventListener('blur',()=>{code.value='#'+get();});
   input.addEventListener('input', () => { set(input.value.slice(1).toUpperCase()); row.sync(); bgCache = null; drawTiles(); });
   return row;
 }
