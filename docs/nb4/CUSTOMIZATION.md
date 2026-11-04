@@ -1,8 +1,28 @@
 # How the NB4 screen is customized
 
 This note maps every on-radio customization to the code and the file that
-stores it. The theme editor (`tools/apextx-theme-editor.py`) edits exactly
-these files and nothing else, so the radio and the editor always agree.
+stores it. The theme editor (`tools/apextx-theme-editor.py`) preserves the
+firmware's YAML representations and labels previews from a different firmware
+revision as approximations.
+
+## Desktop workspace
+
+Flasher separates **Firmware & resources** (Update, Components, Install or
+recover) from **Personalization** (Theme, Screens, Appearance). Switching
+between those workspaces retains the loaded editor and its drafts. The window
+uses the available width; a wide editor keeps the preview next to independently
+scrolling controls, while narrow windows stack the preview and controls.
+
+The theme library supports searching and category filtering. Colors can be
+edited as hexadecimal values as well as with the color picker, and the preview
+can be exported as PNG. The bottom toolbar shows the draft state and keeps
+history and save actions within reach. Orientation preview remains temporary.
+
+When testing a desktop build alongside an existing application, use
+`tools/build-flasher.py --dist-dir dist/ui-refresh` with the usual dependency
+arguments, then `tools/test-flasher-package.py --dist-dir dist/ui-refresh`.
+Close the existing Flasher before opening another build; both share the same
+operation lock.
 
 ## Radio-wide: `RADIO/radio.yml`
 
