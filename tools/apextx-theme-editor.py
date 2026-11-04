@@ -5,6 +5,7 @@ import argparse
 import base64
 import functools
 import json
+import io
 import os
 import re
 import secrets
@@ -14,6 +15,8 @@ import threading
 import subprocess
 import uuid
 import webbrowser
+import zipfile
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, parse_qs
@@ -296,6 +299,68 @@ def save_changes(request):
     return dict(ok=True,**result)
 
 
+def export_artifact(artifact):
+    """Save a verified desktop export without relying on WebView downloads."""
+    if not isinstance(artifact, dict):
+        raise ValueError('Invalid editor export.')
+    name, kind, encoded = (artifact.get(key) for key in ('name', 'kind', 'data'))
+    extensions = {'png': '.png', 'zip': '.zip', 'performance': '.json'}
+    if (kind not in extensions or not isinstance(name, str) or
+            not re.fullmatch(r'[^<>:"/\\|?*\x00-\x1f\x7f]{1,100}', name) or
+            name.startswith('.') or name != name.strip() or name.endswith('.') or
+            Path(name).suffix.lower() != extensions[kind]):
+        raise ValueError('Invalid export file name or format.')
+    if not isinstance(encoded, str) or len(encoded) > ((MAX_THEME_BYTES + 2) // 3) * 4:
+        raise ValueError('The export is too large.')
+    data = base64.b64decode(encoded, validate=True)
+    if not data or len(data) > MAX_THEME_BYTES:
+        raise ValueError('The export is empty or too large.')
+    if kind == 'png':
+        from PIL import Image
+        if len(data) < 24 or not data.startswith(b'\x89PNG\r\n\x1a\n'):
+            raise ValueError('The preview export must be a PNG image.')
+        dimensions = (int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big'))
+        if not all(0 < dimension <= 4096 for dimension in dimensions):
+            raise ValueError('Invalid preview image dimensions.')
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                if image.format != 'PNG':
+                    raise ValueError('The preview export must be a PNG image.')
+                image.verify()
+        except (OSError, SyntaxError) as error:
+            raise ValueError('The preview image failed verification.') from error
+    elif kind == 'zip':
+        if not data.startswith(b'PK\x03\x04'):
+            raise ValueError('The theme export must be a ZIP archive.')
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                entries = archive.infolist()
+                if (not 1 <= len(entries) <= 4 or
+                        sum(entry.file_size for entry in entries) > MAX_THEME_BYTES or
+                        len({entry.filename for entry in entries}) != len(entries) or
+                        any(not THEME_FILE.fullmatch(entry.filename) for entry in entries) or
+                        len({str(PurePosixPath(entry.filename).parent) for entry in entries}) != 1 or
+                        not any(entry.filename.endswith('/theme.yml') for entry in entries)):
+                    raise ValueError('Invalid theme archive contents.')
+                if archive.testzip() is not None:
+                    raise ValueError('The theme archive failed verification.')
+        except (zipfile.BadZipFile, RuntimeError, NotImplementedError, zlib.error) as error:
+            raise ValueError('Invalid theme archive.') from error
+    else:
+        if len(data) > 65536:
+            raise ValueError('The performance capture is too large.')
+        value = json.loads(data)
+        if (not isinstance(value, dict) or value.get('format') != 'apextx-ui-perf-1' or
+                not isinstance(value.get('samples'), list) or len(value['samples']) > 30 or
+                not all(isinstance(sample, dict) for sample in value['samples'])):
+            raise ValueError('Invalid performance capture.')
+    folder = radio_files.safe_path(Path.home() / 'ApexTX-Themes' / 'exports')
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / (uuid.uuid4().hex + '-' + name)
+    radio_files.write_durable(path, data, expected_hash=None)
+    return {'ok': True, 'path': str(path)}
+
+
 def create_handler(token, preview, onclose=None, draft_changed=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -415,13 +480,16 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 if route in ('/api/model','/api/radio'):
                     writable_identity(request.get('target',''))
                 if route == '/api/export':
-                    value=request.get('document')
-                    if not isinstance(value,dict) or value.get('format')!='apextx-editor-draft-1':raise ValueError('Invalid editor draft.')
-                    folder=Path.home()/'ApexTX-Themes'/'drafts'
-                    folder.mkdir(parents=True,exist_ok=True)
-                    path=folder/(uuid.uuid4().hex+'.json')
-                    radio_files.write_durable(path,json.dumps(value).encode())
-                    result={'ok':True,'path':str(path)}
+                    if 'artifact' in request:
+                        result=export_artifact(request['artifact'])
+                    else:
+                        value=request.get('document')
+                        if not isinstance(value,dict) or value.get('format')!='apextx-editor-draft-1':raise ValueError('Invalid editor draft.')
+                        folder=Path.home()/'ApexTX-Themes'/'drafts'
+                        folder.mkdir(parents=True,exist_ok=True)
+                        path=folder/(uuid.uuid4().hex+'.json')
+                        radio_files.write_durable(path,json.dumps(value).encode())
+                        result={'ok':True,'path':str(path)}
                 elif route == '/api/draft':
                     if type(request.get('dirty')) is not bool: raise ValueError('Invalid draft state.')
                     if draft_changed: draft_changed(request['dirty'])
