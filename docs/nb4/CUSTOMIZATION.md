@@ -17,6 +17,8 @@ The theme library supports searching and category filtering. Colors can be
 edited as hexadecimal values as well as with the color picker, and the preview
 can be exported as PNG. The bottom toolbar shows the draft state and keeps
 history and save actions within reach. Orientation preview remains temporary.
+Desktop PNG, theme ZIP and performance exports are saved under
+`~/ApexTX-Themes/exports/` with unique names; the result shows the actual path.
 
 When testing a desktop build alongside an existing application, use
 `tools/build-flasher.py --dist-dir dist/ui-refresh` with the usual dependency
@@ -101,12 +103,12 @@ nb4:
   BACKGROUND: neon        # informational, written by the editor
 ```
 
-Absent entries keep the built-in colours. A `background.png` of 320x480 in the
-theme folder (already loaded by `ThemeFile::applyBackground()`) now shows
-behind the Home screen and the ApexTX widgets in portrait; cards, panels and
-wells take the card opacity. Firmware without support skips the section:
-unknown nodes are walked as virtual levels by `YamlTreeWalker::toChild()`.
-The section is read only; saving a theme on the radio does not write it.
+Absent entries keep the built-in colours; explicit black remains a colour.
+The theme folder can contain `background.png` (320x480) and a separate
+`background_480x320.png` for landscape. Animated instrument cards stay opaque;
+static panels use the selected opacity. Saving from the radio preserves the
+supported instrument colours and card opacity. Firmware without support skips
+the extension section.
 
 ## Where new looks belong
 
@@ -119,7 +121,7 @@ The section is read only; saving a theme on the radio does not write it.
 
 ## Editor in ApexTX Flasher
 
-The Editor is a tab in ApexTX Flasher, sharing the local authenticated server,
+Personalization is a workspace in ApexTX Flasher, sharing the local authenticated server,
 USB identity, operation lock and application lifecycle. It works offline for
 preview and ZIP export. On the radio open **Display > Editor** to enter USB
 storage, including when the cable is already connected. Selecting a preview
