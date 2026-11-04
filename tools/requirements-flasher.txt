@@ -1,8 +1,11 @@
-# Shared packaging dependencies for the Windows and macOS flasher.
+# Shared packaging dependencies for the Windows, macOS and Linux flasher.
 pyinstaller==6.22.3
 pyusb==1.3.1
 pyserial==3.5
 pywebview==6.2.1
+# Match pywebview's GTK extra; newer GI releases require a newer host GLib.
+PyGObject==3.50.0; sys_platform == 'linux'
+pycairo==1.27.0; sys_platform == 'linux'
 pillow==13.0.0
 certifi==2026.10.23
 libusb-package==1.0.26.3; sys_platform == 'win32'

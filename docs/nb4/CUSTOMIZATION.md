@@ -196,9 +196,15 @@ cmake --build build/nb4plus-preview/native --target nb4-preview -j8
 
 Then use `tools/build-macos-flasher.sh`, `tools/build-windows-flasher.ps1` or
 `tools/build-linux-flasher.sh`. The former standalone Windows editor build
-entry point forwards to the shared Flasher. Linux packages are portable tarballs;
-GTK/WebKit, libusb and the appropriate USB device permissions remain host
-requirements. Automatic app updates remain supported on Windows and macOS.
+entry point forwards to the shared Flasher. Linux packages are portable tarballs
+for Ubuntu 22.04 or newer compatible systems. Python GTK bindings, libusb and
+dfu-util are bundled; WebKitGTK and the appropriate USB device permissions remain
+host requirements. On Ubuntu 22.04, install `gir1.2-webkit2-4.0` for the native
+window. If the native renderer cannot start, the app opens the same local UI in
+the default browser; keep its launcher running until you finish. The packaged
+self-test loads GTK/WebKit without opening a display, so a missing Python binding
+cannot pass CI by silently falling back to the browser.
+Automatic app updates remain supported on Windows and macOS.
 CI builds preview libraries and packages on each target OS; host builds do not
 substitute for running those platform checks.
 

@@ -22,10 +22,10 @@ def main():
     dist = parser.parse_args().dist_dir.resolve()
     mac = sys.platform == 'darwin'
     env = dict(os.environ)
-    if mac:
+    if mac or sys.platform == 'linux':
         env['PATH'] = '/usr/bin:/bin'
         for key in list(env):
-            if key.startswith(('PYTHON', 'DYLD_')):
+            if key.startswith(('PYTHON', 'DYLD_', 'LD_')):
                 del env[key]
     with tempfile.TemporaryDirectory() as folder:
         report = Path(folder) / 'self-test.json'
@@ -50,6 +50,8 @@ def main():
     assert result['revision'] == subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     assert result['usb_backend'] and result['dfu_util'] and result['shared_ui']
+    if sys.platform == 'linux':
+        assert result['native_renderer'] == 'gtkwebkit2'
     assert result['release_client']
     assert result['rf_catalog']
     assert result['maintenance'] and result['audio_installer']

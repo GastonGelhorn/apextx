@@ -55,7 +55,7 @@ jobs:
 
       - name: Install Linux runtime dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y dfu-util libusb-1.0-0-dev libgtk-3-dev gir1.2-webkit2-4.0 libgirepository1.0-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl pkg-config libusb-1.0-0-dev libgtk-3-dev gir1.2-webkit2-4.0 libgirepository1.0-dev libcairo2-dev
 
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'

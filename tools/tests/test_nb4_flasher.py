@@ -76,9 +76,10 @@ class BundledUsb(unittest.TestCase):
             ('usb', usb), ('usb.core', usb.core), ('usb.util', usb.util),
             ('usb.backend', usb.backend), ('usb.backend.libusb1', usb.backend.libusb1))}
 
-    def test_frozen_apps_load_their_own_runtime_on_both_platforms(self):
+    def test_frozen_apps_load_their_own_runtime_on_all_platforms(self):
         for platform, filename in [('darwin', 'libusb-1.0.0.dylib'),
-                                   ('win32', 'libusb-1.0.dll')]:
+                                   ('win32', 'libusb-1.0.dll'),
+                                   ('linux', 'libusb-1.0.so.0')]:
             with self.subTest(platform=platform), tempfile.TemporaryDirectory() as folder:
                 library = pathlib.Path(folder) / filename
                 library.touch()
@@ -94,14 +95,42 @@ class BundledUsb(unittest.TestCase):
                 self.assertEqual(finder('usb-1.0'), str(library))
 
     def test_incomplete_bundle_never_silently_uses_a_host_library(self):
-        modules = self.modules()
-        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules, modules), \
-                patch.object(sys, 'frozen', True, create=True), \
-                patch.object(sys, '_MEIPASS', folder, create=True), \
-                patch.object(sys, 'platform', 'darwin'):
-            with self.assertRaisesRegex(usb_update.UpdateError, 'missing its bundled libusb'):
-                usb_update.usb_modules()
-        modules['usb.backend.libusb1'].get_backend.assert_not_called()
+        for platform in ('darwin', 'win32', 'linux'):
+            modules = self.modules()
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as folder, \
+                    patch.dict(sys.modules, modules), \
+                    patch.object(sys, 'frozen', True, create=True), \
+                    patch.object(sys, '_MEIPASS', folder, create=True), \
+                    patch.object(sys, 'platform', platform):
+                with self.assertRaisesRegex(usb_update.UpdateError, 'missing its bundled libusb'):
+                    usb_update.usb_modules()
+            modules['usb.backend.libusb1'].get_backend.assert_not_called()
+
+    def test_linux_packager_stages_the_soname_from_a_versioned_system_library(self):
+        builder_spec = importlib.util.spec_from_file_location('flasher_builder', ROOT / 'tools/build-flasher.py')
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            system, work = root / 'system', root / 'work'
+            system.mkdir(); work.mkdir()
+            versioned = system / 'libusb-1.0.so.0.3.0'
+            versioned.write_bytes(b'ELF runtime fixture')
+            soname = system / 'libusb-1.0.so.0'
+            try:
+                soname.symlink_to(versioned.name)
+            except OSError as error:
+                if sys.platform != 'win32':
+                    raise
+                self.skipTest(f'This Windows account cannot create symlinks: {error}')
+            # main resolves CLI paths first, as it does for the other platforms.
+            staged = builder.stage_linux_libusb(soname.resolve(), work)
+            self.assertEqual(staged.name, 'libusb-1.0.so.0')
+            self.assertFalse(staged.is_symlink())
+            self.assertEqual(staged.read_bytes(), versioned.read_bytes())
+            versioned.unlink()
+            self.assertEqual(staged.read_bytes(), b'ELF runtime fixture')
+            self.assertEqual(builder.stage_linux_libusb(staged, work), staged)
 
 
 class SharedWindow(unittest.TestCase):

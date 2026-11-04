@@ -63,6 +63,23 @@ class EditorWindowClose:
         self.window.destroy()
 
 
+def native_renderer_self_test():
+    """Load the packaged Linux renderer without opening a window or display."""
+    if sys.platform != 'linux':
+        return None
+    import importlib
+    try:
+        renderer = importlib.import_module('webview.platforms.gtk')
+        if (renderer.renderer != 'gtkwebkit2' or
+                renderer.gtk.get_major_version() != 3 or
+                renderer.webkit.get_major_version() < 2):
+            raise RuntimeError('Incompatible GTK/WebKit renderer.')
+    except Exception as error:
+        raise RuntimeError('The Linux GTK/WebKit renderer could not be loaded. '
+                           'Check the packaged Python bindings and host WebKitGTK runtime.') from error
+    return renderer.renderer
+
+
 def package_self_test():
     """Check the packaged dependencies without discovering or writing a radio."""
     from nb4_usb_update import usb_modules
@@ -70,6 +87,7 @@ def package_self_test():
     page = (folder / 'apextx-updater.html').read_text(encoding='utf-8')
     if 'id="updatePanel"' not in page or 'id="recoverPanel"' not in page or not _logo_data_uri():
         raise RuntimeError('The shared flasher interface is incomplete.')
+    native_renderer = native_renderer_self_test()
     _core, _util, backend = usb_modules()
     if backend is None:
         raise RuntimeError('The bundled USB backend could not be loaded.')
@@ -135,7 +153,7 @@ def package_self_test():
     return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
                 release_client=True, rf_catalog=True, maintenance=True, audio_installer=True,
                 rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True,
-                preview_models=preview_models)
+                preview_models=preview_models, native_renderer=native_renderer)
 
 
 def _enable_bundled_libusb():
