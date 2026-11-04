@@ -107,6 +107,7 @@ elseif(PCBREV STREQUAL NB4)
   endif()
   # The Noble NB4+ shares the NB4 board map, RF route and input ladders. It
   # differs in the haptic output and display panel.
+  option(USE_FW_LTO "NB4 firmware link-time optimization to keep the full UI within flash" ON)
   option(NB4_PLUS_HW "NB4: build for Noble NB4+ hardware" OFF)
   if(NB4_PLUS_HW)
     # Installation and normal update have been exercised on real NB4+

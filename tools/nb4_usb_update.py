@@ -143,7 +143,10 @@ def usb_modules():
         # Finder/Explorer launches do not inherit a developer's library paths.
         # Load our own runtime explicitly instead of a host-installed libusb.
         folder = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
-        name = 'libusb-1.0.0.dylib' if sys.platform == 'darwin' else 'libusb-1.0.dll'
+        name = {'darwin': 'libusb-1.0.0.dylib', 'win32': 'libusb-1.0.dll',
+                'linux': 'libusb-1.0.so.0'}.get(sys.platform)
+        if name is None:
+            raise UpdateError('This app bundle does not support the current platform.')
         library = folder / name
         if not library.is_file():
             raise UpdateError('The app is missing its bundled libusb runtime. Download a complete copy of ApexTX Flasher.')

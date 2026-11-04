@@ -250,6 +250,7 @@ static void flushLcd(lv_disp_drv_t* disp_drv, const lv_area_t* area,
   nb4CopyRect(nb4Back, (const pixel_t*)color_p, area->x1, area->y1, width,
               height, width, 0, 0);
   nb4MarkDirty(*area);
+  nb4UiPerfArea(width * height);
   // LVGL may draw into color_p again as soon as this returns.
   DMAWait();
   nb4UiPerfCopy(nb4UiPerfNowUs() - copyStart);

@@ -27,8 +27,12 @@
 #include "hal/audio_driver.h"
 
 #include "edgetx.h"
+#if defined(SIMU)
+#include "targets/simu/simu_ui_lock.h"
+#endif
 #if defined(RADIO_NB4_FAMILY)
 #include "nb4_ui_perf.h"
+#include "nb4_home.h"
 #endif
 #include "nb4_history.h"
 #if defined(RADIO_NB4)
@@ -168,6 +172,29 @@ void closeUsbMenu()
 static UsbSDConnected* usbConnectedWindow = nullptr;
 #endif
 
+#if defined(RADIO_NB4_FAMILY)
+// Theme Editor: open the current or next connection as mass storage. The
+// default mode starts the joystick as soon as the cable is in, so a running
+// connection in another mode is stopped first; handleUsbConnection() then
+// starts mass storage with the usual storage hand-over.
+void nb4UsbSelectMassStorage()
+{
+  _usbDisabled = false;
+#if defined(COLORLCD)
+  if (_usbMenu) _usbMenu->deleteLater();
+#endif
+#if !defined(SIMU)
+  if (usbStarted() && getSelectedUsbMode() != USB_MASS_STORAGE_MODE) {
+#if defined(USB_SERIAL)
+    if (getSelectedUsbMode() == USB_SERIAL_MODE) serialStop(SP_VCP);
+#endif
+    usbStop();
+  }
+#endif
+  setSelectedUsbMode(USB_MASS_STORAGE_MODE);
+}
+#endif
+
 void handleUsbConnection()
 {
 #if defined(STM32) && !defined(SIMU)
@@ -222,6 +249,9 @@ void handleUsbConnection()
         // Defer the transition, keeping the UI responsive while an in-flight
         // transaction closes. No raw USB access races an open FatFs file.
         if (!nb4StorageQuiesce()) return;
+#endif
+#if defined(RADIO_NB4_FAMILY)
+        nb4PrepareEditorStorage();
 #endif
         edgeTxClose(false);
 #if defined(COLORLCD)

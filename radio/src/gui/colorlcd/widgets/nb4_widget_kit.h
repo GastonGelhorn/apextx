@@ -51,24 +51,12 @@ inline LcdFlags fontForWidth(coord_t w)
 inline LcdFlags fontForChars(coord_t w, unsigned n, coord_t maxH = 67)
 {
   static const LcdFlags order[] = {FONT(XXL), FONT(LXL), FONT(XL), FONT(L), FONT(STD)};
-  static const coord_t heights[] = {67, 53, 43, 32, 21};
-  for (unsigned i = 0; i < 5; ++i)
-    if (heights[i] <= maxH && (coord_t)(n * heights[i] * 58 / 100) <= w) return order[i];
-  return FONT(STD);
+  for (auto f : order)
+    if (getFontHeight(f) <= maxH && getTextWidth("-100%", 0, f) * (int)n / 5 <= w) return f;
+  return FONT(XXS);
 }
 
-inline coord_t fontHeight(LcdFlags f)
-{
-  switch (FONT_INDEX(f)) {
-    case FONT_XXL_INDEX: return 67;
-    case FONT_LXL_INDEX: return 53;
-    case FONT_XL_INDEX: return 43;
-    case FONT_L_INDEX: return 32;
-    case FONT_XS_INDEX: return 18;
-    case FONT_XXS_INDEX: return 17;
-    default: return 21;
-  }
-}
+inline coord_t fontHeight(LcdFlags f) { return getFontHeight(f); }
 
 inline lv_color_t green() { return Nb4Ui::color(COLOR_THEME_EDIT_INDEX); }
 inline lv_color_t orange() { return Nb4Ui::color(COLOR_THEME_FOCUS_INDEX); }
@@ -268,7 +256,65 @@ struct RangeBar {
   }
 };
 
+// Plain arc (no knob, not clickable) centred on cx/cy. Angles follow LVGL:
+// 0 is 3 o'clock, 270 is 12 o'clock.
+inline lv_obj_t* ring(lv_obj_t* parent, coord_t cx, coord_t cy, coord_t r,
+                      coord_t width, lv_color_t color)
+{
+  auto a = lv_arc_create(parent);
+  lv_obj_clear_flag(a, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_pos(a, cx - r, cy - r);
+  lv_obj_set_size(a, 2 * r, 2 * r);
+  lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(a, 0, 0);
+  lv_obj_set_style_pad_all(a, 0, 0);
+  lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, LV_PART_KNOB);
+  lv_obj_set_style_pad_all(a, 0, LV_PART_KNOB);
+  lv_obj_set_style_arc_width(a, width, LV_PART_MAIN);
+  lv_obj_set_style_arc_color(a, color, LV_PART_MAIN);
+  lv_obj_set_style_arc_rounded(a, false, LV_PART_MAIN);
+  lv_obj_set_style_arc_opa(a, LV_OPA_TRANSP, LV_PART_INDICATOR);
+  lv_arc_set_rotation(a, 0);
+  lv_arc_set_bg_angles(a, 0, 360);
+  return a;
+}
+
+// Straight or bent line whose points the caller keeps alive and updates.
+inline lv_obj_t* stroke(lv_obj_t* parent, coord_t width, lv_color_t color)
+{
+  auto l = lv_line_create(parent);
+  lv_obj_clear_flag(l, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_pos(l, 0, 0);
+  lv_obj_set_style_line_width(l, width, 0);
+  lv_obj_set_style_line_rounded(l, true, 0);
+  lv_obj_set_style_line_color(l, color, 0);
+  return l;
+}
+
+// Point at distance len from (cx, cy) in direction deg (LVGL angles).
+inline lv_point_t polar(coord_t cx, coord_t cy, double deg, coord_t len)
+{
+  const double a = deg * M_PI / 180.0;
+  return {(lv_coord_t)(cx + cos(a) * len), (lv_coord_t)(cy + sin(a) * len)};
+}
+
 }  // namespace nb4w
+
+// Static geometry is rebuilt only when its inputs change, never for a sample.
+class Nb4AdaptiveWidget : public Widget {
+ public:
+  using Widget::Widget;
+  void update() override {
+    if (loaded && (builtW!=width() || builtH!=height() || theme!=nb4ThemeKey() || language!=currentLangStrings)) {
+      clear();focusBorder=nullptr;delayedInit();
+    }
+  }
+ protected:
+  coord_t builtW=0,builtH=0;
+  uint32_t theme=0;
+  const void* language=nullptr;
+  void rememberGeometry(){builtW=width();builtH=height();theme=nb4ThemeKey();language=currentLangStrings;}
+};
 
 // A widget factory whose name in the picker follows the interface language.
 // The id is what a saved screen stores, so it never changes.

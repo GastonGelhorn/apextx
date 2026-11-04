@@ -17,7 +17,7 @@ constexpr uint32_t kWindowUs = 1000000;
 
 struct Window {
   uint32_t startedAt = 0;
-  uint32_t loops = 0;
+  uint32_t loops = 0, pixels = 0, areas = 0;
   uint64_t loopSum = 0;
   uint32_t loopMax = 0;
   uint64_t lvglSum = 0;
@@ -30,6 +30,8 @@ struct Window {
 Window current;
 volatile uint32_t presented = 0;
 Nb4UiPerf published = {};
+Nb4UiPerf samples[30] = {};
+unsigned sampleNext=0, sampleCount=0;
 
 volatile bool viewPending = false;
 volatile bool viewFrameQueued = false;
@@ -45,13 +47,6 @@ void publishIfDue(uint32_t now)
   if (elapsed < kWindowUs) return;
   const uint32_t frames = presented;
   presented = 0;
-  // An idle second (nothing redrawn) would overwrite the figures with zeros
-  // before anyone can read them; keep the last second that drew something.
-  if (frames == 0) {
-    current = Window();
-    current.startedAt = now;
-    return;
-  }
   Nb4UiPerf next = published;
   next.fps = elapsed ? (uint32_t)((uint64_t)frames * 1000000u / elapsed) : 0;
   if (current.loops) {
@@ -59,11 +54,13 @@ void publishIfDue(uint32_t now)
     next.lvglAvgUs = (uint32_t)(current.lvglSum / current.loops);
     next.windowAvgUs = (uint32_t)(current.windowSum / current.loops);
   }
+  next.pixels = current.pixels; next.areas = current.areas;
   next.loopMaxUs = current.loopMax;
   next.lvglMaxUs = current.lvglMax;
   next.copyAvgUs = frames ? (uint32_t)(current.copySum / frames) : 0;
   next.waitAvgUs = frames ? (uint32_t)(current.waitSum / frames) : 0;
-  published = next;
+  samples[sampleNext]=next;sampleNext=(sampleNext+1)%30;if(sampleCount<30)++sampleCount;
+  if(frames) published = next;
   current = Window();
   current.startedAt = now;
 }
@@ -84,6 +81,8 @@ void nb4UiPerfLoop(uint32_t windowUs, uint32_t lvglUs)
   if (lvglUs > current.lvglMax) current.lvglMax = lvglUs;
   publishIfDue(now);
 }
+
+void nb4UiPerfArea(uint32_t pixels) { current.pixels += pixels; ++current.areas; }
 
 void nb4UiPerfCopy(uint32_t us) { current.copySum += us; }
 
@@ -128,8 +127,16 @@ Nb4UiPerf nb4UiPerfRead()
   return result;
 }
 
+unsigned nb4UiPerfSamples(Nb4UiPerf* out, unsigned capacity)
+{
+  const unsigned count = sampleCount < capacity ? sampleCount : capacity;
+  for(unsigned i=0;i<count;++i) out[i]=samples[(sampleNext+30-count+i)%30];
+  return count;
+}
+
 void nb4UiPerfReset()
 {
+  sampleCount=sampleNext=0;
   current = Window();
   current.startedAt = nb4UiPerfNowUs();
   presented = 0;

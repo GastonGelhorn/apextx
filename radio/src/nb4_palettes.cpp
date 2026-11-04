@@ -108,6 +108,12 @@ uint32_t nb4AccentRgb(unsigned index)
   return index < DIM(accents) ? accents[index].rgb : 0;
 }
 
+static Nb4ThemeExt themeExt;
+
+void nb4SetThemeExt(const Nb4ThemeExt& ext) { themeExt = ext; }
+
+const Nb4ThemeExt& nb4ThemeExt() { return themeExt; }
+
 void nb4ApplyAccent()
 {
   unsigned index = g_eeGeneral.nb4Accent;

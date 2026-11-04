@@ -26,6 +26,60 @@ from flasher_app_update import app_version, AppUpdateController, InstanceLease
 APP_VERSION = app_version()
 
 
+class EditorWindowClose:
+    """Never wait for WebKit from its native window-closing callback."""
+    def __init__(self, window):
+        self.window = window
+        self.approved = threading.Event()
+        self.pending = threading.Lock()
+
+    def __call__(self):
+        if self.approved.is_set():
+            return True
+        if self.pending.acquire(blocking=False):
+            threading.Thread(target=self.check, daemon=True).start()
+        return False
+
+    def check(self):
+        try:
+            # run_js avoids eval(), which the local page's CSP forbids. The
+            # authenticated close endpoint acknowledges clean/discarded drafts.
+            self.window.run_js("""(() => {
+              const frame = document.getElementById('editorFrame');
+              if (!frame?.src || (frame.contentWindow.editorRequestClose?.() ?? true)) {
+                fetch('/api/editor/close', {method:'POST', body:'{}', headers:{
+                  'Content-Type':'application/json',
+                  'X-ApexTX-Token':new URLSearchParams(location.search).get('token')
+                }});
+              }
+            })();""")
+        except Exception:
+            pass  # Keep the window open if its draft state cannot be checked.
+        finally:
+            self.pending.release()
+
+    def approve(self):
+        self.approved.set()
+        self.window.destroy()
+
+
+def native_renderer_self_test():
+    """Load the packaged Linux renderer without opening a window or display."""
+    if sys.platform != 'linux':
+        return None
+    import importlib
+    try:
+        renderer = importlib.import_module('webview.platforms.gtk')
+        if (renderer.renderer != 'gtkwebkit2' or
+                renderer.gtk.get_major_version() != 3 or
+                renderer.webkit.get_major_version() < 2):
+            raise RuntimeError('Incompatible GTK/WebKit renderer.')
+    except Exception as error:
+        raise RuntimeError('The Linux GTK/WebKit renderer could not be loaded. '
+                           'Check the packaged Python bindings and host WebKitGTK runtime.') from error
+    return renderer.renderer
+
+
 def package_self_test():
     """Check the packaged dependencies without discovering or writing a radio."""
     from nb4_usb_update import usb_modules
@@ -33,6 +87,7 @@ def package_self_test():
     page = (folder / 'apextx-updater.html').read_text(encoding='utf-8')
     if 'id="updatePanel"' not in page or 'id="recoverPanel"' not in page or not _logo_data_uri():
         raise RuntimeError('The shared flasher interface is incomplete.')
+    native_renderer = native_renderer_self_test()
     _core, _util, backend = usb_modules()
     if backend is None:
         raise RuntimeError('The bundled USB backend could not be loaded.')
@@ -73,9 +128,32 @@ def package_self_test():
         bundle = folder / 'rf-catalog' / f'{radio}.zip'
         if not bundle.is_file() or bundle.stat().st_size > MAX_BUNDLE or verify_bundle(bundle.read_bytes())[0]['radio'] != radio:
             raise RuntimeError('The embedded RF catalog is missing or targets the wrong radio.')
+    # Use the frozen executable itself as the worker, including windowed builds.
+    import nb4_preview
+    import tempfile
+    import time
+    preview_models = []
+    for radio in ('nb4', 'nb4plus'):
+        preview = nb4_preview.FirmwarePreview()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'APEXTX-EDITOR.json').write_text(json.dumps({'target': radio}))
+                preview.restart({}, root)
+                deadline = time.monotonic() + 10
+                while not (preview.latest(0) and preview.catalog):
+                    if preview.error or time.monotonic() > deadline:
+                        raise RuntimeError('The packaged '+radio+' preview failed: '+str(preview.error))
+                    time.sleep(.05)
+                if preview.catalog.get('target') != radio:
+                    raise RuntimeError('The packaged preview targets the wrong radio.')
+                preview_models.append(radio)
+        finally:
+            preview.close()
     return dict(metadata, usb_backend=True, dfu_util=True, shared_ui=True,
                 release_client=True, rf_catalog=True, maintenance=True, audio_installer=True,
-                rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True)
+                rf_transfer=True, backup_agent=True, app_updates=True, integrated_update=True, nor_restore=True,
+                preview_models=preview_models, native_renderer=native_renderer)
 
 
 def _enable_bundled_libusb():
@@ -218,6 +296,21 @@ def serve(port=0, open_browser=True, startup_health=None):
                 status['running'] = False
             session.wake.set()
 
+    import importlib.util
+    import nb4_preview
+    spec = importlib.util.spec_from_file_location('apextx_editor', Path(__file__).with_name('apextx-theme-editor.py'))
+    editor_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(editor_module)
+    editor_preview = nb4_preview.FirmwarePreview() if nb4_preview.FirmwarePreview.available() else None
+    editor_close = None
+    def close_editor_window():
+        if editor_close is not None:
+            editor_close.approve()
+        elif window is not None:
+            window.destroy()
+    editor_handler = editor_module.create_handler(token, editor_preview, close_editor_window, lambda dirty: setattr(session,'editor_dirty',dirty))
+    editor_loaded = threading.Event()
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -225,7 +318,7 @@ def serve(port=0, open_browser=True, startup_health=None):
         def authorized(self):
             parsed = urlparse(self.path)
             supplied = self.headers.get('X-ApexTX-Token', '')
-            if parsed.path == '/':
+            if parsed.path in ('/', '/editor'):
                 supplied = parse_qs(parsed.query).get('token', [''])[0]
             return (self.headers.get('Host') == f'127.0.0.1:{self.server.server_port}' and
                     secrets.compare_digest(supplied, token))
@@ -239,11 +332,17 @@ def serve(port=0, open_browser=True, startup_health=None):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'")
             self.end_headers()
             self.wfile.write(data)
 
         def do_GET(self):
+            if urlparse(self.path).path == '/editor' or self.path.startswith('/api/editor/'):
+                if urlparse(self.path).path == '/editor' and self.authorized():
+                    editor_loaded.set()
+                self.path = self.path.replace('/api/editor/', '/api/', 1)
+                with session.usb_lock:
+                    return editor_handler.do_GET(self)
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
             elif urlparse(self.path).path == '/':
@@ -272,6 +371,22 @@ def serve(port=0, open_browser=True, startup_health=None):
                 self.reply(404, {'error': 'Not found.'})
 
         def do_POST(self):
+            if self.path.startswith('/api/editor/'):
+                if not self.authorized():
+                    self.reply(403,{'error':'Invalid editor session.'})
+                    return
+                with session.usb_lock:
+                    saving = urlparse(self.path).path.rsplit('/',1)[-1] in ('save','model','radio','commit','recover')
+                    with session.lock:
+                        if session.status['running'] or session.app_updating or session.bootloader_install:
+                            self.reply(409, {'error':'Finish the current Flasher operation first.'})
+                            return
+                        if saving: session.begin('editor')
+                    try:
+                        self.path = self.path.replace('/api/editor/', '/api/', 1)
+                        return editor_handler.do_POST(self)
+                    finally:
+                        if saving: session.finish()
             if not self.authorized():
                 self.reply(403, {'error': 'Invalid session. Reopen ApexTX Flasher.'})
                 return
@@ -458,12 +573,18 @@ def serve(port=0, open_browser=True, startup_health=None):
         try:
             import webview
             window = webview.create_window('ApexTX Flasher', address,
-                                           width=860, height=940, min_size=(560, 680))
+                                           width=1200, height=860, min_size=(560, 680))
+            editor_close = EditorWindowClose(window)
             def can_close():
                 with lock:
-                    return (restarting.is_set() or
+                    allowed = (restarting.is_set() or
                             startup_failed.is_set() and not status['running'] or
                             not (session.app_updating or session.app_restart_blocked()))
+                if not allowed:
+                    editor_close.approved.clear()
+                    return False
+                if restarting.is_set() or startup_failed.is_set(): return True
+                return not editor_loaded.is_set() or editor_close()
             window.events.closing += can_close
             webview.start()
         except Exception:
@@ -473,6 +594,7 @@ def serve(port=0, open_browser=True, startup_health=None):
             except KeyboardInterrupt:
                 pass
         finally:
+            if editor_preview: editor_preview.close()
             session.stop.set()
             app_updates.stopped.set()
             server.shutdown()
@@ -487,10 +609,15 @@ def serve(port=0, open_browser=True, startup_health=None):
     finally:
         session.stop.set()
         app_updates.stopped.set()
+        if editor_preview: editor_preview.close()
         server.server_close()
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == '--preview-worker':
+        import nb4_preview
+        nb4_preview.worker_main(sys.argv[2], int(sys.argv[3]))
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('firmware', type=Path, nargs='?', help='Update from the terminal. Omit the file to open the local interface.')
     parser.add_argument('--check', action='store_true', help='Validate the image or detect an update interface without writing firmware.')

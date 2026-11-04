@@ -29,6 +29,7 @@
 #include <memory>
 
 class LayoutFactory;
+class StaticText;
 
 //-----------------------------------------------------------------------------
 
@@ -115,6 +116,10 @@ class Layout: public WidgetsContainer
   }
 
   virtual bool hasTopbar() const;
+#if defined(RADIO_NB4_FAMILY)
+  // Car name and menu buttons above the zones (nb4ScreenHeader()).
+  virtual bool hasScreenHeader() const { return !isAppMode(); }
+#endif
   virtual bool hasFlightMode() const;
   virtual bool hasSliders() const;
   virtual bool hasTrims() const;
@@ -138,6 +143,10 @@ class Layout: public WidgetsContainer
   uint8_t* zoneMap = nullptr;
   int screenNum;
   rect_t lastMainZone = {0,0,0,0};
+#if defined(RADIO_NB4_FAMILY)
+  StaticText* headerName = nullptr;
+  void placeScreenHeader();
+#endif
 
   // Last time we refreshed the window
   uint32_t lastRefresh = 0;

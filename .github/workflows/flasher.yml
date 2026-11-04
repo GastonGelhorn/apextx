@@ -15,6 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Linux x64
+            runner: ubuntu-22.04
+            artifact: apextx-linux-x64-flasher
+            file: dist/ApexTX-Flasher-Linux-x86_64.tar.gz
           - name: Windows
             runner: windows-latest
             artifact: apextx-windows-flasher
@@ -36,18 +40,48 @@ jobs:
           python-version: '3.11'
 
       - name: Install signature verification dependencies
-        run: python -m pip install -r tools/requirements-updater.txt
+        run: python -m pip install -r tools/requirements-updater.txt -r tools/requirements-nb4.txt
 
       - name: Test the shared UI and USB core
         run: python -m unittest discover -s tools/tests -p 'test_*.py'
 
       - name: Test the shared interface states without USB
-        run: node tools/tests/flasher_ui.cjs
+        run: |
+          node tools/tests/flasher_ui.cjs
+          node tools/tests/editor_session_ui.cjs
+          node tools/tests/editor_color_ui.cjs
+          node tools/tests/editor_design_ui.cjs
+          node tools/tests/editor_library_ui.cjs
+
+      - name: Install Linux runtime dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl pkg-config libusb-1.0-0-dev libgtk-3-dev gir1.2-webkit2-4.0 libgirepository1.0-dev libcairo2-dev
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+
+      - name: Build firmware preview
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then export PATH="/c/msys64/ucrt64/bin:$PATH"; export CC=gcc CXX=g++; fi
+          cmake -S . -B build/nb4-customization/native -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 -DNB4_PLUS_HW=OFF -DDISABLE_COMPANION=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/nb4-customization/native --target nb4-preview -j4
+          cmake -S . -B build/nb4plus-preview/native -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/native.cmake -DEdgeTX_SUPERBUILD=0 -DNATIVE_BUILD=1 -DPCB=PL18 -DPCBREV=NB4 -DNB4_PLUS_HW=ON -DDISABLE_COMPANION=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/nb4plus-preview/native --target nb4-preview -j4
+
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: bash tools/build-linux-flasher.sh
 
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: tools/build-windows-flasher.ps1
+        run: |
+          $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
+          tools/build-windows-flasher.ps1
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'

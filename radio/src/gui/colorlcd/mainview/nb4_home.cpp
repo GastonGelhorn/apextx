@@ -35,6 +35,10 @@
 #include "nb4_rf_notice.h"
 #include "nb4_menu_pages.h"
 #endif
+#include "hal/usb_driver.h"
+#include "bootloader/nb4_update_id.h"
+#include "fw_version.h"
+#include "nb4_ui_perf.h"
 
 namespace {
 int pendingOrientation = -1;
@@ -178,6 +182,38 @@ TextButton* selectedAction(Window* p, rect_t r, const char* text, std::function<
 
 }  // namespace
 
+// The home screen's header for every other screen of the car: its name and
+// the two buttons into the menus, so no screen layout can lock them away.
+StaticText* nb4ScreenHeader(Window* parent, rect_t rect)
+{
+  auto header = card(parent, rect);
+  const std::string tags = modelLabels();
+  const coord_t nameW = rect.w - 108;
+  auto name = label(header, {8, tags.empty() ? (coord_t)14 : (coord_t)6, nameW, 20},
+                    nb4ReadCarState().model, FONT(BOLD));
+  if (!tags.empty()) {
+    auto tagLabel = label(header, {8, 27, nameW, 15}, tags.c_str(), FONT(XXS),
+                          COLOR_THEME_PRIMARY3_INDEX);
+    lv_obj_set_style_text_letter_space(tagLabel->getLvObj(), 1, LV_PART_MAIN);
+  }
+  const coord_t gearX = rect.w - 48;
+  const coord_t wrenchX = gearX - 44;
+  nb4Hairline(header, {(coord_t)(wrenchX - 6), 10, 1, 28});
+  auto wrench = new Window(header, {wrenchX, 2, 44, 44});
+  lv_obj_set_style_bg_opa(wrench->getLvObj(), LV_OPA_TRANSP, 0);
+  new StaticIcon(wrench, 7, 7, ICON_RADIO_TOOLS, COLOR_THEME_PRIMARY3_INDEX);
+  lv_obj_add_event_cb(wrench->getLvObj(), [](lv_event_t*) {
+    nb4OpenQuickAccessModal();
+  }, LV_EVENT_CLICKED, nullptr);
+  auto gear = new Window(header, {gearX, 2, 44, 44});
+  lv_obj_set_style_bg_opa(gear->getLvObj(), LV_OPA_TRANSP, 0);
+  new StaticIcon(gear, 7, 7, ICON_RADIO_SETUP, COLOR_THEME_PRIMARY3_INDEX);
+  lv_obj_add_event_cb(gear->getLvObj(), [](lv_event_t*) {
+    nb4OpenSettingsModal();
+  }, LV_EVENT_CLICKED, nullptr);
+  return name;
+}
+
 void nb4Navigate(Nb4Section section)
 {
   auto main = ViewMain::instance();
@@ -259,6 +295,7 @@ void nb4ProcessOrientation()
   pendingOrientation = -1;
   orientationAttempts = 0;
   main->resizeToDisplay();
+  nb4ReloadThemeBackground();
   LayoutFactory::loadCustomScreens();
   if (reopenAfterOrientation) nb4OpenSection(Nb4Section::Appearance);
 }
@@ -328,6 +365,25 @@ void nb4BuildAppearance(Window* parent)
   appearanceControl(external->getLvObj());
 }
 
+// The PC theme editor works on /THEMES, /RADIO and /MODELS over USB storage.
+// Only this connection (or the next one) opens as storage; the USB mode in
+// System > USB stays as it is, and the radio restarts after the session.
+void nb4ConnectThemeEditor()
+{
+#if !defined(SIMU)
+  if (usbStarted() && getSelectedUsbMode() == USB_MASS_STORAGE_MODE) {
+    new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_CONNECTED,
+                      nullptr, LEFT);
+    return;
+  }
+  nb4UsbSelectMassStorage();
+  // With the cable in, the main loop switches to storage right away.
+  if (usbPlugged()) return;
+#endif
+  new MessageDialog(STR_NB4_THEME_EDITOR, STR_NB4_THEME_EDITOR_PLUG_USB,
+                    nullptr, LEFT);
+}
+
 void nb4BuildCards(Window* parent) { nb4BuildAppearance(parent); }
 
 Nb4HomeScreen::Nb4HomeScreen(Window* parent, const rect_t& rect, bool instruments) :
@@ -356,6 +412,8 @@ void Nb4HomeScreen::build()
   lv_obj_clear_flag(lvobj, LV_OBJ_FLAG_SCROLLABLE);
 
   etx_solid_bg(lvobj, COLOR_THEME_SECONDARY3_INDEX);
+  // Let the theme's background image show around the cards.
+  if (Nb4Ui::backgroundShown()) lv_obj_set_style_bg_opa(lvobj, LV_OPA_TRANSP, 0);
   telltales[0] = telltales[1] = telltales[2] = nullptr;
   dial = nullptr; column = nullptr; chrono = nullptr; stats = nullptr;
 
@@ -542,3 +600,107 @@ void Nb4HomeScreen::checkEvents()
   else refresh(state);
 }
 #endif
+
+#if defined(RADIO_NB4_FAMILY)
+extern std::string nb4EditorOptionToken(uint32_t value, bool color);
+static std::string editorJson(const char* text)
+{
+  std::string out = "\"";
+  for (auto p = text; p && *p; ++p) {
+    const unsigned char c = *p;
+    if (c == '"' || c == '\\') out += '\\';
+    if (c >= 32) out += *p;
+  }
+  return out + "\"";
+}
+// Snapshot registered capabilities before USB takes ownership of FatFs.
+std::string nb4EditorMetadata()
+{
+  std::string text = "{\"format\":\"apextx-editor-1\",\"protocol\":1,\"target\":\"";
+  text += NB4_HARDWARE_ID;
+#if defined(SIMU)
+  const char serial[]="000000000001";
+#else
+  const auto uid = reinterpret_cast<const uint32_t*>(UID_BASE);
+  char serial[13];
+  snprintf(serial,sizeof(serial),"%08lX%04lX",(unsigned long)(uid[0]+uid[2]),(unsigned long)(uid[1]>>16));
+#endif
+  text += "\",\"serial\":\""; text += serial;
+  text += "\",\"widgets\":[";
+  bool first = true;
+  for (const auto factory : WidgetFactory::getRegisteredWidgets()) {
+    if (!first) text += ","; first = false;
+    text += editorJson(factory->getName());
+  }
+  text += "],\"catalog\":["; first = true;
+  const char* types[] = {"Integer","Source","Bool","String","TextSize","Timer","Switch","Color","Align","Slider","Choice","File"};
+  for (const auto factory : WidgetFactory::getRegisteredWidgets()) {
+    if (!first) text += ","; first = false;
+    text += "{\"id\":" + editorJson(factory->getName()) + ",\"options\":[";
+    factory->parseOptionDefaults();
+    auto opt = factory->getDefaultOptions(); bool firstOpt = true;
+    for (; opt && opt->name; ++opt) {
+      if (!firstOpt) text += ","; firstOpt = false;
+      text += "{\"name\":" + editorJson(opt->name) + ",\"type\":" + editorJson(types[opt->type]) + ",\"default\":";
+      if (opt->type == WidgetOption::String || opt->type == WidgetOption::File)
+        text += editorJson(opt->deflt.stringValue.c_str());
+      else if (opt->type == WidgetOption::Source || opt->type == WidgetOption::Color)
+        text += editorJson(nb4EditorOptionToken(opt->deflt.unsignedValue, opt->type == WidgetOption::Color).c_str());
+      else text += std::to_string(opt->deflt.signedValue);
+      text += ",\"min\":" + std::to_string(opt->min.signedValue) + ",\"max\":" + std::to_string(opt->max.signedValue) + "}";
+    }
+    text += "]}";
+  }
+  text += "],\"sources\":["; first = true;
+  for (unsigned i = 0; i <= MIXSRC_LAST_TELEM; ++i) {
+    const auto token = nb4EditorOptionToken(i, false);
+    if (token.empty()) continue;
+    if (!first) text += ","; first = false;
+    text += editorJson(token.c_str());
+  }
+  text += "],\"firmware\":" + editorJson(GIT_STR) + ",\"model\":" + editorJson(g_eeGeneral.currModelFilename);
+  text += ",\"layouts\":["; first = true;
+  for (const auto factory : LayoutFactory::getRegisteredLayouts()) {
+    if (!first) text += ","; first = false;
+    text += editorJson(factory->getId());
+  }
+  text += "],\"colorCount\":"+std::to_string(THEME_COLOR_COUNT)+",\"fonts\":[";
+  for(unsigned i=0;i<FONTS_COUNT;++i){
+    if(i)text+=",";
+    text+="{\"id\":"+std::to_string(i)+",\"height\":"+std::to_string(getFontHeight(i<<8))+"}";
+  }
+  text += "]}";
+  return text;
+}
+
+void nb4PrepareEditorStorage()
+{
+#if !defined(SIMU)
+  const auto text=nb4EditorMetadata();
+  const auto uid = reinterpret_cast<const uint32_t*>(UID_BASE);
+  char serial[13];
+  snprintf(serial,sizeof(serial),"%08lX%04lX",(unsigned long)(uid[0]+uid[2]),(unsigned long)(uid[1]>>16));
+  Nb4UiPerf samples[30];
+  const auto count=nb4UiPerfSamples(samples,30);
+  std::string stats="{\"format\":\"apextx-ui-perf-1\",\"serial\":"+editorJson(serial)+",\"firmware\":"+editorJson(GIT_STR)+",\"samples\":[";
+  char row[512];
+  for(unsigned i=0;i<count;++i){
+    if(i)stats+=",";
+    const auto& p=samples[i];
+    snprintf(row,sizeof(row),"{\"fps\":%lu,\"pixels\":%lu,\"areas\":%lu,\"loopAvgUs\":%lu,\"loopMaxUs\":%lu,\"lvglAvgUs\":%lu,\"lvglMaxUs\":%lu,\"windowAvgUs\":%lu,\"copyAvgUs\":%lu,\"waitAvgUs\":%lu,\"viewLastUs\":%lu,\"viewMaxUs\":%lu,\"views\":%lu}",
+      (unsigned long)p.fps,(unsigned long)p.pixels,(unsigned long)p.areas,
+      (unsigned long)p.loopAvgUs,(unsigned long)p.loopMaxUs,(unsigned long)p.lvglAvgUs,
+      (unsigned long)p.lvglMaxUs,(unsigned long)p.windowAvgUs,(unsigned long)p.copyAvgUs,
+      (unsigned long)p.waitAvgUs,(unsigned long)p.viewLastUs,(unsigned long)p.viewMaxUs,(unsigned long)p.views);
+    stats+=row;
+  }
+  stats+="]}";
+  FIL file; UINT written=0;
+  if(f_open(&file,"/APEXTX-UI-PERF.json",FA_CREATE_ALWAYS|FA_WRITE)==FR_OK){f_write(&file,stats.data(),stats.size(),&written);f_sync(&file);f_close(&file);}
+  if (f_open(&file, "/APEXTX-EDITOR.json", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+    f_write(&file, text.data(), text.size(), &written); f_sync(&file); f_close(&file);
+  }
+#endif
+}
+
+#endif // RADIO_NB4_FAMILY

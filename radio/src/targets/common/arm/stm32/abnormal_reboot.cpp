@@ -89,6 +89,11 @@ void abnormalRebootRequestRomDfu()
 
 void abnormalRebootRequestResume()
 {
+  // Reset flags are sticky across the bootloader. Cache this boot's cause,
+  // then start a fresh set for the deliberate software restart. A subsequent
+  // real watchdog reset still sets IWDGRST and keeps recovery enabled.
+  _init_reboot_cause();
+  LL_RCC_ClearResetFlags();
   _reboot_cmd = REBOOT_CMD_RESUME;
 }
 
