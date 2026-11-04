@@ -46,7 +46,9 @@ jobs:
         run: python -m unittest discover -s tools/tests -p 'test_*.py'
 
       - name: Test the shared interface states without USB
-        run: node tools/tests/flasher_ui.cjs
+        run: |
+          node tools/tests/flasher_ui.cjs
+          node tools/tests/editor_session_ui.cjs
 
       - name: Install Linux runtime dependencies
         if: runner.os == 'Linux'
