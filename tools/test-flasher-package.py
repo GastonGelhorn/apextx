@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
 """Smoke-test a packaged flasher with no USB operation or developer PATH."""
+import argparse
 import hashlib
 import json
 import os
@@ -16,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dist-dir', type=Path, default=ROOT / 'dist')
+    dist = parser.parse_args().dist_dir.resolve()
     mac = sys.platform == 'darwin'
     env = dict(os.environ)
     if mac:
@@ -26,18 +30,18 @@ def main():
     with tempfile.TemporaryDirectory() as folder:
         report = Path(folder) / 'self-test.json'
         if mac:
-            archive = ROOT / f'dist/ApexTX-Flasher-macOS-{platform.machine().lower()}.zip'
+            archive = dist / f'ApexTX-Flasher-macOS-{platform.machine().lower()}.zip'
             subprocess.run(['ditto', '-x', '-k', str(archive), folder], check=True)
             executable = Path(folder) / 'ApexTX-Flasher.app/Contents/MacOS/ApexTX-Flasher'
             subprocess.run(['codesign', '--verify', '--deep', '--strict',
                             str(Path(folder) / 'ApexTX-Flasher.app')], check=True)
         elif sys.platform == 'linux':
-            archive = ROOT / f'dist/ApexTX-Flasher-Linux-{platform.machine().lower()}.tar.gz'
+            archive = dist / f'ApexTX-Flasher-Linux-{platform.machine().lower()}.tar.gz'
             with tarfile.open(archive) as bundle: bundle.extractall(folder, filter='data')
             executable = Path(folder) / 'ApexTX-Flasher/ApexTX-Flasher'
         else:
             executable = Path(folder) / 'ApexTX-Flasher.exe'
-            shutil.copy2(ROOT / 'dist/ApexTX-Flasher.exe', executable)
+            shutil.copy2(dist / 'ApexTX-Flasher.exe', executable)
         subprocess.run([str(executable), '--self-test', str(report)],
                        cwd=folder, env=env, check=True, timeout=60)
         result = json.loads(report.read_text())

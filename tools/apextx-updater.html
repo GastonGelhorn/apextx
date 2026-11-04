@@ -26,12 +26,32 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--text);min-height:100vh;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-main{max-width:760px;margin:0 auto;padding:22px 28px 40px}
+main{width:100%;min-height:100vh;display:grid;grid-template-columns:210px minmax(0,1fr);grid-template-rows:auto 1fr;gap:0}
+.topbar{grid-column:1/-1;padding:18px 28px;border-bottom:1px solid var(--line)}
+.workspace-nav{padding:24px 14px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.workspace-nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid transparent;border-radius:9px;padding:13px 12px;background:transparent;color:var(--text2);cursor:pointer;font-weight:600}
+.workspace-nav svg{width:21px;height:21px;flex:none}
+.workspace-nav button.on{background:var(--accent-soft);border-color:var(--line);color:var(--accent)}
+.workspace-nav button:hover{background:var(--surface2)}
+.workspace-nav button:disabled{opacity:.5;cursor:default}
+.workspace-content{min-width:0;padding:26px clamp(18px,3vw,48px) 32px}
+.workspace-heading{margin-bottom:22px}.workspace-heading .intro{margin-bottom:0;max-width:85ch}
+#editorPanel{padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;min-height:0}
+#editorFrame{display:block;width:100%;height:100%;border:0;color-scheme:light dark}
+html[data-workspace="editor"] main{height:100dvh;min-height:0;overflow:hidden;grid-template-rows:auto minmax(0,1fr)}
+html[data-workspace="editor"] .workspace-content{display:flex;flex-direction:column;min-height:0;padding:18px 22px 0}
+html[data-workspace="editor"] .workspace-heading{flex:none;margin-bottom:14px}
+html[data-workspace="editor"] .workspace-heading h1{font-size:22px}
+html[data-workspace="editor"] #editorPanel{flex:1;display:flex}
+html[data-workspace="editor"] #editorFrame{flex:1;min-width:0}
+html[data-workspace="editor"] #tabs,html[data-workspace="editor"] #firmwareNote,html[data-workspace="editor"] footer{display:none}
+@media(max-width:960px){main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 1fr}.workspace-nav{flex-direction:row;padding:10px 18px;border-right:0;border-bottom:1px solid var(--line)}.workspace-nav button{width:auto}.workspace-content{padding:22px 18px}.topbar{padding:14px 18px}html[data-workspace="editor"] main{grid-template-rows:auto auto minmax(0,1fr)}html[data-workspace="editor"] .workspace-content{padding:14px 12px 0}}
+@media(max-width:620px){.workspace-nav button{flex:1;font-size:12px;padding:10px 8px}.workspace-nav{gap:4px;padding:8px 12px}.topbar{gap:8px;flex-wrap:wrap}.brand span{display:none}.topbar-right{gap:6px}.workspace-heading .intro{font-size:12px}html[data-workspace="editor"] .workspace-heading{margin-bottom:8px}}
 a{color:var(--accent)}
 button{font:inherit}
 
 /* Top bar */
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:0}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand img{width:40px;height:40px;display:block;border-radius:9px}
 .brand strong{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
@@ -201,7 +221,7 @@ footer a:hover{color:var(--text);text-decoration:underline}
 
 button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 #bootloaderGuideTitle:focus{outline:none}
-@media(max-width:620px){main{padding:18px 16px 32px}h1{font-size:21px}.panel{padding:18px}.device-meta{gap:12px}.device-meta strong{font-size:16px}.device-head strong{font-size:15px}.topbar{margin-bottom:20px}}
+@media(max-width:620px){main{padding:0}h1{font-size:21px}.panel{padding:18px}.device-meta{gap:12px}.device-meta strong{font-size:16px}.device-head strong{font-size:15px}.topbar{margin-bottom:0}}
 </style>
 <main>
 <header class="topbar">
@@ -213,17 +233,21 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
   </div>
 </header>
 
-<h1 data-k="h1">Update your radio</h1>
-<p class="intro" data-k="intro">Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right version, checks it, and guides you through each step.</p>
+<nav class="workspace-nav" id="workspaceNav" aria-label="Workspace">
+<button id="firmwareNav" class="on" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h8M10 17h4"/></svg><span data-k="navFirmware">Firmware & resources</span></button>
+<button id="editorTab" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m14 5 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></svg><span data-k="navEditor">Personalization</span></button>
+</nav>
+<div class="workspace-content">
+<div class="workspace-heading"><h1 id="workspaceTitle">Update your radio</h1>
+<p class="intro" id="workspaceIntro">Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right version, checks it, and guides you through each step.</p></div>
 
 <div class="tabs" id="tabs">
   <button data-mode="update" class="on" data-k="tabUpdate">Update</button>
   <button data-mode="components" data-k="componentsTitle">Components</button>
-  <button data-mode="editor" id="editorTab">Editor</button>
   <button data-mode="recover" data-k="tabRecover">Install or recover</button>
 </div>
 
-<section class="panel hide" id="editorPanel"><iframe id="editorFrame" title="ApexTX Editor" style="width:100%;height:85vh;border:0"></iframe></section>
+<section class="panel hide" id="editorPanel"><iframe id="editorFrame" title="ApexTX Editor"></iframe></section>
 <!-- UPDATE -->
 <section class="panel" id="updatePanel">
   <div class="device-head"><span class="device-dot" id="deviceDot" aria-hidden="true"></span><strong id="deviceTitle"></strong><button class="quiet" id="refresh" data-k="refresh">Check again</button></div>
@@ -342,7 +366,7 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <div id="transfer" hidden><progress id="bar" max="100" value="0" aria-label="Progress"></progress>
 <div class="status-row" aria-live="polite"><span id="message"></span><span id="percent">0%</span></div></div>
 
-<p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note"></span></p>
+<p class="note" id="firmwareNote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span data-k="note"></span></p>
 <dialog id="appDialog" aria-labelledby="appDialogTitle">
 <div class="dlg">
 <div class="dlg-head"><img src="__LOGO_DATA__" alt=""><div><h2 id="appDialogTitle"></h2><p id="appDialogLead"></p></div></div>
@@ -359,11 +383,19 @@ button:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,s
 <footer><div class="meta"><span id="appUpdateStatus" role="status" aria-live="polite"></span> · <a href="https://github.com/GastonGelhorn/apextx" target="_blank" rel="noreferrer noopener">github.com/GastonGelhorn/apextx</a><span id="appUpdateCheck"></span><span id="appInstallLocation"></span></div>
 <p id="appUpdateError" class="error" role="alert"></p>
 <label class="channel footer-channel"><input type="checkbox" id="appPreview"><span data-k="appPreview"></span></label></footer>
+</div>
 </main>
 <script>
 document.getElementById("driverNote").hidden=document.getElementById("bootloaderDriver").hidden=document.documentElement.dataset.platform!=="win32";
 const T={
 en:{
+ "navFirmware":"Firmware & resources",
+ "navEditor":"Personalization",
+ "editorTitle":"Make it yours",
+ "editorIntro":"Design themes, arrange screens and preview your changes before saving.",
+ "componentsIntro":"Manage firmware, audio and storage resources for your radio.",
+ "recoverTitle":"Install or recover your radio",
+ "recoverIntro":"Restore a radio or install ApexTX for the first time.",
  "h1":"Update your radio",
  "intro":"Install or update ApexTX on your FlySky Noble NB4 or NB4+. The app finds the right version, checks it, and guides you through each step.",
  "windowsDriver":"Windows needs a USB driver for the radio. If it isn't detected, install the WinUSB driver (for example with Zadig) and reconnect it.",
@@ -596,6 +628,13 @@ en:{
  "appUpdated":"ApexTX Flasher was updated."
 },
 es:{
+ "navFirmware":"Firmware y recursos",
+ "navEditor":"Personalización",
+ "editorTitle":"Personaliza tu emisora",
+ "editorIntro":"Diseña temas, organiza pantallas y previsualiza los cambios antes de guardarlos.",
+ "componentsIntro":"Gestiona el firmware, los sonidos y los recursos de almacenamiento de tu emisora.",
+ "recoverTitle":"Instala o recupera tu emisora",
+ "recoverIntro":"Recupera una emisora o instala ApexTX por primera vez.",
  "h1":"Actualiza tu emisora",
  "intro":"Instala o actualiza ApexTX en tu FlySky Noble NB4 o NB4+. La aplicación busca la versión adecuada, la comprueba y te guía paso a paso.",
  "windowsDriver":"Windows necesita un controlador USB para la emisora. Si no se detecta, instala el controlador WinUSB (por ejemplo con Zadig) y vuelve a conectarla.",
@@ -828,6 +867,13 @@ es:{
  "appUpdated":"ApexTX Flasher se actualizó correctamente."
 },
 de:{
+ "navFirmware":"Firmware & Ressourcen",
+ "navEditor":"Personalisierung",
+ "editorTitle":"Sender gestalten",
+ "editorIntro":"Themen entwerfen, Ansichten anordnen und Änderungen vor dem Speichern ansehen.",
+ "componentsIntro":"Firmware, Audiodateien und Speicherressourcen des Senders verwalten.",
+ "recoverTitle":"Sender installieren oder retten",
+ "recoverIntro":"Einen Sender wiederherstellen oder ApexTX erstmals installieren.",
  "h1":"Sender aktualisieren",
  "intro":"ApexTX auf deinem FlySky Noble NB4 oder NB4+ installieren oder aktualisieren. Die App findet die passende Version, prüft sie und führt dich Schritt für Schritt.",
  "windowsDriver":"Windows braucht einen USB-Treiber für den Sender. Wird er nicht erkannt, installiere den WinUSB-Treiber (zum Beispiel mit Zadig) und verbinde ihn erneut.",
@@ -1060,6 +1106,13 @@ de:{
  "appUpdated":"ApexTX Flasher wurde aktualisiert."
 },
 cn:{
+ "navFirmware":"固件与资源",
+ "navEditor":"个性化",
+ "editorTitle":"自定义遥控器",
+ "editorIntro":"设计主题、排列屏幕，并在保存前预览更改。",
+ "componentsIntro":"管理遥控器的固件、声音和存储资源。",
+ "recoverTitle":"安装或恢复遥控器",
+ "recoverIntro":"恢复遥控器或首次安装 ApexTX。",
  "h1":"更新遥控器",
  "intro":"在 FlySky Noble NB4 或 NB4+ 上安装或更新 ApexTX。应用会找到合适的版本、进行校验，并逐步引导你完成。",
  "windowsDriver":"Windows 需要为遥控器安装 USB 驱动。若未检测到遥控器，请安装 WinUSB 驱动（例如使用 Zadig）后重新连接。",
@@ -1301,12 +1354,29 @@ const rfile=$('#rfile'),rstart=$('#rstart'),rfileinfo=$('#rfileinfo'),rmodel=$('
 let running=false,lang='en',mode='update',rVariant=null,snapshot=null,requesting=false,localError=null;
 const IMG=2097152;
 function pick(){try{const s=localStorage.getItem('apextxLang');if(s&&T[s])return s;}catch(e){}const raw=(navigator.language||'en').slice(0,2).toLowerCase(),n=raw==='zh'?'cn':raw;return T[n]?n:'en';}
-function setMode(m){if(running)return;$('#editorPanel').classList.toggle('hide',m!=='editor');if(m==='editor'&&!$('#editorFrame').src)$('#editorFrame').src='/editor?token='+encodeURIComponent('__SESSION_TOKEN__');mode=m;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));$('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');$('#componentPanel').classList.toggle('hide',m!=='components');}
+let lastFirmwareMode='update';
+function renderNavigation(){
+ const editor=mode==='editor',d=T[lang];
+ document.documentElement.dataset.workspace=editor?'editor':'firmware';
+ $('#firmwareNav').classList.toggle('on',!editor);$('#editorTab').classList.toggle('on',editor);
+ $('#firmwareNav').setAttribute('aria-pressed',String(!editor));$('#editorTab').setAttribute('aria-pressed',String(editor));
+ $('#workspaceTitle').textContent=d[editor?'editorTitle':mode==='components'?'componentsTitle':mode==='recover'?'recoverTitle':'h1'];
+ $('#workspaceIntro').textContent=d[editor?'editorIntro':mode==='components'?'componentsIntro':mode==='recover'?'recoverIntro':'intro'];
+}
+function setMode(m){
+ if(running||requesting||snapshot?.bootloader_install||!['editor','update','components','recover'].includes(m))return;
+ mode=m;if(m!=='editor')lastFirmwareMode=m;
+ $('#editorPanel').classList.toggle('hide',m!=='editor');
+ if(m==='editor'&&!$('#editorFrame').src)$('#editorFrame').src='/editor?embedded=1&token='+encodeURIComponent('__SESSION_TOKEN__');
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+ $('#updatePanel').classList.toggle('hide',m!=='update');$('#recoverPanel').classList.toggle('hide',m!=='recover');$('#componentPanel').classList.toggle('hide',m!=='components');
+ renderNavigation();
+}
 function applyLang(l){lang=l;const d=T[l];document.documentElement.lang=l==='cn'?'zh-CN':l;
  document.querySelectorAll('[data-k]').forEach(el=>{if(d[el.dataset.k]!=null)el.textContent=d[el.dataset.k];});
  document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
  const uf=file.files[0],rf=rfile.files[0];fileinfo.textContent=uf?`${uf.name} · ${(uf.size/1048576).toFixed(2)} MiB`:d.fileinfo;rfileinfo.textContent=rf?`${rf.name} · ${(rf.size/1048576).toFixed(2)} MiB`:d.rfileinfo;
- refreshModel();render();try{localStorage.setItem('apextxLang',l);}catch(e){}
+ renderNavigation();refreshModel();render();try{localStorage.setItem('apextxLang',l);}catch(e){}
 }
 function refreshModel(){const d=T[lang];if(!rfile.files[0]){rmodel.style.display='none';rconfirmWrap.style.display='none';return;}
  rmodel.style.display='block';rconfirmWrap.style.display='flex';rmodel.textContent=rVariant?d.rmodelFor+'Noble '+rVariant:d.rmodelUnknown;
@@ -1354,6 +1424,7 @@ function render(){const s=snapshot||{},d=T[lang],device=s.device||{state:'search
  rstart.disabled=running||requesting||!!plan||!rfile.files[0]||rfile.files[0].size!==IMG||!selectedRadio()||!rconfirm.checked;
  renderComponents();
  document.querySelectorAll('#tabs button,input[name="radioVariant"],#rconfirm').forEach(el=>el.disabled=running||!!plan);
+ $('#firmwareNav').disabled=$('#editorTab').disabled=running||requesting||!!plan;
 }
 function renderComponents(){
  const p=snapshot?.integrated,device=snapshot?.device||{},busy=running||requesting,d=T[lang],maintenance=device.state==='normal'&&device.maintenance===true,rom=device.state==='recovery',storage=device.mode==='storage';
@@ -1448,6 +1519,7 @@ for(const key of componentKeys){
 }
 document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>applyLang(b.dataset.lang));
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+$('#firmwareNav').onclick=()=>setMode(lastFirmwareMode);$('#editorTab').onclick=()=>setMode('editor');
 document.querySelectorAll('input[name="radioVariant"]').forEach(b=>b.onchange=()=>{rconfirm.checked=false;refreshModel();render();});
 file.onchange=()=>{clearError();const d=T[lang],f=file.files[0];fileinfo.textContent=f?`${f.name} · ${(f.size/1048576).toFixed(2)} MiB`:d.fileinfo;if(f&&f.size!==IMG)showError(d.sizeerr);render();};
 start.onclick=()=>send('/api/update',file.files[0],{'X-ApexTX-Serial':snapshot.device.serial});

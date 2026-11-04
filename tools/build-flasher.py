@@ -31,7 +31,10 @@ def main():
     parser.add_argument('--dfu-dir', type=Path, required=True)
     parser.add_argument('--libusb', type=Path, required=True)
     parser.add_argument('--preview-dir', type=Path, default=ROOT / 'build/nb4-customization/native')
+    parser.add_argument('--dist-dir', type=Path, default=ROOT / 'dist', help='Destination for the app and archive.')
     args = parser.parse_args()
+    dist = args.dist_dir.resolve()
+    dist.mkdir(parents=True, exist_ok=True)
     if sys.platform not in ('win32', 'darwin', 'linux'):
         parser.error('Build on Windows or macOS for that operating system.')
     mac = sys.platform == 'darwin'
@@ -82,7 +85,7 @@ def main():
         '--hidden-import', 'nb4_integrated_update', '--hidden-import', 'nb4_nor_restore', '--hidden-import', 'nb4_resource_install',
         '--collect-all', 'webview',
         '--workpath', str(work / 'pyinstaller'), '--specpath', str(work),
-        '--distpath', str(ROOT / 'dist'), '--noconfirm', '--clean',
+        '--distpath', str(dist), '--noconfirm', '--clean',
     ]
     for name in ('apextx-theme-editor.py', 'apextx-theme-editor.html', 'apextx-theme-editor-catalog.json'):
         options += ['--add-data', str(ROOT / 'tools' / name) + ':.']
@@ -135,7 +138,7 @@ def main():
     subprocess.run([sys.executable, '-m', 'PyInstaller', *options], check=True, cwd=ROOT)
 
     if mac:
-        app = ROOT / 'dist/ApexTX-Flasher.app'
+        app = dist / 'ApexTX-Flasher.app'
         info = app / 'Contents/Info.plist'
         with info.open('rb') as stream:
             properties = plistlib.load(stream)
@@ -146,15 +149,15 @@ def main():
         # Changing Info.plist invalidates only the enclosing bundle signature.
         subprocess.run(['codesign', '--force', '--sign', '-', str(app)], check=True)
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
-        archive = ROOT / f'dist/ApexTX-Flasher-macOS-{arch}.zip'
+        archive = dist / f'ApexTX-Flasher-macOS-{arch}.zip'
         subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent',
                         str(app), str(archive)], check=True)
     elif linux:
-        archive = ROOT / f'dist/ApexTX-Flasher-Linux-{arch}.tar.gz'
+        archive = dist / f'ApexTX-Flasher-Linux-{arch}.tar.gz'
         with tarfile.open(archive, 'w:gz') as bundle:
-            bundle.add(ROOT / 'dist/ApexTX-Flasher', arcname='ApexTX-Flasher')
+            bundle.add(dist / 'ApexTX-Flasher', arcname='ApexTX-Flasher')
     else:
-        archive = ROOT / 'dist/ApexTX-Flasher.exe'
+        archive = dist / 'ApexTX-Flasher.exe'
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix(archive.suffix + '.sha256').write_text(
         f'{checksum}  {archive.name}\n', encoding='utf-8')

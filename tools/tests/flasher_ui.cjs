@@ -6,11 +6,11 @@ const vm = require('node:vm');
 const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '../apextx-updater.html'), 'utf8');
 const elements = new Map();
-function element() {return {dataset:{},style:{},files:[],classList:{toggle(){}},appendChild(child){child.parentElement=this;},textContent:'',hidden:false,disabled:false,checked:false};}
+function element() {return {dataset:{},style:{},files:[],classList:{values:new Set(),toggle(k,on){on?this.values.add(k):this.values.delete(k);}},setAttribute(k,v){this[k]=v;},appendChild(child){child.parentElement=this;},textContent:'',hidden:false,disabled:false,checked:false};}
 for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set('#'+match[1],element());
 const translations = [...html.matchAll(/data-k="([^"]+)"/g)].map(m=>Object.assign(element(),{dataset:{k:m[1]}}));
 const langs = ['en','es','de','cn'].map(lang=>Object.assign(element(),{dataset:{lang}}));
-const modes = ['update','recover'].map(mode=>Object.assign(element(),{dataset:{mode}}));
+const modes = ['update','components','recover'].map(mode=>Object.assign(element(),{dataset:{mode}}));
 const radios = ['NB4','NB4+'].map(value=>Object.assign(element(),{value}));
 const document = {documentElement:{dataset:{platform:'darwin'}},
  getElementById(id) {return elements.get('#'+id);},
@@ -39,6 +39,19 @@ for(const language of ['en','es','de','cn']) {
  }
 }
 run("navigator.language='es';applyLang(pick())");
+// Changing workspaces preserves the editor document and firmware subsection.
+run("setMode('components');setMode('editor')");
+assert.equal(document.documentElement.dataset.workspace,'editor');
+assert.equal(get('workspaceTitle').textContent,run('T.es.editorTitle'));
+assert.equal(get('editorTab')['aria-pressed'],'true');
+const editorURL=get('editorFrame').src;
+get('firmwareNav').onclick();
+assert.equal(run('mode'),'components');
+assert.equal(document.documentElement.dataset.workspace,'firmware');
+get('editorTab').onclick();
+assert.equal(get('editorFrame').src,editorURL,'Returning to the editor must not reload pending drafts');
+run("applyLang('de')");assert.equal(get('workspaceTitle').textContent,run('T.de.editorTitle'));
+run("applyLang('es');setMode('update')");
 const offer={id:42,target:1,version:'0.1.0-alpha.4',prerelease:true,url:'https://github.com/',decision:'available'};
 const device={state:'ready',target:1,serial:'A',model:'NB4',version:'0.1.0-alpha.3'};
 function state(device,release=offer,extra={}) {run('snapshot='+JSON.stringify({device,release,...extra})+';running=!!snapshot.running;render();');}
@@ -84,6 +97,8 @@ assert.equal(get('start').disabled,true);
 assert.equal(get('preview').disabled,true);
 assert.equal(get('rstart').disabled,true);
 assert.equal(modes.every(m=>m.disabled),true);
+assert.equal(get('editorTab').disabled,true);assert.equal(get('firmwareNav').disabled,true);
+run("setMode('editor')");assert.equal(run('mode'),'update','An active transfer prevents workspace changes');
 assert.equal(run("operationMessage({message:'Firmware verified. Confirm that the radio has returned to the home screen.',progress:100})"),'Firmware verificado. Comprueba que tu emisora muestra la pantalla de Inicio.');
 state(device);
 const bootOffer={...offer,decision:'bootloader',bootloader:1};
