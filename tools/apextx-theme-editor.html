@@ -1813,7 +1813,7 @@ function renderConnection() {
   $('connDot').classList.toggle('on',connected);
   $('connText').textContent=connected?t('connOk')+' '+root:ui('offline');
   $('connText').title=connected?root:t('connNone')+' '+t('connLocal')+' '+target();
-  document.querySelectorAll('.radioOnly').forEach(element=>element.style.display='');
+  document.querySelectorAll('.radioOnly').forEach(element=>element.style.display=connected?'':'none');
 }
 async function loadTargets() {
   if (!inApp) { $('connText').textContent = ui('offline'); $('refresh').style.display = 'none'; return; }
