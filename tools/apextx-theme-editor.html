@@ -282,6 +282,8 @@ dialog{border:1px solid var(--line2);border-radius:12px;background:var(--panel);
 
   <!-- ====================================================== RADIO -->
   <div class="view" id="view-radio">
+    <section class="panel" id="appearanceEmpty"><h2 data-ui="appearance"></h2><p class="hint" data-ui="appearanceOffline"></p></section>
+    <div id="appearanceControls" hidden>
     <section class="panel">
       <h2 data-t="secAppearance"></h2>
       <p class="hint" data-t="hintAppearance"></p>
@@ -306,6 +308,7 @@ dialog{border:1px solid var(--line2);border-radius:12px;background:var(--panel);
       </div>
       <p class="status" id="radioStatus"></p>
     </section>
+    </div>
   </div>
 </div>
 
@@ -525,10 +528,10 @@ const optLabel = o => (o.label && (o.label[lang] || o.label.en)) || (catalog().l
 // ---------------------------------------------------------------------------
 
 const WORKSPACE_WORDS = {
- en:{connectionOptions:'Connection options',offline:'Offline design · drafts are saved on this computer',library:'Theme library',searchThemes:'Search themes',allThemes:'All categories',noResults:'No matching themes',resetColors:'Reset colours to preset',landscapeImage:'Landscape image…',sameImage:'Use portrait for both',viewYaml:'View theme YAML',preview:'Live preview',exportPreview:'Export PNG',savedDraft:'No pending changes',unsavedDraft:'Unsaved changes',imageError:'Cannot open this image. Use a PNG or JPEG under 8 MB.',imageTooLarge:'Image is too large (maximum 24 megapixels).',snapshotSaved:'Preview exported',appearance:'Appearance',colour:'colour',hexColour:'hex colour',themeHelp:'Save a theme as a THEMES/<Name>/ folder. Select it on the radio or in Appearance.'},
- es:{connectionOptions:'Opciones de conexión',offline:'Diseño offline · los borradores se guardan en este ordenador',library:'Biblioteca de temas',searchThemes:'Buscar temas',allThemes:'Todas las categorías',noResults:'No hay temas coincidentes',resetColors:'Restaurar colores del preset',landscapeImage:'Imagen horizontal…',sameImage:'Usar la vertical para ambas',viewYaml:'Ver YAML del tema',preview:'Vista previa',exportPreview:'Exportar PNG',savedDraft:'Sin cambios pendientes',unsavedDraft:'Cambios sin guardar',imageError:'No se puede abrir esta imagen. Usa PNG o JPEG de menos de 8 MB.',imageTooLarge:'Imagen demasiado grande (máximo 24 megapíxeles).',snapshotSaved:'Vista previa exportada',appearance:'Apariencia',colour:'color',hexColour:'color hexadecimal',themeHelp:'Guarda el tema en una carpeta THEMES/<Nombre>/. Selecciónalo en la emisora o en Apariencia.'},
- de:{connectionOptions:'Verbindungsoptionen',offline:'Offline-Entwurf · Entwürfe werden auf diesem Computer gespeichert',library:'Themenbibliothek',searchThemes:'Themen suchen',allThemes:'Alle Kategorien',noResults:'Keine passenden Themen',resetColors:'Vorlagenfarben wiederherstellen',landscapeImage:'Querformatbild…',sameImage:'Hochformatbild für beide',viewYaml:'Themen-YAML anzeigen',preview:'Live-Vorschau',exportPreview:'PNG exportieren',savedDraft:'Keine ausstehenden Änderungen',unsavedDraft:'Ungespeicherte Änderungen',imageError:'Bild kann nicht geöffnet werden. PNG oder JPEG unter 8 MB verwenden.',imageTooLarge:'Bild zu groß (maximal 24 Megapixel).',snapshotSaved:'Vorschau exportiert',appearance:'Darstellung',colour:'Farbe',hexColour:'Hex-Farbe',themeHelp:'Das Theme wird als Ordner THEMES/<Name>/ gespeichert. Auswahl an der Fernbedienung oder unter Darstellung.'},
- cn:{connectionOptions:'连接选项',offline:'离线设计 · 草稿保存在此电脑',library:'主题库',searchThemes:'搜索主题',allThemes:'所有类别',noResults:'没有匹配的主题',resetColors:'恢复预设颜色',landscapeImage:'横屏图片…',sameImage:'两个方向使用相同图片',viewYaml:'查看主题 YAML',preview:'实时预览',exportPreview:'导出 PNG',savedDraft:'没有待保存的更改',unsavedDraft:'有未保存的更改',imageError:'无法打开图片。请使用小于 8 MB 的 PNG 或 JPEG。',imageTooLarge:'图片过大（最多 2400 万像素）。',snapshotSaved:'预览已导出',appearance:'外观',colour:'颜色',hexColour:'十六进制颜色',themeHelp:'主题保存在 THEMES/<名称>/ 文件夹中。可在遥控器或外观页面选择。'}
+ en:{connectionOptions:'Connection options',offline:'Offline design · drafts are saved on this computer',library:'Theme library',searchThemes:'Search themes',allThemes:'All categories',noResults:'No matching themes',resetColors:'Reset colours to preset',landscapeImage:'Landscape image…',sameImage:'Use portrait for both',viewYaml:'View theme YAML',preview:'Live preview',exportPreview:'Export PNG',savedDraft:'No pending changes',unsavedDraft:'Unsaved changes',imageError:'Cannot open this image. Use a PNG or JPEG under 8 MB.',imageTooLarge:'Image is too large (maximum 24 megapixels).',snapshotSaved:'Preview exported',exportSaved:'Export saved to',downloadStarted:'Download requested in your browser',exportError:'The export could not be created.',appearance:'Appearance',appearanceOffline:'Connect the radio to load its appearance settings. You can design themes and screens offline.',colour:'colour',hexColour:'hex colour',themeHelp:'Save a theme as a THEMES/<Name>/ folder. Select it on the radio or in Appearance.'},
+ es:{connectionOptions:'Opciones de conexión',offline:'Diseño offline · los borradores se guardan en este ordenador',library:'Biblioteca de temas',searchThemes:'Buscar temas',allThemes:'Todas las categorías',noResults:'No hay temas coincidentes',resetColors:'Restaurar colores del preset',landscapeImage:'Imagen horizontal…',sameImage:'Usar la vertical para ambas',viewYaml:'Ver YAML del tema',preview:'Vista previa',exportPreview:'Exportar PNG',savedDraft:'Sin cambios pendientes',unsavedDraft:'Cambios sin guardar',imageError:'No se puede abrir esta imagen. Usa PNG o JPEG de menos de 8 MB.',imageTooLarge:'Imagen demasiado grande (máximo 24 megapíxeles).',snapshotSaved:'Vista previa exportada',exportSaved:'Exportación guardada en',downloadStarted:'Descarga solicitada al navegador',exportError:'No se ha podido crear la exportación.',appearance:'Apariencia',appearanceOffline:'Conecta la emisora para cargar sus ajustes de apariencia. Puedes diseñar temas y pantallas sin conexión.',colour:'color',hexColour:'color hexadecimal',themeHelp:'Guarda el tema en una carpeta THEMES/<Nombre>/. Selecciónalo en la emisora o en Apariencia.'},
+ de:{connectionOptions:'Verbindungsoptionen',offline:'Offline-Entwurf · Entwürfe werden auf diesem Computer gespeichert',library:'Themenbibliothek',searchThemes:'Themen suchen',allThemes:'Alle Kategorien',noResults:'Keine passenden Themen',resetColors:'Vorlagenfarben wiederherstellen',landscapeImage:'Querformatbild…',sameImage:'Hochformatbild für beide',viewYaml:'Themen-YAML anzeigen',preview:'Live-Vorschau',exportPreview:'PNG exportieren',savedDraft:'Keine ausstehenden Änderungen',unsavedDraft:'Ungespeicherte Änderungen',imageError:'Bild kann nicht geöffnet werden. PNG oder JPEG unter 8 MB verwenden.',imageTooLarge:'Bild zu groß (maximal 24 Megapixel).',snapshotSaved:'Vorschau exportiert',exportSaved:'Export gespeichert unter',downloadStarted:'Download im Browser angefordert',exportError:'Der Export konnte nicht erstellt werden.',appearance:'Darstellung',appearanceOffline:'Verbinde die Fernbedienung, um ihre Darstellungseinstellungen zu laden. Themen und Ansichten lassen sich offline gestalten.',colour:'Farbe',hexColour:'Hex-Farbe',themeHelp:'Das Theme wird als Ordner THEMES/<Name>/ gespeichert. Auswahl an der Fernbedienung oder unter Darstellung.'},
+ cn:{connectionOptions:'连接选项',offline:'离线设计 · 草稿保存在此电脑',library:'主题库',searchThemes:'搜索主题',allThemes:'所有类别',noResults:'没有匹配的主题',resetColors:'恢复预设颜色',landscapeImage:'横屏图片…',sameImage:'两个方向使用相同图片',viewYaml:'查看主题 YAML',preview:'实时预览',exportPreview:'导出 PNG',savedDraft:'没有待保存的更改',unsavedDraft:'有未保存的更改',imageError:'无法打开图片。请使用小于 8 MB 的 PNG 或 JPEG。',imageTooLarge:'图片过大（最多 2400 万像素）。',snapshotSaved:'预览已导出',exportSaved:'导出已保存至',downloadStarted:'已请求浏览器下载',exportError:'无法创建导出文件。',appearance:'外观',appearanceOffline:'连接遥控器以加载外观设置。您可以离线设计主题和屏幕。',colour:'颜色',hexColour:'十六进制颜色',themeHelp:'主题保存在 THEMES/<名称>/ 文件夹中。可在遥控器或外观页面选择。'}
 };
 const normalLanguage = language => /^zh/i.test(language) ? 'cn' : language.split('-')[0];
 const ui = key => (WORKSPACE_WORDS[normalLanguage(lang)] || WORKSPACE_WORDS.en)[key] || key;
@@ -1508,6 +1511,7 @@ function colorRow(key, desc, get, set) {
   });
   code.addEventListener('blur',()=>{code.value='#'+get();});
   input.addEventListener('input', () => { set(input.value.slice(1).toUpperCase()); row.sync(); bgCache = null; drawTiles(); });
+  row.sync();
   return row;
 }
 function segment(el, items, get, set) {
@@ -1521,11 +1525,7 @@ function segment(el, items, get, set) {
   }
 }
 let colorRows = [], tileCanvases = [];
-function buildThemeControls() {
-  const pal = $('palette'), ins = $('instrColors');
-  pal.innerHTML = ''; ins.innerHTML = ''; colorRows = [];
-  for (const [k, d] of COLOR_KEYS) { const r = colorRow(k, colorDescription(k), () => state.colors[k], v => state.colors[k] = v); pal.appendChild(r); colorRows.push(r); }
-  for (const [k, d] of INSTR_KEYS) { const r = colorRow(k, colorDescription(k), () => state.nb4[k], v => state.nb4[k] = v); ins.appendChild(r); colorRows.push(r); }
+function renderPresets() {
   const pre = $('presets');
   pre.innerHTML = '';
   const filter = $('presetSearch').value.trim().toLocaleLowerCase(), category = $('presetGroup').value;
@@ -1550,6 +1550,13 @@ function buildThemeControls() {
     pre.appendChild(box);
   }
   $('presetEmpty').hidden = count > 0;
+}
+function buildThemeControls() {
+  const pal = $('palette'), ins = $('instrColors');
+  pal.innerHTML = ''; ins.innerHTML = ''; colorRows = [];
+  for (const [k, d] of COLOR_KEYS) { const r = colorRow(k, colorDescription(k), () => state.colors[k], v => state.colors[k] = v); pal.appendChild(r); colorRows.push(r); }
+  for (const [k, d] of INSTR_KEYS) { const r = colorRow(k, colorDescription(k), () => state.nb4[k], v => state.nb4[k] = v); ins.appendChild(r); colorRows.push(r); }
+  renderPresets();
   segment($('segFit'), [['fill', t('fill')], ['fit', t('fit')]], () => state.bgFit, v => state.bgFit = v);
   const tiles = $('bgTiles');
   tiles.innerHTML = ''; tileCanvases = [];
@@ -1932,8 +1939,9 @@ function fillRadioThemes() {
 async function loadRadio() {
   const on = !!radioRoot();
   document.querySelectorAll('#view-radio select, #radioSave').forEach(e => e.classList.toggle('off', !on));
-  if (!on) { radio = null; status('radioStatus', t('needRadio'), true); return; }
+  if (!on) { radio = null; $('appearanceControls').hidden=true; $('appearanceEmpty').hidden=false; status('radioStatus',''); return; }
   radio = await api('/api/radio?target=' + q(radioRoot()));
+  $('appearanceControls').hidden=false; $('appearanceEmpty').hidden=true;
   const s = radio.settings;
   fillRadioThemes();
   fillSelect($('rAccent'), t('accents').map((n, i) => [i, n]), +(s.nb4Accent || 0));
@@ -2010,6 +2018,19 @@ $('loadRadio').onclick = async () => {
   } catch (e) { status('themeStatus', e.message, true); }
 };
 function bytesB64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); }
+async function exportArtifact(blob,name,kind) {
+  if(!blob || !blob.size)throw new Error(ui('exportError'));
+  if(inApp){
+    const data=bytesB64(new Uint8Array(await blob.arrayBuffer()));
+    const result=await api('/api/export',{artifact:{name,data,kind}});
+    if(!result.ok || typeof result.path!=='string' || !result.path)throw new Error(ui('exportError'));
+    return ui('exportSaved')+' '+result.path;
+  }
+  const link=document.createElement('a'),url=URL.createObjectURL(blob);
+  link.href=url;link.download=name;link.hidden=true;document.body.append(link);
+  try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+  return ui('downloadStarted');
+}
 $('saveRadio').onclick = async () => {
   historySample();
   const savedTheme=JSON.parse(JSON.stringify(themeValue())),savedAppearance=appearanceValue();
@@ -2034,10 +2055,8 @@ $('saveRadio').onclick = async () => {
 };
 $('dlZip').onclick = async () => {
   try {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(zip(await themeFiles()));
-    a.download = folderName() + '.zip'; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    const message=await exportArtifact(zip(await themeFiles()),folderName()+'.zip','zip');
+    status('themeStatus',message);status('previewStatus',message);
   } catch (e) { status('themeStatus', e.message, true); }
 };
 $('loadTheme').onclick = () => $('ymlFile').click();
@@ -2178,7 +2197,7 @@ $('openVolume').onclick=async()=>{try{const r=await api('/api/target',{path:$('m
 
 if(window.parent!==window)document.documentElement.classList.add('embedded');
 
-const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);perfButton.onclick=async()=>{try{const data=await api('/api/perf?target='+q(radioRoot()));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='APEXTX-UI-PERF.json';a.click();}catch(e){status('themeStatus',e.message,true);}};
+const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);perfButton.onclick=async()=>{try{const data=await api('/api/perf?target='+q(radioRoot()));status('previewStatus',await exportArtifact(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'APEXTX-UI-PERF.json','performance'));}catch(e){status('previewStatus',e.message,true);}};
 
 let sentDraft=null,draftReporting=false;
 setInterval(async()=>{
@@ -2224,9 +2243,16 @@ const saveChangesButton=document.createElement('button');saveChangesButton.id='s
 saveChangesButton.onclick=async()=>{try{if(!radioRoot()||targets.find(item=>item.path===target())?.disconnected)await saveEditorDraft();else await $(state.view==='screens'?'carSave':state.view==='radio'?'radioSave':'saveRadio').onclick();}catch(error){status('themeStatus',error.message,true);}};
 const draftIndicator=document.createElement('span');draftIndicator.className='draft-indicator';draftIndicator.setAttribute('role','status');toolbar.append(draftIndicator);
 setInterval(()=>{const offline=!radioRoot()||targets.find(item=>item.path===target())?.disconnected;saveDraftButton.hidden=offline;const dirty=carDirty||themeHistory.dirty||appearanceHistory.dirty;draftIndicator.textContent=ui(dirty?'unsavedDraft':'savedDraft');draftIndicator.classList.toggle('dirty',dirty);saveChangesButton.textContent=!radioRoot()||targets.find(item=>item.path===target())?.disconnected?saveDraftButton.textContent:t(state.view==='screens'?'saveScreens':state.view==='radio'?'saveSettings':'saveRadio');$('removeLandscape').disabled=!state.bgLandscapeImage;},200);
-$('presetSearch').oninput=buildThemeControls;$('presetGroup').onchange=buildThemeControls;
+$('presetSearch').oninput=renderPresets;$('presetGroup').onchange=renderPresets;
 $('resetColors').onclick=()=>{const p=PRESETS[selectedPreset[0]][selectedPreset[1]];Object.assign(state,{colors:{...p.colors},nb4:{...p.nb4}});refreshAll();};
-$('previewPng').onclick=()=>{const canvas=fw.on&&!fw.error&&fw.w===(state.landscape?480:320)?fw.canvas:cv;canvas.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=folderName()+'-'+(state.landscape?'landscape':'portrait')+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);status('previewStatus',ui('snapshotSaved'));},'image/png');};
+$('previewPng').onclick=async()=>{
+  const button=$('previewPng');button.disabled=true;
+  try{
+    const canvas=fw.on&&!fw.error&&fw.w===(state.landscape?480:320)?fw.canvas:cv;
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    status('previewStatus',await exportArtifact(blob,folderName()+'-'+(state.landscape?'landscape':'portrait')+'.png','png'));
+  }catch(error){status('previewStatus',error.message,true);}finally{button.disabled=false;}
+};
 localizeEditorControls();setInterval(localizeEditorControls,500);
 
 const recovery=document.createElement('details'), recoveryTitle=document.createElement('summary'),recoveryFolder=document.createElement('input'),resumeButton=document.createElement('button'),restoreButton=document.createElement('button');
