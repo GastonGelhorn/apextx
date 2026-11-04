@@ -50,6 +50,8 @@ jobs:
           node tools/tests/flasher_ui.cjs
           node tools/tests/editor_session_ui.cjs
           node tools/tests/editor_color_ui.cjs
+          node tools/tests/editor_design_ui.cjs
+          node tools/tests/editor_library_ui.cjs
 
       - name: Install Linux runtime dependencies
         if: runner.os == 'Linux'

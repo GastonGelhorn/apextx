@@ -13,9 +13,23 @@ between those workspaces retains the loaded editor and its drafts. The window
 uses the available width; a wide editor keeps the preview next to independently
 scrolling controls, while narrow windows stack the preview and controls.
 
-The theme library supports searching and category filtering. Colors can be
-edited as hexadecimal values as well as with the color picker, and the preview
-can be exported as PNG. The bottom toolbar shows the draft state and keeps
+The theme library supports searching and category filtering, with 35 presets
+and 29 background choices (including no background and an imported image).
+Procedural backgrounds are rendered to PNG for both radio orientations.
+Colours open a visual picker with hue, saturation, brightness and common
+swatches; hexadecimal input remains under Advanced. Apply records one undo
+action, while Cancel restores the original colour. Widget RGB overrides use
+the same picker and can still refer to a theme colour.
+
+Six card styles adjust the existing palette and opacity settings. Instruments
+that require an opaque surface keep it; corners and geometry remain those of
+the firmware. Screens include eight ready-made designs, filtered by the
+connected firmware's capabilities, plus a gallery of 22 common widgets grouped
+by function. A design occupies a free screen slot and preserves existing ones.
+Duplicate screen retains all options, including unknown future fields. The
+ten-screen limit applies to both actions, and additions can be undone.
+
+The preview can be exported as PNG. The bottom toolbar shows the draft state and keeps
 history and save actions within reach. Orientation preview remains temporary.
 Desktop PNG, theme ZIP and performance exports are saved under
 `~/ApexTX-Themes/exports/` with unique names; the result shows the actual path.

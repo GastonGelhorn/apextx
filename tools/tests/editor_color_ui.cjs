@@ -1,39 +1,49 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Exercise the actual colour row event handlers without waiting for browser blur.
+// Exercise the production visual picker, colour handlers and export boundary.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '../apextx-theme-editor.html'), 'utf8');
-const source = html.slice(html.indexOf('function colorRow('), html.indexOf('function segment('));
-const control = () => ({value:'', listeners:{}, attributes:{}, setAttribute(k,v){this.attributes[k]=v;},addEventListener(k,v){this.listeners[k]=v;}});
-const picker=control(), hex=control(), name={}, description={};
-const row={querySelector(selector){return {'input':picker,'.hex':hex,'b':name,'span':description}[selector];}};
-let created, value='F2F4FF', repaint=0;
-const document={activeElement:null,createElement(tag){created=tag;return row;}};
-const context=vm.createContext({document,ui:key=>({colour:'colour',hexColour:'hex colour'}[key]),bgCache:{old:true},drawTiles(){repaint++;}});
+const source = html.slice(html.indexOf('const PICKER_WORDS='), html.indexOf('function segment('));
+const historyScope={module:{exports:{}}};
+const historyStart=html.indexOf('class EditorHistory');
+vm.runInNewContext(html.slice(historyStart,html.indexOf('</script>',historyStart)),historyScope);
+const History=historyScope.module.exports;
+let document;
+function element(tag){return {tag,children:[],value:'',style:{setProperty(key,value){this[key]=value;}},attributes:{},listeners:{},
+ append(...children){this.children.push(...children);},setAttribute(key,value){this.attributes[key]=value;},addEventListener(key,callback){this.listeners[key]=callback;},
+ focus(){document.activeElement=this;},showModal(){this.open=true;},close(){this.open=false;},setPointerCapture(){},getBoundingClientRect(){return {left:0,top:0,width:100,height:100};},
+ querySelector(selector){for(const child of this.children){if((selector[0]==='.'&&child.className?.split(' ').includes(selector.slice(1)))||child.tag===selector)return child;const nested=child.querySelector?.(selector);if(nested)return nested;}return null;}
+};}
+document={activeElement:null,head:element('head'),body:element('body'),createElement:element,getElementById(id){function find(node){if(node.id===id)return node;for(const child of node.children){const found=find(child);if(found)return found;}return null;}return find(this.head)||find(this.body);}};
+let value='F2F4FF',repaint=0;
+const history=new History({colour:value});
+const context=vm.createContext({document,lang:'en',normalLanguage:lang=>lang,ui:key=>({colour:'colour',hexColour:'hex colour'}[key]),bgCache:{old:true},drawTiles(){repaint++;},themeHistory:history,themeValue:()=>({colour:value}),historySample(){history.push({colour:value});}});
 vm.runInContext(source,context);
-context.colorRow('PRIMARY1','Text',()=>value,next=>value=next);
-assert.equal(created,'div','Two controls must not share one implicit label');
-assert.equal(picker.attributes['aria-label'],'Text · colour');
-assert.equal(hex.attributes['aria-label'],'Text · hex colour');
-assert.equal(picker.value,'#F2F4FF','New controls initialize from the actual theme');
-assert.equal(hex.value,'#F2F4FF','Rebuilt hex fields must not be blank');
-document.activeElement=hex;
-hex.value='#112233';hex.listeners.input();
-assert.equal(value,'112233','A complete pasted value applies immediately');
-assert.equal(picker.value,'#112233');
-assert.equal(context.bgCache,null);
-assert.equal(repaint,1);
-hex.value='#12';hex.listeners.input();
-assert.equal(value,'112233','Partial typing must not alter the theme');
-assert.equal(hex.value,'#12','Partial input stays editable until blur');
-hex.listeners.blur();assert.equal(hex.value,'#112233');
-hex.value='abcdef';hex.listeners.input();assert.equal(value,'ABCDEF');
-hex.value='#000000';hex.listeners.input();assert.equal(value,'000000','Explicit black is a valid colour');
-document.activeElement=picker;picker.value='#FEDCBA';picker.listeners.input();assert.equal(value,'FEDCBA');assert.equal(hex.value,'#FEDCBA');
-assert.match(html,/\$\('presetSearch'\)\.oninput=renderPresets/,'Filtering presets must not rebuild colour inputs');
-assert.match(html,/\$\('presetGroup'\)\.onchange=renderPresets/);
+const row=context.colorRow('PRIMARY1','Text',()=>value,next=>value=next),button=row.querySelector('button'),hex=row.querySelector('.hex'),swatch=row.querySelector('i');
+assert.equal(row.tag,'div');assert.equal(button.attributes['aria-label'],'Text · Choose colour');assert.equal(button.attributes['aria-haspopup'],'dialog');
+assert.equal(hex.attributes['aria-label'],'Text · hex colour');assert.equal(row.querySelector('details').open,undefined,'Hex controls are collapsed initially');
+assert.equal(swatch.style.background,'#F2F4FF');assert.equal(hex.value,'#F2F4FF');
+document.activeElement=hex;hex.value='#112233';hex.listeners.input();assert.equal(value,'112233');assert.equal(swatch.style.background,'#112233');assert.equal(context.bgCache,null);
+hex.value='#12';hex.listeners.input();assert.equal(value,'112233');assert.equal(hex.value,'#12');hex.listeners.blur();assert.equal(hex.value,'#112233');
+hex.value='abcdef';hex.listeners.input();assert.equal(value,'ABCDEF');hex.value='#000000';hex.listeners.input();assert.equal(value,'000000');
+for(const colour of ['000000','FFFFFF','ABCDEF','FF0000','00FF00','0000FF','112233'])assert.equal(context.hsvToHex(context.rgbToHsv(colour)),colour,'HSV roundtrip '+colour);
+value='F2F4FF';history.reset({colour:value});document.activeElement=button;button.onclick();const picker=context.createColorPicker();
+assert.equal(history.entries.length,1,'Opening the picker never creates a change');assert.equal(picker.dialog.open,true);
+let shortcutBlocked=false;picker.dialog.listeners.keydown({key:'z',metaKey:true,preventDefault(){},stopPropagation(){shortcutBlocked=true;}});assert.equal(shortcutBlocked,true,'Global undo must not mutate document history behind the modal');
+context.updatePickerColour('EF4444');context.updatePickerColour('22C55E');context.updatePickerColour('3B82F6');
+assert.equal(value,'3B82F6');assert.equal(history.entries.length,2,'Continuous visual edits make exactly one undo action');assert.equal(history.dirty,true,'Pending live preview is visible to close/save guards');
+picker.cancel.onclick();assert.equal(value,'F2F4FF');assert.equal(history.entries.length,1);assert.equal(history.dirty,false);assert.equal(picker.dialog.open,false);
+button.onclick();picker.swatchButtons[3].onclick();picker.field.onkeydown({key:'ArrowDown',shiftKey:true,preventDefault(){}});assert.notEqual(value,'EF4444');
+picker.hue.value='120';picker.hue.oninput();picker.field.onpointerdown({button:0,pointerId:1,clientX:100,clientY:0});picker.field.onpointerup();assert.equal(value,'00FF00');
+picker.apply.onclick();assert.equal(history.entries.length,2);assert.equal(history.dirty,true);assert.equal(history.undo().colour,'F2F4FF','One undo restores the colour before opening');
+value='F2F4FF';history.reset({colour:value});button.onclick();picker.system.value='#000000';picker.system.oninput();let prevented=false;picker.dialog.oncancel({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(value,'F2F4FF','Escape cancels native-picker edits too');
+// Cancelling an option colour restores only that option and keeps other state.
+let option='FFFFFF',unrelated='keep';const optionHistory=new History({option});
+context.openColorPicker({label:'Widget',get:()=>option,set:colour=>option=colour,history:optionHistory,value:()=>({option}),onCancel(){option='FFFFFF';}});
+context.updatePickerColour('ABCDEF');unrelated='changed elsewhere';context.finishColorPicker(false);assert.equal(option,'FFFFFF');assert.equal(unrelated,'changed elsewhere');assert.equal(optionHistory.dirty,false);
+assert.match(html,/\$\('presetSearch'\)\.oninput=renderPresets/);assert.match(html,/\$\('presetGroup'\)\.onchange=renderPresets/);
 async function exportsWork(){
   const bytes=new Uint8Array([137,80,78,71]),blob={size:bytes.length,async arrayBuffer(){return bytes.buffer;}};
   let saved;
