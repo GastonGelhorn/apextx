@@ -299,6 +299,54 @@ def save_changes(request):
     return dict(ok=True,**result)
 
 
+class PerformanceCaptureError(ValueError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def read_performance_capture(target):
+    """Read an existing physical-radio capture; never start or synthesize one."""
+    if not target:
+        raise PerformanceCaptureError('perf_no_radio', 'Connect the radio in USB storage mode to export its performance capture.')
+    try:
+        root = _radio_root(target)
+    except (OSError, ValueError) as error:
+        raise PerformanceCaptureError('perf_disconnected', 'The selected radio storage is no longer available. Reconnect it and search again.') from error
+    try:
+        path = radio_files.safe_path(root / 'APEXTX-UI-PERF.json')
+        with path.open('rb') as source:
+            data = source.read(65537)
+    except FileNotFoundError as error:
+        code = 'perf_missing' if (root / 'RADIO/radio.yml').is_file() else 'perf_disconnected'
+        raise PerformanceCaptureError(code, 'No performance capture is available. Open Display > Editor on the radio before connecting USB.') from error
+    except OSError as error:
+        raise PerformanceCaptureError('perf_unreadable', 'The performance capture could not be read. Reconnect the radio and try again.') from error
+    except ValueError as error:
+        raise PerformanceCaptureError('perf_invalid', 'The performance capture path is not safe to read.') from error
+    try:
+        if len(data) > 65536:
+            raise ValueError('Capture too large')
+        value = json.loads(data)
+        if not isinstance(value, dict):
+            raise ValueError('Capture must be an object')
+        if value.get('format') != 'apextx-ui-perf-1':
+            raise PerformanceCaptureError('perf_unsupported', 'This performance capture format is unsupported. Update the radio firmware and create a new capture.')
+        samples = value.get('samples')
+        metrics = ('fps', 'pixels', 'areas', 'loopAvgUs', 'lvglAvgUs')
+        if (not isinstance(samples, list) or len(samples) > 30 or
+                any(not isinstance(sample, dict) or any(type(sample.get(key)) is not int or
+                    not 0 <= sample[key] <= 0xffffffff for key in metrics) for sample in samples)):
+            raise ValueError('Invalid samples')
+        if not samples:
+            raise PerformanceCaptureError('perf_empty', 'The radio capture has no samples. Use the radio for 30 seconds, then open Display > Editor and reconnect USB.')
+        return value
+    except PerformanceCaptureError:
+        raise
+    except (ValueError, UnicodeError, RecursionError) as error:
+        raise PerformanceCaptureError('perf_invalid', 'The performance capture is incomplete or invalid. Create a new capture on the radio.') from error
+
+
 def export_artifact(artifact):
     """Save a verified desktop export without relying on WebView downloads."""
     if not isinstance(artifact, dict):
@@ -426,11 +474,10 @@ def create_handler(token, preview, onclose=None, draft_changed=None):
                 self.wfile.write(data)
             elif urlparse(self.path).path == '/api/perf':
                 try:
-                    query=parse_qs(urlparse(self.path).query)
-                    path=radio_files.safe_path(_radio_root(query.get('target',[''])[0])/'APEXTX-UI-PERF.json')
-                    if path.stat().st_size>16384:raise ValueError('Invalid performance capture.')
-                    self.reply(200,json.loads(path.read_bytes()))
-                except (OSError,ValueError) as error:self.reply(400,{'error':str(error)})
+                    query = parse_qs(urlparse(self.path).query)
+                    self.reply(200, read_performance_capture(query.get('target', [''])[0]))
+                except PerformanceCaptureError as error:
+                    self.reply(400, {'error': str(error), 'code': error.code})
             elif urlparse(self.path).path in ('/api/models', '/api/model', '/api/radio'):
                 query = parse_qs(urlparse(self.path).query)
                 route = urlparse(self.path).path

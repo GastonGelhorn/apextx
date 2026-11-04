@@ -44,6 +44,26 @@ let option='FFFFFF',unrelated='keep';const optionHistory=new History({option});
 context.openColorPicker({label:'Widget',get:()=>option,set:colour=>option=colour,history:optionHistory,value:()=>({option}),onCancel(){option='FFFFFF';}});
 context.updatePickerColour('ABCDEF');unrelated='changed elsewhere';context.finishColorPicker(false);assert.equal(option,'FFFFFF');assert.equal(unrelated,'changed elsewhere');assert.equal(optionHistory.dirty,false);
 assert.match(html,/\$\('presetSearch'\)\.oninput=renderPresets/);assert.match(html,/\$\('presetGroup'\)\.onchange=renderPresets/);
+async function performanceExports(){
+  let root='',reads=0,exported=0,message='';
+  const scope=vm.createContext({inApp:true,lang:'es',normalLanguage:value=>value,Blob,document:{createElement:element},toolbar:{append(){}},
+    targets:[{path:'radio'}],target:()=>root,radioRoot:()=>root,q:encodeURIComponent,
+    status(id,text){message=text;},async api(){reads++;return {format:'apextx-ui-perf-1',samples:[{}]};},
+    async exportArtifact(){exported++;return '/exports/performance.json';},localizeEditorControls(){scope.renderPerformanceAction();}});
+  const start=html.indexOf('const PERFORMANCE_WORDS='),end=html.indexOf('let sentDraft=',start);
+  vm.runInContext(html.slice(start,end),scope);const button=vm.runInContext('perfButton',scope);
+  scope.renderPerformanceAction();assert.equal(button.disabled,true);assert.match(button.title,/almacenamiento USB/);assert.equal(button.attributes['aria-description'],button.title);
+  await scope.exportPerformanceCapture();assert.equal(reads,0,'Offline performance export never calls the radio API');assert.match(message,/Conecta la emisora/);
+  for(const lang of ['en','es','de','cn']){scope.lang=lang;scope.renderPerformanceAction();assert.ok(button.title.length>20);}
+  scope.lang='es';root='radio';scope.targets[0].disconnected=true;scope.renderPerformanceAction();assert.equal(button.disabled,true,'A preserved disconnected draft cannot export radio measurements');
+  delete scope.targets[0].disconnected;scope.renderPerformanceAction();assert.equal(button.disabled,false);
+  scope.api=async()=>{throw Object.assign(Error('raw filesystem exception'),{code:'perf_missing'});};
+  await scope.exportPerformanceCapture();assert.match(message,/No se encontró una captura/);assert.equal(exported,0);assert.equal(button.disabled,false);
+  let finish;scope.api=()=>{reads++;return new Promise(resolve=>{finish=resolve;});};
+  const pending=scope.exportPerformanceCapture();assert.equal(button.disabled,true);await scope.exportPerformanceCapture();assert.equal(reads,1,'Repeated clicks cannot duplicate an export');
+  finish({format:'apextx-ui-perf-1',samples:[{}]});await pending;
+  assert.equal(exported,1);assert.equal(message,'/exports/performance.json');assert.equal(button.disabled,false);
+}
 async function exportsWork(){
   const bytes=new Uint8Array([137,80,78,71]),blob={size:bytes.length,async arrayBuffer(){return bytes.buffer;}};
   let saved;
@@ -65,4 +85,4 @@ async function exportsWork(){
   assert.equal(await exported.exportArtifact(blob,'test.png','png'),'downloadStarted');
   assert.equal(clicked,1);assert.equal(removed,1);assert.equal(revoked,1);
 }
-exportsWork().then(()=>console.log('Editor colours and exports: initialized palette, immediate hex input, filtering, native export success/failure, and browser fallback passed.')).catch(error=>{console.error(error);process.exitCode=1;});
+Promise.all([exportsWork(),performanceExports()]).then(()=>console.log('Editor colours and exports: visual picker, native export success/failure, browser fallback and physical-radio performance states passed.')).catch(error=>{console.error(error);process.exitCode=1;});

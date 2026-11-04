@@ -2132,7 +2132,7 @@ const inApp = !TOKEN.startsWith('__');
 const api = (path, body) => fetch(path, {
   method: body ? 'POST' : 'GET', body: body && JSON.stringify(body),
   headers: {'X-ApexTX-Token': TOKEN, 'Content-Type': 'application/json'},
-}).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
+}).then(async r => { const j = await r.json(); if (!r.ok) throw Object.assign(new Error(j.error),{code:j.code}); return j; });
 let targets = [];
 let activeTarget = '';
 const hasEditorDrafts=()=>carDirty||themeHistory.dirty||appearanceHistory.dirty;
@@ -2519,7 +2519,30 @@ $('openVolume').onclick=async()=>{try{const r=await api('/api/target',{path:$('m
 
 if(window.parent!==window)document.documentElement.classList.add('embedded');
 
-const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);perfButton.onclick=async()=>{try{const data=await api('/api/perf?target='+q(radioRoot()));status('previewStatus',await exportArtifact(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'APEXTX-UI-PERF.json','performance'));}catch(e){status('previewStatus',e.message,true);}};
+const PERFORMANCE_WORDS={
+ en:{busy:'Exporting…',available:'Export the performance capture previously recorded by the physical radio. This does not measure the simulator.',perf_no_radio:'Connect the radio in USB storage mode to export its recorded performance capture.',perf_disconnected:'The radio storage is no longer available. Reconnect the radio and search again.',perf_missing:'No performance capture was found. Open Display > Editor on the radio, then connect USB. If the firmware does not export captures, update it.',perf_unsupported:'This capture format is unsupported. Update the radio firmware and create a new capture.',perf_empty:'The capture has no samples. Use the radio for 30 seconds, then open Display > Editor and reconnect USB.',perf_invalid:'The performance capture is incomplete or invalid. Create a new capture on the radio.',perf_unreadable:'The performance capture could not be read. Reconnect the radio and try again.'},
+ es:{busy:'Exportando…',available:'Exporta la captura de rendimiento ya registrada por la emisora física. No mide el simulador.',perf_no_radio:'Conecta la emisora en modo almacenamiento USB para exportar su captura de rendimiento.',perf_disconnected:'El almacenamiento de la emisora ya no está disponible. Reconéctala y vuelve a buscar.',perf_missing:'No se encontró una captura de rendimiento. Abre Pantalla > Editor en la emisora y conecta USB. Si el firmware no exporta capturas, actualízalo.',perf_unsupported:'Este formato de captura no es compatible. Actualiza el firmware de la emisora y genera otra captura.',perf_empty:'La captura no contiene muestras. Usa la emisora durante 30 segundos, abre Pantalla > Editor y vuelve a conectar USB.',perf_invalid:'La captura de rendimiento está incompleta o no es válida. Genera otra captura en la emisora.',perf_unreadable:'No se pudo leer la captura de rendimiento. Reconecta la emisora e inténtalo otra vez.'},
+ de:{busy:'Export wird erstellt…',available:'Exportiert die bereits auf der echten Fernbedienung aufgezeichnete Leistungsmessung. Der Simulator wird nicht gemessen.',perf_no_radio:'Verbinde die Fernbedienung im USB-Speichermodus, um ihre Leistungsmessung zu exportieren.',perf_disconnected:'Der Speicher der Fernbedienung ist nicht mehr verfügbar. Erneut verbinden und suchen.',perf_missing:'Keine Leistungsmessung gefunden. Öffne Anzeige > Editor an der Fernbedienung und verbinde USB. Aktualisiere die Firmware, falls sie keine Messungen exportiert.',perf_unsupported:'Dieses Messformat wird nicht unterstützt. Aktualisiere die Firmware und erstelle eine neue Messung.',perf_empty:'Die Messung enthält keine Werte. Nutze die Fernbedienung 30 Sekunden, öffne Anzeige > Editor und verbinde USB erneut.',perf_invalid:'Die Leistungsmessung ist unvollständig oder ungültig. Erstelle eine neue Messung an der Fernbedienung.',perf_unreadable:'Die Leistungsmessung konnte nicht gelesen werden. Verbinde die Fernbedienung erneut und versuche es noch einmal.'},
+ cn:{busy:'正在导出…',available:'导出实体遥控器已记录的性能数据，不测量模拟器。',perf_no_radio:'请以 USB 存储模式连接遥控器，以导出已记录的性能数据。',perf_disconnected:'遥控器存储已不可用。请重新连接并再次搜索。',perf_missing:'未找到性能记录。请在遥控器打开显示 > 编辑器，然后连接 USB。如果固件不支持导出记录，请更新固件。',perf_unsupported:'不支持此记录格式。请更新遥控器固件并生成新记录。',perf_empty:'记录中没有样本。请使用遥控器 30 秒，然后打开显示 > 编辑器并重新连接 USB。',perf_invalid:'性能记录不完整或无效。请在遥控器上生成新记录。',perf_unreadable:'无法读取性能记录。请重新连接遥控器后重试。'}
+};
+const performanceText=key=>(PERFORMANCE_WORDS[normalLanguage(lang)]||PERFORMANCE_WORDS.en)[key];
+let performanceExporting=false;
+const perfButton=document.createElement('button');perfButton.textContent='Performance JSON';toolbar.append(perfButton);
+function performanceRadioAvailable(){return inApp&&!!radioRoot()&&!targets.find(item=>item.path===target())?.disconnected;}
+function renderPerformanceAction(){
+ const available=performanceRadioAvailable();perfButton.disabled=performanceExporting||!available;
+ perfButton.title=performanceText(available?'available':'perf_no_radio');perfButton.setAttribute('aria-description',perfButton.title);
+ if(performanceExporting)perfButton.textContent=performanceText('busy');
+}
+async function exportPerformanceCapture(){
+ if(performanceExporting)return;
+ if(!performanceRadioAvailable()){status('previewStatus',performanceText('perf_no_radio'));return;}
+ performanceExporting=true;renderPerformanceAction();
+ try{const data=await api('/api/perf?target='+q(radioRoot()));status('previewStatus',await exportArtifact(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'APEXTX-UI-PERF.json','performance'));}
+ catch(error){status('previewStatus',performanceText(error.code)||error.message,true);}
+ finally{performanceExporting=false;localizeEditorControls();}
+}
+perfButton.onclick=exportPerformanceCapture;
 
 let sentDraft=null,draftReporting=false;
 setInterval(async()=>{
@@ -2559,7 +2582,7 @@ draftInput.onchange=async()=>{try{
 
 function localizeEditorControls(){
  const words={en:['Undo','Redo','Performance JSON','Save draft','Open draft','Storage folder','Open folder'],es:['Deshacer','Rehacer','Rendimiento JSON','Guardar borrador','Abrir borrador','Carpeta de almacenamiento','Abrir carpeta'],de:['Rückgängig','Wiederholen','Leistung JSON','Entwurf speichern','Entwurf öffnen','Speicherordner','Ordner öffnen'],cn:['撤销','重做','性能 JSON','保存草稿','打开草稿','存储目录','打开目录']}[lang]||['Undo','Redo','Performance JSON','Save draft','Open draft','Storage folder','Open folder'];
- undoButton.textContent='↶ '+words[0];redoButton.textContent='↷ '+words[1];perfButton.textContent=words[2];saveDraftButton.textContent=words[3];openDraftButton.textContent=words[4];$('manualVolume').placeholder=words[5];$('openVolume').textContent=words[6];
+ undoButton.textContent='↶ '+words[0];redoButton.textContent='↷ '+words[1];perfButton.textContent=words[2];saveDraftButton.textContent=words[3];openDraftButton.textContent=words[4];$('manualVolume').placeholder=words[5];$('openVolume').textContent=words[6];renderPerformanceAction();
 }
 const saveChangesButton=document.createElement('button');saveChangesButton.id='saveChanges';saveChangesButton.style.cssText='background:var(--blue);color:var(--ink);border-color:transparent;font-weight:600';toolbar.prepend(saveChangesButton);
 saveChangesButton.onclick=async()=>{try{if(!radioRoot()||targets.find(item=>item.path===target())?.disconnected)await saveEditorDraft();else await $(state.view==='screens'?'carSave':state.view==='radio'?'radioSave':'saveRadio').onclick();}catch(error){status('themeStatus',error.message,true);}};
