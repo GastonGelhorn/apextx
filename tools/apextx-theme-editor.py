@@ -141,15 +141,32 @@ def list_themes(target):
 def read_theme(target, folder):
     if not THEME_FOLDER.match(folder):
         raise ValueError('Invalid theme folder.')
-    base = _checked_target(target) / 'THEMES' / folder
-    yml = base / 'theme.yml'
+    base = radio_files.safe_path(_checked_target(target) / 'THEMES' / folder)
+    yml = radio_files.safe_path(base / 'theme.yml')
     if yml.stat().st_size > 16384:
         raise ValueError('theme.yml is too large.')
-    background = base / 'background.png'
-    data = None
-    if background.is_file() and background.stat().st_size <= MAX_THEME_BYTES:
-        data = base64.b64encode(background.read_bytes()).decode('ascii')
-    return {'yml': yml.read_text(encoding='utf-8', errors='replace'), 'background': data, 'hashes': {f'THEMES/{folder}/{n}': radio_files.digest(radio_files.safe_path(base/n).read_bytes()) if (base/n).exists() else None for n in ('theme.yml','background.png','background_480x320.png','logo.png')}}
+    resources = {}
+    hashes = {}
+    for name in ('theme.yml', 'background.png', 'background_480x320.png', 'logo.png'):
+        path = radio_files.safe_path(base / name)
+        if path.exists():
+            if path.stat().st_size > MAX_THEME_BYTES:
+                raise ValueError('A theme resource is too large to edit safely.')
+            resources[name] = path.read_bytes()
+            hashes[f'THEMES/{folder}/{name}'] = radio_files.digest(resources[name])
+        else:
+            hashes[f'THEMES/{folder}/{name}'] = None
+    encoded = lambda name: base64.b64encode(resources[name]).decode('ascii') if name in resources else None
+    return {'yml': resources['theme.yml'].decode('utf-8'),
+            'background': encoded('background.png'),
+            'backgroundLandscape': encoded('background_480x320.png'), 'hashes': hashes}
+
+
+def check_theme_folder(root, folder, hashes):
+    """A new theme must not adopt an existing folder containing user resources."""
+    path = radio_files.safe_path(root / folder)
+    if path.exists() and not (hashes or {}).get(folder + '/theme.yml'):
+        raise ValueError('This theme folder already exists. Load that theme or choose a different name.')
 
 
 def validate_theme_file(name, data):
@@ -175,7 +192,11 @@ def validate_theme_file(name, data):
 
 def save_theme(target, files, hashes=None):
     root = _checked_target(target)
-    identity = writable_identity(target) if (root / 'RADIO').exists() else {'local':str(root.resolve())}
+    # Discovery is intentionally permissive for reading older radios. Only the
+    # explicit computer library is an offline destination; an arbitrary mounted
+    # THEMES folder must never bypass the USB identity check.
+    identity = ({'local':str(root.resolve())} if root == Path.home() / 'ApexTX-Themes'
+                else writable_identity(target))
     if not files or len(files)>4: raise ValueError('Invalid theme file set.')
     changes = {}; folders=set(); total=0
     for entry in files:
@@ -188,6 +209,7 @@ def save_theme(target, files, hashes=None):
     if len(folders)!=1: raise ValueError('Save one theme at a time.')
     folder=folders.pop()
     if folder+'/theme.yml' not in changes: raise ValueError('A theme needs theme.yml.')
+    check_theme_folder(root, folder, hashes)
     for name in ('background.png','background_480x320.png','logo.png'):
         changes.setdefault(folder+'/'+name,None)
     expected={name:(hashes or {}).get(name) for name in changes}
@@ -218,8 +240,12 @@ def validate_model_capabilities(root, model):
                 kind=definition['type'];value=opt.get('value',{})
                 expected_type={'Integer':'Signed','Bool':'Bool','String':'String','File':'String','Source':'Source','Color':'Color'}.get(kind,'Unsigned')
                 if opt.get('type')!=expected_type:raise ValueError('Invalid widget option type.')
+                field={'Signed':'signedValue','Unsigned':'unsignedValue','Bool':'boolValue',
+                       'String':'stringValue','Source':'source','Color':'color'}[expected_type]
+                if not isinstance(value,dict) or set(value)!={field}:
+                    raise ValueError('Invalid widget option value.')
                 if kind in ('Integer','Bool','TextSize','Timer','Align','Slider','Choice','Switch'):
-                    number=int(next(iter(value.values())))
+                    number=int(value[field])
                     low,high=definition.get('min',0),definition.get('max',0)
                     if kind=='Bool':low,high=0,1
                     if kind=='TextSize':low,high=0,7
@@ -251,6 +277,7 @@ def save_changes(request):
         if len(folders)!=1: raise ValueError('One theme per save.')
         folder=folders.pop()
         if folder+'/theme.yml' not in changes: raise ValueError('Missing theme.yml.')
+        check_theme_folder(root, folder, request.get('hashes'))
         for name in ('background.png','background_480x320.png','logo.png'):changes.setdefault(folder+'/'+name,None)
         expected.update({n:request.get('hashes',{}).get(n) for n in changes})
     model=request.get('model')
